@@ -171,6 +171,7 @@ pub enum SyntaxNodeKind {
     SourceFile,
 
     FunctionItem,
+
     ParameterList,
     Parameter,
 
@@ -179,6 +180,10 @@ pub enum SyntaxNodeKind {
 
     TypeNull,
     TypeName,
+    ArrayType,
+    FixedArrayType,
+    ArraySize,
 
     Identifier,
+    IntegerLiteral,
 }

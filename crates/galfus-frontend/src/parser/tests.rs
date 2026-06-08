@@ -210,3 +210,235 @@ fn parse_reports_expected_statement_inside_block() {
     assert_eq!(diagnostic.code().as_str(), "P0005");
     assert_eq!(diagnostic.message(), "expected statement, found `Fn`");
 }
+
+#[test]
+fn parse_function_parameters() {
+    let source = source("fn sum(a: int32, b: int32): int32 { return }");
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+
+    let root = syntax.root().unwrap();
+    let root_node = syntax.node(root).unwrap();
+
+    let function = root_node.children()[0];
+    let function_node = syntax.node(function).unwrap();
+
+    let parameters = function_node.children()[1];
+    let parameters_node = syntax.node(parameters).unwrap();
+
+    assert_eq!(parameters_node.kind(), SyntaxNodeKind::ParameterList);
+    assert_eq!(parameters_node.children().len(), 2);
+
+    let first_parameter = parameters_node.children()[0];
+    let first_parameter_node = syntax.node(first_parameter).unwrap();
+
+    assert_eq!(first_parameter_node.kind(), SyntaxNodeKind::Parameter);
+    assert_eq!(source.slice(first_parameter_node.span()), Some("a: int32"));
+
+    let first_name = first_parameter_node.children()[0];
+    let first_type = first_parameter_node.children()[1];
+
+    assert_eq!(
+        source.slice(syntax.node(first_name).unwrap().span()),
+        Some("a")
+    );
+    assert_eq!(
+        syntax.node(first_type).unwrap().kind(),
+        SyntaxNodeKind::TypeName
+    );
+    assert_eq!(
+        source.slice(syntax.node(first_type).unwrap().span()),
+        Some("int32")
+    );
+
+    let second_parameter = parameters_node.children()[1];
+    let second_parameter_node = syntax.node(second_parameter).unwrap();
+
+    assert_eq!(source.slice(second_parameter_node.span()), Some("b: int32"));
+}
+
+#[test]
+fn parse_empty_parameter_list_still_works() {
+    let source = source("fn main(): null { return }");
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+
+    let root = syntax.root().unwrap();
+    let function = syntax.node(root).unwrap().children()[0];
+    let function_node = syntax.node(function).unwrap();
+
+    let parameters = function_node.children()[1];
+    let parameters_node = syntax.node(parameters).unwrap();
+
+    assert_eq!(parameters_node.kind(), SyntaxNodeKind::ParameterList);
+    assert!(parameters_node.children().is_empty());
+}
+
+#[test]
+fn parse_parameter_list_accepts_trailing_comma() {
+    let source = source("fn sum(a: int32, b: int32,): int32 { return }");
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+
+    let root = syntax.root().unwrap();
+    let function = syntax.node(root).unwrap().children()[0];
+    let function_node = syntax.node(function).unwrap();
+
+    let parameters = function_node.children()[1];
+    let parameters_node = syntax.node(parameters).unwrap();
+
+    assert_eq!(parameters_node.kind(), SyntaxNodeKind::ParameterList);
+    assert_eq!(parameters_node.children().len(), 2);
+}
+
+#[test]
+fn parse_parameter_list_accepts_multiline_trailing_comma() {
+    let source = source("fn sum(\n  a: int32,\n  b: int32,\n): int32 {\n  return\n}");
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+
+    let root = syntax.root().unwrap();
+    let function = syntax.node(root).unwrap().children()[0];
+    let function_node = syntax.node(function).unwrap();
+
+    let parameters = function_node.children()[1];
+    let parameters_node = syntax.node(parameters).unwrap();
+
+    assert_eq!(parameters_node.kind(), SyntaxNodeKind::ParameterList);
+    assert_eq!(parameters_node.children().len(), 2);
+}
+
+#[test]
+fn parse_array_type_in_parameter() {
+    let source = source("fn first(values: [int32]): int32 { return }");
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+
+    let root = syntax.root().unwrap();
+    let function = syntax.node(root).unwrap().children()[0];
+    let function_node = syntax.node(function).unwrap();
+
+    let parameters = function_node.children()[1];
+    let parameters_node = syntax.node(parameters).unwrap();
+
+    let parameter = parameters_node.children()[0];
+    let parameter_node = syntax.node(parameter).unwrap();
+
+    let parameter_type = parameter_node.children()[1];
+    let parameter_type_node = syntax.node(parameter_type).unwrap();
+
+    assert_eq!(parameter_type_node.kind(), SyntaxNodeKind::ArrayType);
+    assert_eq!(source.slice(parameter_type_node.span()), Some("[int32]"));
+
+    let element_type = parameter_type_node.children()[0];
+    let element_type_node = syntax.node(element_type).unwrap();
+
+    assert_eq!(element_type_node.kind(), SyntaxNodeKind::TypeName);
+    assert_eq!(source.slice(element_type_node.span()), Some("int32"));
+}
+
+#[test]
+fn parse_nested_array_type() {
+    let source = source("fn matrix(values: [[int32]]): null { return }");
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+
+    let root = syntax.root().unwrap();
+    let function = syntax.node(root).unwrap().children()[0];
+    let function_node = syntax.node(function).unwrap();
+
+    let parameters = function_node.children()[1];
+    let parameter = syntax.node(parameters).unwrap().children()[0];
+    let parameter_node = syntax.node(parameter).unwrap();
+
+    let outer_array = parameter_node.children()[1];
+    let outer_array_node = syntax.node(outer_array).unwrap();
+
+    assert_eq!(outer_array_node.kind(), SyntaxNodeKind::ArrayType);
+    assert_eq!(source.slice(outer_array_node.span()), Some("[[int32]]"));
+
+    let inner_array = outer_array_node.children()[0];
+    let inner_array_node = syntax.node(inner_array).unwrap();
+
+    assert_eq!(inner_array_node.kind(), SyntaxNodeKind::ArrayType);
+    assert_eq!(source.slice(inner_array_node.span()), Some("[int32]"));
+}
+
+#[test]
+fn parse_fixed_array_type_with_integer_size() {
+    let source = source("fn take(values: [int32; 3]): null { return }");
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+
+    let root = syntax.root().unwrap();
+    let function = syntax.node(root).unwrap().children()[0];
+    let function_node = syntax.node(function).unwrap();
+
+    let parameters = function_node.children()[1];
+    let parameter = syntax.node(parameters).unwrap().children()[0];
+    let parameter_node = syntax.node(parameter).unwrap();
+
+    let parameter_type = parameter_node.children()[1];
+    let parameter_type_node = syntax.node(parameter_type).unwrap();
+
+    assert_eq!(parameter_type_node.kind(), SyntaxNodeKind::FixedArrayType);
+    assert_eq!(source.slice(parameter_type_node.span()), Some("[int32; 3]"));
+
+    let size = parameter_type_node.children()[1];
+    let size_node = syntax.node(size).unwrap();
+
+    assert_eq!(size_node.kind(), SyntaxNodeKind::ArraySize);
+    assert_eq!(source.slice(size_node.span()), Some("3"));
+
+    let size_value = size_node.children()[0];
+
+    assert_eq!(
+        syntax.node(size_value).unwrap().kind(),
+        SyntaxNodeKind::IntegerLiteral
+    );
+}
+
+#[test]
+fn parse_reports_named_fixed_array_size_as_error() {
+    let source = source("fn take(values: [int32; n]): null { return }");
+
+    let result = parse(&source);
+
+    assert!(result.has_errors());
+
+    let diagnostic = result.diagnostics().iter().next().unwrap();
+
+    assert_eq!(diagnostic.code().as_str(), "P0001");
+    assert_eq!(
+        diagnostic.message(),
+        "expected array size integer literal, found `Identifier`"
+    );
+}

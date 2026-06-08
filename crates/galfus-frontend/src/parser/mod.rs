@@ -165,6 +165,10 @@ impl Parser {
             return Some(self.add_node(SyntaxNodeKind::TypeNull, token.span(), Vec::new()));
         }
 
+        if self.at(&TokenKind::LeftBracket) {
+            return self.parse_array_type();
+        }
+
         if self.at(&TokenKind::Identifier) {
             let identifier = self.parse_identifier()?;
             let span = self.node_span(identifier);
@@ -185,11 +189,30 @@ impl Parser {
 
     fn parse_parameter_list(&mut self) -> Option<NodeId> {
         let left = self.expect(TokenKind::LeftParen)?;
+
+        let mut parameters = Vec::new();
+
+        while !self.is_eof() && !self.at(&TokenKind::RightParen) {
+            if let Some(parameter) = self.parse_parameter() {
+                parameters.push(parameter);
+            }
+
+            if !self.at(&TokenKind::Comma) {
+                break;
+            }
+
+            self.bump();
+
+            if self.at(&TokenKind::RightParen) {
+                break;
+            }
+        }
+
         let right = self.expect(TokenKind::RightParen)?;
 
         let span = Span::cover(left.span(), right.span()).unwrap_or(left.span());
 
-        Some(self.add_node(SyntaxNodeKind::ParameterList, span, Vec::new()))
+        Some(self.add_node(SyntaxNodeKind::ParameterList, span, parameters))
     }
 
     fn parse_block(&mut self) -> Option<NodeId> {
@@ -250,6 +273,74 @@ impl Parser {
         ));
 
         None
+    }
+
+    fn parse_parameter(&mut self) -> Option<NodeId> {
+        let name = self.parse_identifier()?;
+
+        self.expect(TokenKind::Colon)?;
+
+        let parameter_type = self.parse_type()?;
+
+        let span = Span::cover(self.node_span(name), self.node_span(parameter_type))
+            .unwrap_or_else(|| self.node_span(name));
+
+        Some(self.add_node(SyntaxNodeKind::Parameter, span, vec![name, parameter_type]))
+    }
+
+    fn parse_array_type(&mut self) -> Option<NodeId> {
+        let left = self.expect(TokenKind::LeftBracket)?;
+
+        let element_type = self.parse_type()?;
+
+        if self.at(&TokenKind::Semicolon) {
+            self.bump();
+
+            let size = self.parse_array_size()?;
+            let right = self.expect(TokenKind::RightBracket)?;
+
+            let span = Span::cover(left.span(), right.span()).unwrap_or(left.span());
+
+            return Some(self.add_node(
+                SyntaxNodeKind::FixedArrayType,
+                span,
+                vec![element_type, size],
+            ));
+        }
+
+        let right = self.expect(TokenKind::RightBracket)?;
+
+        let span = Span::cover(left.span(), right.span()).unwrap_or(left.span());
+
+        Some(self.add_node(SyntaxNodeKind::ArrayType, span, vec![element_type]))
+    }
+
+    fn parse_integer_literal(&mut self) -> Option<NodeId> {
+        let token = self.expect(TokenKind::Integer)?;
+
+        Some(self.add_node(SyntaxNodeKind::IntegerLiteral, token.span(), Vec::new()))
+    }
+
+    fn parse_array_size(&mut self) -> Option<NodeId> {
+        if !self.at(&TokenKind::Integer) {
+            let found = self.bump();
+
+            self.graph.push_diagnostic(Diagnostic::error_with_message(
+                ParserDiagnosticCode::ExpectedToken,
+                format!(
+                    "expected array size integer literal, found `{:?}`",
+                    found.kind()
+                ),
+                found.span(),
+            ));
+
+            return None;
+        }
+
+        let value = self.parse_integer_literal()?;
+        let span = self.node_span(value);
+
+        Some(self.add_node(SyntaxNodeKind::ArraySize, span, vec![value]))
     }
 }
 
