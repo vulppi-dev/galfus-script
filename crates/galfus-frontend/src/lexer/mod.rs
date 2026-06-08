@@ -303,6 +303,15 @@ impl<'a> Lexer<'a> {
 
             '~' => TokenKind::Tilde,
 
+            '\n' => TokenKind::Newline,
+            '\r' => {
+                if self.peek() == Some('\n') {
+                    self.bump();
+                }
+
+                TokenKind::Newline
+            }
+
             _ => {
                 let span = Span::new(self.source.id(), start, self.offset);
 
@@ -479,8 +488,12 @@ impl<'a> Lexer<'a> {
             let start = self.offset;
 
             self.skip_whitespace();
-            self.skip_line_comment();
-            self.skip_block_comment();
+
+            if self.starts_with("//") {
+                self.skip_line_comment();
+            } else if self.starts_with("/*") {
+                self.skip_block_comment();
+            }
 
             if self.offset == start {
                 break;
@@ -490,25 +503,22 @@ impl<'a> Lexer<'a> {
 
     fn skip_whitespace(&mut self) {
         while let Some(ch) = self.peek() {
-            if !ch.is_whitespace() {
-                break;
+            match ch {
+                ' ' | '\t' | '\u{000C}' => {
+                    self.bump();
+                }
+                _ => break,
             }
-
-            self.bump();
         }
     }
 
     fn skip_line_comment(&mut self) {
-        if !self.starts_with("//") {
-            return;
-        }
-
         while let Some(ch) = self.peek() {
-            self.bump();
-
-            if ch == '\n' {
+            if ch == '\n' || ch == '\r' {
                 break;
             }
+
+            self.bump();
         }
     }
 

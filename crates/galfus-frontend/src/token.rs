@@ -24,6 +24,7 @@ impl Token {
 pub enum TokenKind {
     // Special
     Eof,
+    Newline,
     Unknown,
 
     // Literals / identifiers

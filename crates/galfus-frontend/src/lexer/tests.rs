@@ -1,5 +1,5 @@
 use super::*;
-use galfus_core::SourceId;
+use galfus_core::{SourceId, Span};
 
 fn source(text: &str) -> SourceFile {
     SourceFile::new(SourceId::new(0), "main.gfs".to_string(), text.to_string())
@@ -31,8 +31,40 @@ fn lexer_returns_eof_for_empty_source() {
 }
 
 #[test]
-fn lexer_skips_whitespace() {
-    assert_eq!(kinds("   \n\t  "), vec![TokenKind::Eof]);
+fn lexer_skips_horizontal_whitespace() {
+    assert_eq!(kinds("   \t  "), vec![TokenKind::Eof]);
+}
+
+#[test]
+fn lexer_reads_newline_tokens() {
+    assert_eq!(
+        kinds("\n\r\n\r"),
+        vec![
+            TokenKind::Newline,
+            TokenKind::Newline,
+            TokenKind::Newline,
+            TokenKind::Eof,
+        ]
+    );
+}
+
+#[test]
+fn lexer_tracks_newline_span() {
+    let source = source("a\r\nb");
+    let mut lexer = Lexer::new(&source);
+
+    let first = lexer.next_token();
+    let newline = lexer.next_token();
+    let second = lexer.next_token();
+
+    assert_eq!(first.kind(), &TokenKind::Identifier);
+    assert_eq!(source.slice(first.span()), Some("a"));
+
+    assert_eq!(newline.kind(), &TokenKind::Newline);
+    assert_eq!(source.slice(newline.span()), Some("\r\n"));
+
+    assert_eq!(second.kind(), &TokenKind::Identifier);
+    assert_eq!(source.slice(second.span()), Some("b"));
 }
 
 #[test]
@@ -118,9 +150,37 @@ fn lexer_returns_unknown_for_unrecognized_character() {
 }
 
 #[test]
+fn lexer_reports_unknown_character() {
+    let source = source("¬");
+    let mut lexer = Lexer::new(&source);
+
+    let token = lexer.next_token();
+
+    assert_eq!(token.kind(), &TokenKind::Unknown);
+    assert_eq!(
+        token.span(),
+        Span::new(SourceId::new(0), 0, "¬".len() as u32)
+    );
+
+    let diagnostics = lexer.diagnostics();
+
+    assert_eq!(diagnostics.len(), 1);
+    assert!(diagnostics.has_errors());
+
+    let diagnostic = diagnostics.iter().next().unwrap();
+
+    assert_eq!(diagnostic.code().as_str(), "L0004");
+    assert_eq!(diagnostic.message(), "unknown character");
+    assert_eq!(
+        diagnostic.span(),
+        Span::new(SourceId::new(0), 0, "¬".len() as u32)
+    );
+}
+
+#[test]
 fn lexer_reads_two_char_operators() {
     assert_eq!(
-        kinds("== != <= >= && || :: .. => += -= *= /= %= &= |= ^= << >> ++ -- ?. ?? **"),
+        kinds("== != <= >= && || :: .. => += -= *= /= %= &= |= ^= << >> ++ -- ?. ?? ** ..."),
         vec![
             TokenKind::EqualEqual,
             TokenKind::BangEqual,
@@ -146,6 +206,7 @@ fn lexer_reads_two_char_operators() {
             TokenKind::QuestionDot,
             TokenKind::QuestionQuestion,
             TokenKind::StarStar,
+            TokenKind::DotDotDot,
             TokenKind::Eof,
         ]
     );
@@ -154,11 +215,12 @@ fn lexer_reads_two_char_operators() {
 #[test]
 fn lexer_reads_three_char_operators() {
     assert_eq!(
-        kinds("**= <<= >>="),
+        kinds("**= <<= >>= ..."),
         vec![
             TokenKind::StarStarEqual,
             TokenKind::ShiftLeftEqual,
             TokenKind::ShiftRightEqual,
+            TokenKind::DotDotDot,
             TokenKind::Eof,
         ]
     );
@@ -167,8 +229,11 @@ fn lexer_reads_three_char_operators() {
 #[test]
 fn lexer_prefers_longest_operator_match() {
     assert_eq!(
-        kinds("**= ** * <<= << <="),
+        kinds("... .. . **= ** * <<= << <="),
         vec![
+            TokenKind::DotDotDot,
+            TokenKind::DotDot,
+            TokenKind::Dot,
             TokenKind::StarStarEqual,
             TokenKind::StarStar,
             TokenKind::Star,
@@ -196,16 +261,34 @@ fn lexer_reads_identifiers() {
 }
 
 #[test]
+fn lexer_reads_unicode_identifiers() {
+    assert_eq!(
+        kinds("ação usuário 名前 変数 привет δelta _私有"),
+        vec![
+            TokenKind::Identifier,
+            TokenKind::Identifier,
+            TokenKind::Identifier,
+            TokenKind::Identifier,
+            TokenKind::Identifier,
+            TokenKind::Identifier,
+            TokenKind::Identifier,
+            TokenKind::Eof,
+        ]
+    );
+}
+
+#[test]
 fn lexer_reads_keywords() {
     assert_eq!(
         kinds(
-            "import from export var const fn return struct enum choice type constraint satisfies \
-             match instanceof if else for in loop break continue weak null true false copy"
+            "import from export as var const fn return struct enum choice type constraint \
+                 satisfies match instanceof if else for in loop break continue weak null true false copy"
         ),
         vec![
             TokenKind::Import,
             TokenKind::From,
             TokenKind::Export,
+            TokenKind::As,
             TokenKind::Var,
             TokenKind::Const,
             TokenKind::Fn,
@@ -238,24 +321,8 @@ fn lexer_reads_keywords() {
 #[test]
 fn lexer_does_not_split_keyword_prefixes() {
     assert_eq!(
-        kinds("function returnValue nullable"),
+        kinds("function returnValue nullable aspect"),
         vec![
-            TokenKind::Identifier,
-            TokenKind::Identifier,
-            TokenKind::Identifier,
-            TokenKind::Eof,
-        ]
-    );
-}
-
-#[test]
-fn lexer_reads_unicode_identifiers() {
-    assert_eq!(
-        kinds("ação usuário 名前 変数 привет δelta _私有"),
-        vec![
-            TokenKind::Identifier,
-            TokenKind::Identifier,
-            TokenKind::Identifier,
             TokenKind::Identifier,
             TokenKind::Identifier,
             TokenKind::Identifier,
@@ -297,180 +364,7 @@ fn lexer_tracks_integer_span() {
 fn lexer_stops_integer_before_identifier() {
     assert_eq!(
         kinds("123abc"),
-        vec![TokenKind::Integer, TokenKind::Identifier, TokenKind::Eof,]
-    );
-}
-
-#[test]
-fn lexer_skips_line_comments() {
-    assert_eq!(kinds("// hello\nfn"), vec![TokenKind::Fn, TokenKind::Eof]);
-}
-
-#[test]
-fn lexer_skips_line_comment_until_eof() {
-    assert_eq!(kinds("// hello"), vec![TokenKind::Eof]);
-}
-
-#[test]
-fn lexer_skips_block_comments() {
-    assert_eq!(kinds("/* hello */ fn"), vec![TokenKind::Fn, TokenKind::Eof]);
-}
-
-#[test]
-fn lexer_skips_block_comment_with_newlines() {
-    assert_eq!(
-        kinds("/* hello\nworld */ fn"),
-        vec![TokenKind::Fn, TokenKind::Eof]
-    );
-}
-
-#[test]
-fn lexer_skips_mixed_trivia() {
-    assert_eq!(
-        kinds("  // line\n  /* block */  fn"),
-        vec![TokenKind::Fn, TokenKind::Eof]
-    );
-}
-
-#[test]
-fn lexer_reports_unterminated_block_comment() {
-    let source = source("/* hello");
-    let mut lexer = Lexer::new(&source);
-
-    let token = lexer.next_token();
-
-    assert_eq!(token.kind(), &TokenKind::Eof);
-
-    let diagnostics = lexer.diagnostics();
-
-    assert_eq!(diagnostics.len(), 1);
-    assert!(diagnostics.has_errors());
-
-    let diagnostic = diagnostics.iter().next().unwrap();
-
-    assert_eq!(diagnostic.code().as_str(), "L0001");
-    assert_eq!(diagnostic.message(), "unterminated block comment");
-    assert_eq!(diagnostic.span(), Span::new(SourceId::new(0), 0, 8));
-}
-
-#[test]
-fn lexer_reads_double_quoted_string() {
-    assert_eq!(kinds("\"hello\""), vec![TokenKind::String, TokenKind::Eof]);
-}
-
-#[test]
-fn lexer_reads_single_quoted_string() {
-    assert_eq!(kinds("'hello'"), vec![TokenKind::String, TokenKind::Eof]);
-}
-
-#[test]
-fn lexer_tracks_string_span() {
-    let source = source("  \"hello\"");
-    let mut lexer = Lexer::new(&source);
-
-    let token = lexer.next_token();
-
-    assert_eq!(token.kind(), &TokenKind::String);
-    assert_eq!(token.span().start(), 2);
-    assert_eq!(token.span().end(), 9);
-    assert_eq!(source.slice(token.span()), Some("\"hello\""));
-}
-
-#[test]
-fn lexer_reports_unterminated_double_quoted_string() {
-    let source = source("\"hello");
-    let mut lexer = Lexer::new(&source);
-
-    let token = lexer.next_token();
-
-    assert_eq!(token.kind(), &TokenKind::String);
-
-    let diagnostics = lexer.diagnostics();
-
-    assert_eq!(diagnostics.len(), 1);
-    assert!(diagnostics.has_errors());
-
-    let diagnostic = diagnostics.iter().next().unwrap();
-
-    assert_eq!(diagnostic.code().as_str(), "L0002");
-    assert_eq!(diagnostic.message(), "unterminated string literal");
-    assert_eq!(diagnostic.span(), Span::new(SourceId::new(0), 0, 6));
-}
-
-#[test]
-fn lexer_reports_string_interrupted_by_newline() {
-    let source = source("\"hello\nworld\"");
-    let mut lexer = Lexer::new(&source);
-
-    let first = lexer.next_token();
-    let second = lexer.next_token();
-    let third = lexer.next_token();
-
-    assert_eq!(first.kind(), &TokenKind::String);
-    assert_eq!(source.slice(first.span()), Some("\"hello"));
-
-    assert_eq!(second.kind(), &TokenKind::Identifier);
-    assert_eq!(source.slice(second.span()), Some("world"));
-
-    assert_eq!(third.kind(), &TokenKind::String);
-    assert_eq!(source.slice(third.span()), Some("\""));
-
-    let diagnostics = lexer.diagnostics();
-
-    assert_eq!(diagnostics.len(), 2);
-    assert!(diagnostics.has_errors());
-
-    let diagnostic = diagnostics.iter().next().unwrap();
-
-    assert_eq!(diagnostic.code().as_str(), "L0002");
-    assert_eq!(diagnostic.message(), "unterminated string literal");
-    assert_eq!(diagnostic.span(), Span::new(SourceId::new(0), 0, 6));
-}
-
-#[test]
-fn lexer_reads_multiline_string() {
-    assert_eq!(
-        kinds("`line 1\nline 2`"),
-        vec![TokenKind::String, TokenKind::Eof]
-    );
-}
-
-#[test]
-fn lexer_tracks_multiline_string_span() {
-    let source = source("  `line 1\nline 2`");
-    let mut lexer = Lexer::new(&source);
-
-    let token = lexer.next_token();
-
-    assert_eq!(token.kind(), &TokenKind::String);
-    assert_eq!(source.slice(token.span()), Some("`line 1\nline 2`"));
-}
-
-#[test]
-fn lexer_reports_unterminated_multiline_string() {
-    let source = source("`line 1\nline 2");
-    let mut lexer = Lexer::new(&source);
-
-    let token = lexer.next_token();
-
-    assert_eq!(token.kind(), &TokenKind::String);
-    assert_eq!(source.slice(token.span()), Some("`line 1\nline 2"));
-
-    let diagnostics = lexer.diagnostics();
-
-    assert_eq!(diagnostics.len(), 1);
-    assert!(diagnostics.has_errors());
-
-    let diagnostic = diagnostics.iter().next().unwrap();
-
-    assert_eq!(diagnostic.code().as_str(), "L0003");
-    assert_eq!(
-        diagnostic.message(),
-        "unterminated multiline string literal"
-    );
-    assert_eq!(
-        diagnostic.span(),
-        Span::new(SourceId::new(0), 0, "`line 1\nline 2".len() as u32)
+        vec![TokenKind::Integer, TokenKind::Identifier, TokenKind::Eof]
     );
 }
 
@@ -567,51 +461,7 @@ fn lexer_does_not_parse_range_as_float() {
 fn lexer_does_not_parse_trailing_dot_as_float() {
     assert_eq!(
         kinds("1."),
-        vec![TokenKind::Integer, TokenKind::Dot, TokenKind::Eof,]
-    );
-}
-
-#[test]
-fn lex_returns_tokens_and_diagnostics() {
-    let source = source("fn main(): null {}");
-
-    let result = lex(&source);
-
-    let kinds: Vec<TokenKind> = result
-        .tokens()
-        .iter()
-        .map(|token| token.kind().clone())
-        .collect();
-
-    assert_eq!(
-        kinds,
-        vec![
-            TokenKind::Fn,
-            TokenKind::Identifier,
-            TokenKind::LeftParen,
-            TokenKind::RightParen,
-            TokenKind::Colon,
-            TokenKind::Null,
-            TokenKind::LeftBrace,
-            TokenKind::RightBrace,
-            TokenKind::Eof,
-        ]
-    );
-
-    assert!(!result.has_errors());
-    assert!(result.diagnostics().is_empty());
-}
-
-#[test]
-fn lexer_reads_spread_operator() {
-    assert_eq!(
-        kinds("... .. ."),
-        vec![
-            TokenKind::DotDotDot,
-            TokenKind::DotDot,
-            TokenKind::Dot,
-            TokenKind::Eof,
-        ]
+        vec![TokenKind::Integer, TokenKind::Dot, TokenKind::Eof]
     );
 }
 
@@ -670,11 +520,6 @@ fn lexer_reports_separator_after_numeric_prefix() {
 
 #[test]
 fn lexer_reports_invalid_separator_in_float_fraction() {
-    // Com a regra atual, "10._5" provavelmente vira:
-    // Integer("10"), Dot("."), Identifier("_5")
-    // Então não haverá erro de separador numérico.
-    //
-    // O caso realmente float com separador inválido é:
     let source = source("10.5_");
     let result = lex(&source);
 
@@ -686,4 +531,256 @@ fn lexer_reports_invalid_separator_in_float_fraction() {
     assert_eq!(diagnostic.code().as_str(), "L0005");
     assert_eq!(diagnostic.message(), "invalid numeric separator");
     assert_eq!(diagnostic.span(), Span::new(SourceId::new(0), 4, 5));
+}
+
+#[test]
+fn lexer_skips_line_comments_but_preserves_newline() {
+    assert_eq!(
+        kinds("// hello\nfn"),
+        vec![TokenKind::Newline, TokenKind::Fn, TokenKind::Eof]
+    );
+}
+
+#[test]
+fn lexer_skips_line_comment_until_eof() {
+    assert_eq!(kinds("// hello"), vec![TokenKind::Eof]);
+}
+
+#[test]
+fn lexer_skips_block_comments() {
+    assert_eq!(kinds("/* hello */ fn"), vec![TokenKind::Fn, TokenKind::Eof]);
+}
+
+#[test]
+fn lexer_skips_block_comment_with_newlines_inside() {
+    assert_eq!(
+        kinds("/* hello\nworld */ fn"),
+        vec![TokenKind::Fn, TokenKind::Eof]
+    );
+}
+
+#[test]
+fn lexer_skips_mixed_trivia_but_preserves_line_newline() {
+    assert_eq!(
+        kinds("  // line\n  /* block */  fn"),
+        vec![TokenKind::Newline, TokenKind::Fn, TokenKind::Eof]
+    );
+}
+
+#[test]
+fn lexer_reports_unterminated_block_comment() {
+    let source = source("/* hello");
+    let mut lexer = Lexer::new(&source);
+
+    let token = lexer.next_token();
+
+    assert_eq!(token.kind(), &TokenKind::Eof);
+
+    let diagnostics = lexer.diagnostics();
+
+    assert_eq!(diagnostics.len(), 1);
+    assert!(diagnostics.has_errors());
+
+    let diagnostic = diagnostics.iter().next().unwrap();
+
+    assert_eq!(diagnostic.code().as_str(), "L0001");
+    assert_eq!(diagnostic.message(), "unterminated block comment");
+    assert_eq!(diagnostic.span(), Span::new(SourceId::new(0), 0, 8));
+}
+
+#[test]
+fn lexer_reads_double_quoted_string() {
+    assert_eq!(kinds("\"hello\""), vec![TokenKind::String, TokenKind::Eof]);
+}
+
+#[test]
+fn lexer_reads_single_quoted_string() {
+    assert_eq!(kinds("'hello'"), vec![TokenKind::String, TokenKind::Eof]);
+}
+
+#[test]
+fn lexer_tracks_string_span() {
+    let source = source("  \"hello\"");
+    let mut lexer = Lexer::new(&source);
+
+    let token = lexer.next_token();
+
+    assert_eq!(token.kind(), &TokenKind::String);
+    assert_eq!(token.span().start(), 2);
+    assert_eq!(token.span().end(), 9);
+    assert_eq!(source.slice(token.span()), Some("\"hello\""));
+}
+
+#[test]
+fn lexer_reports_unterminated_double_quoted_string() {
+    let source = source("\"hello");
+    let mut lexer = Lexer::new(&source);
+
+    let token = lexer.next_token();
+
+    assert_eq!(token.kind(), &TokenKind::String);
+
+    let diagnostics = lexer.diagnostics();
+
+    assert_eq!(diagnostics.len(), 1);
+    assert!(diagnostics.has_errors());
+
+    let diagnostic = diagnostics.iter().next().unwrap();
+
+    assert_eq!(diagnostic.code().as_str(), "L0002");
+    assert_eq!(diagnostic.message(), "unterminated string literal");
+    assert_eq!(diagnostic.span(), Span::new(SourceId::new(0), 0, 6));
+}
+
+#[test]
+fn lexer_reports_string_interrupted_by_newline() {
+    let source = source("\"hello\nworld\"");
+    let mut lexer = Lexer::new(&source);
+
+    let first = lexer.next_token();
+    let newline = lexer.next_token();
+    let second = lexer.next_token();
+    let third = lexer.next_token();
+
+    assert_eq!(first.kind(), &TokenKind::String);
+    assert_eq!(source.slice(first.span()), Some("\"hello"));
+
+    assert_eq!(newline.kind(), &TokenKind::Newline);
+    assert_eq!(source.slice(newline.span()), Some("\n"));
+
+    assert_eq!(second.kind(), &TokenKind::Identifier);
+    assert_eq!(source.slice(second.span()), Some("world"));
+
+    assert_eq!(third.kind(), &TokenKind::String);
+    assert_eq!(source.slice(third.span()), Some("\""));
+
+    let diagnostics = lexer.diagnostics();
+
+    assert_eq!(diagnostics.len(), 2);
+    assert!(diagnostics.has_errors());
+
+    let mut diagnostics = diagnostics.iter();
+
+    let first_diagnostic = diagnostics.next().unwrap();
+    let second_diagnostic = diagnostics.next().unwrap();
+
+    assert_eq!(first_diagnostic.code().as_str(), "L0002");
+    assert_eq!(first_diagnostic.message(), "unterminated string literal");
+    assert_eq!(first_diagnostic.span(), Span::new(SourceId::new(0), 0, 6));
+
+    assert_eq!(second_diagnostic.code().as_str(), "L0002");
+    assert_eq!(second_diagnostic.message(), "unterminated string literal");
+    assert_eq!(
+        second_diagnostic.span(),
+        Span::new(SourceId::new(0), 12, 13)
+    );
+}
+
+#[test]
+fn lexer_reads_multiline_string() {
+    assert_eq!(
+        kinds("`line 1\nline 2`"),
+        vec![TokenKind::String, TokenKind::Eof]
+    );
+}
+
+#[test]
+fn lexer_tracks_multiline_string_span() {
+    let source = source("  `line 1\nline 2`");
+    let mut lexer = Lexer::new(&source);
+
+    let token = lexer.next_token();
+
+    assert_eq!(token.kind(), &TokenKind::String);
+    assert_eq!(source.slice(token.span()), Some("`line 1\nline 2`"));
+}
+
+#[test]
+fn lexer_reports_unterminated_multiline_string() {
+    let source = source("`line 1\nline 2");
+    let mut lexer = Lexer::new(&source);
+
+    let token = lexer.next_token();
+
+    assert_eq!(token.kind(), &TokenKind::String);
+    assert_eq!(source.slice(token.span()), Some("`line 1\nline 2"));
+
+    let diagnostics = lexer.diagnostics();
+
+    assert_eq!(diagnostics.len(), 1);
+    assert!(diagnostics.has_errors());
+
+    let diagnostic = diagnostics.iter().next().unwrap();
+
+    assert_eq!(diagnostic.code().as_str(), "L0003");
+    assert_eq!(
+        diagnostic.message(),
+        "unterminated multiline string literal"
+    );
+    assert_eq!(
+        diagnostic.span(),
+        Span::new(SourceId::new(0), 0, "`line 1\nline 2".len() as u32)
+    );
+}
+
+#[test]
+fn lex_returns_tokens_and_diagnostics() {
+    let source = source("fn main(): null {}");
+
+    let result = lex(&source);
+
+    let kinds: Vec<TokenKind> = result
+        .tokens()
+        .iter()
+        .map(|token| token.kind().clone())
+        .collect();
+
+    assert_eq!(
+        kinds,
+        vec![
+            TokenKind::Fn,
+            TokenKind::Identifier,
+            TokenKind::LeftParen,
+            TokenKind::RightParen,
+            TokenKind::Colon,
+            TokenKind::Null,
+            TokenKind::LeftBrace,
+            TokenKind::RightBrace,
+            TokenKind::Eof,
+        ]
+    );
+
+    assert!(!result.has_errors());
+    assert!(result.diagnostics().is_empty());
+}
+
+#[test]
+fn lex_preserves_newline_tokens() {
+    let source = source("fn main(): null {\n  return\n}");
+
+    let result = lex(&source);
+
+    let kinds: Vec<TokenKind> = result
+        .tokens()
+        .iter()
+        .map(|token| token.kind().clone())
+        .collect();
+
+    assert_eq!(
+        kinds,
+        vec![
+            TokenKind::Fn,
+            TokenKind::Identifier,
+            TokenKind::LeftParen,
+            TokenKind::RightParen,
+            TokenKind::Colon,
+            TokenKind::Null,
+            TokenKind::LeftBrace,
+            TokenKind::Newline,
+            TokenKind::Return,
+            TokenKind::Newline,
+            TokenKind::RightBrace,
+            TokenKind::Eof,
+        ]
+    );
 }

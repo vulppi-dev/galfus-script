@@ -1088,7 +1088,7 @@ fn parse_choice_item_with_unit_variant() {
 
 #[test]
 fn parse_var_statement_with_type_and_initializer() {
-    let source = source("fn main(): null { var count: int32 = 1 return }");
+    let source = source("fn main(): null { var count: int32 = 1; return }");
 
     let result = parse(&source);
 
@@ -1130,7 +1130,7 @@ fn parse_var_statement_with_type_and_initializer() {
 
 #[test]
 fn parse_const_statement_with_string_initializer() {
-    let source = source("fn main(): null { const name: String = \"Ana\" return }");
+    let source = source("fn main(): null { const name: String = \"Ana\"; return }");
 
     let result = parse(&source);
 
@@ -1271,4 +1271,156 @@ fn parse_empty_return_statement_still_works() {
     assert_eq!(return_node.kind(), SyntaxNodeKind::ReturnStatement);
     assert_eq!(source.slice(return_node.span()), Some("return"));
     assert!(return_node.children().is_empty());
+}
+
+#[test]
+fn parse_call_expression_without_arguments() {
+    let source = source("fn main(): null { var user: User = createUser(); return }");
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+
+    let root = syntax.root().unwrap();
+    let function = syntax.node(root).unwrap().children()[0];
+    let function_node = syntax.node(function).unwrap();
+
+    let body = function_node.children()[3];
+    let body_node = syntax.node(body).unwrap();
+
+    let var_statement = body_node.children()[0];
+    let var_node = syntax.node(var_statement).unwrap();
+
+    let initializer = var_node.children()[2];
+    let initializer_node = syntax.node(initializer).unwrap();
+
+    let expression = initializer_node.children()[0];
+    let expression_node = syntax.node(expression).unwrap();
+
+    assert_eq!(expression_node.kind(), SyntaxNodeKind::CallExpression);
+    assert_eq!(source.slice(expression_node.span()), Some("createUser()"));
+    assert_eq!(expression_node.children().len(), 2);
+
+    let target = expression_node.children()[0];
+    let arguments = expression_node.children()[1];
+
+    assert_eq!(
+        syntax.node(target).unwrap().kind(),
+        SyntaxNodeKind::NameExpression
+    );
+    assert_eq!(
+        source.slice(syntax.node(target).unwrap().span()),
+        Some("createUser")
+    );
+
+    assert_eq!(
+        syntax.node(arguments).unwrap().kind(),
+        SyntaxNodeKind::ArgumentList
+    );
+    assert!(syntax.node(arguments).unwrap().children().is_empty());
+}
+
+#[test]
+fn parse_call_expression_with_arguments() {
+    let source = source("fn main(): null { const value = add(1, 2); return }");
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+
+    let root = syntax.root().unwrap();
+    let function = syntax.node(root).unwrap().children()[0];
+    let function_node = syntax.node(function).unwrap();
+
+    let body = function_node.children()[3];
+    let body_node = syntax.node(body).unwrap();
+
+    let const_statement = body_node.children()[0];
+    let const_node = syntax.node(const_statement).unwrap();
+
+    let initializer = const_node.children()[1];
+    let initializer_node = syntax.node(initializer).unwrap();
+
+    let expression = initializer_node.children()[0];
+    let expression_node = syntax.node(expression).unwrap();
+
+    assert_eq!(expression_node.kind(), SyntaxNodeKind::CallExpression);
+    assert_eq!(source.slice(expression_node.span()), Some("add(1, 2)"));
+
+    let arguments = expression_node.children()[1];
+    let arguments_node = syntax.node(arguments).unwrap();
+
+    assert_eq!(arguments_node.kind(), SyntaxNodeKind::ArgumentList);
+    assert_eq!(arguments_node.children().len(), 2);
+
+    let first_argument = arguments_node.children()[0];
+    let first_argument_node = syntax.node(first_argument).unwrap();
+
+    assert_eq!(first_argument_node.kind(), SyntaxNodeKind::Argument);
+
+    let first_expression = first_argument_node.children()[0];
+
+    assert_eq!(
+        syntax.node(first_expression).unwrap().kind(),
+        SyntaxNodeKind::IntegerLiteral
+    );
+
+    assert_eq!(
+        source.slice(syntax.node(first_expression).unwrap().span()),
+        Some("1")
+    );
+}
+
+#[test]
+fn parse_call_expression_accepts_trailing_comma() {
+    let source = source("fn main(): null { const value = add(1, 2,); return }");
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+
+    let root = syntax.root().unwrap();
+    let function = syntax.node(root).unwrap().children()[0];
+    let function_node = syntax.node(function).unwrap();
+
+    let body = function_node.children()[3];
+    let body_node = syntax.node(body).unwrap();
+
+    let const_statement = body_node.children()[0];
+    let const_node = syntax.node(const_statement).unwrap();
+
+    let initializer = const_node.children()[1];
+    let initializer_node = syntax.node(initializer).unwrap();
+
+    let expression = initializer_node.children()[0];
+    let expression_node = syntax.node(expression).unwrap();
+
+    let arguments = expression_node.children()[1];
+    let arguments_node = syntax.node(arguments).unwrap();
+
+    assert_eq!(arguments_node.children().len(), 2);
+    assert_eq!(source.slice(arguments_node.span()), Some("(1, 2,)"));
+}
+
+#[test]
+fn parse_reports_missing_statement_terminator() {
+    let source = source("fn main(): null { const value = add(1, 2,) return }");
+
+    let result = parse(&source);
+
+    assert!(result.has_errors());
+
+    let diagnostic = result
+        .diagnostics()
+        .iter()
+        .find(|diagnostic| diagnostic.message() == "expected statement terminator, found `Return`")
+        .expect("missing statement terminator diagnostic");
+
+    assert_eq!(diagnostic.code().as_str(), "P0001");
 }

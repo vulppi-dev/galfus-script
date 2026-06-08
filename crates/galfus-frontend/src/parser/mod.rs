@@ -104,6 +104,12 @@ impl Parser {
         None
     }
 
+    fn skip_newlines(&mut self) {
+        while self.at(&TokenKind::Newline) {
+            self.bump();
+        }
+    }
+
     fn add_node(&mut self, kind: SyntaxNodeKind, span: Span, children: Vec<NodeId>) -> NodeId {
         self.graph.syntax_mut().add_node(kind, span, children)
     }
@@ -149,6 +155,12 @@ impl Parser {
         self.graph.syntax_mut().set_root(root);
 
         while !self.is_eof() {
+            self.skip_newlines();
+
+            if self.is_eof() {
+                break;
+            }
+
             let start_position = self.position;
 
             if let Some(item) = self.parse_item() {
@@ -362,6 +374,8 @@ impl Parser {
             children.push(expression);
         }
 
+        self.expect_statement_end();
+
         let span = Span::cover(return_token.span(), end_span).unwrap_or(return_token.span());
 
         Some(self.add_node(SyntaxNodeKind::ReturnStatement, span, children))
@@ -386,6 +400,8 @@ impl Parser {
             children.push(initializer);
         }
 
+        self.expect_statement_end();
+
         let span = Span::cover(var_token.span(), end_span).unwrap_or(var_token.span());
 
         Some(self.add_node(SyntaxNodeKind::VarStatement, span, children))
@@ -406,9 +422,36 @@ impl Parser {
         let end_span = self.node_span(initializer);
         children.push(initializer);
 
+        self.expect_statement_end();
+
         let span = Span::cover(const_token.span(), end_span).unwrap_or(const_token.span());
 
         Some(self.add_node(SyntaxNodeKind::ConstStatement, span, children))
+    }
+
+    fn expect_statement_end(&mut self) {
+        if self.at(&TokenKind::Newline) {
+            self.skip_newlines();
+            return;
+        }
+
+        if self.at(&TokenKind::Semicolon) {
+            self.bump();
+            self.skip_newlines();
+            return;
+        }
+
+        if self.at(&TokenKind::RightBrace) || self.is_eof() {
+            return;
+        }
+
+        let found = self.current().clone();
+
+        self.graph.push_diagnostic(Diagnostic::error_with_message(
+            ParserDiagnosticCode::ExpectedToken,
+            format!("expected statement terminator, found `{:?}`", found.kind()),
+            found.span(),
+        ));
     }
 
     // MARK: Literals
@@ -447,13 +490,7 @@ impl Parser {
         Some(self.add_node(SyntaxNodeKind::StringLiteral, token.span(), Vec::new()))
     }
 
-    // MARK: End Literals
-
-    fn parse_identifier(&mut self) -> Option<NodeId> {
-        let token = self.expect(TokenKind::Identifier)?;
-
-        Some(self.add_node(SyntaxNodeKind::Identifier, token.span(), Vec::new()))
-    }
+    // MARK: Lists
 
     fn parse_parameter_list(&mut self) -> Option<NodeId> {
         let left = self.expect(TokenKind::LeftParen)?;
@@ -461,18 +498,39 @@ impl Parser {
         let mut parameters = Vec::new();
 
         while !self.is_eof() && !self.at(&TokenKind::RightParen) {
+            self.skip_newlines();
+
+            if self.at(&TokenKind::RightParen) {
+                break;
+            }
+
+            let start_position = self.position;
+
             if let Some(parameter) = self.parse_parameter() {
                 parameters.push(parameter);
             }
 
-            if !self.at(&TokenKind::Comma) {
-                break;
-            }
-
-            self.bump();
+            self.skip_newlines();
 
             if self.at(&TokenKind::RightParen) {
                 break;
+            }
+
+            if self.at(&TokenKind::Comma) {
+                self.bump();
+                continue;
+            }
+
+            let found = self.current().clone();
+
+            self.graph.push_diagnostic(Diagnostic::error_with_message(
+                ParserDiagnosticCode::ExpectedToken,
+                format!("expected `Comma`, found `{:?}`", found.kind()),
+                found.span(),
+            ));
+
+            if self.position == start_position {
+                self.bump();
             }
         }
 
@@ -481,6 +539,257 @@ impl Parser {
         let span = Span::cover(left.span(), right.span()).unwrap_or(left.span());
 
         Some(self.add_node(SyntaxNodeKind::ParameterList, span, parameters))
+    }
+
+    fn parse_named_import_list(&mut self) -> Option<NodeId> {
+        let left = self.expect(TokenKind::LeftBrace)?;
+
+        let mut imports = Vec::new();
+
+        while !self.is_eof() && !self.at(&TokenKind::RightBrace) {
+            self.skip_newlines();
+
+            if self.at(&TokenKind::RightBrace) {
+                break;
+            }
+
+            if let Some(import) = self.parse_named_import() {
+                imports.push(import);
+            }
+
+            if !self.at(&TokenKind::Comma) {
+                break;
+            }
+
+            self.bump();
+            self.skip_newlines();
+
+            if self.at(&TokenKind::RightBrace) {
+                break;
+            }
+        }
+
+        let right = self.expect(TokenKind::RightBrace)?;
+
+        let span = Span::cover(left.span(), right.span()).unwrap_or(left.span());
+
+        Some(self.add_node(SyntaxNodeKind::NamedImportList, span, imports))
+    }
+
+    fn parse_struct_field_list(&mut self) -> Option<NodeId> {
+        let left = self.expect(TokenKind::LeftBrace)?;
+
+        let mut fields = Vec::new();
+
+        while !self.is_eof() && !self.at(&TokenKind::RightBrace) {
+            self.skip_newlines();
+
+            if self.at(&TokenKind::RightBrace) {
+                break;
+            }
+
+            let start_position = self.position;
+
+            if let Some(field) = self.parse_struct_field() {
+                fields.push(field);
+            }
+
+            if self.at(&TokenKind::RightBrace) {
+                break;
+            }
+
+            if self.at(&TokenKind::Comma) {
+                self.bump();
+                self.skip_newlines();
+
+                if self.at(&TokenKind::RightBrace) {
+                    break;
+                }
+
+                continue;
+            }
+
+            let found = self.current().clone();
+
+            self.graph.push_diagnostic(Diagnostic::error_with_message(
+                ParserDiagnosticCode::ExpectedToken,
+                format!("expected `Comma`, found `{:?}`", found.kind()),
+                found.span(),
+            ));
+
+            if self.position == start_position {
+                self.bump();
+            }
+        }
+
+        let right = self.expect(TokenKind::RightBrace)?;
+
+        let span = Span::cover(left.span(), right.span()).unwrap_or(left.span());
+
+        Some(self.add_node(SyntaxNodeKind::StructFieldList, span, fields))
+    }
+
+    fn parse_enum_variant_list(&mut self) -> Option<NodeId> {
+        let left = self.expect(TokenKind::LeftBrace)?;
+
+        let mut variants = Vec::new();
+
+        while !self.is_eof() && !self.at(&TokenKind::RightBrace) {
+            self.skip_newlines();
+
+            if self.at(&TokenKind::RightBrace) {
+                break;
+            }
+
+            let start_position = self.position;
+
+            if let Some(variant) = self.parse_enum_variant() {
+                variants.push(variant);
+            }
+
+            if self.at(&TokenKind::RightBrace) {
+                break;
+            }
+
+            if self.at(&TokenKind::Comma) {
+                self.bump();
+                self.skip_newlines();
+
+                if self.at(&TokenKind::RightBrace) {
+                    break;
+                }
+
+                continue;
+            }
+
+            let found = self.current().clone();
+
+            self.graph.push_diagnostic(Diagnostic::error_with_message(
+                ParserDiagnosticCode::ExpectedToken,
+                format!("expected `Comma`, found `{:?}`", found.kind()),
+                found.span(),
+            ));
+
+            if self.position == start_position {
+                self.bump();
+            }
+        }
+
+        let right = self.expect(TokenKind::RightBrace)?;
+
+        let span = Span::cover(left.span(), right.span()).unwrap_or(left.span());
+
+        Some(self.add_node(SyntaxNodeKind::EnumVariantList, span, variants))
+    }
+
+    fn parse_choice_variant_list(&mut self) -> Option<NodeId> {
+        let left = self.expect(TokenKind::LeftBrace)?;
+
+        let mut variants = Vec::new();
+
+        while !self.is_eof() && !self.at(&TokenKind::RightBrace) {
+            self.skip_newlines();
+
+            if self.at(&TokenKind::RightBrace) {
+                break;
+            }
+
+            let start_position = self.position;
+
+            if let Some(variant) = self.parse_choice_variant() {
+                variants.push(variant);
+            }
+
+            if self.at(&TokenKind::RightBrace) {
+                break;
+            }
+
+            if self.at(&TokenKind::Comma) {
+                self.bump();
+                self.skip_newlines();
+
+                if self.at(&TokenKind::RightBrace) {
+                    break;
+                }
+
+                continue;
+            }
+
+            let found = self.current().clone();
+
+            self.graph.push_diagnostic(Diagnostic::error_with_message(
+                ParserDiagnosticCode::ExpectedToken,
+                format!("expected `Comma`, found `{:?}`", found.kind()),
+                found.span(),
+            ));
+
+            if self.position == start_position {
+                self.bump();
+            }
+        }
+
+        let right = self.expect(TokenKind::RightBrace)?;
+
+        let span = Span::cover(left.span(), right.span()).unwrap_or(left.span());
+
+        Some(self.add_node(SyntaxNodeKind::ChoiceVariantList, span, variants))
+    }
+
+    fn parse_argument_list(&mut self) -> Option<NodeId> {
+        let left = self.expect(TokenKind::LeftParen)?;
+
+        let mut arguments = Vec::new();
+
+        while !self.is_eof() && !self.at(&TokenKind::RightParen) {
+            self.skip_newlines();
+
+            if self.at(&TokenKind::RightParen) {
+                break;
+            }
+
+            let start_position = self.position;
+
+            if let Some(argument) = self.parse_argument() {
+                arguments.push(argument);
+            }
+
+            self.skip_newlines();
+
+            if self.at(&TokenKind::RightParen) {
+                break;
+            }
+
+            if self.at(&TokenKind::Comma) {
+                self.bump();
+                continue;
+            }
+
+            let found = self.current().clone();
+
+            self.graph.push_diagnostic(Diagnostic::error_with_message(
+                ParserDiagnosticCode::ExpectedToken,
+                format!("expected `Comma`, found `{:?}`", found.kind()),
+                found.span(),
+            ));
+
+            if self.position == start_position {
+                self.bump();
+            }
+        }
+
+        let right = self.expect(TokenKind::RightParen)?;
+
+        let span = Span::cover(left.span(), right.span()).unwrap_or(left.span());
+
+        Some(self.add_node(SyntaxNodeKind::ArgumentList, span, arguments))
+    }
+
+    // MARK: Others
+
+    fn parse_identifier(&mut self) -> Option<NodeId> {
+        let token = self.expect(TokenKind::Identifier)?;
+
+        Some(self.add_node(SyntaxNodeKind::Identifier, token.span(), Vec::new()))
     }
 
     fn parse_type(&mut self) -> Option<NodeId> {
@@ -543,6 +852,12 @@ impl Parser {
         let mut statements = Vec::new();
 
         while !self.is_eof() && !self.at(&TokenKind::RightBrace) {
+            self.skip_newlines();
+
+            if self.at(&TokenKind::RightBrace) {
+                break;
+            }
+
             if let Some(statement) = self.parse_statement() {
                 statements.push(statement);
             }
@@ -632,34 +947,6 @@ impl Parser {
         Some(self.add_node(SyntaxNodeKind::NamespaceImport, span, vec![name]))
     }
 
-    fn parse_named_import_list(&mut self) -> Option<NodeId> {
-        let left = self.expect(TokenKind::LeftBrace)?;
-
-        let mut imports = Vec::new();
-
-        while !self.is_eof() && !self.at(&TokenKind::RightBrace) {
-            if let Some(import) = self.parse_named_import() {
-                imports.push(import);
-            }
-
-            if !self.at(&TokenKind::Comma) {
-                break;
-            }
-
-            self.bump();
-
-            if self.at(&TokenKind::RightBrace) {
-                break;
-            }
-        }
-
-        let right = self.expect(TokenKind::RightBrace)?;
-
-        let span = Span::cover(left.span(), right.span()).unwrap_or(left.span());
-
-        Some(self.add_node(SyntaxNodeKind::NamedImportList, span, imports))
-    }
-
     fn parse_named_import(&mut self) -> Option<NodeId> {
         let name = self.parse_identifier()?;
 
@@ -707,103 +994,11 @@ impl Parser {
         Some(self.add_node(SyntaxNodeKind::StructField, span, vec![name, field_type]))
     }
 
-    fn parse_struct_field_list(&mut self) -> Option<NodeId> {
-        let left = self.expect(TokenKind::LeftBrace)?;
-
-        let mut fields = Vec::new();
-
-        while !self.is_eof() && !self.at(&TokenKind::RightBrace) {
-            let start_position = self.position;
-
-            if let Some(field) = self.parse_struct_field() {
-                fields.push(field);
-            }
-
-            if self.at(&TokenKind::RightBrace) {
-                break;
-            }
-
-            if self.at(&TokenKind::Comma) {
-                self.bump();
-
-                if self.at(&TokenKind::RightBrace) {
-                    break;
-                }
-
-                continue;
-            }
-
-            let found = self.current().clone();
-
-            self.graph.push_diagnostic(Diagnostic::error_with_message(
-                ParserDiagnosticCode::ExpectedToken,
-                format!("expected `Comma`, found `{:?}`", found.kind()),
-                found.span(),
-            ));
-
-            if self.position == start_position {
-                self.bump();
-            }
-        }
-
-        let right = self.expect(TokenKind::RightBrace)?;
-
-        let span = Span::cover(left.span(), right.span()).unwrap_or(left.span());
-
-        Some(self.add_node(SyntaxNodeKind::StructFieldList, span, fields))
-    }
-
     fn parse_enum_variant(&mut self) -> Option<NodeId> {
         let name = self.parse_identifier()?;
         let span = self.node_span(name);
 
         Some(self.add_node(SyntaxNodeKind::EnumVariant, span, vec![name]))
-    }
-
-    fn parse_enum_variant_list(&mut self) -> Option<NodeId> {
-        let left = self.expect(TokenKind::LeftBrace)?;
-
-        let mut variants = Vec::new();
-
-        while !self.is_eof() && !self.at(&TokenKind::RightBrace) {
-            let start_position = self.position;
-
-            if let Some(variant) = self.parse_enum_variant() {
-                variants.push(variant);
-            }
-
-            if self.at(&TokenKind::RightBrace) {
-                break;
-            }
-
-            if self.at(&TokenKind::Comma) {
-                self.bump();
-
-                if self.at(&TokenKind::RightBrace) {
-                    break;
-                }
-
-                continue;
-            }
-
-            let found = self.current().clone();
-
-            self.graph.push_diagnostic(Diagnostic::error_with_message(
-                ParserDiagnosticCode::ExpectedToken,
-                format!("expected `Comma`, found `{:?}`", found.kind()),
-                found.span(),
-            ));
-
-            if self.position == start_position {
-                self.bump();
-            }
-        }
-
-        let right = self.expect(TokenKind::RightBrace)?;
-
-        let span = Span::cover(left.span(), right.span()).unwrap_or(left.span());
-
-        Some(self.add_node(SyntaxNodeKind::EnumVariantList, span, variants))
     }
 
     fn parse_choice_payload(&mut self) -> Option<NodeId> {
@@ -812,11 +1007,19 @@ impl Parser {
         let mut payload_types = Vec::new();
 
         while !self.is_eof() && !self.at(&TokenKind::RightParen) {
+            self.skip_newlines();
+
+            if self.at(&TokenKind::RightParen) {
+                break;
+            }
+
             let start_position = self.position;
 
             if let Some(payload_type) = self.parse_type() {
                 payload_types.push(payload_type);
             }
+
+            self.skip_newlines();
 
             if self.at(&TokenKind::RightParen) {
                 break;
@@ -824,11 +1027,6 @@ impl Parser {
 
             if self.at(&TokenKind::Comma) {
                 self.bump();
-
-                if self.at(&TokenKind::RightParen) {
-                    break;
-                }
-
                 continue;
             }
 
@@ -870,52 +1068,6 @@ impl Parser {
         Some(self.add_node(SyntaxNodeKind::ChoiceVariant, span, children))
     }
 
-    fn parse_choice_variant_list(&mut self) -> Option<NodeId> {
-        let left = self.expect(TokenKind::LeftBrace)?;
-
-        let mut variants = Vec::new();
-
-        while !self.is_eof() && !self.at(&TokenKind::RightBrace) {
-            let start_position = self.position;
-
-            if let Some(variant) = self.parse_choice_variant() {
-                variants.push(variant);
-            }
-
-            if self.at(&TokenKind::RightBrace) {
-                break;
-            }
-
-            if self.at(&TokenKind::Comma) {
-                self.bump();
-
-                if self.at(&TokenKind::RightBrace) {
-                    break;
-                }
-
-                continue;
-            }
-
-            let found = self.current().clone();
-
-            self.graph.push_diagnostic(Diagnostic::error_with_message(
-                ParserDiagnosticCode::ExpectedToken,
-                format!("expected `Comma`, found `{:?}`", found.kind()),
-                found.span(),
-            ));
-
-            if self.position == start_position {
-                self.bump();
-            }
-        }
-
-        let right = self.expect(TokenKind::RightBrace)?;
-
-        let span = Span::cover(left.span(), right.span()).unwrap_or(left.span());
-
-        Some(self.add_node(SyntaxNodeKind::ChoiceVariantList, span, variants))
-    }
-
     fn parse_type_annotation(&mut self) -> Option<NodeId> {
         let colon = self.expect(TokenKind::Colon)?;
         let type_node = self.parse_type()?;
@@ -954,7 +1106,13 @@ impl Parser {
         }
 
         if self.at(&TokenKind::Identifier) {
-            return self.parse_name_expression();
+            let name = self.parse_name_expression()?;
+
+            if self.at(&TokenKind::LeftParen) {
+                return self.parse_call_expression(name);
+            }
+
+            return Some(name);
         }
 
         let found = self.bump();
@@ -975,6 +1133,26 @@ impl Parser {
         let span = Span::cover(equal.span(), self.node_span(expression)).unwrap_or(equal.span());
 
         Some(self.add_node(SyntaxNodeKind::Initializer, span, vec![expression]))
+    }
+
+    fn parse_argument(&mut self) -> Option<NodeId> {
+        let expression = self.parse_expression()?;
+        let span = self.node_span(expression);
+
+        Some(self.add_node(SyntaxNodeKind::Argument, span, vec![expression]))
+    }
+
+    fn parse_call_expression(&mut self, target: NodeId) -> Option<NodeId> {
+        let arguments = self.parse_argument_list()?;
+
+        let span = Span::cover(self.node_span(target), self.node_span(arguments))
+            .unwrap_or_else(|| self.node_span(target));
+
+        Some(self.add_node(
+            SyntaxNodeKind::CallExpression,
+            span,
+            vec![target, arguments],
+        ))
     }
 }
 

@@ -215,6 +215,10 @@ pub enum SyntaxNodeKind {
     Identifier,
 
     NameExpression,
+    CallExpression,
+    ArgumentList,
+    Argument,
+
     IntegerLiteral,
     FloatLiteral,
     BoolLiteral,
