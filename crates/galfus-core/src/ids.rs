@@ -6,7 +6,7 @@ impl ModuleId {
         Self(id)
     }
 
-    pub fn as_raw(&self) -> u32 {
+    pub fn raw(&self) -> u32 {
         self.0
     }
 }
@@ -19,7 +19,7 @@ impl SourceId {
         Self(id)
     }
 
-    pub fn as_raw(&self) -> u32 {
+    pub fn raw(&self) -> u32 {
         self.0
     }
 }
@@ -32,7 +32,7 @@ impl NodeId {
         Self(id)
     }
 
-    pub fn as_raw(&self) -> u32 {
+    pub fn raw(&self) -> u32 {
         self.0
     }
 }
@@ -45,7 +45,7 @@ impl SymbolId {
         Self(id)
     }
 
-    pub fn as_raw(&self) -> u32 {
+    pub fn raw(&self) -> u32 {
         self.0
     }
 }
@@ -58,7 +58,7 @@ impl TypeId {
         Self(id)
     }
 
-    pub fn as_raw(&self) -> u32 {
+    pub fn raw(&self) -> u32 {
         self.0
     }
 }
@@ -71,7 +71,7 @@ impl FunctionId {
         Self(id)
     }
 
-    pub fn as_raw(&self) -> u32 {
+    pub fn raw(&self) -> u32 {
         self.0
     }
 }
@@ -84,7 +84,7 @@ impl StructId {
         Self(id)
     }
 
-    pub fn as_raw(&self) -> u32 {
+    pub fn raw(&self) -> u32 {
         self.0
     }
 }
@@ -97,7 +97,7 @@ impl EnumId {
         Self(id)
     }
 
-    pub fn as_raw(&self) -> u32 {
+    pub fn raw(&self) -> u32 {
         self.0
     }
 }
@@ -110,7 +110,7 @@ impl ChoiceId {
         Self(id)
     }
 
-    pub fn as_raw(&self) -> u32 {
+    pub fn raw(&self) -> u32 {
         self.0
     }
 }
@@ -123,7 +123,7 @@ impl ConstraintId {
         Self(id)
     }
 
-    pub fn as_raw(&self) -> u32 {
+    pub fn raw(&self) -> u32 {
         self.0
     }
 }
@@ -136,7 +136,7 @@ impl ExportId {
         Self(id)
     }
 
-    pub fn as_raw(&self) -> u32 {
+    pub fn raw(&self) -> u32 {
         self.0
     }
 }

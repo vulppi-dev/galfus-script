@@ -85,6 +85,58 @@ impl Diagnostic {
         )
     }
 
+    pub fn error_with_message(
+        code: impl DiagnosticCodeKind,
+        message: impl Into<String>,
+        span: Span,
+    ) -> Self {
+        Self::new(
+            DiagnosticSeverity::Error,
+            DiagnosticCode::new(code.as_code()),
+            message,
+            span,
+        )
+    }
+
+    pub fn warning_with_message(
+        code: impl DiagnosticCodeKind,
+        message: impl Into<String>,
+        span: Span,
+    ) -> Self {
+        Self::new(
+            DiagnosticSeverity::Warning,
+            DiagnosticCode::new(code.as_code()),
+            message,
+            span,
+        )
+    }
+
+    pub fn info_with_message(
+        code: impl DiagnosticCodeKind,
+        message: impl Into<String>,
+        span: Span,
+    ) -> Self {
+        Self::new(
+            DiagnosticSeverity::Info,
+            DiagnosticCode::new(code.as_code()),
+            message,
+            span,
+        )
+    }
+
+    pub fn hint_with_message(
+        code: impl DiagnosticCodeKind,
+        message: impl Into<String>,
+        span: Span,
+    ) -> Self {
+        Self::new(
+            DiagnosticSeverity::Hint,
+            DiagnosticCode::new(code.as_code()),
+            message,
+            span,
+        )
+    }
+
     pub fn severity(&self) -> DiagnosticSeverity {
         self.severity
     }
@@ -278,5 +330,17 @@ mod tests {
         assert_eq!(diagnostics.len(), 2);
         assert_eq!(diagnostics[0].code().as_str(), "W0001");
         assert_eq!(diagnostics[1].code().as_str(), "E0001");
+    }
+
+    #[test]
+    fn diagnostic_error_with_message_overrides_default_message() {
+        let diagnostic =
+            Diagnostic::error_with_message(ErrorCode::DemoE, "custom parser message", span());
+
+        assert_eq!(diagnostic.severity(), DiagnosticSeverity::Error);
+        assert_eq!(diagnostic.code().as_str(), "E0001");
+        assert_eq!(diagnostic.message(), "custom parser message");
+        assert_eq!(diagnostic.span(), span());
+        assert!(diagnostic.is_error());
     }
 }
