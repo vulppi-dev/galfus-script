@@ -13,7 +13,8 @@ galfus-ir = { path = "../galfus-ir" }
 galfus-runtime = { path = "../galfus-runtime" }
 galfus-vm = { path = "../galfus-vm" }
 
-anyhow.workspace = true
-notify.workspace = true
-thiserror.workspace = true
 tracing.workspace = true
+notify.workspace = true
+
+anyhow.workspace = true
+thiserror.workspace = true
