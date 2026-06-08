@@ -174,11 +174,19 @@ pub enum SyntaxNodeKind {
     TypeAliasItem,
     ExportItem,
     ImportItem,
+    StructItem,
+    EnumItem,
 
     NamespaceImport,
     NamedImportList,
     NamedImport,
     ImportAlias,
+
+    StructFieldList,
+    StructField,
+
+    EnumVariantList,
+    EnumVariant,
 
     ParameterList,
     Parameter,

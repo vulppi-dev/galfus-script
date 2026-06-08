@@ -159,6 +159,14 @@ impl Parser {
             return self.parse_type_alias_item();
         }
 
+        if self.at(&TokenKind::Struct) {
+            return self.parse_struct_item();
+        }
+
+        if self.at(&TokenKind::Enum) {
+            return self.parse_enum_item();
+        }
+
         if self.at(&TokenKind::Export) {
             return self.parse_export_item();
         }
@@ -183,6 +191,10 @@ impl Parser {
             self.parse_function_item()?
         } else if self.at(&TokenKind::Type) {
             self.parse_type_alias_item()?
+        } else if self.at(&TokenKind::Struct) {
+            self.parse_struct_item()?
+        } else if self.at(&TokenKind::Enum) {
+            self.parse_enum_item()?
         } else {
             let found = self.bump();
 
@@ -253,6 +265,30 @@ impl Parser {
             span,
             vec![name, aliased_type],
         ))
+    }
+
+    fn parse_struct_item(&mut self) -> Option<NodeId> {
+        let struct_token = self.expect(TokenKind::Struct)?;
+
+        let name = self.parse_identifier()?;
+        let fields = self.parse_struct_field_list()?;
+
+        let span =
+            Span::cover(struct_token.span(), self.node_span(fields)).unwrap_or(struct_token.span());
+
+        Some(self.add_node(SyntaxNodeKind::StructItem, span, vec![name, fields]))
+    }
+
+    fn parse_enum_item(&mut self) -> Option<NodeId> {
+        let enum_token = self.expect(TokenKind::Enum)?;
+
+        let name = self.parse_identifier()?;
+        let variants = self.parse_enum_variant_list()?;
+
+        let span =
+            Span::cover(enum_token.span(), self.node_span(variants)).unwrap_or(enum_token.span());
+
+        Some(self.add_node(SyntaxNodeKind::EnumItem, span, vec![name, variants]))
     }
 
     // MARK: End Items
@@ -533,6 +569,118 @@ impl Parser {
         let span = Span::cover(as_token.span(), self.node_span(name)).unwrap_or(as_token.span());
 
         Some(self.add_node(SyntaxNodeKind::ImportAlias, span, vec![name]))
+    }
+
+    fn parse_struct_field(&mut self) -> Option<NodeId> {
+        let name = self.parse_identifier()?;
+
+        self.expect(TokenKind::Colon)?;
+
+        let field_type = self.parse_type()?;
+
+        let span = Span::cover(self.node_span(name), self.node_span(field_type))
+            .unwrap_or_else(|| self.node_span(name));
+
+        Some(self.add_node(SyntaxNodeKind::StructField, span, vec![name, field_type]))
+    }
+
+    fn parse_struct_field_list(&mut self) -> Option<NodeId> {
+        let left = self.expect(TokenKind::LeftBrace)?;
+
+        let mut fields = Vec::new();
+
+        while !self.is_eof() && !self.at(&TokenKind::RightBrace) {
+            let start_position = self.position;
+
+            if let Some(field) = self.parse_struct_field() {
+                fields.push(field);
+            }
+
+            if self.at(&TokenKind::RightBrace) {
+                break;
+            }
+
+            if self.at(&TokenKind::Comma) {
+                self.bump();
+
+                if self.at(&TokenKind::RightBrace) {
+                    break;
+                }
+
+                continue;
+            }
+
+            let found = self.current().clone();
+
+            self.graph.push_diagnostic(Diagnostic::error_with_message(
+                ParserDiagnosticCode::ExpectedToken,
+                format!("expected `Comma`, found `{:?}`", found.kind()),
+                found.span(),
+            ));
+
+            if self.position == start_position {
+                self.bump();
+            }
+        }
+
+        let right = self.expect(TokenKind::RightBrace)?;
+
+        let span = Span::cover(left.span(), right.span()).unwrap_or(left.span());
+
+        Some(self.add_node(SyntaxNodeKind::StructFieldList, span, fields))
+    }
+
+    fn parse_enum_variant(&mut self) -> Option<NodeId> {
+        let name = self.parse_identifier()?;
+        let span = self.node_span(name);
+
+        Some(self.add_node(SyntaxNodeKind::EnumVariant, span, vec![name]))
+    }
+
+    fn parse_enum_variant_list(&mut self) -> Option<NodeId> {
+        let left = self.expect(TokenKind::LeftBrace)?;
+
+        let mut variants = Vec::new();
+
+        while !self.is_eof() && !self.at(&TokenKind::RightBrace) {
+            let start_position = self.position;
+
+            if let Some(variant) = self.parse_enum_variant() {
+                variants.push(variant);
+            }
+
+            if self.at(&TokenKind::RightBrace) {
+                break;
+            }
+
+            if self.at(&TokenKind::Comma) {
+                self.bump();
+
+                if self.at(&TokenKind::RightBrace) {
+                    break;
+                }
+
+                continue;
+            }
+
+            let found = self.current().clone();
+
+            self.graph.push_diagnostic(Diagnostic::error_with_message(
+                ParserDiagnosticCode::ExpectedToken,
+                format!("expected `Comma`, found `{:?}`", found.kind()),
+                found.span(),
+            ));
+
+            if self.position == start_position {
+                self.bump();
+            }
+        }
+
+        let right = self.expect(TokenKind::RightBrace)?;
+
+        let span = Span::cover(left.span(), right.span()).unwrap_or(left.span());
+
+        Some(self.add_node(SyntaxNodeKind::EnumVariantList, span, variants))
     }
 }
 
