@@ -38,12 +38,12 @@ impl SourceFile {
         self.id
     }
 
-    pub fn name(&self) -> String {
-        self.name.clone()
+    pub fn name(&self) -> &str {
+        self.name.as_str()
     }
 
-    pub fn text(&self) -> String {
-        self.text.clone()
+    pub fn text(&self) -> &str {
+        self.text.as_str()
     }
 
     pub fn len(&self) -> u32 {

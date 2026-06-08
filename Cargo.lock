@@ -640,6 +640,7 @@ dependencies = [
  "galfus-core",
  "indexmap",
  "thiserror 2.0.18",
+ "unicode-ident",
 ]
 
 [[package]]
