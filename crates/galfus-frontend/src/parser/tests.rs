@@ -442,3 +442,147 @@ fn parse_reports_named_fixed_array_size_as_error() {
         "expected array size integer literal, found `Identifier`"
     );
 }
+
+#[test]
+fn parse_union_return_type() {
+    let source = source("fn find(): User | null { return }");
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+
+    let root = syntax.root().unwrap();
+    let function = syntax.node(root).unwrap().children()[0];
+    let function_node = syntax.node(function).unwrap();
+
+    let return_type = function_node.children()[2];
+    let return_type_node = syntax.node(return_type).unwrap();
+
+    assert_eq!(return_type_node.kind(), SyntaxNodeKind::UnionType);
+    assert_eq!(source.slice(return_type_node.span()), Some("User | null"));
+    assert_eq!(return_type_node.children().len(), 2);
+
+    let first = return_type_node.children()[0];
+    let second = return_type_node.children()[1];
+
+    assert_eq!(syntax.node(first).unwrap().kind(), SyntaxNodeKind::TypeName);
+    assert_eq!(
+        source.slice(syntax.node(first).unwrap().span()),
+        Some("User")
+    );
+
+    assert_eq!(
+        syntax.node(second).unwrap().kind(),
+        SyntaxNodeKind::TypeNull
+    );
+    assert_eq!(
+        source.slice(syntax.node(second).unwrap().span()),
+        Some("null")
+    );
+}
+
+#[test]
+fn parse_union_type_inside_array() {
+    let source = source("fn many(values: [User | null]): null { return }");
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+
+    let root = syntax.root().unwrap();
+    let function = syntax.node(root).unwrap().children()[0];
+    let function_node = syntax.node(function).unwrap();
+
+    let parameters = function_node.children()[1];
+    let parameter = syntax.node(parameters).unwrap().children()[0];
+    let parameter_node = syntax.node(parameter).unwrap();
+
+    let parameter_type = parameter_node.children()[1];
+    let array_node = syntax.node(parameter_type).unwrap();
+
+    assert_eq!(array_node.kind(), SyntaxNodeKind::ArrayType);
+    assert_eq!(source.slice(array_node.span()), Some("[User | null]"));
+
+    let element_type = array_node.children()[0];
+    let element_type_node = syntax.node(element_type).unwrap();
+
+    assert_eq!(element_type_node.kind(), SyntaxNodeKind::UnionType);
+    assert_eq!(source.slice(element_type_node.span()), Some("User | null"));
+}
+
+#[test]
+fn parse_type_alias_item() {
+    let source = source("type UserId = int32");
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+
+    let root = syntax.root().unwrap();
+    let root_node = syntax.node(root).unwrap();
+
+    assert_eq!(root_node.children().len(), 1);
+
+    let item = root_node.children()[0];
+    let item_node = syntax.node(item).unwrap();
+
+    assert_eq!(item_node.kind(), SyntaxNodeKind::TypeAliasItem);
+    assert_eq!(source.slice(item_node.span()), Some("type UserId = int32"));
+    assert_eq!(item_node.children().len(), 2);
+
+    let name = item_node.children()[0];
+    let aliased_type = item_node.children()[1];
+
+    assert_eq!(
+        syntax.node(name).unwrap().kind(),
+        SyntaxNodeKind::Identifier
+    );
+    assert_eq!(
+        source.slice(syntax.node(name).unwrap().span()),
+        Some("UserId")
+    );
+
+    assert_eq!(
+        syntax.node(aliased_type).unwrap().kind(),
+        SyntaxNodeKind::TypeName
+    );
+    assert_eq!(
+        source.slice(syntax.node(aliased_type).unwrap().span()),
+        Some("int32")
+    );
+}
+
+#[test]
+fn parse_type_alias_followed_by_function() {
+    let source = source("type UserId = int32\nfn main(): null { return }");
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+
+    let root = syntax.root().unwrap();
+    let root_node = syntax.node(root).unwrap();
+
+    assert_eq!(root_node.children().len(), 2);
+
+    let alias = root_node.children()[0];
+    let function = root_node.children()[1];
+
+    assert_eq!(
+        syntax.node(alias).unwrap().kind(),
+        SyntaxNodeKind::TypeAliasItem
+    );
+
+    assert_eq!(
+        syntax.node(function).unwrap().kind(),
+        SyntaxNodeKind::FunctionItem
+    );
+}
