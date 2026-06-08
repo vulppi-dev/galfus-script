@@ -1,5 +1,10 @@
 use crate::Span;
 
+pub trait DiagnosticCodeKind {
+    fn as_code(&self) -> &'static str;
+    fn as_message(&self) -> &'static str;
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum DiagnosticSeverity {
     Error,
@@ -18,6 +23,15 @@ impl DiagnosticCode {
 
     pub fn as_str(&self) -> &str {
         &self.0
+    }
+}
+
+impl<T> From<T> for DiagnosticCode
+where
+    T: DiagnosticCodeKind,
+{
+    fn from(value: T) -> Self {
+        Self::new(value.as_code())
     }
 }
 
@@ -44,38 +58,38 @@ impl Diagnostic {
         }
     }
 
-    pub fn error(code: impl Into<String>, message: impl Into<String>, span: Span) -> Self {
+    pub fn error(code: impl DiagnosticCodeKind, span: Span) -> Self {
         Self::new(
             DiagnosticSeverity::Error,
-            DiagnosticCode::new(code),
-            message,
+            DiagnosticCode::new(code.as_code()),
+            code.as_message(),
             span,
         )
     }
 
-    pub fn warning(code: impl Into<String>, message: impl Into<String>, span: Span) -> Self {
+    pub fn warning(code: impl DiagnosticCodeKind, span: Span) -> Self {
         Self::new(
             DiagnosticSeverity::Warning,
-            DiagnosticCode::new(code),
-            message,
+            DiagnosticCode::new(code.as_code()),
+            code.as_message(),
             span,
         )
     }
 
-    pub fn info(code: impl Into<String>, message: impl Into<String>, span: Span) -> Self {
+    pub fn info(code: impl DiagnosticCodeKind, span: Span) -> Self {
         Self::new(
             DiagnosticSeverity::Info,
-            DiagnosticCode::new(code),
-            message,
+            DiagnosticCode::new(code.as_code()),
+            code.as_message(),
             span,
         )
     }
 
-    pub fn hint(code: impl Into<String>, message: impl Into<String>, span: Span) -> Self {
+    pub fn hint(code: impl DiagnosticCodeKind, span: Span) -> Self {
         Self::new(
             DiagnosticSeverity::Hint,
-            DiagnosticCode::new(code),
-            message,
+            DiagnosticCode::new(code.as_code()),
+            code.as_message(),
             span,
         )
     }
@@ -149,6 +163,27 @@ mod tests {
         Span::new(SourceId::new(0), 3, 8)
     }
 
+    enum ErrorCode {
+        DemoE,
+        DemoW,
+    }
+
+    impl DiagnosticCodeKind for ErrorCode {
+        fn as_code(&self) -> &'static str {
+            match self {
+                Self::DemoE => "E0001",
+                Self::DemoW => "W0001",
+            }
+        }
+
+        fn as_message(&self) -> &'static str {
+            match self {
+                Self::DemoE => "unexpected token",
+                Self::DemoW => "unused variable",
+            }
+        }
+    }
+
     #[test]
     fn diagnostic_code_stores_code_text() {
         let code = DiagnosticCode::new("E0001");
@@ -174,7 +209,7 @@ mod tests {
 
     #[test]
     fn diagnostic_error_creates_error_diagnostic() {
-        let diagnostic = Diagnostic::error("E0001", "unexpected token", span());
+        let diagnostic = Diagnostic::error(ErrorCode::DemoE, span());
 
         assert_eq!(diagnostic.severity(), DiagnosticSeverity::Error);
         assert_eq!(diagnostic.code().as_str(), "E0001");
@@ -185,7 +220,7 @@ mod tests {
 
     #[test]
     fn diagnostic_warning_creates_warning_diagnostic() {
-        let diagnostic = Diagnostic::warning("W0001", "unused variable", span());
+        let diagnostic = Diagnostic::warning(ErrorCode::DemoW, span());
 
         assert_eq!(diagnostic.severity(), DiagnosticSeverity::Warning);
         assert_eq!(diagnostic.code().as_str(), "W0001");
@@ -207,7 +242,7 @@ mod tests {
     fn diagnostic_bag_push_adds_diagnostic() {
         let mut bag = DiagnosticBag::new();
 
-        bag.push(Diagnostic::warning("W0001", "unused variable", span()));
+        bag.push(Diagnostic::warning(ErrorCode::DemoW, span()));
 
         assert!(!bag.is_empty());
         assert_eq!(bag.len(), 1);
@@ -218,8 +253,8 @@ mod tests {
     fn diagnostic_bag_has_errors_detects_error_diagnostics() {
         let mut bag = DiagnosticBag::new();
 
-        bag.push(Diagnostic::warning("W0001", "unused variable", span()));
-        bag.push(Diagnostic::error("E0001", "unexpected token", span()));
+        bag.push(Diagnostic::warning(ErrorCode::DemoW, span()));
+        bag.push(Diagnostic::error(ErrorCode::DemoE, span()));
 
         assert_eq!(bag.len(), 2);
         assert!(bag.has_errors());
@@ -229,8 +264,8 @@ mod tests {
     fn diagnostic_bag_iterates_over_diagnostics() {
         let mut bag = DiagnosticBag::new();
 
-        bag.push(Diagnostic::warning("W0001", "unused variable", span()));
-        bag.push(Diagnostic::error("E0001", "unexpected token", span()));
+        bag.push(Diagnostic::warning(ErrorCode::DemoW, span()));
+        bag.push(Diagnostic::error(ErrorCode::DemoE, span()));
 
         let codes: Vec<&str> = bag
             .iter()
@@ -244,8 +279,8 @@ mod tests {
     fn diagnostic_bag_into_vec_returns_inner_diagnostics() {
         let mut bag = DiagnosticBag::new();
 
-        bag.push(Diagnostic::warning("W0001", "unused variable", span()));
-        bag.push(Diagnostic::error("E0001", "unexpected token", span()));
+        bag.push(Diagnostic::warning(ErrorCode::DemoW, span()));
+        bag.push(Diagnostic::error(ErrorCode::DemoE, span()));
 
         let diagnostics = bag.into_vec();
 

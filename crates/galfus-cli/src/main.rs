@@ -26,7 +26,7 @@ fn main() -> Result<()> {
             println!("galfus run {file}");
         }
         Command::Check { file } => {
-            println!("galfus check {file}");
+            galfus_runner::check_file(&file)?;
         }
         Command::Repl => {
             println!("galfus repl");

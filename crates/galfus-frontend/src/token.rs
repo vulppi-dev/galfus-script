@@ -126,5 +126,6 @@ pub enum TokenKind {
 
     ColonColon, // ::
     DotDot,     // ..
+    DotDotDot,  // ...
     Arrow,      // =>
 }

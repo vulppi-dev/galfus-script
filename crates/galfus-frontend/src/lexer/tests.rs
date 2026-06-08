@@ -113,7 +113,8 @@ fn lexer_tracks_token_spans() {
 
 #[test]
 fn lexer_returns_unknown_for_unrecognized_character() {
-    assert_eq!(kinds("#"), vec![TokenKind::Unknown, TokenKind::Eof]);
+    assert_eq!(kinds("¬"), vec![TokenKind::Unknown, TokenKind::Eof]);
+    assert_eq!(kinds("´"), vec![TokenKind::Unknown, TokenKind::Eof]);
 }
 
 #[test]
@@ -599,4 +600,90 @@ fn lex_returns_tokens_and_diagnostics() {
 
     assert!(!result.has_errors());
     assert!(result.diagnostics().is_empty());
+}
+
+#[test]
+fn lexer_reads_spread_operator() {
+    assert_eq!(
+        kinds("... .. ."),
+        vec![
+            TokenKind::DotDotDot,
+            TokenKind::DotDot,
+            TokenKind::Dot,
+            TokenKind::Eof,
+        ]
+    );
+}
+
+#[test]
+fn lexer_accepts_valid_numeric_separators() {
+    let source = source("1_000 0xff_ff 0b1010_0101 0o755_123 1_000.50");
+    let result = lex(&source);
+
+    assert!(!result.has_errors());
+}
+
+#[test]
+fn lexer_reports_trailing_numeric_separator() {
+    let source = source("100_");
+    let result = lex(&source);
+
+    assert!(result.has_errors());
+    assert_eq!(result.diagnostics().len(), 1);
+
+    let diagnostic = result.diagnostics().iter().next().unwrap();
+
+    assert_eq!(diagnostic.code().as_str(), "L0005");
+    assert_eq!(diagnostic.message(), "invalid numeric separator");
+    assert_eq!(diagnostic.span(), Span::new(SourceId::new(0), 3, 4));
+}
+
+#[test]
+fn lexer_reports_repeated_numeric_separator() {
+    let source = source("1__000");
+    let result = lex(&source);
+
+    assert!(result.has_errors());
+    assert_eq!(result.diagnostics().len(), 1);
+
+    let diagnostic = result.diagnostics().iter().next().unwrap();
+
+    assert_eq!(diagnostic.code().as_str(), "L0005");
+    assert_eq!(diagnostic.message(), "invalid numeric separator");
+    assert_eq!(diagnostic.span(), Span::new(SourceId::new(0), 2, 3));
+}
+
+#[test]
+fn lexer_reports_separator_after_numeric_prefix() {
+    let source = source("0x_FF");
+    let result = lex(&source);
+
+    assert!(result.has_errors());
+    assert_eq!(result.diagnostics().len(), 1);
+
+    let diagnostic = result.diagnostics().iter().next().unwrap();
+
+    assert_eq!(diagnostic.code().as_str(), "L0005");
+    assert_eq!(diagnostic.message(), "invalid numeric separator");
+    assert_eq!(diagnostic.span(), Span::new(SourceId::new(0), 2, 3));
+}
+
+#[test]
+fn lexer_reports_invalid_separator_in_float_fraction() {
+    // Com a regra atual, "10._5" provavelmente vira:
+    // Integer("10"), Dot("."), Identifier("_5")
+    // Então não haverá erro de separador numérico.
+    //
+    // O caso realmente float com separador inválido é:
+    let source = source("10.5_");
+    let result = lex(&source);
+
+    assert!(result.has_errors());
+    assert_eq!(result.diagnostics().len(), 1);
+
+    let diagnostic = result.diagnostics().iter().next().unwrap();
+
+    assert_eq!(diagnostic.code().as_str(), "L0005");
+    assert_eq!(diagnostic.message(), "invalid numeric separator");
+    assert_eq!(diagnostic.span(), Span::new(SourceId::new(0), 4, 5));
 }

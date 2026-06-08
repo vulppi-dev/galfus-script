@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests;
 
-use crate::{Token, TokenKind};
+use crate::{LexicalDiagnosticCode, Token, TokenKind};
 use galfus_core::{Diagnostic, DiagnosticBag, SourceFile, Span};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -120,7 +120,7 @@ impl<'a> Lexer<'a> {
         }
 
         if Self::is_decimal_digit(ch) {
-            let kind = self.lex_number();
+            let kind = self.lex_number(start);
             return Token::new(kind, Span::new(self.source.id(), start, self.offset));
         }
 
@@ -148,7 +148,11 @@ impl<'a> Lexer<'a> {
 
             '.' => {
                 if self.match_char('.') {
-                    TokenKind::DotDot
+                    if self.match_char('.') {
+                        TokenKind::DotDotDot
+                    } else {
+                        TokenKind::DotDot
+                    }
                 } else {
                     TokenKind::Dot
                 }
@@ -298,7 +302,16 @@ impl<'a> Lexer<'a> {
 
             '~' => TokenKind::Tilde,
 
-            _ => TokenKind::Unknown,
+            _ => {
+                let span = Span::new(self.source.id(), start, self.offset);
+
+                self.diagnostics.push(Diagnostic::error(
+                    LexicalDiagnosticCode::UnknownCharacter,
+                    span,
+                ));
+
+                TokenKind::Unknown
+            }
         };
 
         Token::new(kind, Span::new(self.source.id(), start, self.offset))
@@ -308,12 +321,16 @@ impl<'a> Lexer<'a> {
         self.offset as usize >= self.text.len()
     }
 
+    fn is_identifier_extra(ch: char) -> bool {
+        matches!(ch, '_' | '#' | '$')
+    }
+
     fn is_identifier_start(ch: char) -> bool {
-        ch == '_' || unicode_ident::is_xid_start(ch)
+        Self::is_identifier_extra(ch) || unicode_ident::is_xid_start(ch)
     }
 
     fn is_identifier_continue(ch: char) -> bool {
-        ch == '_' || unicode_ident::is_xid_continue(ch)
+        Self::is_identifier_extra(ch) || unicode_ident::is_xid_continue(ch)
     }
 
     fn lex_identifier(&mut self, start: u32) -> TokenKind {
@@ -355,8 +372,8 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    fn lex_number(&mut self) -> TokenKind {
-        let base = self.consume_number_prefix();
+    fn lex_number(&mut self, start: u32) -> TokenKind {
+        let (base, digits_start) = self.consume_number_prefix(start);
 
         while let Some(ch) = self.peek() {
             if Self::is_digit_for_base(ch, base) || ch == '_' {
@@ -365,6 +382,8 @@ impl<'a> Lexer<'a> {
                 break;
             }
         }
+
+        let mut kind = TokenKind::Integer;
 
         if base == NumberBase::Decimal && self.starts_float_fraction() {
             self.bump(); // .
@@ -377,44 +396,36 @@ impl<'a> Lexer<'a> {
                 }
             }
 
-            return TokenKind::Float;
+            kind = TokenKind::Float;
         }
 
-        TokenKind::Integer
+        self.validate_number_separators(digits_start, self.offset, base);
+
+        kind
     }
 
-    fn consume_number_prefix(&mut self) -> NumberBase {
-        if !self.previous_was_zero() {
-            return NumberBase::Decimal;
+    fn consume_number_prefix(&mut self, start: u32) -> (NumberBase, u32) {
+        let after_first_digit = self.offset;
+
+        if self.text.get(start as usize..after_first_digit as usize) != Some("0") {
+            return (NumberBase::Decimal, start);
         }
 
         match self.peek() {
             Some('x') | Some('X') => {
                 self.bump();
-                NumberBase::Hex
+                (NumberBase::Hex, self.offset)
             }
             Some('b') | Some('B') => {
                 self.bump();
-                NumberBase::Binary
+                (NumberBase::Binary, self.offset)
             }
             Some('o') | Some('O') => {
                 self.bump();
-                NumberBase::Octal
+                (NumberBase::Octal, self.offset)
             }
-            _ => NumberBase::Decimal,
+            _ => (NumberBase::Decimal, start),
         }
-    }
-
-    fn previous_was_zero(&self) -> bool {
-        if self.offset == 0 {
-            return false;
-        }
-
-        let previous_offset = self.offset - 1;
-
-        self.text
-            .get(previous_offset as usize..self.offset as usize)
-            == Some("0")
     }
 
     fn starts_float_fraction(&self) -> bool {
@@ -523,8 +534,7 @@ impl<'a> Lexer<'a> {
         let span = Span::new(self.source.id(), start, self.offset);
 
         self.diagnostics.push(Diagnostic::error(
-            "L0001",
-            "unterminated block comment",
+            LexicalDiagnosticCode::UnterminatedBlockComment,
             span,
         ));
     }
@@ -540,8 +550,7 @@ impl<'a> Lexer<'a> {
                 let span = Span::new(self.source.id(), start, self.offset);
 
                 self.diagnostics.push(Diagnostic::error(
-                    "L0002",
-                    "unterminated string literal",
+                    LexicalDiagnosticCode::UnterminatedStringLiteral,
                     span,
                 ));
 
@@ -554,8 +563,7 @@ impl<'a> Lexer<'a> {
         let span = Span::new(self.source.id(), start, self.offset);
 
         self.diagnostics.push(Diagnostic::error(
-            "L0002",
-            "unterminated string literal",
+            LexicalDiagnosticCode::UnterminatedStringLiteral,
             span,
         ));
 
@@ -575,12 +583,56 @@ impl<'a> Lexer<'a> {
         let span = Span::new(self.source.id(), start, self.offset);
 
         self.diagnostics.push(Diagnostic::error(
-            "L0003",
-            "unterminated multiline string literal",
+            LexicalDiagnosticCode::UnterminatedMultilineStringLiteral,
             span,
         ));
 
         TokenKind::String
+    }
+
+    fn validate_number_separators(&mut self, start: u32, end: u32, base: NumberBase) {
+        let text = &self.text[start as usize..end as usize];
+
+        let mut previous_was_digit = false;
+        let mut previous_was_separator = false;
+
+        for (relative_offset, ch) in text.char_indices() {
+            if ch == '_' {
+                let absolute_offset = start + relative_offset as u32;
+
+                if !previous_was_digit || previous_was_separator {
+                    let span = Span::new(self.source.id(), absolute_offset, absolute_offset + 1);
+
+                    self.diagnostics.push(Diagnostic::error(
+                        LexicalDiagnosticCode::InvalidNumericSeparator,
+                        span,
+                    ));
+                }
+
+                previous_was_separator = true;
+                previous_was_digit = false;
+                continue;
+            }
+
+            if Self::is_digit_for_base(ch, base) {
+                previous_was_digit = true;
+                previous_was_separator = false;
+                continue;
+            }
+
+            // Prefix chars like x/b/o are ignored here.
+            previous_was_digit = false;
+            previous_was_separator = false;
+        }
+
+        if previous_was_separator {
+            let span = Span::new(self.source.id(), end - 1, end);
+
+            self.diagnostics.push(Diagnostic::error(
+                LexicalDiagnosticCode::InvalidNumericSeparator,
+                span,
+            ));
+        }
     }
 }
 
