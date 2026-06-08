@@ -198,6 +198,10 @@ pub enum SyntaxNodeKind {
 
     Block,
     ReturnStatement,
+    VarStatement,
+    ConstStatement,
+    TypeAnnotation,
+    Initializer,
 
     TypeNull,
     TypeName,
@@ -209,6 +213,11 @@ pub enum SyntaxNodeKind {
     ImportSource,
 
     Identifier,
+
+    NameExpression,
     IntegerLiteral,
+    FloatLiteral,
+    BoolLiteral,
+    NullLiteral,
     StringLiteral,
 }

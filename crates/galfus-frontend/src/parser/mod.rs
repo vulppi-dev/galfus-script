@@ -116,6 +116,21 @@ impl Parser {
             .span()
     }
 
+    fn can_start_expression(&self) -> bool {
+        matches!(
+            self.current().kind(),
+            TokenKind::Integer
+                | TokenKind::Float
+                | TokenKind::String
+                | TokenKind::True
+                | TokenKind::False
+                | TokenKind::Null
+                | TokenKind::Identifier
+        )
+    }
+
+    // MARK: Start
+
     fn source_file_span(&self) -> Span {
         let end = self
             .tokens
@@ -309,7 +324,131 @@ impl Parser {
         Some(self.add_node(SyntaxNodeKind::ChoiceItem, span, vec![name, variants]))
     }
 
-    // MARK: End Items
+    // MARK: Statements
+
+    fn parse_statement(&mut self) -> Option<NodeId> {
+        if self.at(&TokenKind::Return) {
+            return self.parse_return_statement();
+        }
+
+        if self.at(&TokenKind::Var) {
+            return self.parse_var_statement();
+        }
+
+        if self.at(&TokenKind::Const) {
+            return self.parse_const_statement();
+        }
+
+        let found = self.bump();
+
+        self.graph.push_diagnostic(Diagnostic::error_with_message(
+            ParserDiagnosticCode::ExpectedStatement,
+            format!("expected statement, found `{:?}`", found.kind()),
+            found.span(),
+        ));
+
+        None
+    }
+
+    fn parse_return_statement(&mut self) -> Option<NodeId> {
+        let return_token = self.expect(TokenKind::Return)?;
+
+        let mut children = Vec::new();
+        let mut end_span = return_token.span();
+
+        if self.can_start_expression() {
+            let expression = self.parse_expression()?;
+            end_span = self.node_span(expression);
+            children.push(expression);
+        }
+
+        let span = Span::cover(return_token.span(), end_span).unwrap_or(return_token.span());
+
+        Some(self.add_node(SyntaxNodeKind::ReturnStatement, span, children))
+    }
+
+    fn parse_var_statement(&mut self) -> Option<NodeId> {
+        let var_token = self.expect(TokenKind::Var)?;
+        let name = self.parse_identifier()?;
+
+        let mut children = vec![name];
+        let mut end_span = self.node_span(name);
+
+        if self.at(&TokenKind::Colon) {
+            let annotation = self.parse_type_annotation()?;
+            end_span = self.node_span(annotation);
+            children.push(annotation);
+        }
+
+        if self.at(&TokenKind::Equal) {
+            let initializer = self.parse_initializer()?;
+            end_span = self.node_span(initializer);
+            children.push(initializer);
+        }
+
+        let span = Span::cover(var_token.span(), end_span).unwrap_or(var_token.span());
+
+        Some(self.add_node(SyntaxNodeKind::VarStatement, span, children))
+    }
+
+    fn parse_const_statement(&mut self) -> Option<NodeId> {
+        let const_token = self.expect(TokenKind::Const)?;
+        let name = self.parse_identifier()?;
+
+        let mut children = vec![name];
+
+        if self.at(&TokenKind::Colon) {
+            let annotation = self.parse_type_annotation()?;
+            children.push(annotation);
+        }
+
+        let initializer = self.parse_initializer()?;
+        let end_span = self.node_span(initializer);
+        children.push(initializer);
+
+        let span = Span::cover(const_token.span(), end_span).unwrap_or(const_token.span());
+
+        Some(self.add_node(SyntaxNodeKind::ConstStatement, span, children))
+    }
+
+    // MARK: Literals
+
+    fn parse_integer_literal(&mut self) -> Option<NodeId> {
+        let token = self.expect(TokenKind::Integer)?;
+
+        Some(self.add_node(SyntaxNodeKind::IntegerLiteral, token.span(), Vec::new()))
+    }
+
+    fn parse_float_literal(&mut self) -> Option<NodeId> {
+        let token = self.expect(TokenKind::Float)?;
+
+        Some(self.add_node(SyntaxNodeKind::FloatLiteral, token.span(), Vec::new()))
+    }
+
+    fn parse_bool_literal(&mut self) -> Option<NodeId> {
+        let token = if self.at(&TokenKind::True) {
+            self.bump()
+        } else {
+            self.expect(TokenKind::False)?
+        };
+
+        Some(self.add_node(SyntaxNodeKind::BoolLiteral, token.span(), Vec::new()))
+    }
+
+    fn parse_null_literal(&mut self) -> Option<NodeId> {
+        let token = self.expect(TokenKind::Null)?;
+
+        Some(self.add_node(SyntaxNodeKind::NullLiteral, token.span(), Vec::new()))
+    }
+
+    fn parse_string_literal(&mut self) -> Option<NodeId> {
+        let token = self.expect(TokenKind::String)?;
+
+        Some(self.add_node(SyntaxNodeKind::StringLiteral, token.span(), Vec::new()))
+    }
+
+    // MARK: End Literals
+
     fn parse_identifier(&mut self) -> Option<NodeId> {
         let token = self.expect(TokenKind::Identifier)?;
 
@@ -416,28 +555,6 @@ impl Parser {
         Some(self.add_node(SyntaxNodeKind::Block, span, statements))
     }
 
-    fn parse_statement(&mut self) -> Option<NodeId> {
-        if self.at(&TokenKind::Return) {
-            return self.parse_return_statement();
-        }
-
-        let found = self.bump();
-
-        self.graph.push_diagnostic(Diagnostic::error_with_message(
-            ParserDiagnosticCode::ExpectedStatement,
-            format!("expected statement, found `{:?}`", found.kind()),
-            found.span(),
-        ));
-
-        None
-    }
-
-    fn parse_return_statement(&mut self) -> Option<NodeId> {
-        let token = self.expect(TokenKind::Return)?;
-
-        Some(self.add_node(SyntaxNodeKind::ReturnStatement, token.span(), Vec::new()))
-    }
-
     fn parse_parameter(&mut self) -> Option<NodeId> {
         let name = self.parse_identifier()?;
 
@@ -449,18 +566,6 @@ impl Parser {
             .unwrap_or_else(|| self.node_span(name));
 
         Some(self.add_node(SyntaxNodeKind::Parameter, span, vec![name, parameter_type]))
-    }
-
-    fn parse_integer_literal(&mut self) -> Option<NodeId> {
-        let token = self.expect(TokenKind::Integer)?;
-
-        Some(self.add_node(SyntaxNodeKind::IntegerLiteral, token.span(), Vec::new()))
-    }
-
-    fn parse_string_literal(&mut self) -> Option<NodeId> {
-        let token = self.expect(TokenKind::String)?;
-
-        Some(self.add_node(SyntaxNodeKind::StringLiteral, token.span(), Vec::new()))
     }
 
     fn parse_array_type(&mut self) -> Option<NodeId> {
@@ -809,6 +914,67 @@ impl Parser {
         let span = Span::cover(left.span(), right.span()).unwrap_or(left.span());
 
         Some(self.add_node(SyntaxNodeKind::ChoiceVariantList, span, variants))
+    }
+
+    fn parse_type_annotation(&mut self) -> Option<NodeId> {
+        let colon = self.expect(TokenKind::Colon)?;
+        let type_node = self.parse_type()?;
+
+        let span = Span::cover(colon.span(), self.node_span(type_node)).unwrap_or(colon.span());
+
+        Some(self.add_node(SyntaxNodeKind::TypeAnnotation, span, vec![type_node]))
+    }
+
+    fn parse_name_expression(&mut self) -> Option<NodeId> {
+        let identifier = self.parse_identifier()?;
+        let span = self.node_span(identifier);
+
+        Some(self.add_node(SyntaxNodeKind::NameExpression, span, vec![identifier]))
+    }
+
+    fn parse_expression(&mut self) -> Option<NodeId> {
+        if self.at(&TokenKind::Integer) {
+            return self.parse_integer_literal();
+        }
+
+        if self.at(&TokenKind::Float) {
+            return self.parse_float_literal();
+        }
+
+        if self.at(&TokenKind::String) {
+            return self.parse_string_literal();
+        }
+
+        if self.at(&TokenKind::True) || self.at(&TokenKind::False) {
+            return self.parse_bool_literal();
+        }
+
+        if self.at(&TokenKind::Null) {
+            return self.parse_null_literal();
+        }
+
+        if self.at(&TokenKind::Identifier) {
+            return self.parse_name_expression();
+        }
+
+        let found = self.bump();
+
+        self.graph.push_diagnostic(Diagnostic::error_with_message(
+            ParserDiagnosticCode::UnexpectedToken,
+            format!("expected expression, found `{:?}`", found.kind()),
+            found.span(),
+        ));
+
+        None
+    }
+
+    fn parse_initializer(&mut self) -> Option<NodeId> {
+        let equal = self.expect(TokenKind::Equal)?;
+        let expression = self.parse_expression()?;
+
+        let span = Span::cover(equal.span(), self.node_span(expression)).unwrap_or(equal.span());
+
+        Some(self.add_node(SyntaxNodeKind::Initializer, span, vec![expression]))
     }
 }
 
