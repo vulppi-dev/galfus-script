@@ -26,15 +26,6 @@ impl DiagnosticCode {
     }
 }
 
-impl<T> From<T> for DiagnosticCode
-where
-    T: DiagnosticCodeKind,
-{
-    fn from(value: T) -> Self {
-        Self::new(value.as_code())
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Diagnostic {
     severity: DiagnosticSeverity,

@@ -51,7 +51,7 @@ impl SourceFile {
     }
 
     pub fn is_empty(&self) -> bool {
-        self.text.len() <= 0
+        self.text.len() == 0
     }
 
     pub fn row_col(&self, offset: u32) -> Option<RowCol> {
