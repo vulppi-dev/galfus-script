@@ -6,7 +6,6 @@ license.workspace = true
 
 [dependencies]
 galfus-runner = { path = "../galfus-runner" }
-galfus-tools = { path = "../galfus-tools" }
 
 anyhow.workspace = true
 

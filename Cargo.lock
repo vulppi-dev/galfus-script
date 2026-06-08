@@ -641,7 +641,6 @@ dependencies = [
  "anyhow",
  "clap",
  "galfus-runner",
- "galfus-tools",
  "tracing",
  "tracing-subscriber",
 ]
@@ -660,7 +659,6 @@ name = "galfus-frontend"
 version = "0.0.0"
 dependencies = [
  "galfus-core",
- "hashbrown 0.17.1",
  "indexmap",
  "thiserror 2.0.18",
 ]
@@ -682,7 +680,6 @@ name = "galfus-ir"
 version = "0.0.0"
 dependencies = [
  "galfus-core",
- "galfus-frontend",
  "postcard",
  "serde",
  "thiserror 2.0.18",
@@ -837,8 +834,6 @@ version = "0.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ed5909b6e89a2db4456e54cd5f673791d7eca6732202bbf2a9cc504fe2f9b84a"
 dependencies = [
- "allocator-api2",
- "equivalent",
  "foldhash 0.2.0",
  "serde",
  "serde_core",

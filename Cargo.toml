@@ -15,7 +15,6 @@ postcard = { version = "1.1", features = ["use-std"] }
 
 # Deterministic / structural collections
 indexmap = "2.14"
-hashbrown = "0.17"
 
 # Allocation / small-data optimization
 smallvec = "1.15"

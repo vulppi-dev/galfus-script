@@ -8,7 +8,7 @@ license.workspace = true
 galfus-builtins = { path = "../galfus-builtins" }
 galfus-core = { path = "../galfus-core" }
 galfus-frontend = { path = "../galfus-frontend" }
-galfus-host = { path = "../galfus-host", features = ["native", "wasm"] }
+galfus-host = { path = "../galfus-host" }
 galfus-ir = { path = "../galfus-ir" }
 galfus-runtime = { path = "../galfus-runtime" }
 galfus-vm = { path = "../galfus-vm" }
