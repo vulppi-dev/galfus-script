@@ -1,0 +1,14 @@
+[package]
+name = "galfus-vm"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+galfus-core = { path = "../galfus-core" }
+galfus-host = { path = "../galfus-host" }
+galfus-ir = { path = "../galfus-ir" }
+galfus-runtime = { path = "../galfus-runtime" }
+
+thiserror.workspace = true
+tracing.workspace = true

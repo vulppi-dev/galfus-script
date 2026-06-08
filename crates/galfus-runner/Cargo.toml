@@ -1,0 +1,19 @@
+[package]
+name = "galfus-runner"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+galfus-builtins = { path = "../galfus-builtins" }
+galfus-core = { path = "../galfus-core" }
+galfus-frontend = { path = "../galfus-frontend" }
+galfus-host = { path = "../galfus-host", features = ["native", "wasm"] }
+galfus-ir = { path = "../galfus-ir" }
+galfus-runtime = { path = "../galfus-runtime" }
+galfus-vm = { path = "../galfus-vm" }
+
+anyhow.workspace = true
+notify.workspace = true
+thiserror.workspace = true
+tracing.workspace = true

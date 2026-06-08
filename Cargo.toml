@@ -1,0 +1,29 @@
+[workspace]
+members = ["crates/*"]
+default-members = ["crates/galfus-cli"]
+resolver = "3"
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+license = "MIT"
+
+[workspace.dependencies]
+serde = { version = "1.0", features = ["derive"] }
+indexmap = "2.14"
+thiserror = "2.0"
+bincode = "3.0"
+hashbrown = "0.17"
+smallvec = "1.15"
+tracing = "0.1"
+anyhow = "1.0"
+notify = "8.2"
+
+[profile.dev]
+opt-level = 0
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = "symbols"

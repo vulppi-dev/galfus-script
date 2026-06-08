@@ -1,0 +1,12 @@
+[package]
+name = "galfus-builtins"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+galfus-core = { path = "../galfus-core" }
+galfus-host = { path = "../galfus-host" }
+galfus-runtime = { path = "../galfus-runtime" }
+
+thiserror.workspace = true

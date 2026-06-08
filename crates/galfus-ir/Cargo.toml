@@ -1,0 +1,13 @@
+[package]
+name = "galfus-ir"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+galfus-core = { path = "../galfus-core" }
+galfus-frontend = { path = "../galfus-frontend" }
+
+bincode.workspace = true
+serde.workspace = true
+thiserror.workspace = true

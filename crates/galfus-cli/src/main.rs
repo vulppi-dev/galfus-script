@@ -1,0 +1,37 @@
+use anyhow::Result;
+use clap::{Parser, Subcommand};
+
+#[derive(Debug, Parser)]
+#[command(name = "galfus")]
+#[command(about = "Galfus Script runner and tooling")]
+struct Cli {
+    #[command(subcommand)]
+    command: Command,
+}
+
+#[derive(Debug, Subcommand)]
+enum Command {
+    Run { file: String },
+    Check { file: String },
+    Repl,
+}
+
+fn main() -> Result<()> {
+    tracing_subscriber::fmt::init();
+
+    let cli = Cli::parse();
+
+    match cli.command {
+        Command::Run { file } => {
+            println!("galfus run {file}");
+        }
+        Command::Check { file } => {
+            println!("galfus check {file}");
+        }
+        Command::Repl => {
+            println!("galfus repl");
+        }
+    }
+
+    Ok(())
+}

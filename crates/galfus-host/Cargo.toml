@@ -1,0 +1,20 @@
+[package]
+name = "galfus-host"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+galfus-core = { path = "../galfus-core" }
+galfus-ir = { path = "../galfus-ir" }
+galfus-runtime = { path = "../galfus-runtime" }
+
+thiserror.workspace = true
+
+libloading = { version = "0.9", optional = true }
+wasmtime = { version = "45.0", optional = true }
+
+[features]
+default = []
+native = ["dep:libloading"]
+wasm = ["dep:wasmtime"]
