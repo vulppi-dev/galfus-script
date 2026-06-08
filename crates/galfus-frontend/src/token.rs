@@ -36,6 +36,7 @@ pub enum TokenKind {
     Import,
     From,
     Export,
+    As,
     Var,
     Const,
     Fn,

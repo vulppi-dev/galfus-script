@@ -134,30 +134,86 @@ impl Parser {
         self.graph.syntax_mut().set_root(root);
 
         while !self.is_eof() {
-            if self.at(&TokenKind::Fn) {
-                if let Some(item) = self.parse_function_item() {
-                    self.graph.syntax_mut().push_child(root, item);
-                }
+            let start_position = self.position;
 
-                continue;
+            if let Some(item) = self.parse_item() {
+                self.graph.syntax_mut().push_child(root, item);
             }
 
-            if self.at(&TokenKind::Type) {
-                if let Some(item) = self.parse_type_alias_item() {
-                    self.graph.syntax_mut().push_child(root, item);
-                }
-
-                continue;
+            if self.position == start_position {
+                self.bump();
             }
+        }
+    }
 
+    fn parse_item(&mut self) -> Option<NodeId> {
+        if self.at(&TokenKind::Import) {
+            return self.parse_import_item();
+        }
+
+        if self.at(&TokenKind::Fn) {
+            return self.parse_function_item();
+        }
+
+        if self.at(&TokenKind::Type) {
+            return self.parse_type_alias_item();
+        }
+
+        if self.at(&TokenKind::Export) {
+            return self.parse_export_item();
+        }
+
+        let found = self.bump();
+
+        self.graph.push_diagnostic(Diagnostic::error_with_message(
+            ParserDiagnosticCode::ExpectedItem,
+            format!("expected item, found `{:?}`", found.kind()),
+            found.span(),
+        ));
+
+        None
+    }
+
+    // MARK: Items
+
+    fn parse_export_item(&mut self) -> Option<NodeId> {
+        let export_token = self.expect(TokenKind::Export)?;
+
+        let item = if self.at(&TokenKind::Fn) {
+            self.parse_function_item()?
+        } else if self.at(&TokenKind::Type) {
+            self.parse_type_alias_item()?
+        } else {
             let found = self.bump();
 
             self.graph.push_diagnostic(Diagnostic::error_with_message(
                 ParserDiagnosticCode::ExpectedItem,
-                format!("expected item, found `{:?}`", found.kind()),
+                format!("expected exportable item, found `{:?}`", found.kind()),
                 found.span(),
             ));
-        }
+
+            return None;
+        };
+
+        let span =
+            Span::cover(export_token.span(), self.node_span(item)).unwrap_or(export_token.span());
+
+        Some(self.add_node(SyntaxNodeKind::ExportItem, span, vec![item]))
+    }
+
+    fn parse_import_item(&mut self) -> Option<NodeId> {
+        let import_token = self.expect(TokenKind::Import)?;
+
+        let clause = self.parse_import_clause()?;
+
+        self.expect(TokenKind::From)?;
+
+        let source = self.parse_import_source()?;
+
+        let span =
+            Span::cover(import_token.span(), self.node_span(source)).unwrap_or(import_token.span());
+
+        Some(self.add_node(SyntaxNodeKind::ImportItem, span, vec![clause, source]))
     }
 
     fn parse_function_item(&mut self) -> Option<NodeId> {
@@ -199,6 +255,7 @@ impl Parser {
         ))
     }
 
+    // MARK: End Items
     fn parse_identifier(&mut self) -> Option<NodeId> {
         let token = self.expect(TokenKind::Identifier)?;
 
@@ -346,6 +403,12 @@ impl Parser {
         Some(self.add_node(SyntaxNodeKind::IntegerLiteral, token.span(), Vec::new()))
     }
 
+    fn parse_string_literal(&mut self) -> Option<NodeId> {
+        let token = self.expect(TokenKind::String)?;
+
+        Some(self.add_node(SyntaxNodeKind::StringLiteral, token.span(), Vec::new()))
+    }
+
     fn parse_array_type(&mut self) -> Option<NodeId> {
         let left = self.expect(TokenKind::LeftBracket)?;
 
@@ -393,6 +456,83 @@ impl Parser {
         let span = self.node_span(value);
 
         Some(self.add_node(SyntaxNodeKind::ArraySize, span, vec![value]))
+    }
+
+    fn parse_import_clause(&mut self) -> Option<NodeId> {
+        if self.at(&TokenKind::LeftBrace) {
+            return self.parse_named_import_list();
+        }
+
+        self.parse_namespace_import()
+    }
+
+    fn parse_namespace_import(&mut self) -> Option<NodeId> {
+        let name = self.parse_identifier()?;
+        let span = self.node_span(name);
+
+        Some(self.add_node(SyntaxNodeKind::NamespaceImport, span, vec![name]))
+    }
+
+    fn parse_named_import_list(&mut self) -> Option<NodeId> {
+        let left = self.expect(TokenKind::LeftBrace)?;
+
+        let mut imports = Vec::new();
+
+        while !self.is_eof() && !self.at(&TokenKind::RightBrace) {
+            if let Some(import) = self.parse_named_import() {
+                imports.push(import);
+            }
+
+            if !self.at(&TokenKind::Comma) {
+                break;
+            }
+
+            self.bump();
+
+            if self.at(&TokenKind::RightBrace) {
+                break;
+            }
+        }
+
+        let right = self.expect(TokenKind::RightBrace)?;
+
+        let span = Span::cover(left.span(), right.span()).unwrap_or(left.span());
+
+        Some(self.add_node(SyntaxNodeKind::NamedImportList, span, imports))
+    }
+
+    fn parse_named_import(&mut self) -> Option<NodeId> {
+        let name = self.parse_identifier()?;
+
+        let mut children = vec![name];
+        let mut end_span = self.node_span(name);
+
+        if self.at(&TokenKind::As) {
+            let alias = self.parse_import_alias()?;
+            end_span = self.node_span(alias);
+            children.push(alias);
+        }
+
+        let span =
+            Span::cover(self.node_span(name), end_span).unwrap_or_else(|| self.node_span(name));
+
+        Some(self.add_node(SyntaxNodeKind::NamedImport, span, children))
+    }
+
+    fn parse_import_source(&mut self) -> Option<NodeId> {
+        let literal = self.parse_string_literal()?;
+        let span = self.node_span(literal);
+
+        Some(self.add_node(SyntaxNodeKind::ImportSource, span, vec![literal]))
+    }
+
+    fn parse_import_alias(&mut self) -> Option<NodeId> {
+        let as_token = self.expect(TokenKind::As)?;
+        let name = self.parse_identifier()?;
+
+        let span = Span::cover(as_token.span(), self.node_span(name)).unwrap_or(as_token.span());
+
+        Some(self.add_node(SyntaxNodeKind::ImportAlias, span, vec![name]))
     }
 }
 

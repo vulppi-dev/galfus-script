@@ -73,6 +73,7 @@ impl<'a> Lexer<'a> {
             "import" => TokenKind::Import,
             "from" => TokenKind::From,
             "export" => TokenKind::Export,
+            "as" => TokenKind::As,
             "var" => TokenKind::Var,
             "const" => TokenKind::Const,
             "fn" => TokenKind::Fn,

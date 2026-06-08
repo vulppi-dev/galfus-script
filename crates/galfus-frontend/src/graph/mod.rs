@@ -172,6 +172,13 @@ pub enum SyntaxNodeKind {
 
     FunctionItem,
     TypeAliasItem,
+    ExportItem,
+    ImportItem,
+
+    NamespaceImport,
+    NamedImportList,
+    NamedImport,
+    ImportAlias,
 
     ParameterList,
     Parameter,
@@ -186,6 +193,9 @@ pub enum SyntaxNodeKind {
     ArraySize,
     UnionType,
 
+    ImportSource,
+
     Identifier,
     IntegerLiteral,
+    StringLiteral,
 }
