@@ -961,3 +961,127 @@ fn parse_enum_requires_commas_between_variants() {
     assert_eq!(diagnostic.code().as_str(), "P0001");
     assert_eq!(diagnostic.message(), "expected `Comma`, found `Identifier`");
 }
+
+#[test]
+fn parse_choice_item_with_payload_variants() {
+    let source = source("choice Result { Ok(User), SomeError(int32, String), }");
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+
+    let root = syntax.root().unwrap();
+    let item = syntax.node(root).unwrap().children()[0];
+    let item_node = syntax.node(item).unwrap();
+
+    assert_eq!(item_node.kind(), SyntaxNodeKind::ChoiceItem);
+    assert_eq!(item_node.children().len(), 2);
+
+    let name = item_node.children()[0];
+    let variants = item_node.children()[1];
+
+    assert_eq!(
+        source.slice(syntax.node(name).unwrap().span()),
+        Some("Result")
+    );
+
+    let variants_node = syntax.node(variants).unwrap();
+
+    assert_eq!(variants_node.kind(), SyntaxNodeKind::ChoiceVariantList);
+    assert_eq!(variants_node.children().len(), 2);
+
+    let ok_variant = variants_node.children()[0];
+    let ok_variant_node = syntax.node(ok_variant).unwrap();
+
+    assert_eq!(ok_variant_node.kind(), SyntaxNodeKind::ChoiceVariant);
+    assert_eq!(source.slice(ok_variant_node.span()), Some("Ok(User)"));
+    assert_eq!(ok_variant_node.children().len(), 2);
+
+    let payload = ok_variant_node.children()[1];
+    let payload_node = syntax.node(payload).unwrap();
+
+    assert_eq!(payload_node.kind(), SyntaxNodeKind::ChoicePayload);
+    assert_eq!(payload_node.children().len(), 1);
+
+    let payload_type = payload_node.children()[0];
+
+    assert_eq!(
+        syntax.node(payload_type).unwrap().kind(),
+        SyntaxNodeKind::TypeName
+    );
+
+    assert_eq!(
+        source.slice(syntax.node(payload_type).unwrap().span()),
+        Some("User")
+    );
+}
+
+#[test]
+fn parse_choice_variant_with_multiple_payload_types() {
+    let source = source("choice Result { SomeError(int32, String), }");
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+
+    let root = syntax.root().unwrap();
+    let item = syntax.node(root).unwrap().children()[0];
+    let item_node = syntax.node(item).unwrap();
+
+    let variants = item_node.children()[1];
+    let variant = syntax.node(variants).unwrap().children()[0];
+    let variant_node = syntax.node(variant).unwrap();
+
+    assert_eq!(
+        source.slice(variant_node.span()),
+        Some("SomeError(int32, String)")
+    );
+
+    let payload = variant_node.children()[1];
+    let payload_node = syntax.node(payload).unwrap();
+
+    assert_eq!(payload_node.kind(), SyntaxNodeKind::ChoicePayload);
+    assert_eq!(payload_node.children().len(), 2);
+
+    let first_type = payload_node.children()[0];
+    let second_type = payload_node.children()[1];
+
+    assert_eq!(
+        source.slice(syntax.node(first_type).unwrap().span()),
+        Some("int32")
+    );
+
+    assert_eq!(
+        source.slice(syntax.node(second_type).unwrap().span()),
+        Some("String")
+    );
+}
+
+#[test]
+fn parse_choice_item_with_unit_variant() {
+    let source = source("choice Option { Some(User), None, }");
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+
+    let root = syntax.root().unwrap();
+    let item = syntax.node(root).unwrap().children()[0];
+    let item_node = syntax.node(item).unwrap();
+
+    let variants = item_node.children()[1];
+    let variants_node = syntax.node(variants).unwrap();
+
+    let none_variant = variants_node.children()[1];
+    let none_variant_node = syntax.node(none_variant).unwrap();
+
+    assert_eq!(none_variant_node.kind(), SyntaxNodeKind::ChoiceVariant);
+    assert_eq!(source.slice(none_variant_node.span()), Some("None"));
+    assert_eq!(none_variant_node.children().len(), 1);
+}

@@ -176,6 +176,7 @@ pub enum SyntaxNodeKind {
     ImportItem,
     StructItem,
     EnumItem,
+    ChoiceItem,
 
     NamespaceImport,
     NamedImportList,
@@ -187,6 +188,10 @@ pub enum SyntaxNodeKind {
 
     EnumVariantList,
     EnumVariant,
+
+    ChoiceVariantList,
+    ChoiceVariant,
+    ChoicePayload,
 
     ParameterList,
     Parameter,
