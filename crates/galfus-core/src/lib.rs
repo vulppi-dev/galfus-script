@@ -1,14 +1,9 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
+pub mod diagnostic;
+pub mod ids;
+pub mod source;
+pub mod span;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+pub use diagnostic::*;
+pub use ids::*;
+pub use source::*;
+pub use span::*;
