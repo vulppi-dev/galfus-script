@@ -8,6 +8,6 @@ license.workspace = true
 galfus-core = { path = "../galfus-core" }
 galfus-frontend = { path = "../galfus-frontend" }
 
-bincode.workspace = true
 serde.workspace = true
+postcard.workspace = true
 thiserror.workspace = true

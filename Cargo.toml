@@ -9,14 +9,25 @@ edition = "2024"
 license = "MIT"
 
 [workspace.dependencies]
+# Serialization / binary data format
 serde = { version = "1.0", features = ["derive"] }
+postcard = { version = "1.1", features = ["use-std"] }
+
+# Deterministic / structural collections
 indexmap = "2.14"
-thiserror = "2.0"
-bincode = "3.0"
 hashbrown = "0.17"
+
+# Allocation / small-data optimization
 smallvec = "1.15"
-tracing = "0.1"
+
+# Error handling
+thiserror = "2.0"
 anyhow = "1.0"
+
+# Observability / diagnostics
+tracing = "0.1"
+
+# Development / watch mode / hot reload
 notify = "8.2"
 
 [profile.dev]
