@@ -37,7 +37,7 @@ fn lexer_reads_keywords() {
     assert_eq!(
         kinds(
             "import from export as var const fn return struct enum choice type constraint \
-                 satisfies match instanceof if else for in loop break continue weak null true false copy"
+                 satisfies match instanceof if else for in while loop break continue weak null true false copy"
         ),
         vec![
             TokenKind::Import,
@@ -60,6 +60,7 @@ fn lexer_reads_keywords() {
             TokenKind::Else,
             TokenKind::For,
             TokenKind::In,
+            TokenKind::While,
             TokenKind::Loop,
             TokenKind::Break,
             TokenKind::Continue,

@@ -23,6 +23,7 @@ impl Lexer<'_> {
             "else" => TokenKind::Else,
             "for" => TokenKind::For,
             "in" => TokenKind::In,
+            "while" => TokenKind::While,
             "loop" => TokenKind::Loop,
             "break" => TokenKind::Break,
             "continue" => TokenKind::Continue,

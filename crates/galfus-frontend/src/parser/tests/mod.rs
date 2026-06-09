@@ -21,6 +21,7 @@ mod struct_literals;
 mod structs_choices;
 mod types;
 mod variant_construction;
+mod while_statements;
 
 fn source(text: &str) -> SourceFile {
     SourceFile::new(SourceId::new(0), "test.gfs".to_string(), text.to_string())

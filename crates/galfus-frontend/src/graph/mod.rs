@@ -207,6 +207,7 @@ pub enum SyntaxNodeKind {
     ElseClause,
     ForStatement,
     ForBinding,
+    WhileStatement,
     LoopStatement,
     AssignmentStatement,
     TypeAnnotation,
