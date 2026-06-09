@@ -201,6 +201,8 @@ pub enum SyntaxNodeKind {
     VarStatement,
     ConstStatement,
     ExpressionStatement,
+    IfStatement,
+    ElseClause,
     TypeAnnotation,
     Initializer,
 

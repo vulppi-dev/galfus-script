@@ -7,6 +7,7 @@ mod core;
 mod expression_statements;
 mod functions;
 mod grouping_unary;
+mod if_statements;
 mod imports_exports;
 mod statements;
 mod structs_choices;

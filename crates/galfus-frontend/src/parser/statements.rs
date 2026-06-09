@@ -14,6 +14,10 @@ impl Parser {
             return self.parse_const_statement();
         }
 
+        if self.at(&TokenKind::If) {
+            return self.parse_if_statement();
+        }
+
         if self.can_start_expression() {
             return self.parse_expression_statement();
         }
@@ -146,5 +150,49 @@ impl Parser {
         self.expect_statement_end();
 
         Some(self.add_node(SyntaxNodeKind::ExpressionStatement, span, vec![expression]))
+    }
+
+    pub(super) fn parse_if_statement(&mut self) -> Option<NodeId> {
+        let if_token = self.expect(TokenKind::If)?;
+
+        self.skip_newlines();
+
+        let condition = self.parse_expression()?;
+
+        self.skip_newlines();
+
+        let then_block = self.parse_block()?;
+
+        let mut children = vec![condition, then_block];
+        let mut end_span = self.node_span(then_block);
+
+        self.skip_newlines();
+
+        if self.at(&TokenKind::Else) {
+            let else_clause = self.parse_else_clause()?;
+            end_span = self.node_span(else_clause);
+            children.push(else_clause);
+        }
+
+        let span = Span::cover(if_token.span(), end_span).unwrap_or(if_token.span());
+
+        Some(self.add_node(SyntaxNodeKind::IfStatement, span, children))
+    }
+
+    pub(super) fn parse_else_clause(&mut self) -> Option<NodeId> {
+        let else_token = self.expect(TokenKind::Else)?;
+
+        self.skip_newlines();
+
+        let child = if self.at(&TokenKind::If) {
+            self.parse_if_statement()?
+        } else {
+            self.parse_block()?
+        };
+
+        let span =
+            Span::cover(else_token.span(), self.node_span(child)).unwrap_or(else_token.span());
+
+        Some(self.add_node(SyntaxNodeKind::ElseClause, span, vec![child]))
     }
 }
