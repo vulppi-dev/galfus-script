@@ -110,6 +110,22 @@ impl Parser {
         }
     }
 
+    fn skip_soft_newlines_before_expression_continuation(&mut self) -> bool {
+        if !self.at(&TokenKind::Newline) {
+            return false;
+        }
+
+        let next = self.peek_after_newlines(0);
+
+        if !Self::can_continue_expression_after_newline(next.kind()) {
+            return false;
+        }
+
+        self.skip_newlines();
+
+        true
+    }
+
     fn add_node(&mut self, kind: SyntaxNodeKind, span: Span, children: Vec<NodeId>) -> NodeId {
         self.graph.syntax_mut().add_node(kind, span, children)
     }
@@ -133,6 +149,20 @@ impl Parser {
                 | TokenKind::Null
                 | TokenKind::Identifier
         )
+    }
+
+    fn peek_after_newlines(&self, start_offset: usize) -> &Token {
+        let mut offset = start_offset;
+
+        while self.peek(offset).kind() == &TokenKind::Newline {
+            offset += 1;
+        }
+
+        self.peek(offset)
+    }
+
+    fn can_continue_expression_after_newline(kind: &TokenKind) -> bool {
+        matches!(kind, TokenKind::Dot | TokenKind::ColonColon)
     }
 
     // MARK: Start
@@ -1084,7 +1114,7 @@ impl Parser {
         Some(self.add_node(SyntaxNodeKind::NameExpression, span, vec![identifier]))
     }
 
-    fn parse_expression(&mut self) -> Option<NodeId> {
+    fn parse_primary_expression(&mut self) -> Option<NodeId> {
         if self.at(&TokenKind::Integer) {
             return self.parse_integer_literal();
         }
@@ -1106,13 +1136,7 @@ impl Parser {
         }
 
         if self.at(&TokenKind::Identifier) {
-            let name = self.parse_name_expression()?;
-
-            if self.at(&TokenKind::LeftParen) {
-                return self.parse_call_expression(name);
-            }
-
-            return Some(name);
+            return self.parse_name_expression();
         }
 
         let found = self.bump();
@@ -1124,6 +1148,33 @@ impl Parser {
         ));
 
         None
+    }
+
+    fn parse_expression(&mut self) -> Option<NodeId> {
+        let mut expression = self.parse_primary_expression()?;
+
+        loop {
+            self.skip_soft_newlines_before_expression_continuation();
+
+            if self.at(&TokenKind::Dot) {
+                expression = self.parse_member_expression(expression)?;
+                continue;
+            }
+
+            if self.at(&TokenKind::ColonColon) {
+                expression = self.parse_anchor_expression(expression)?;
+                continue;
+            }
+
+            if self.at(&TokenKind::LeftParen) {
+                expression = self.parse_call_expression(expression)?;
+                continue;
+            }
+
+            break;
+        }
+
+        Some(expression)
     }
 
     fn parse_initializer(&mut self) -> Option<NodeId> {
@@ -1153,6 +1204,32 @@ impl Parser {
             span,
             vec![target, arguments],
         ))
+    }
+
+    fn parse_member_expression(&mut self, target: NodeId) -> Option<NodeId> {
+        self.expect(TokenKind::Dot)?;
+
+        self.skip_newlines();
+
+        let member = self.parse_identifier()?;
+
+        let span = Span::cover(self.node_span(target), self.node_span(member))
+            .unwrap_or_else(|| self.node_span(target));
+
+        Some(self.add_node(SyntaxNodeKind::MemberExpression, span, vec![target, member]))
+    }
+
+    fn parse_anchor_expression(&mut self, target: NodeId) -> Option<NodeId> {
+        self.expect(TokenKind::ColonColon)?;
+
+        self.skip_newlines();
+
+        let anchor = self.parse_identifier()?;
+
+        let span = Span::cover(self.node_span(target), self.node_span(anchor))
+            .unwrap_or_else(|| self.node_span(target));
+
+        Some(self.add_node(SyntaxNodeKind::AnchorExpression, span, vec![target, anchor]))
     }
 }
 
