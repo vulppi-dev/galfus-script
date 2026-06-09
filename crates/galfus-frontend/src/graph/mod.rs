@@ -177,6 +177,7 @@ pub enum SyntaxNodeKind {
     StructItem,
     EnumItem,
     ChoiceItem,
+    ConstraintItem,
 
     NamespaceImport,
     NamedImportList,
@@ -201,6 +202,12 @@ pub enum SyntaxNodeKind {
     ParameterDefault,
     GenericParameterList,
     GenericParameter,
+    GenericParameterConstraint,
+    BasicConstraint,
+
+    ConstraintMemberList,
+    ConstraintField,
+    ConstraintFunctionSignature,
 
     Block,
     ReturnStatement,

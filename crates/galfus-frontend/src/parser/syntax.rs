@@ -434,4 +434,25 @@ impl Parser {
 
         Some(self.add_node(SyntaxNodeKind::GenericType, span, vec![base, arguments]))
     }
+
+    pub(super) fn parse_constraint_field(&mut self) -> Option<NodeId> {
+        let name = self.parse_identifier()?;
+        let name_span = self.node_span(name);
+
+        self.skip_newlines();
+
+        self.expect(TokenKind::Colon)?;
+
+        self.skip_newlines();
+
+        let field_type = self.parse_type()?;
+
+        let span = Span::cover(name_span, self.node_span(field_type)).unwrap_or(name_span);
+
+        Some(self.add_node(
+            SyntaxNodeKind::ConstraintField,
+            span,
+            vec![name, field_type],
+        ))
+    }
 }

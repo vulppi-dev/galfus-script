@@ -36,44 +36,4 @@ impl Parser {
             }
         }
     }
-
-    pub(super) fn parse_item(&mut self) -> Option<NodeId> {
-        if self.at(&TokenKind::Import) {
-            return self.parse_import_item();
-        }
-
-        if self.at(&TokenKind::Fn) {
-            return self.parse_function_item();
-        }
-
-        if self.at(&TokenKind::Type) {
-            return self.parse_type_alias_item();
-        }
-
-        if self.at(&TokenKind::Struct) {
-            return self.parse_struct_item();
-        }
-
-        if self.at(&TokenKind::Enum) {
-            return self.parse_enum_item();
-        }
-
-        if self.at(&TokenKind::Choice) {
-            return self.parse_choice_item();
-        }
-
-        if self.at(&TokenKind::Export) {
-            return self.parse_export_item();
-        }
-
-        let found = self.bump();
-
-        self.graph.push_diagnostic(Diagnostic::error_with_message(
-            ParserDiagnosticCode::ExpectedItem,
-            format!("expected item, found `{:?}`", found.kind()),
-            found.span(),
-        ));
-
-        None
-    }
 }

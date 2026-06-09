@@ -1,0 +1,255 @@
+use super::*;
+
+#[test]
+fn parse_generic_parameter_constraint_identifier() {
+    let source = source("fn add<T: int>(a: T, b: T): T {\n  return a + b\n}");
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+
+    let root = syntax.root().unwrap();
+    let function = syntax.node(root).unwrap().children()[0];
+    let function_node = syntax.node(function).unwrap();
+
+    let generics = function_node.children()[1];
+    let generics_node = syntax.node(generics).unwrap();
+
+    assert_eq!(generics_node.kind(), SyntaxNodeKind::GenericParameterList);
+    assert_eq!(generics_node.children().len(), 1);
+
+    let parameter = generics_node.children()[0];
+    let parameter_node = syntax.node(parameter).unwrap();
+
+    assert_eq!(parameter_node.kind(), SyntaxNodeKind::GenericParameter);
+    assert_eq!(parameter_node.children().len(), 2);
+    assert_eq!(source.slice(parameter_node.span()), Some("T: int"));
+
+    let constraint = parameter_node.children()[1];
+    let constraint_node = syntax.node(constraint).unwrap();
+
+    assert_eq!(
+        constraint_node.kind(),
+        SyntaxNodeKind::GenericParameterConstraint
+    );
+
+    let constraint_type = constraint_node.children()[0];
+
+    assert_eq!(
+        syntax.node(constraint_type).unwrap().kind(),
+        SyntaxNodeKind::TypeName
+    );
+
+    assert_eq!(
+        source.slice(syntax.node(constraint_type).unwrap().span()),
+        Some("int")
+    );
+}
+
+#[test]
+fn parse_generic_parameter_constraint_struct() {
+    let source = source("fn frozen<T: struct>(target: T): T {\n  return target\n}");
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+
+    let root = syntax.root().unwrap();
+    let function = syntax.node(root).unwrap().children()[0];
+    let function_node = syntax.node(function).unwrap();
+
+    let generics = function_node.children()[1];
+    let parameter = syntax.node(generics).unwrap().children()[0];
+    let parameter_node = syntax.node(parameter).unwrap();
+
+    let constraint = parameter_node.children()[1];
+    let constraint_node = syntax.node(constraint).unwrap();
+
+    let child = constraint_node.children()[0];
+    let child_node = syntax.node(child).unwrap();
+
+    assert_eq!(child_node.kind(), SyntaxNodeKind::BasicConstraint);
+    assert_eq!(source.slice(child_node.span()), Some("struct"));
+}
+
+#[test]
+fn parse_generic_parameter_constraint_enum() {
+    let source = source("fn useEnum<T: enum>(value: T): T {\n  return value\n}");
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+
+    let root = syntax.root().unwrap();
+    let function = syntax.node(root).unwrap().children()[0];
+    let function_node = syntax.node(function).unwrap();
+
+    let generics = function_node.children()[1];
+    let parameter = syntax.node(generics).unwrap().children()[0];
+    let parameter_node = syntax.node(parameter).unwrap();
+
+    let constraint = parameter_node.children()[1];
+    let child = syntax.node(constraint).unwrap().children()[0];
+
+    assert_eq!(
+        syntax.node(child).unwrap().kind(),
+        SyntaxNodeKind::BasicConstraint
+    );
+
+    assert_eq!(
+        source.slice(syntax.node(child).unwrap().span()),
+        Some("enum")
+    );
+}
+
+#[test]
+fn parse_generic_parameter_constraint_fn() {
+    let source = source("fn call<T: fn>(callback: T): T {\n  return callback\n}");
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+
+    let root = syntax.root().unwrap();
+    let function = syntax.node(root).unwrap().children()[0];
+    let function_node = syntax.node(function).unwrap();
+
+    let generics = function_node.children()[1];
+    let parameter = syntax.node(generics).unwrap().children()[0];
+    let parameter_node = syntax.node(parameter).unwrap();
+
+    let constraint = parameter_node.children()[1];
+    let child = syntax.node(constraint).unwrap().children()[0];
+
+    assert_eq!(
+        syntax.node(child).unwrap().kind(),
+        SyntaxNodeKind::BasicConstraint
+    );
+
+    assert_eq!(source.slice(syntax.node(child).unwrap().span()), Some("fn"));
+}
+
+#[test]
+fn parse_generic_parameter_constraint_direct_type() {
+    let source = source("fn process<T: User>(value: T): T {\n  return value\n}");
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+
+    let root = syntax.root().unwrap();
+    let function = syntax.node(root).unwrap().children()[0];
+    let function_node = syntax.node(function).unwrap();
+
+    let generics = function_node.children()[1];
+    let parameter = syntax.node(generics).unwrap().children()[0];
+    let parameter_node = syntax.node(parameter).unwrap();
+
+    let constraint = parameter_node.children()[1];
+    let constraint_type = syntax.node(constraint).unwrap().children()[0];
+
+    assert_eq!(
+        syntax.node(constraint_type).unwrap().kind(),
+        SyntaxNodeKind::TypeName
+    );
+
+    assert_eq!(
+        source.slice(syntax.node(constraint_type).unwrap().span()),
+        Some("User")
+    );
+}
+
+#[test]
+fn parse_generic_parameter_constraint_generic_type() {
+    let source = source("fn load<T: Result<Texture, LoadError>>(value: T): T {\n  return value\n}");
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+
+    let root = syntax.root().unwrap();
+    let function = syntax.node(root).unwrap().children()[0];
+    let function_node = syntax.node(function).unwrap();
+
+    let generics = function_node.children()[1];
+    let parameter = syntax.node(generics).unwrap().children()[0];
+    let parameter_node = syntax.node(parameter).unwrap();
+
+    let constraint = parameter_node.children()[1];
+    let constraint_type = syntax.node(constraint).unwrap().children()[0];
+    let constraint_type_node = syntax.node(constraint_type).unwrap();
+
+    assert_eq!(constraint_type_node.kind(), SyntaxNodeKind::GenericType);
+    assert_eq!(
+        source.slice(constraint_type_node.span()),
+        Some("Result<Texture, LoadError>")
+    );
+}
+
+#[test]
+fn parse_multiple_generic_parameter_constraints() {
+    let source = source("fn pair<T: int, U: struct>(first: T, second: U): T {\n  return first\n}");
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+
+    let root = syntax.root().unwrap();
+    let function = syntax.node(root).unwrap().children()[0];
+    let function_node = syntax.node(function).unwrap();
+
+    let generics = function_node.children()[1];
+    let generics_node = syntax.node(generics).unwrap();
+
+    assert_eq!(generics_node.children().len(), 2);
+
+    let first = generics_node.children()[0];
+    let second = generics_node.children()[1];
+
+    assert_eq!(
+        source.slice(syntax.node(first).unwrap().span()),
+        Some("T: int")
+    );
+    assert_eq!(
+        source.slice(syntax.node(second).unwrap().span()),
+        Some("U: struct")
+    );
+}
+
+#[test]
+fn parse_unconstrained_generic_parameter_still_works() {
+    let source = source("fn identity<T>(value: T): T {\n  return value\n}");
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+
+    let root = syntax.root().unwrap();
+    let function = syntax.node(root).unwrap().children()[0];
+    let function_node = syntax.node(function).unwrap();
+
+    let generics = function_node.children()[1];
+    let generics_node = syntax.node(generics).unwrap();
+
+    let parameter = generics_node.children()[0];
+    let parameter_node = syntax.node(parameter).unwrap();
+
+    assert_eq!(parameter_node.kind(), SyntaxNodeKind::GenericParameter);
+    assert_eq!(parameter_node.children().len(), 1);
+}

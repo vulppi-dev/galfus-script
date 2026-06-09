@@ -1,6 +1,50 @@
 use super::*;
 
 impl Parser {
+    pub(super) fn parse_item(&mut self) -> Option<NodeId> {
+        if self.at(&TokenKind::Import) {
+            return self.parse_import_item();
+        }
+
+        if self.at(&TokenKind::Fn) {
+            return self.parse_function_item();
+        }
+
+        if self.at(&TokenKind::Type) {
+            return self.parse_type_alias_item();
+        }
+
+        if self.at(&TokenKind::Struct) {
+            return self.parse_struct_item();
+        }
+
+        if self.at(&TokenKind::Enum) {
+            return self.parse_enum_item();
+        }
+
+        if self.at(&TokenKind::Choice) {
+            return self.parse_choice_item();
+        }
+
+        if self.at(&TokenKind::Constraint) {
+            return self.parse_constraint_item();
+        }
+
+        if self.at(&TokenKind::Export) {
+            return self.parse_export_item();
+        }
+
+        let found = self.bump();
+
+        self.graph.push_diagnostic(Diagnostic::error_with_message(
+            ParserDiagnosticCode::ExpectedItem,
+            format!("expected item, found `{:?}`", found.kind()),
+            found.span(),
+        ));
+
+        None
+    }
+
     pub(super) fn parse_export_item(&mut self) -> Option<NodeId> {
         let export_token = self.expect(TokenKind::Export)?;
 
@@ -179,8 +223,123 @@ impl Parser {
 
     pub(super) fn parse_generic_parameter(&mut self) -> Option<NodeId> {
         let name = self.parse_identifier()?;
-        let span = self.node_span(name);
+        let name_span = self.node_span(name);
 
-        Some(self.add_node(SyntaxNodeKind::GenericParameter, span, vec![name]))
+        let mut children = vec![name];
+        let mut end_span = name_span;
+
+        self.skip_newlines();
+
+        if self.at(&TokenKind::Colon) {
+            let constraint = self.parse_generic_parameter_constraint()?;
+            end_span = self.node_span(constraint);
+            children.push(constraint);
+        }
+
+        let span = Span::cover(name_span, end_span).unwrap_or(name_span);
+
+        Some(self.add_node(SyntaxNodeKind::GenericParameter, span, children))
+    }
+
+    pub(super) fn parse_basic_constraint(&mut self) -> Option<NodeId> {
+        if self.at(&TokenKind::Struct) || self.at(&TokenKind::Enum) || self.at(&TokenKind::Fn) {
+            let token = self.bump();
+
+            return Some(self.add_node(SyntaxNodeKind::BasicConstraint, token.span(), Vec::new()));
+        }
+
+        let found = self.bump();
+
+        self.graph.push_diagnostic(Diagnostic::error_with_message(
+            ParserDiagnosticCode::ExpectedType,
+            format!("expected constraint, found `{:?}`", found.kind()),
+            found.span(),
+        ));
+
+        None
+    }
+
+    pub(super) fn parse_generic_parameter_constraint(&mut self) -> Option<NodeId> {
+        let colon = self.expect(TokenKind::Colon)?;
+
+        self.skip_newlines();
+
+        let constraint = if self.at(&TokenKind::Struct)
+            || self.at(&TokenKind::Enum)
+            || self.at(&TokenKind::Fn)
+        {
+            self.parse_basic_constraint()?
+        } else {
+            self.parse_type()?
+        };
+
+        let span = Span::cover(colon.span(), self.node_span(constraint)).unwrap_or(colon.span());
+
+        Some(self.add_node(
+            SyntaxNodeKind::GenericParameterConstraint,
+            span,
+            vec![constraint],
+        ))
+    }
+
+    pub(super) fn parse_constraint_item(&mut self) -> Option<NodeId> {
+        let constraint_token = self.expect(TokenKind::Constraint)?;
+
+        self.skip_newlines();
+
+        let name = self.parse_identifier()?;
+
+        let generic_parameters = if self.at(&TokenKind::Less) {
+            let generics = self.parse_generic_parameter_list()?;
+            Some(generics)
+        } else {
+            None
+        };
+
+        self.skip_newlines();
+
+        let members = self.parse_constraint_member_list()?;
+
+        let mut children = vec![name];
+
+        if let Some(generic_parameters) = generic_parameters {
+            children.push(generic_parameters);
+        }
+
+        children.push(members);
+
+        let span = Span::cover(constraint_token.span(), self.node_span(members))
+            .unwrap_or(constraint_token.span());
+
+        Some(self.add_node(SyntaxNodeKind::ConstraintItem, span, children))
+    }
+
+    pub(super) fn parse_constraint_function_signature(&mut self) -> Option<NodeId> {
+        let fn_token = self.expect(TokenKind::Fn)?;
+
+        self.skip_newlines();
+
+        let name = self.parse_identifier()?;
+
+        self.skip_newlines();
+
+        let parameters = self.parse_parameter_list()?;
+
+        self.skip_newlines();
+
+        self.expect(TokenKind::Colon)?;
+
+        self.skip_newlines();
+
+        let return_type = self.parse_type()?;
+
+        let span =
+            Span::cover(fn_token.span(), self.node_span(return_type)).unwrap_or(fn_token.span());
+
+        Some(self.add_node(
+            SyntaxNodeKind::ConstraintFunctionSignature,
+            span,
+            vec![name, parameters, return_type],
+        ))
     }
 }

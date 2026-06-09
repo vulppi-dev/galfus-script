@@ -617,4 +617,86 @@ impl Parser {
 
         Some(self.add_node(SyntaxNodeKind::GenericParameterList, span, parameters))
     }
+
+    pub(super) fn parse_constraint_member_list(&mut self) -> Option<NodeId> {
+        let left = self.expect(TokenKind::LeftBrace)?;
+
+        let mut members = Vec::new();
+
+        self.skip_newlines();
+
+        while !self.is_eof() && !self.at(&TokenKind::RightBrace) {
+            if self.at(&TokenKind::Fn) {
+                if let Some(signature) = self.parse_constraint_function_signature() {
+                    members.push(signature);
+                }
+
+                self.skip_newlines();
+
+                if self.at(&TokenKind::Comma) {
+                    self.bump();
+                    self.skip_newlines();
+                    continue;
+                }
+
+                if !self.at(&TokenKind::RightBrace) {
+                    let found = self.current().clone();
+
+                    self.graph.push_diagnostic(Diagnostic::error_with_message(
+                        ParserDiagnosticCode::ExpectedToken,
+                        format!("expected `Comma`, found `{:?}`", found.kind()),
+                        found.span(),
+                    ));
+
+                    self.bump();
+                }
+
+                continue;
+            }
+
+            if self.at(&TokenKind::Identifier) {
+                if let Some(field) = self.parse_constraint_field() {
+                    members.push(field);
+                }
+
+                self.skip_newlines();
+
+                if self.at(&TokenKind::Comma) {
+                    self.bump();
+                    self.skip_newlines();
+                    continue;
+                }
+
+                if !self.at(&TokenKind::RightBrace) {
+                    let found = self.current().clone();
+
+                    self.graph.push_diagnostic(Diagnostic::error_with_message(
+                        ParserDiagnosticCode::ExpectedToken,
+                        format!("expected `Comma`, found `{:?}`", found.kind()),
+                        found.span(),
+                    ));
+
+                    self.bump();
+                }
+
+                continue;
+            }
+
+            let found = self.bump();
+
+            self.graph.push_diagnostic(Diagnostic::error_with_message(
+                ParserDiagnosticCode::ExpectedItem,
+                format!("expected constraint member, found `{:?}`", found.kind()),
+                found.span(),
+            ));
+
+            self.skip_newlines();
+        }
+
+        let right = self.expect(TokenKind::RightBrace)?;
+
+        let span = Span::cover(left.span(), right.span()).unwrap_or(left.span());
+
+        Some(self.add_node(SyntaxNodeKind::ConstraintMemberList, span, members))
+    }
 }
