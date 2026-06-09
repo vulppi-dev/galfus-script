@@ -124,31 +124,6 @@ impl Parser {
         Some(self.add_node(SyntaxNodeKind::ConstStatement, span, children))
     }
 
-    pub(super) fn expect_statement_end(&mut self) {
-        if self.at(&TokenKind::Newline) {
-            self.skip_newlines();
-            return;
-        }
-
-        if self.at(&TokenKind::Semicolon) {
-            self.bump();
-            self.skip_newlines();
-            return;
-        }
-
-        if self.at(&TokenKind::RightBrace) || self.is_eof() {
-            return;
-        }
-
-        let found = self.current().clone();
-
-        self.graph.push_diagnostic(Diagnostic::error_with_message(
-            ParserDiagnosticCode::ExpectedToken,
-            format!("expected statement terminator, found `{:?}`", found.kind()),
-            found.span(),
-        ));
-    }
-
     pub(super) fn parse_expression_statement_from(&mut self, expression: NodeId) -> Option<NodeId> {
         let span = self.node_span(expression);
 

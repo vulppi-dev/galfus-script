@@ -8,6 +8,7 @@ mod calls_members;
 mod compound_assignment_statements;
 mod control_flow_statements;
 mod core;
+mod default_parameters;
 mod expression_statements;
 mod for_statements;
 mod functions;

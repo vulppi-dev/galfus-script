@@ -87,15 +87,30 @@ impl Parser {
 
     pub(super) fn parse_parameter(&mut self) -> Option<NodeId> {
         let name = self.parse_identifier()?;
+        let name_span = self.node_span(name);
+
+        self.skip_newlines();
 
         self.expect(TokenKind::Colon)?;
 
+        self.skip_newlines();
+
         let parameter_type = self.parse_type()?;
 
-        let span = Span::cover(self.node_span(name), self.node_span(parameter_type))
-            .unwrap_or_else(|| self.node_span(name));
+        let mut children = vec![name, parameter_type];
+        let mut end_span = self.node_span(parameter_type);
 
-        Some(self.add_node(SyntaxNodeKind::Parameter, span, vec![name, parameter_type]))
+        self.skip_newlines();
+
+        if self.at(&TokenKind::Equal) {
+            let default = self.parse_parameter_default()?;
+            end_span = self.node_span(default);
+            children.push(default);
+        }
+
+        let span = Span::cover(name_span, end_span).unwrap_or(name_span);
+
+        Some(self.add_node(SyntaxNodeKind::Parameter, span, children))
     }
 
     pub(super) fn parse_rest_parameter(&mut self) -> Option<NodeId> {
@@ -107,29 +122,38 @@ impl Parser {
 
         self.skip_newlines();
 
-        let colon = self.expect(TokenKind::Colon)?;
+        self.expect(TokenKind::Colon)?;
 
         self.skip_newlines();
 
         let parameter_type = self.parse_type()?;
 
-        let type_span =
-            Span::cover(colon.span(), self.node_span(parameter_type)).unwrap_or(colon.span());
+        let mut children = vec![name, parameter_type];
+        let mut end_span = self.node_span(parameter_type);
 
-        let type_annotation = self.add_node(
-            SyntaxNodeKind::TypeAnnotation,
-            type_span,
-            vec![parameter_type],
-        );
+        self.skip_newlines();
 
-        let span = Span::cover(spread_token.span(), self.node_span(type_annotation))
-            .unwrap_or(spread_token.span());
+        if self.at(&TokenKind::Equal) {
+            let default = self.parse_parameter_default()?;
+            end_span = self.node_span(default);
+            children.push(default);
+        }
 
-        Some(self.add_node(
-            SyntaxNodeKind::RestParameter,
-            span,
-            vec![name, type_annotation],
-        ))
+        let span = Span::cover(spread_token.span(), end_span).unwrap_or(spread_token.span());
+
+        Some(self.add_node(SyntaxNodeKind::RestParameter, span, children))
+    }
+
+    pub(super) fn parse_parameter_default(&mut self) -> Option<NodeId> {
+        let equal = self.expect(TokenKind::Equal)?;
+
+        self.skip_newlines();
+
+        let value = self.parse_expression()?;
+
+        let span = Span::cover(equal.span(), self.node_span(value)).unwrap_or(equal.span());
+
+        Some(self.add_node(SyntaxNodeKind::ParameterDefault, span, vec![value]))
     }
 
     pub(super) fn parse_array_type(&mut self) -> Option<NodeId> {

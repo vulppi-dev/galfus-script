@@ -5,8 +5,13 @@ impl Parser {
         let left = self.expect(TokenKind::LeftParen)?;
 
         let mut parameters = Vec::new();
+
         let mut seen_rest_parameter = false;
+        let mut seen_default_parameter = false;
+
         let mut reported_after_rest = false;
+        let mut reported_required_after_default = false;
+        let mut reported_rest_without_default_after_default = false;
 
         self.skip_newlines();
 
@@ -23,6 +28,8 @@ impl Parser {
             };
 
             if let Some(parameter) = parameter {
+                let has_default = self.parameter_has_default(parameter);
+
                 if starts_after_rest && !reported_after_rest {
                     self.graph.push_diagnostic(Diagnostic::error_with_message(
                         ParserDiagnosticCode::UnexpectedToken,
@@ -34,7 +41,34 @@ impl Parser {
                 }
 
                 if is_rest_parameter {
+                    if seen_default_parameter
+                        && !has_default
+                        && !reported_rest_without_default_after_default
+                    {
+                        self.graph.push_diagnostic(Diagnostic::error_with_message(
+                            ParserDiagnosticCode::UnexpectedToken,
+                            "rest parameter after default parameter must also have default",
+                            self.node_span(parameter),
+                        ));
+
+                        reported_rest_without_default_after_default = true;
+                    }
+
                     seen_rest_parameter = true;
+                } else {
+                    if seen_default_parameter && !has_default && !reported_required_after_default {
+                        self.graph.push_diagnostic(Diagnostic::error_with_message(
+                            ParserDiagnosticCode::UnexpectedToken,
+                            "required parameter cannot follow default parameter",
+                            self.node_span(parameter),
+                        ));
+
+                        reported_required_after_default = true;
+                    }
+                }
+
+                if has_default {
+                    seen_default_parameter = true;
                 }
 
                 parameters.push(parameter);

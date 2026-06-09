@@ -257,25 +257,6 @@ impl Parser {
         self.parse_postfix_expression(boundary)
     }
 
-    pub(super) fn expression_can_be_statement(&self, expression: NodeId) -> bool {
-        let Some(node) = self.graph.syntax().node(expression) else {
-            return false;
-        };
-
-        match node.kind() {
-            SyntaxNodeKind::CallExpression => true,
-
-            SyntaxNodeKind::GroupedExpression => node
-                .children()
-                .first()
-                .copied()
-                .map(|child| self.expression_can_be_statement(child))
-                .unwrap_or(false),
-
-            _ => false,
-        }
-    }
-
     pub(super) fn parse_index_expression(&mut self, target: NodeId) -> Option<NodeId> {
         let left = self.expect(TokenKind::LeftBracket)?;
 

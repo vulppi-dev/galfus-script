@@ -41,7 +41,7 @@ fn parse_rest_parameter() {
 
     assert_eq!(
         syntax.node(type_annotation).unwrap().kind(),
-        SyntaxNodeKind::TypeAnnotation
+        SyntaxNodeKind::ArrayType
     );
 }
 
