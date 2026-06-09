@@ -186,6 +186,7 @@ pub enum SyntaxNodeKind {
     StructFieldList,
     StructField,
     StructFieldDefault,
+    WeakStructField,
 
     EnumVariantList,
     EnumVariant,

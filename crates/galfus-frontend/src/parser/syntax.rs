@@ -255,6 +255,10 @@ impl Parser {
     }
 
     pub(super) fn parse_struct_field(&mut self) -> Option<NodeId> {
+        if self.at(&TokenKind::Weak) {
+            return self.parse_weak_struct_field();
+        }
+
         let name = self.parse_identifier()?;
         let name_span = self.node_span(name);
 
@@ -383,5 +387,36 @@ impl Parser {
         let span = self.node_span(expression);
 
         Some(self.add_node(SyntaxNodeKind::Argument, span, vec![expression]))
+    }
+
+    pub(super) fn parse_weak_struct_field(&mut self) -> Option<NodeId> {
+        let weak_token = self.expect(TokenKind::Weak)?;
+
+        self.skip_newlines();
+
+        let name = self.parse_identifier()?;
+
+        self.skip_newlines();
+
+        self.expect(TokenKind::Colon)?;
+
+        self.skip_newlines();
+
+        let field_type = self.parse_type()?;
+
+        let mut children = vec![name, field_type];
+        let mut end_span = self.node_span(field_type);
+
+        self.skip_newlines();
+
+        if self.at(&TokenKind::Equal) {
+            let default = self.parse_struct_field_default()?;
+            end_span = self.node_span(default);
+            children.push(default);
+        }
+
+        let span = Span::cover(weak_token.span(), end_span).unwrap_or(weak_token.span());
+
+        Some(self.add_node(SyntaxNodeKind::WeakStructField, span, children))
     }
 }

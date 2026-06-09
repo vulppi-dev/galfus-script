@@ -30,6 +30,7 @@ mod struct_literals;
 mod structs_choices;
 mod types;
 mod variant_construction;
+mod weak_fields;
 mod while_statements;
 
 fn source(text: &str) -> SourceFile {

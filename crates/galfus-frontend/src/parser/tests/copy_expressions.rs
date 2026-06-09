@@ -164,3 +164,98 @@ fn parse_copy_grouped_expression() {
         Some("copy (value + 1)")
     );
 }
+
+#[test]
+fn parse_weak_struct_field_without_default() {
+    let source = source("struct CacheEntry {\n  weak resource: Resource | null,\n}");
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+
+    let root = syntax.root().unwrap();
+    let struct_item = syntax.node(root).unwrap().children()[0];
+    let struct_node = syntax.node(struct_item).unwrap();
+
+    let fields = struct_node.children()[1];
+    let field = syntax.node(fields).unwrap().children()[0];
+    let field_node = syntax.node(field).unwrap();
+
+    assert_eq!(field_node.kind(), SyntaxNodeKind::WeakStructField);
+    assert_eq!(field_node.children().len(), 2);
+
+    let field_type = field_node.children()[1];
+
+    assert_eq!(
+        syntax.node(field_type).unwrap().kind(),
+        SyntaxNodeKind::UnionType
+    );
+}
+
+#[test]
+fn parse_weak_struct_field_non_nullable_is_syntax_valid() {
+    let source = source("struct CacheEntry {\n  weak resource: Resource,\n}");
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+
+    let root = syntax.root().unwrap();
+    let struct_item = syntax.node(root).unwrap().children()[0];
+    let struct_node = syntax.node(struct_item).unwrap();
+
+    let fields = struct_node.children()[1];
+    let field = syntax.node(fields).unwrap().children()[0];
+    let field_node = syntax.node(field).unwrap();
+
+    assert_eq!(field_node.kind(), SyntaxNodeKind::WeakStructField);
+    assert_eq!(
+        source.slice(field_node.span()),
+        Some("weak resource: Resource")
+    );
+}
+
+#[test]
+fn parse_regular_struct_field_still_uses_struct_field() {
+    let source = source("struct User {\n  name: String = \"Anonymous\",\n}");
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+
+    let root = syntax.root().unwrap();
+    let struct_item = syntax.node(root).unwrap().children()[0];
+    let struct_node = syntax.node(struct_item).unwrap();
+
+    let fields = struct_node.children()[1];
+    let field = syntax.node(fields).unwrap().children()[0];
+    let field_node = syntax.node(field).unwrap();
+
+    assert_eq!(field_node.kind(), SyntaxNodeKind::StructField);
+    assert_eq!(field_node.children().len(), 3);
+
+    let name = field_node.children()[0];
+    let field_type = field_node.children()[1];
+    let default = field_node.children()[2];
+
+    assert_eq!(
+        source.slice(syntax.node(name).unwrap().span()),
+        Some("name")
+    );
+
+    assert_eq!(
+        syntax.node(field_type).unwrap().kind(),
+        SyntaxNodeKind::TypeName
+    );
+
+    assert_eq!(
+        syntax.node(default).unwrap().kind(),
+        SyntaxNodeKind::StructFieldDefault
+    );
+}
