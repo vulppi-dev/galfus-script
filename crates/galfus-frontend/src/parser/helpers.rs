@@ -345,4 +345,80 @@ impl Parser {
 
         false
     }
+
+    pub(super) fn can_parse_function_anchor(&self) -> bool {
+        if !matches!(
+            self.tokens.get(self.position).map(|token| token.kind()),
+            Some(TokenKind::Identifier)
+        ) {
+            return false;
+        }
+
+        let mut index = self.position + 1;
+
+        if matches!(
+            self.tokens.get(index).map(|token| token.kind()),
+            Some(TokenKind::Less)
+        ) {
+            let Some(next_index) = self.skip_generic_type_arguments_in_lookahead(index) else {
+                return false;
+            };
+
+            index = next_index;
+        }
+
+        matches!(
+            self.tokens.get(index).map(|token| token.kind()),
+            Some(TokenKind::ColonColon)
+        )
+    }
+
+    pub(super) fn skip_generic_type_arguments_in_lookahead(
+        &self,
+        mut index: usize,
+    ) -> Option<usize> {
+        let mut depth = 0usize;
+
+        while index < self.tokens.len() {
+            match self.tokens[index].kind() {
+                TokenKind::Less => {
+                    depth += 1;
+                }
+
+                TokenKind::Greater => {
+                    if depth == 0 {
+                        return None;
+                    }
+
+                    depth -= 1;
+
+                    if depth == 0 {
+                        return Some(index + 1);
+                    }
+                }
+
+                TokenKind::ShiftRight => {
+                    if depth < 2 {
+                        return None;
+                    }
+
+                    depth -= 2;
+
+                    if depth == 0 {
+                        return Some(index + 1);
+                    }
+                }
+
+                TokenKind::Eof | TokenKind::Newline => {
+                    return None;
+                }
+
+                _ => {}
+            }
+
+            index += 1;
+        }
+
+        None
+    }
 }
