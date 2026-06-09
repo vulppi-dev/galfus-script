@@ -208,6 +208,7 @@ pub enum SyntaxNodeKind {
     ConstraintMemberList,
     ConstraintField,
     ConstraintFunctionSignature,
+    SatisfiesClause,
 
     Block,
     ReturnStatement,

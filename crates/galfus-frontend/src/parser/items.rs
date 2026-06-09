@@ -169,12 +169,26 @@ impl Parser {
             None
         };
 
+        self.skip_newlines();
+
+        let satisfies = if self.at(&TokenKind::Satisfies) {
+            let satisfies = self.parse_satisfies_clause()?;
+            self.skip_newlines();
+            Some(satisfies)
+        } else {
+            None
+        };
+
         let fields = self.parse_struct_field_list()?;
 
         let mut children = vec![name];
 
         if let Some(generic_parameters) = generic_parameters {
             children.push(generic_parameters);
+        }
+
+        if let Some(satisfies) = satisfies {
+            children.push(satisfies);
         }
 
         children.push(fields);
@@ -341,5 +355,60 @@ impl Parser {
             span,
             vec![name, parameters, return_type],
         ))
+    }
+
+    pub(super) fn parse_satisfies_clause(&mut self) -> Option<NodeId> {
+        let satisfies_token = self.expect(TokenKind::Satisfies)?;
+
+        let mut constraints = Vec::new();
+
+        self.skip_newlines();
+
+        while !self.is_eof() && !self.at(&TokenKind::LeftBrace) {
+            let start_position = self.position;
+
+            if let Some(constraint) = self.parse_type() {
+                constraints.push(constraint);
+            }
+
+            self.skip_newlines();
+
+            if self.at(&TokenKind::LeftBrace) {
+                break;
+            }
+
+            if self.at(&TokenKind::Comma) {
+                self.bump();
+
+                self.skip_newlines();
+
+                if self.at(&TokenKind::LeftBrace) {
+                    break;
+                }
+
+                continue;
+            }
+
+            let found = self.current().clone();
+
+            self.graph.push_diagnostic(Diagnostic::error_with_message(
+                ParserDiagnosticCode::ExpectedToken,
+                format!("expected `Comma`, found `{:?}`", found.kind()),
+                found.span(),
+            ));
+
+            if self.position == start_position {
+                self.bump();
+            }
+        }
+
+        let end_span = constraints
+            .last()
+            .map(|constraint| self.node_span(*constraint))
+            .unwrap_or(satisfies_token.span());
+
+        let span = Span::cover(satisfies_token.span(), end_span).unwrap_or(satisfies_token.span());
+
+        Some(self.add_node(SyntaxNodeKind::SatisfiesClause, span, constraints))
     }
 }

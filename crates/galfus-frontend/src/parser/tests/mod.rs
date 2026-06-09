@@ -29,6 +29,7 @@ mod loop_statements;
 mod match_statements;
 mod regex_literals;
 mod rest_parameters;
+mod satisfies_clause;
 mod spread_expressions;
 mod statements;
 mod struct_literals;
