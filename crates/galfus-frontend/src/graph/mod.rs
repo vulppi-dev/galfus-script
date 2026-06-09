@@ -239,6 +239,7 @@ pub enum SyntaxNodeKind {
     StructLiteral,
     StructLiteralFieldList,
     StructLiteralField,
+    StructLiteralFieldShorthand,
 
     IntegerLiteral,
     FloatLiteral,

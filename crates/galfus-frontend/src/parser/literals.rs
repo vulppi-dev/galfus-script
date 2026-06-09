@@ -95,6 +95,15 @@ impl Parser {
 
     pub(super) fn parse_struct_literal_field(&mut self) -> Option<NodeId> {
         let name = self.parse_identifier()?;
+        let name_span = self.node_span(name);
+
+        if !self.at(&TokenKind::Colon) {
+            return Some(self.add_node(
+                SyntaxNodeKind::StructLiteralFieldShorthand,
+                name_span,
+                vec![name],
+            ));
+        }
 
         self.expect(TokenKind::Colon)?;
 
@@ -102,8 +111,7 @@ impl Parser {
 
         let value = self.parse_expression()?;
 
-        let span = Span::cover(self.node_span(name), self.node_span(value))
-            .unwrap_or_else(|| self.node_span(name));
+        let span = Span::cover(name_span, self.node_span(value)).unwrap_or(name_span);
 
         Some(self.add_node(SyntaxNodeKind::StructLiteralField, span, vec![name, value]))
     }

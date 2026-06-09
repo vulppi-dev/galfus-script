@@ -286,3 +286,125 @@ fn parse_if_condition_allows_parenthesized_struct_literal() {
 
     assert_eq!(inner_node.kind(), SyntaxNodeKind::StructLiteral);
 }
+
+#[test]
+fn parse_struct_literal_field_shorthand() {
+    let source = source("fn main(): null {\n  const user = User {\n    name,\n  }\n  return\n}");
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+
+    let root = syntax.root().unwrap();
+    let function = syntax.node(root).unwrap().children()[0];
+    let function_node = syntax.node(function).unwrap();
+
+    let body = function_node.children()[3];
+    let body_node = syntax.node(body).unwrap();
+
+    let statement = body_node.children()[0];
+    let statement_node = syntax.node(statement).unwrap();
+
+    let initializer = statement_node.children()[1];
+    let initializer_node = syntax.node(initializer).unwrap();
+
+    let expression = initializer_node.children()[0];
+    let expression_node = syntax.node(expression).unwrap();
+
+    let fields = expression_node.children()[1];
+    let fields_node = syntax.node(fields).unwrap();
+
+    let field = fields_node.children()[0];
+    let field_node = syntax.node(field).unwrap();
+
+    assert_eq!(
+        field_node.kind(),
+        SyntaxNodeKind::StructLiteralFieldShorthand
+    );
+
+    assert_eq!(source.slice(field_node.span()), Some("name"));
+    assert_eq!(field_node.children().len(), 1);
+
+    let name = field_node.children()[0];
+
+    assert_eq!(
+        source.slice(syntax.node(name).unwrap().span()),
+        Some("name")
+    );
+}
+
+#[test]
+fn parse_struct_literal_mixed_shorthand_and_named_fields() {
+    let source = source(
+        "fn main(): null {\n  const user = User {\n    name,\n    age: 32,\n  }\n  return\n}",
+    );
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+
+    let root = syntax.root().unwrap();
+    let function = syntax.node(root).unwrap().children()[0];
+    let function_node = syntax.node(function).unwrap();
+
+    let body = function_node.children()[3];
+    let body_node = syntax.node(body).unwrap();
+
+    let statement = body_node.children()[0];
+    let statement_node = syntax.node(statement).unwrap();
+
+    let initializer = statement_node.children()[1];
+    let initializer_node = syntax.node(initializer).unwrap();
+
+    let expression = initializer_node.children()[0];
+    let expression_node = syntax.node(expression).unwrap();
+
+    let fields = expression_node.children()[1];
+    let fields_node = syntax.node(fields).unwrap();
+
+    assert_eq!(fields_node.children().len(), 2);
+
+    let first = fields_node.children()[0];
+    let second = fields_node.children()[1];
+
+    assert_eq!(
+        syntax.node(first).unwrap().kind(),
+        SyntaxNodeKind::StructLiteralFieldShorthand
+    );
+
+    assert_eq!(
+        syntax.node(second).unwrap().kind(),
+        SyntaxNodeKind::StructLiteralField
+    );
+
+    assert_eq!(
+        source.slice(syntax.node(first).unwrap().span()),
+        Some("name")
+    );
+    assert_eq!(
+        source.slice(syntax.node(second).unwrap().span()),
+        Some("age: 32")
+    );
+}
+
+#[test]
+fn parse_struct_literal_shorthand_requires_comma_between_fields() {
+    let source =
+        source("fn main(): null {\n  const user = User {\n    name\n    age,\n  }\n  return\n}");
+
+    let result = parse(&source);
+
+    assert!(result.has_errors());
+
+    let diagnostic = result
+        .diagnostics()
+        .iter()
+        .find(|diagnostic| diagnostic.message() == "expected `Comma`, found `Identifier`")
+        .expect("missing comma diagnostic");
+
+    assert_eq!(diagnostic.code().as_str(), "P0001");
+}
