@@ -206,4 +206,76 @@ impl Parser {
 
         false
     }
+
+    pub(super) fn at_type_argument_close(&self) -> bool {
+        matches!(
+            self.current().kind(),
+            TokenKind::Greater
+                | TokenKind::ShiftRight
+                | TokenKind::GreaterEqual
+                | TokenKind::ShiftRightEqual
+        )
+    }
+
+    pub(super) fn split_current_type_argument_close(&mut self) {
+        let token = self.current().clone();
+        let span = token.span();
+
+        let source_id = span.source_id();
+        let start = span.start();
+        let end = span.end();
+
+        match token.kind() {
+            TokenKind::ShiftRight => {
+                self.tokens[self.position] =
+                    Token::new(TokenKind::Greater, Span::new(source_id, start, start + 1));
+
+                self.tokens.insert(
+                    self.position + 1,
+                    Token::new(TokenKind::Greater, Span::new(source_id, start + 1, end)),
+                );
+            }
+
+            TokenKind::GreaterEqual => {
+                self.tokens[self.position] =
+                    Token::new(TokenKind::Greater, Span::new(source_id, start, start + 1));
+
+                self.tokens.insert(
+                    self.position + 1,
+                    Token::new(TokenKind::Equal, Span::new(source_id, start + 1, end)),
+                );
+            }
+
+            TokenKind::ShiftRightEqual => {
+                self.tokens[self.position] =
+                    Token::new(TokenKind::Greater, Span::new(source_id, start, start + 1));
+
+                self.tokens.insert(
+                    self.position + 1,
+                    Token::new(
+                        TokenKind::Greater,
+                        Span::new(source_id, start + 1, start + 2),
+                    ),
+                );
+
+                self.tokens.insert(
+                    self.position + 2,
+                    Token::new(TokenKind::Equal, Span::new(source_id, start + 2, end)),
+                );
+            }
+
+            _ => {}
+        }
+    }
+
+    pub(super) fn expect_type_argument_close(&mut self) -> Option<Token> {
+        if matches!(
+            self.current().kind(),
+            TokenKind::ShiftRight | TokenKind::GreaterEqual | TokenKind::ShiftRightEqual
+        ) {
+            self.split_current_type_argument_close();
+        }
+
+        self.expect(TokenKind::Greater)
+    }
 }

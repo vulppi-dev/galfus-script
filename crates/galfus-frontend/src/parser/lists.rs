@@ -461,4 +461,56 @@ impl Parser {
 
         Some(self.add_node(SyntaxNodeKind::InstanceofArmList, span, arms))
     }
+
+    pub(super) fn parse_type_argument_list(&mut self) -> Option<NodeId> {
+        let left = self.expect(TokenKind::Less)?;
+
+        let mut arguments = Vec::new();
+
+        self.skip_newlines();
+
+        while !self.is_eof() && !self.at_type_argument_close() {
+            let start_position = self.position;
+
+            if let Some(argument) = self.parse_type() {
+                arguments.push(argument);
+            }
+
+            self.skip_newlines();
+
+            if self.at_type_argument_close() {
+                break;
+            }
+
+            if self.at(&TokenKind::Comma) {
+                self.bump();
+
+                self.skip_newlines();
+
+                if self.at_type_argument_close() {
+                    break;
+                }
+
+                continue;
+            }
+
+            let found = self.current().clone();
+
+            self.graph.push_diagnostic(Diagnostic::error_with_message(
+                ParserDiagnosticCode::ExpectedToken,
+                format!("expected `Comma`, found `{:?}`", found.kind()),
+                found.span(),
+            ));
+
+            if self.position == start_position {
+                self.bump();
+            }
+        }
+
+        let right = self.expect_type_argument_close()?;
+
+        let span = Span::cover(left.span(), right.span()).unwrap_or(left.span());
+
+        Some(self.add_node(SyntaxNodeKind::TypeArgumentList, span, arguments))
+    }
 }

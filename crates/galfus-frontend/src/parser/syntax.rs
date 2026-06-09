@@ -47,7 +47,13 @@ impl Parser {
             let identifier = self.parse_identifier()?;
             let span = self.node_span(identifier);
 
-            return Some(self.add_node(SyntaxNodeKind::TypeName, span, vec![identifier]));
+            let type_name = self.add_node(SyntaxNodeKind::TypeName, span, vec![identifier]);
+
+            if self.at(&TokenKind::Less) {
+                return self.parse_generic_type(type_name);
+            }
+
+            return Some(type_name);
         }
 
         let found = self.bump();
@@ -418,5 +424,14 @@ impl Parser {
         let span = Span::cover(weak_token.span(), end_span).unwrap_or(weak_token.span());
 
         Some(self.add_node(SyntaxNodeKind::WeakStructField, span, children))
+    }
+
+    pub(super) fn parse_generic_type(&mut self, base: NodeId) -> Option<NodeId> {
+        let arguments = self.parse_type_argument_list()?;
+
+        let span = Span::cover(self.node_span(base), self.node_span(arguments))
+            .unwrap_or_else(|| self.node_span(base));
+
+        Some(self.add_node(SyntaxNodeKind::GenericType, span, vec![base, arguments]))
     }
 }

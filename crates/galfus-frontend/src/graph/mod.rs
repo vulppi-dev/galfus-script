@@ -229,10 +229,12 @@ pub enum SyntaxNodeKind {
     LiteralPattern,
     RegexPattern,
 
-    TypeAnnotation,
     Initializer,
+    TypeAnnotation,
     TypeNull,
     TypeName,
+    GenericType,
+    TypeArgumentList,
     ArrayType,
     FixedArrayType,
     ArraySize,
