@@ -19,7 +19,7 @@ impl Parser {
         }
 
         if self.can_start_expression() {
-            return self.parse_expression_statement();
+            return self.parse_expression_or_assignment_statement();
         }
 
         let found = self.bump();
@@ -125,8 +125,7 @@ impl Parser {
         ));
     }
 
-    pub(super) fn parse_expression_statement(&mut self) -> Option<NodeId> {
-        let expression = self.parse_expression()?;
+    pub(super) fn parse_expression_statement_from(&mut self, expression: NodeId) -> Option<NodeId> {
         let span = self.node_span(expression);
 
         if !self.expression_can_be_statement(expression) {
@@ -150,6 +149,16 @@ impl Parser {
         self.expect_statement_end();
 
         Some(self.add_node(SyntaxNodeKind::ExpressionStatement, span, vec![expression]))
+    }
+
+    pub(super) fn parse_expression_or_assignment_statement(&mut self) -> Option<NodeId> {
+        let expression = self.parse_expression()?;
+
+        if Self::is_assignment_operator(self.current().kind()) {
+            return self.parse_assignment_statement(expression);
+        }
+
+        self.parse_expression_statement_from(expression)
     }
 
     pub(super) fn parse_if_statement(&mut self) -> Option<NodeId> {
@@ -194,5 +203,52 @@ impl Parser {
             Span::cover(else_token.span(), self.node_span(child)).unwrap_or(else_token.span());
 
         Some(self.add_node(SyntaxNodeKind::ElseClause, span, vec![child]))
+    }
+
+    pub(super) fn parse_assignment_statement(&mut self, target: NodeId) -> Option<NodeId> {
+        let target_span = self.node_span(target);
+
+        if !self.expression_can_be_assignment_target(target) {
+            let target_kind = self
+                .graph
+                .syntax()
+                .node(target)
+                .expect("target expression node must exist")
+                .kind();
+
+            self.graph.push_diagnostic(Diagnostic::error_with_message(
+                ParserDiagnosticCode::ExpectedStatement,
+                format!("invalid assignment target `{:?}`", target_kind),
+                target_span,
+            ));
+        }
+
+        let operator_token = if Self::is_assignment_operator(self.current().kind()) {
+            self.bump()
+        } else {
+            self.expect(TokenKind::Equal)?
+        };
+
+        let operator = self.add_node(
+            SyntaxNodeKind::AssignmentOperator,
+            operator_token.span(),
+            Vec::new(),
+        );
+
+        self.skip_newlines();
+
+        let value = self.parse_expression()?;
+
+        let end_span = self.node_span(value);
+
+        self.expect_statement_end();
+
+        let span = Span::cover(target_span, end_span).unwrap_or(target_span);
+
+        Some(self.add_node(
+            SyntaxNodeKind::AssignmentStatement,
+            span,
+            vec![target, operator, value],
+        ))
     }
 }

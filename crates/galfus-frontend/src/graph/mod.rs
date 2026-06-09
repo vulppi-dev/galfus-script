@@ -227,9 +227,11 @@ pub enum SyntaxNodeKind {
     GroupedExpression,
     UnaryExpression,
     BinaryExpression,
+    AssignmentStatement,
 
     UnaryOperator,
     BinaryOperator,
+    AssignmentOperator,
 
     IntegerLiteral,
     FloatLiteral,

@@ -232,6 +232,35 @@ impl Parser {
     fn is_unary_operator(kind: &TokenKind) -> bool {
         matches!(kind, TokenKind::Minus | TokenKind::Bang | TokenKind::Tilde)
     }
+
+    fn is_assignment_operator(kind: &TokenKind) -> bool {
+        matches!(
+            kind,
+            TokenKind::Equal
+                | TokenKind::PlusEqual
+                | TokenKind::MinusEqual
+                | TokenKind::StarEqual
+                | TokenKind::SlashEqual
+                | TokenKind::PercentEqual
+                | TokenKind::StarStarEqual
+                | TokenKind::AmpEqual
+                | TokenKind::PipeEqual
+                | TokenKind::CaretEqual
+                | TokenKind::ShiftLeftEqual
+                | TokenKind::ShiftRightEqual
+        )
+    }
+
+    fn expression_can_be_assignment_target(&self, expression: NodeId) -> bool {
+        let Some(node) = self.graph.syntax().node(expression) else {
+            return false;
+        };
+
+        matches!(
+            node.kind(),
+            SyntaxNodeKind::NameExpression | SyntaxNodeKind::MemberExpression
+        )
+    }
 }
 
 pub fn parse(source: &SourceFile) -> ParseResult {

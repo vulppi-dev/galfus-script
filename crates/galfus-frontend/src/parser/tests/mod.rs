@@ -1,8 +1,10 @@
 use super::*;
 use galfus_core::{SourceFile, SourceId};
 
+mod assignment_statements;
 mod binary;
 mod calls_members;
+mod compound_assignment_statements;
 mod core;
 mod expression_statements;
 mod functions;
