@@ -36,6 +36,10 @@ impl Parser {
     }
 
     pub(super) fn parse_array_element(&mut self) -> Option<NodeId> {
+        if self.at(&TokenKind::DotDotDot) {
+            return self.parse_spread_array_element();
+        }
+
         let expression = self.parse_expression()?;
         let span = self.node_span(expression);
 

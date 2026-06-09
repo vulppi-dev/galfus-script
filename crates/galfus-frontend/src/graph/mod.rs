@@ -248,12 +248,14 @@ pub enum SyntaxNodeKind {
     BinaryOperator,
     AssignmentOperator,
 
-    ArrayElement,
     ArrayLiteral,
+    ArrayElement,
     StructLiteral,
     StructLiteralFieldList,
     StructLiteralField,
     StructLiteralFieldShorthand,
+    SpreadArgument,
+    SpreadArrayElement,
 
     IntegerLiteral,
     FloatLiteral,
