@@ -256,15 +256,30 @@ impl Parser {
 
     pub(super) fn parse_struct_field(&mut self) -> Option<NodeId> {
         let name = self.parse_identifier()?;
+        let name_span = self.node_span(name);
+
+        self.skip_newlines();
 
         self.expect(TokenKind::Colon)?;
 
+        self.skip_newlines();
+
         let field_type = self.parse_type()?;
 
-        let span = Span::cover(self.node_span(name), self.node_span(field_type))
-            .unwrap_or_else(|| self.node_span(name));
+        let mut children = vec![name, field_type];
+        let mut end_span = self.node_span(field_type);
 
-        Some(self.add_node(SyntaxNodeKind::StructField, span, vec![name, field_type]))
+        self.skip_newlines();
+
+        if self.at(&TokenKind::Equal) {
+            let default = self.parse_struct_field_default()?;
+            end_span = self.node_span(default);
+            children.push(default);
+        }
+
+        let span = Span::cover(name_span, end_span).unwrap_or(name_span);
+
+        Some(self.add_node(SyntaxNodeKind::StructField, span, children))
     }
 
     pub(super) fn parse_enum_variant(&mut self) -> Option<NodeId> {

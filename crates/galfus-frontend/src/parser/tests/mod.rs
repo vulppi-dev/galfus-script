@@ -16,6 +16,7 @@ mod grouping_unary;
 mod if_statements;
 mod imports_exports;
 mod index_expressions;
+mod inferred_struct_literals;
 mod loop_statements;
 mod match_statements;
 mod rest_parameters;

@@ -185,6 +185,7 @@ pub enum SyntaxNodeKind {
 
     StructFieldList,
     StructField,
+    StructFieldDefault,
 
     EnumVariantList,
     EnumVariant,
@@ -256,6 +257,7 @@ pub enum SyntaxNodeKind {
     StructLiteralFieldList,
     StructLiteralField,
     StructLiteralFieldShorthand,
+    InferredStructLiteral,
     SpreadArgument,
     SpreadArrayElement,
 

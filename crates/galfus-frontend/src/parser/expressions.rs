@@ -38,6 +38,10 @@ impl Parser {
             return self.parse_array_literal();
         }
 
+        if self.at(&TokenKind::Struct) {
+            return self.parse_inferred_struct_literal();
+        }
+
         if self.at(&TokenKind::Integer) {
             return self.parse_integer_literal();
         }
@@ -312,5 +316,18 @@ impl Parser {
             .unwrap_or(spread_token.span());
 
         Some(self.add_node(SyntaxNodeKind::SpreadArrayElement, span, vec![expression]))
+    }
+
+    pub(super) fn parse_inferred_struct_literal(&mut self) -> Option<NodeId> {
+        let struct_token = self.expect(TokenKind::Struct)?;
+
+        self.skip_newlines();
+
+        let fields = self.parse_struct_literal_field_list()?;
+
+        let span =
+            Span::cover(struct_token.span(), self.node_span(fields)).unwrap_or(struct_token.span());
+
+        Some(self.add_node(SyntaxNodeKind::InferredStructLiteral, span, vec![fields]))
     }
 }

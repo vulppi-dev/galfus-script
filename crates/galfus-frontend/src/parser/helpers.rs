@@ -4,18 +4,19 @@ impl Parser {
     pub(super) fn can_start_expression(&self) -> bool {
         matches!(
             self.current().kind(),
-            TokenKind::Minus
-                | TokenKind::Bang
-                | TokenKind::Tilde
-                | TokenKind::LeftParen
-                | TokenKind::LeftBracket
+            TokenKind::Identifier
                 | TokenKind::Integer
                 | TokenKind::Float
                 | TokenKind::String
                 | TokenKind::True
                 | TokenKind::False
                 | TokenKind::Null
-                | TokenKind::Identifier
+                | TokenKind::LeftParen
+                | TokenKind::LeftBracket
+                | TokenKind::Struct
+                | TokenKind::Minus
+                | TokenKind::Bang
+                | TokenKind::Tilde
         )
     }
 

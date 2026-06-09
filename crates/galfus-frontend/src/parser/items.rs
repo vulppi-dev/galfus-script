@@ -121,4 +121,16 @@ impl Parser {
 
         Some(self.add_node(SyntaxNodeKind::ChoiceItem, span, vec![name, variants]))
     }
+
+    pub(super) fn parse_struct_field_default(&mut self) -> Option<NodeId> {
+        let equal = self.expect(TokenKind::Equal)?;
+
+        self.skip_newlines();
+
+        let value = self.parse_expression()?;
+
+        let span = Span::cover(equal.span(), self.node_span(value)).unwrap_or(equal.span());
+
+        Some(self.add_node(SyntaxNodeKind::StructFieldDefault, span, vec![value]))
+    }
 }
