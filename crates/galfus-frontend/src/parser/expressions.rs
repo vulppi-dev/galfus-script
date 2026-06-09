@@ -17,6 +17,10 @@ impl Parser {
             return self.parse_grouped_expression();
         }
 
+        if self.at(&TokenKind::LeftBracket) {
+            return self.parse_array_literal();
+        }
+
         if self.at(&TokenKind::Integer) {
             return self.parse_integer_literal();
         }
@@ -274,5 +278,63 @@ impl Parser {
             .unwrap_or_else(|| self.node_span(target));
 
         Some(self.add_node(SyntaxNodeKind::IndexExpression, span, vec![target, index]))
+    }
+
+    pub(super) fn parse_array_element(&mut self) -> Option<NodeId> {
+        let expression = self.parse_expression()?;
+        let span = self.node_span(expression);
+
+        Some(self.add_node(SyntaxNodeKind::ArrayElement, span, vec![expression]))
+    }
+
+    pub(super) fn parse_array_literal(&mut self) -> Option<NodeId> {
+        let left = self.expect(TokenKind::LeftBracket)?;
+
+        let mut elements = Vec::new();
+
+        self.skip_newlines();
+
+        while !self.is_eof() && !self.at(&TokenKind::RightBracket) {
+            let start_position = self.position;
+
+            if let Some(element) = self.parse_array_element() {
+                elements.push(element);
+            }
+
+            self.skip_newlines();
+
+            if self.at(&TokenKind::RightBracket) {
+                break;
+            }
+
+            if self.at(&TokenKind::Comma) {
+                self.bump();
+                self.skip_newlines();
+
+                if self.at(&TokenKind::RightBracket) {
+                    break;
+                }
+
+                continue;
+            }
+
+            let found = self.current().clone();
+
+            self.graph.push_diagnostic(Diagnostic::error_with_message(
+                ParserDiagnosticCode::ExpectedToken,
+                format!("expected `Comma`, found `{:?}`", found.kind()),
+                found.span(),
+            ));
+
+            if self.position == start_position {
+                self.bump();
+            }
+        }
+
+        let right = self.expect(TokenKind::RightBracket)?;
+
+        let span = Span::cover(left.span(), right.span()).unwrap_or(left.span());
+
+        Some(self.add_node(SyntaxNodeKind::ArrayLiteral, span, elements))
     }
 }

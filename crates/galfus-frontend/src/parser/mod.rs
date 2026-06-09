@@ -169,6 +169,7 @@ impl Parser {
                 | TokenKind::Bang
                 | TokenKind::Tilde
                 | TokenKind::LeftParen
+                | TokenKind::LeftBracket
                 | TokenKind::Integer
                 | TokenKind::Float
                 | TokenKind::String

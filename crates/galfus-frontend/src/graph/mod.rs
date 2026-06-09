@@ -217,8 +217,8 @@ pub enum SyntaxNodeKind {
 
     Identifier,
 
-    ArgumentList,
     Argument,
+    ArgumentList,
 
     CallExpression,
     NameExpression,
@@ -233,6 +233,12 @@ pub enum SyntaxNodeKind {
     UnaryOperator,
     BinaryOperator,
     AssignmentOperator,
+
+    ArrayElement,
+    ArrayLiteral,
+    StructLiteral,
+    StructLiteralFieldList,
+    StructLiteralField,
 
     IntegerLiteral,
     FloatLiteral,
