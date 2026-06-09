@@ -21,6 +21,7 @@ mod inferred_struct_literals;
 mod instanceof_statement;
 mod loop_statements;
 mod match_statements;
+mod regex_literals;
 mod rest_parameters;
 mod spread_expressions;
 mod statements;

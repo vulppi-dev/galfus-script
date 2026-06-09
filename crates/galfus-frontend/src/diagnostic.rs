@@ -7,6 +7,7 @@ pub enum LexicalDiagnosticCode {
     UnterminatedMultilineStringLiteral,
     UnknownCharacter,
     InvalidNumericSeparator,
+    UnterminatedRegexpLiteral,
 }
 
 impl DiagnosticCodeKind for LexicalDiagnosticCode {
@@ -17,6 +18,7 @@ impl DiagnosticCodeKind for LexicalDiagnosticCode {
             Self::UnterminatedMultilineStringLiteral => "L0003",
             Self::UnknownCharacter => "L0004",
             Self::InvalidNumericSeparator => "L0005",
+            Self::UnterminatedRegexpLiteral => "L0006",
         }
     }
 
@@ -27,6 +29,7 @@ impl DiagnosticCodeKind for LexicalDiagnosticCode {
             Self::UnterminatedMultilineStringLiteral => "unterminated multiline string literal",
             Self::UnknownCharacter => "unknown character",
             Self::InvalidNumericSeparator => "invalid numeric separator",
+            Self::UnterminatedRegexpLiteral => "unterminated regexp literal",
         }
     }
 }

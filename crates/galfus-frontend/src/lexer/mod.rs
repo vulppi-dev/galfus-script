@@ -55,6 +55,7 @@ pub struct Lexer<'a> {
     text: &'a str,
     offset: u32,
     diagnostics: DiagnosticBag,
+    previous_significant_kind: Option<TokenKind>,
 }
 
 impl<'a> Lexer<'a> {
@@ -64,6 +65,7 @@ impl<'a> Lexer<'a> {
             text: source.text(),
             offset: 0,
             diagnostics: DiagnosticBag::new(),
+            previous_significant_kind: None,
         }
     }
 
@@ -73,6 +75,40 @@ impl<'a> Lexer<'a> {
 
     pub fn into_diagnostics(self) -> DiagnosticBag {
         self.diagnostics
+    }
+
+    fn make_token(&mut self, kind: TokenKind, span: Span) -> Token {
+        if Self::is_significant_for_regex(&kind) {
+            self.previous_significant_kind = Some(kind.clone());
+        }
+
+        Token::new(kind, span)
+    }
+
+    fn is_significant_for_regex(kind: &TokenKind) -> bool {
+        !matches!(
+            kind,
+            TokenKind::Newline | TokenKind::Unknown | TokenKind::Eof
+        )
+    }
+
+    fn can_start_regex_literal(&self) -> bool {
+        match self.previous_significant_kind.as_ref() {
+            None => true,
+
+            Some(TokenKind::LeftParen)
+            | Some(TokenKind::LeftBracket)
+            | Some(TokenKind::LeftBrace)
+            | Some(TokenKind::Comma)
+            | Some(TokenKind::Colon)
+            | Some(TokenKind::Equal)
+            | Some(TokenKind::Arrow)
+            | Some(TokenKind::Return)
+            | Some(TokenKind::Match)
+            | Some(TokenKind::Instanceof) => true,
+
+            _ => false,
+        }
     }
 }
 

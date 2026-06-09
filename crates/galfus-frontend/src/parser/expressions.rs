@@ -58,6 +58,10 @@ impl Parser {
             return self.parse_string_literal();
         }
 
+        if self.at(&TokenKind::Regex) {
+            return self.parse_regex_literal();
+        }
+
         if self.at(&TokenKind::True) || self.at(&TokenKind::False) {
             return self.parse_bool_literal();
         }

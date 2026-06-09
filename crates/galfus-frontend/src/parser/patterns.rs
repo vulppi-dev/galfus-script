@@ -6,6 +6,10 @@ use super::Parser;
 
 impl Parser {
     pub(super) fn parse_pattern(&mut self) -> Option<NodeId> {
+        if self.at(&TokenKind::Regex) {
+            return self.parse_regex_pattern();
+        }
+
         if self.at(&TokenKind::Integer)
             || self.at(&TokenKind::Float)
             || self.at(&TokenKind::String)
@@ -208,5 +212,12 @@ impl Parser {
         }
 
         self.parse_type_pattern()
+    }
+
+    pub(super) fn parse_regex_pattern(&mut self) -> Option<NodeId> {
+        let regex = self.parse_regex_literal()?;
+        let span = self.node_span(regex);
+
+        Some(self.add_node(SyntaxNodeKind::RegexPattern, span, vec![regex]))
     }
 }

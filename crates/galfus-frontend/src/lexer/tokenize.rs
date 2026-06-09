@@ -7,29 +7,29 @@ impl Lexer<'_> {
         let start = self.offset;
 
         if self.is_eof() {
-            return Token::new(TokenKind::Eof, Span::empty(self.source.id(), start));
+            return self.make_token(TokenKind::Eof, Span::empty(self.source.id(), start));
         }
 
         let ch = self.bump().expect("lexer offset should not be EOF");
 
         if Self::is_identifier_start(ch) {
             let kind = self.lex_identifier(start);
-            return Token::new(kind, Span::new(self.source.id(), start, self.offset));
+            return self.make_token(kind, Span::new(self.source.id(), start, self.offset));
         }
 
         if Self::is_decimal_digit(ch) {
             let kind = self.lex_number(start);
-            return Token::new(kind, Span::new(self.source.id(), start, self.offset));
+            return self.make_token(kind, Span::new(self.source.id(), start, self.offset));
         }
 
         if ch == '"' || ch == '\'' {
             let kind = self.lex_string(start, ch);
-            return Token::new(kind, Span::new(self.source.id(), start, self.offset));
+            return self.make_token(kind, Span::new(self.source.id(), start, self.offset));
         }
 
         if ch == '`' {
             let kind = self.lex_multiline_string(start);
-            return Token::new(kind, Span::new(self.source.id(), start, self.offset));
+            return self.make_token(kind, Span::new(self.source.id(), start, self.offset));
         }
 
         let kind = match ch {
@@ -109,6 +109,20 @@ impl Lexer<'_> {
             }
 
             '/' => {
+                if self.peek_next() == Some('/') {
+                    self.skip_line_comment();
+                    return self.next_token();
+                }
+
+                if self.peek_next() == Some('*') {
+                    self.skip_block_comment();
+                    return self.next_token();
+                }
+
+                if self.can_start_regex_literal() {
+                    return self.lex_regex_literal(start);
+                }
+
                 if self.match_char('=') {
                     TokenKind::SlashEqual
                 } else {
@@ -221,6 +235,66 @@ impl Lexer<'_> {
             }
         };
 
-        Token::new(kind, Span::new(self.source.id(), start, self.offset))
+        self.make_token(kind, Span::new(self.source.id(), start, self.offset))
+    }
+
+    fn lex_regex_literal(&mut self, start: u32) -> Token {
+        self.bump(); // /
+
+        let mut escaped = false;
+        let mut in_class = false;
+
+        while let Some(ch) = self.peek() {
+            if ch == '\n' || ch == '\r' {
+                let span = Span::new(self.source.id(), start, self.offset);
+
+                self.diagnostics.push(Diagnostic::error(
+                    LexicalDiagnosticCode::UnterminatedRegexpLiteral,
+                    span,
+                ));
+
+                return self.make_token(TokenKind::Regex, span);
+            }
+
+            if escaped {
+                escaped = false;
+                self.bump();
+                continue;
+            }
+
+            match ch {
+                '\\' => {
+                    escaped = true;
+                    self.bump();
+                }
+                '[' => {
+                    in_class = true;
+                    self.bump();
+                }
+                ']' => {
+                    in_class = false;
+                    self.bump();
+                }
+                '/' if !in_class => {
+                    self.bump();
+                    break;
+                }
+                _ => {
+                    self.bump();
+                }
+            }
+        }
+
+        while let Some(ch) = self.peek() {
+            if ch.is_ascii_alphabetic() {
+                self.bump();
+            } else {
+                break;
+            }
+        }
+
+        let span = Span::new(self.source.id(), start, self.offset);
+
+        self.make_token(TokenKind::Regex, span)
     }
 }

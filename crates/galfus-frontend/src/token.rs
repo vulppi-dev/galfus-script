@@ -32,6 +32,7 @@ pub enum TokenKind {
     Integer,
     Float,
     String,
+    Regex,
 
     // Keywords
     Import,

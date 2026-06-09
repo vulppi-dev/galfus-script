@@ -226,6 +226,7 @@ pub enum SyntaxNodeKind {
     VariantPattern,
     VariantPatternPayload,
     LiteralPattern,
+    RegexPattern,
 
     TypeAnnotation,
     Initializer,
@@ -272,4 +273,5 @@ pub enum SyntaxNodeKind {
     BoolLiteral,
     NullLiteral,
     StringLiteral,
+    RegexLiteral,
 }
