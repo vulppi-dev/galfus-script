@@ -68,6 +68,11 @@ impl Parser {
                 continue;
             }
 
+            if self.at(&TokenKind::LeftBracket) {
+                expression = self.parse_index_expression(expression)?;
+                continue;
+            }
+
             if self.at(&TokenKind::LeftParen) {
                 expression = self.parse_call_expression(expression)?;
                 continue;
@@ -238,5 +243,36 @@ impl Parser {
 
             _ => false,
         }
+    }
+
+    pub(super) fn parse_index_expression(&mut self, target: NodeId) -> Option<NodeId> {
+        let left = self.expect(TokenKind::LeftBracket)?;
+
+        self.skip_newlines();
+
+        if self.at(&TokenKind::RightBracket) {
+            let found = self.current().clone();
+
+            self.graph.push_diagnostic(Diagnostic::error_with_message(
+                ParserDiagnosticCode::UnexpectedToken,
+                "expected expression, found `RightBracket`",
+                found.span(),
+            ));
+
+            return None;
+        }
+
+        let index = self.parse_expression()?;
+
+        self.skip_newlines();
+
+        let right = self.expect(TokenKind::RightBracket)?;
+        let target_span = self.node_span(target);
+
+        let span = Span::cover(target_span, right.span())
+            .or_else(|| Span::cover(target_span, left.span()))
+            .unwrap_or_else(|| self.node_span(target));
+
+        Some(self.add_node(SyntaxNodeKind::IndexExpression, span, vec![target, index]))
     }
 }

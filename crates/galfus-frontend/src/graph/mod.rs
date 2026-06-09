@@ -224,6 +224,7 @@ pub enum SyntaxNodeKind {
     NameExpression,
     MemberExpression,
     AnchorExpression,
+    IndexExpression,
     GroupedExpression,
     UnaryExpression,
     BinaryExpression,

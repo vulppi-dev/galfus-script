@@ -11,6 +11,7 @@ mod functions;
 mod grouping_unary;
 mod if_statements;
 mod imports_exports;
+mod index_expressions;
 mod statements;
 mod structs_choices;
 mod types;

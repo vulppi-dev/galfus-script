@@ -184,6 +184,7 @@ impl Parser {
             kind,
             TokenKind::Dot
                 | TokenKind::ColonColon
+                | TokenKind::LeftBracket
                 | TokenKind::Plus
                 | TokenKind::Minus
                 | TokenKind::Star
@@ -258,7 +259,9 @@ impl Parser {
 
         matches!(
             node.kind(),
-            SyntaxNodeKind::NameExpression | SyntaxNodeKind::MemberExpression
+            SyntaxNodeKind::NameExpression
+                | SyntaxNodeKind::MemberExpression
+                | SyntaxNodeKind::IndexExpression
         )
     }
 }
