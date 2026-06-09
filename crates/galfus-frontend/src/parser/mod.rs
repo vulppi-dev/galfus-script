@@ -441,6 +441,10 @@ impl Parser {
             return self.parse_const_statement();
         }
 
+        if self.can_start_expression() {
+            return self.parse_expression_statement();
+        }
+
         let found = self.bump();
 
         self.graph.push_diagnostic(Diagnostic::error_with_message(
@@ -542,6 +546,33 @@ impl Parser {
             format!("expected statement terminator, found `{:?}`", found.kind()),
             found.span(),
         ));
+    }
+
+    fn parse_expression_statement(&mut self) -> Option<NodeId> {
+        let expression = self.parse_expression()?;
+        let span = self.node_span(expression);
+
+        if !self.expression_can_be_statement(expression) {
+            let expression_kind = self
+                .graph
+                .syntax()
+                .node(expression)
+                .expect("expression node must exist")
+                .kind();
+
+            self.graph.push_diagnostic(Diagnostic::error_with_message(
+                ParserDiagnosticCode::ExpectedStatement,
+                format!(
+                    "expected call expression statement, found `{:?}`",
+                    expression_kind
+                ),
+                span,
+            ));
+        }
+
+        self.expect_statement_end();
+
+        Some(self.add_node(SyntaxNodeKind::ExpressionStatement, span, vec![expression]))
     }
 
     // MARK: Literals
@@ -1094,6 +1125,25 @@ impl Parser {
         }
 
         self.parse_postfix_expression()
+    }
+
+    fn expression_can_be_statement(&self, expression: NodeId) -> bool {
+        let Some(node) = self.graph.syntax().node(expression) else {
+            return false;
+        };
+
+        match node.kind() {
+            SyntaxNodeKind::CallExpression => true,
+
+            SyntaxNodeKind::GroupedExpression => node
+                .children()
+                .first()
+                .copied()
+                .map(|child| self.expression_can_be_statement(child))
+                .unwrap_or(false),
+
+            _ => false,
+        }
     }
 
     // MARK: Others

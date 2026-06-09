@@ -200,6 +200,7 @@ pub enum SyntaxNodeKind {
     ReturnStatement,
     VarStatement,
     ConstStatement,
+    ExpressionStatement,
     TypeAnnotation,
     Initializer,
 
