@@ -198,11 +198,15 @@ pub enum SyntaxNodeKind {
 
     Block,
     ReturnStatement,
+    BreakStatement,
+    ContinueStatement,
     VarStatement,
     ConstStatement,
     ExpressionStatement,
     IfStatement,
     ElseClause,
+    ForStatement,
+    ForBinding,
     TypeAnnotation,
     Initializer,
 

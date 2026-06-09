@@ -11,7 +11,7 @@ impl Parser {
         self.parse_expression_with_boundary(ExpressionBoundary::None)
     }
 
-    pub(super) fn parse_condition_expression(&mut self) -> Option<NodeId> {
+    pub(super) fn parse_expression_before_block(&mut self) -> Option<NodeId> {
         self.parse_expression_with_boundary(ExpressionBoundary::BeforeBlock)
     }
 

@@ -6,6 +6,14 @@ impl Parser {
             return self.parse_return_statement();
         }
 
+        if self.at(&TokenKind::Break) {
+            return self.parse_break_statement();
+        }
+
+        if self.at(&TokenKind::Continue) {
+            return self.parse_continue_statement();
+        }
+
         if self.at(&TokenKind::Var) {
             return self.parse_var_statement();
         }
@@ -16,6 +24,10 @@ impl Parser {
 
         if self.at(&TokenKind::If) {
             return self.parse_if_statement();
+        }
+
+        if self.at(&TokenKind::For) {
+            return self.parse_for_statement();
         }
 
         if self.can_start_expression() {
@@ -166,7 +178,7 @@ impl Parser {
 
         self.skip_newlines();
 
-        let condition = self.parse_condition_expression()?;
+        let condition = self.parse_expression_before_block()?;
 
         self.skip_newlines();
 
@@ -249,6 +261,65 @@ impl Parser {
             SyntaxNodeKind::AssignmentStatement,
             span,
             vec![target, operator, value],
+        ))
+    }
+
+    pub(super) fn parse_for_binding(&mut self) -> Option<NodeId> {
+        let name = self.parse_identifier()?;
+        let span = self.node_span(name);
+
+        Some(self.add_node(SyntaxNodeKind::ForBinding, span, vec![name]))
+    }
+
+    pub(super) fn parse_for_statement(&mut self) -> Option<NodeId> {
+        let for_token = self.expect(TokenKind::For)?;
+
+        self.skip_newlines();
+
+        let binding = self.parse_for_binding()?;
+
+        self.skip_newlines();
+
+        self.expect(TokenKind::In)?;
+
+        self.skip_newlines();
+
+        let iterable = self.parse_expression_before_block()?;
+
+        self.skip_newlines();
+
+        let body = self.parse_block()?;
+
+        let span = Span::cover(for_token.span(), self.node_span(body)).unwrap_or(for_token.span());
+
+        Some(self.add_node(
+            SyntaxNodeKind::ForStatement,
+            span,
+            vec![binding, iterable, body],
+        ))
+    }
+
+    pub(super) fn parse_break_statement(&mut self) -> Option<NodeId> {
+        let break_token = self.expect(TokenKind::Break)?;
+
+        self.expect_statement_end();
+
+        Some(self.add_node(
+            SyntaxNodeKind::BreakStatement,
+            break_token.span(),
+            Vec::new(),
+        ))
+    }
+
+    pub(super) fn parse_continue_statement(&mut self) -> Option<NodeId> {
+        let continue_token = self.expect(TokenKind::Continue)?;
+
+        self.expect_statement_end();
+
+        Some(self.add_node(
+            SyntaxNodeKind::ContinueStatement,
+            continue_token.span(),
+            Vec::new(),
         ))
     }
 }
