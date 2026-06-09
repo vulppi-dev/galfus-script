@@ -98,6 +98,40 @@ impl Parser {
         Some(self.add_node(SyntaxNodeKind::Parameter, span, vec![name, parameter_type]))
     }
 
+    pub(super) fn parse_rest_parameter(&mut self) -> Option<NodeId> {
+        let spread_token = self.expect(TokenKind::DotDotDot)?;
+
+        self.skip_newlines();
+
+        let name = self.parse_identifier()?;
+
+        self.skip_newlines();
+
+        let colon = self.expect(TokenKind::Colon)?;
+
+        self.skip_newlines();
+
+        let parameter_type = self.parse_type()?;
+
+        let type_span =
+            Span::cover(colon.span(), self.node_span(parameter_type)).unwrap_or(colon.span());
+
+        let type_annotation = self.add_node(
+            SyntaxNodeKind::TypeAnnotation,
+            type_span,
+            vec![parameter_type],
+        );
+
+        let span = Span::cover(spread_token.span(), self.node_span(type_annotation))
+            .unwrap_or(spread_token.span());
+
+        Some(self.add_node(
+            SyntaxNodeKind::RestParameter,
+            span,
+            vec![name, type_annotation],
+        ))
+    }
+
     pub(super) fn parse_array_type(&mut self) -> Option<NodeId> {
         let left = self.expect(TokenKind::LeftBracket)?;
 

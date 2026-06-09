@@ -5,17 +5,38 @@ impl Parser {
         let left = self.expect(TokenKind::LeftParen)?;
 
         let mut parameters = Vec::new();
+        let mut seen_rest_parameter = false;
+        let mut reported_after_rest = false;
+
+        self.skip_newlines();
 
         while !self.is_eof() && !self.at(&TokenKind::RightParen) {
-            self.skip_newlines();
-
-            if self.at(&TokenKind::RightParen) {
-                break;
-            }
-
             let start_position = self.position;
 
-            if let Some(parameter) = self.parse_parameter() {
+            let starts_after_rest = seen_rest_parameter;
+            let is_rest_parameter = self.at(&TokenKind::DotDotDot);
+
+            let parameter = if is_rest_parameter {
+                self.parse_rest_parameter()
+            } else {
+                self.parse_parameter()
+            };
+
+            if let Some(parameter) = parameter {
+                if starts_after_rest && !reported_after_rest {
+                    self.graph.push_diagnostic(Diagnostic::error_with_message(
+                        ParserDiagnosticCode::UnexpectedToken,
+                        "rest parameter must be the last parameter",
+                        self.node_span(parameter),
+                    ));
+
+                    reported_after_rest = true;
+                }
+
+                if is_rest_parameter {
+                    seen_rest_parameter = true;
+                }
+
                 parameters.push(parameter);
             }
 
@@ -27,6 +48,13 @@ impl Parser {
 
             if self.at(&TokenKind::Comma) {
                 self.bump();
+
+                self.skip_newlines();
+
+                if self.at(&TokenKind::RightParen) {
+                    break;
+                }
+
                 continue;
             }
 

@@ -1,0 +1,163 @@
+use super::*;
+
+#[test]
+fn parse_rest_parameter() {
+    let source = source("fn summarize(...values: [int32]): int32 {\n  return 0\n}");
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+
+    let root = syntax.root().unwrap();
+    let function = syntax.node(root).unwrap().children()[0];
+    let function_node = syntax.node(function).unwrap();
+
+    let parameters = function_node.children()[1];
+    let parameters_node = syntax.node(parameters).unwrap();
+
+    assert_eq!(parameters_node.kind(), SyntaxNodeKind::ParameterList);
+    assert_eq!(parameters_node.children().len(), 1);
+
+    let parameter = parameters_node.children()[0];
+    let parameter_node = syntax.node(parameter).unwrap();
+
+    assert_eq!(parameter_node.kind(), SyntaxNodeKind::RestParameter);
+    assert_eq!(
+        source.slice(parameter_node.span()),
+        Some("...values: [int32]")
+    );
+
+    assert_eq!(parameter_node.children().len(), 2);
+
+    let name = parameter_node.children()[0];
+    let type_annotation = parameter_node.children()[1];
+
+    assert_eq!(
+        source.slice(syntax.node(name).unwrap().span()),
+        Some("values")
+    );
+
+    assert_eq!(
+        syntax.node(type_annotation).unwrap().kind(),
+        SyntaxNodeKind::TypeAnnotation
+    );
+}
+
+#[test]
+fn parse_normal_parameter_followed_by_rest_parameter() {
+    let source = source("fn log(prefix: String, ...values: [String]): null {\n  return\n}");
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+
+    let root = syntax.root().unwrap();
+    let function = syntax.node(root).unwrap().children()[0];
+    let function_node = syntax.node(function).unwrap();
+
+    let parameters = function_node.children()[1];
+    let parameters_node = syntax.node(parameters).unwrap();
+
+    assert_eq!(parameters_node.children().len(), 2);
+
+    let first = parameters_node.children()[0];
+    let second = parameters_node.children()[1];
+
+    assert_eq!(
+        syntax.node(first).unwrap().kind(),
+        SyntaxNodeKind::Parameter
+    );
+    assert_eq!(
+        syntax.node(second).unwrap().kind(),
+        SyntaxNodeKind::RestParameter
+    );
+
+    assert_eq!(
+        source.slice(syntax.node(second).unwrap().span()),
+        Some("...values: [String]")
+    );
+}
+
+#[test]
+fn parse_rest_parameter_accepts_trailing_comma() {
+    let source = source("fn summarize(...values: [int32],): int32 {\n  return 0\n}");
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+
+    let root = syntax.root().unwrap();
+    let function = syntax.node(root).unwrap().children()[0];
+    let function_node = syntax.node(function).unwrap();
+
+    let parameters = function_node.children()[1];
+    let parameters_node = syntax.node(parameters).unwrap();
+
+    assert_eq!(parameters_node.children().len(), 1);
+
+    let parameter = parameters_node.children()[0];
+
+    assert_eq!(
+        syntax.node(parameter).unwrap().kind(),
+        SyntaxNodeKind::RestParameter
+    );
+}
+
+#[test]
+fn parse_rest_parameter_allows_newline_after_spread() {
+    let source = source("fn summarize(...\n  values: [int32]): int32 {\n  return 0\n}");
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+
+    let root = syntax.root().unwrap();
+    let function = syntax.node(root).unwrap().children()[0];
+    let function_node = syntax.node(function).unwrap();
+
+    let parameters = function_node.children()[1];
+    let parameters_node = syntax.node(parameters).unwrap();
+
+    let parameter = parameters_node.children()[0];
+    let parameter_node = syntax.node(parameter).unwrap();
+
+    assert_eq!(parameter_node.kind(), SyntaxNodeKind::RestParameter);
+    assert_eq!(
+        source.slice(parameter_node.span()),
+        Some("...\n  values: [int32]")
+    );
+}
+
+#[test]
+fn parse_rest_parameter_must_be_last() {
+    let source = source("fn invalid(...values: [int32], other: int32): null {\n  return\n}");
+
+    let result = parse(&source);
+
+    assert!(result.has_errors());
+
+    let diagnostic = result
+        .diagnostics()
+        .iter()
+        .find(|diagnostic| diagnostic.message() == "rest parameter must be the last parameter")
+        .expect("missing rest parameter position diagnostic");
+
+    assert_eq!(diagnostic.code().as_str(), "P0006");
+}
+
+#[test]
+fn parse_rest_syntax_is_not_valid_parameter_name_without_spread_context() {
+    let source = source("fn invalid(value: ...int32): null {\n  return\n}");
+
+    let result = parse(&source);
+
+    assert!(result.has_errors());
+}
