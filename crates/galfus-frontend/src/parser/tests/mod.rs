@@ -14,6 +14,7 @@ mod if_statements;
 mod imports_exports;
 mod index_expressions;
 mod statements;
+mod struct_literals;
 mod structs_choices;
 mod types;
 

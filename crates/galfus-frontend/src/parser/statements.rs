@@ -166,7 +166,7 @@ impl Parser {
 
         self.skip_newlines();
 
-        let condition = self.parse_expression()?;
+        let condition = self.parse_condition_expression()?;
 
         self.skip_newlines();
 

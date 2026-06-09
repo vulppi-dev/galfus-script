@@ -1,8 +1,22 @@
 use super::*;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum ExpressionBoundary {
+    None,
+    BeforeBlock,
+}
+
 impl Parser {
     pub(super) fn parse_expression(&mut self) -> Option<NodeId> {
-        self.parse_binary_expression(0)
+        self.parse_expression_with_boundary(ExpressionBoundary::None)
+    }
+
+    pub(super) fn parse_condition_expression(&mut self) -> Option<NodeId> {
+        self.parse_expression_with_boundary(ExpressionBoundary::BeforeBlock)
+    }
+
+    fn parse_expression_with_boundary(&mut self, boundary: ExpressionBoundary) -> Option<NodeId> {
+        self.parse_binary_expression(0, boundary)
     }
 
     pub(super) fn parse_name_expression(&mut self) -> Option<NodeId> {
@@ -12,7 +26,10 @@ impl Parser {
         Some(self.add_node(SyntaxNodeKind::NameExpression, span, vec![identifier]))
     }
 
-    pub(super) fn parse_primary_expression(&mut self) -> Option<NodeId> {
+    pub(super) fn parse_primary_expression(
+        &mut self,
+        boundary: ExpressionBoundary,
+    ) -> Option<NodeId> {
         if self.at(&TokenKind::LeftParen) {
             return self.parse_grouped_expression();
         }
@@ -42,6 +59,12 @@ impl Parser {
         }
 
         if self.at(&TokenKind::Identifier) {
+            let next = self.peek_after_newlines(1).kind();
+
+            if next == &TokenKind::LeftBrace && boundary != ExpressionBoundary::BeforeBlock {
+                return self.parse_struct_literal();
+            }
+
             return self.parse_name_expression();
         }
 
@@ -56,8 +79,8 @@ impl Parser {
         None
     }
 
-    pub(super) fn parse_postfix_expression(&mut self) -> Option<NodeId> {
-        let mut expression = self.parse_primary_expression()?;
+    fn parse_postfix_expression(&mut self, boundary: ExpressionBoundary) -> Option<NodeId> {
+        let mut expression = self.parse_primary_expression(boundary)?;
 
         loop {
             self.skip_soft_newlines_before_expression_continuation();
@@ -127,8 +150,12 @@ impl Parser {
         Some(self.add_node(SyntaxNodeKind::AnchorExpression, span, vec![target, anchor]))
     }
 
-    pub(super) fn parse_binary_expression(&mut self, min_precedence: u8) -> Option<NodeId> {
-        let mut left = self.parse_unary_expression()?;
+    fn parse_binary_expression(
+        &mut self,
+        min_precedence: u8,
+        boundary: ExpressionBoundary,
+    ) -> Option<NodeId> {
+        let mut left = self.parse_unary_expression(boundary)?;
 
         loop {
             self.skip_soft_newlines_before_expression_continuation();
@@ -160,7 +187,7 @@ impl Parser {
                 BinaryAssociativity::Right => precedence,
             };
 
-            let right = self.parse_binary_expression(next_min_precedence)?;
+            let right = self.parse_binary_expression(next_min_precedence, boundary)?;
 
             let span = Span::cover(self.node_span(left), self.node_span(right))
                 .unwrap_or_else(|| self.node_span(left));
@@ -203,7 +230,7 @@ impl Parser {
         Some(self.add_node(SyntaxNodeKind::GroupedExpression, span, vec![expression]))
     }
 
-    pub(super) fn parse_unary_expression(&mut self) -> Option<NodeId> {
+    fn parse_unary_expression(&mut self, boundary: ExpressionBoundary) -> Option<NodeId> {
         if Self::is_unary_operator(self.current().kind()) {
             let operator_token = self.bump();
 
@@ -215,7 +242,7 @@ impl Parser {
 
             self.skip_newlines();
 
-            let operand = self.parse_unary_expression()?;
+            let operand = self.parse_unary_expression(boundary)?;
 
             let span = Span::cover(operator_token.span(), self.node_span(operand))
                 .unwrap_or(operator_token.span());
@@ -227,7 +254,7 @@ impl Parser {
             ));
         }
 
-        self.parse_postfix_expression()
+        self.parse_postfix_expression(boundary)
     }
 
     pub(super) fn expression_can_be_statement(&self, expression: NodeId) -> bool {
@@ -278,63 +305,5 @@ impl Parser {
             .unwrap_or_else(|| self.node_span(target));
 
         Some(self.add_node(SyntaxNodeKind::IndexExpression, span, vec![target, index]))
-    }
-
-    pub(super) fn parse_array_element(&mut self) -> Option<NodeId> {
-        let expression = self.parse_expression()?;
-        let span = self.node_span(expression);
-
-        Some(self.add_node(SyntaxNodeKind::ArrayElement, span, vec![expression]))
-    }
-
-    pub(super) fn parse_array_literal(&mut self) -> Option<NodeId> {
-        let left = self.expect(TokenKind::LeftBracket)?;
-
-        let mut elements = Vec::new();
-
-        self.skip_newlines();
-
-        while !self.is_eof() && !self.at(&TokenKind::RightBracket) {
-            let start_position = self.position;
-
-            if let Some(element) = self.parse_array_element() {
-                elements.push(element);
-            }
-
-            self.skip_newlines();
-
-            if self.at(&TokenKind::RightBracket) {
-                break;
-            }
-
-            if self.at(&TokenKind::Comma) {
-                self.bump();
-                self.skip_newlines();
-
-                if self.at(&TokenKind::RightBracket) {
-                    break;
-                }
-
-                continue;
-            }
-
-            let found = self.current().clone();
-
-            self.graph.push_diagnostic(Diagnostic::error_with_message(
-                ParserDiagnosticCode::ExpectedToken,
-                format!("expected `Comma`, found `{:?}`", found.kind()),
-                found.span(),
-            ));
-
-            if self.position == start_position {
-                self.bump();
-            }
-        }
-
-        let right = self.expect(TokenKind::RightBracket)?;
-
-        let span = Span::cover(left.span(), right.span()).unwrap_or(left.span());
-
-        Some(self.add_node(SyntaxNodeKind::ArrayLiteral, span, elements))
     }
 }

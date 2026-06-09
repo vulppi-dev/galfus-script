@@ -34,4 +34,90 @@ impl Parser {
 
         Some(self.add_node(SyntaxNodeKind::StringLiteral, token.span(), Vec::new()))
     }
+
+    pub(super) fn parse_array_element(&mut self) -> Option<NodeId> {
+        let expression = self.parse_expression()?;
+        let span = self.node_span(expression);
+
+        Some(self.add_node(SyntaxNodeKind::ArrayElement, span, vec![expression]))
+    }
+
+    pub(super) fn parse_array_literal(&mut self) -> Option<NodeId> {
+        let left = self.expect(TokenKind::LeftBracket)?;
+
+        let mut elements = Vec::new();
+
+        self.skip_newlines();
+
+        while !self.is_eof() && !self.at(&TokenKind::RightBracket) {
+            let start_position = self.position;
+
+            if let Some(element) = self.parse_array_element() {
+                elements.push(element);
+            }
+
+            self.skip_newlines();
+
+            if self.at(&TokenKind::RightBracket) {
+                break;
+            }
+
+            if self.at(&TokenKind::Comma) {
+                self.bump();
+                self.skip_newlines();
+
+                if self.at(&TokenKind::RightBracket) {
+                    break;
+                }
+
+                continue;
+            }
+
+            let found = self.current().clone();
+
+            self.graph.push_diagnostic(Diagnostic::error_with_message(
+                ParserDiagnosticCode::ExpectedToken,
+                format!("expected `Comma`, found `{:?}`", found.kind()),
+                found.span(),
+            ));
+
+            if self.position == start_position {
+                self.bump();
+            }
+        }
+
+        let right = self.expect(TokenKind::RightBracket)?;
+
+        let span = Span::cover(left.span(), right.span()).unwrap_or(left.span());
+
+        Some(self.add_node(SyntaxNodeKind::ArrayLiteral, span, elements))
+    }
+
+    pub(super) fn parse_struct_literal_field(&mut self) -> Option<NodeId> {
+        let name = self.parse_identifier()?;
+
+        self.expect(TokenKind::Colon)?;
+
+        self.skip_newlines();
+
+        let value = self.parse_expression()?;
+
+        let span = Span::cover(self.node_span(name), self.node_span(value))
+            .unwrap_or_else(|| self.node_span(name));
+
+        Some(self.add_node(SyntaxNodeKind::StructLiteralField, span, vec![name, value]))
+    }
+
+    pub(super) fn parse_struct_literal(&mut self) -> Option<NodeId> {
+        let name = self.parse_identifier()?;
+
+        self.skip_newlines();
+
+        let fields = self.parse_struct_literal_field_list()?;
+
+        let span = Span::cover(self.node_span(name), self.node_span(fields))
+            .unwrap_or_else(|| self.node_span(name));
+
+        Some(self.add_node(SyntaxNodeKind::StructLiteral, span, vec![name, fields]))
+    }
 }

@@ -292,4 +292,55 @@ impl Parser {
 
         Some(self.add_node(SyntaxNodeKind::ArgumentList, span, arguments))
     }
+
+    pub(super) fn parse_struct_literal_field_list(&mut self) -> Option<NodeId> {
+        let left = self.expect(TokenKind::LeftBrace)?;
+
+        let mut fields = Vec::new();
+
+        self.skip_newlines();
+
+        while !self.is_eof() && !self.at(&TokenKind::RightBrace) {
+            let start_position = self.position;
+
+            if let Some(field) = self.parse_struct_literal_field() {
+                fields.push(field);
+            }
+
+            self.skip_newlines();
+
+            if self.at(&TokenKind::RightBrace) {
+                break;
+            }
+
+            if self.at(&TokenKind::Comma) {
+                self.bump();
+                self.skip_newlines();
+
+                if self.at(&TokenKind::RightBrace) {
+                    break;
+                }
+
+                continue;
+            }
+
+            let found = self.current().clone();
+
+            self.graph.push_diagnostic(Diagnostic::error_with_message(
+                ParserDiagnosticCode::ExpectedToken,
+                format!("expected `Comma`, found `{:?}`", found.kind()),
+                found.span(),
+            ));
+
+            if self.position == start_position {
+                self.bump();
+            }
+        }
+
+        let right = self.expect(TokenKind::RightBrace)?;
+
+        let span = Span::cover(left.span(), right.span()).unwrap_or(left.span());
+
+        Some(self.add_node(SyntaxNodeKind::StructLiteralFieldList, span, fields))
+    }
 }
