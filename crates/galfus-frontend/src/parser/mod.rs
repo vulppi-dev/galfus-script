@@ -147,7 +147,8 @@ impl Parser {
     fn can_start_expression(&self) -> bool {
         matches!(
             self.current().kind(),
-            TokenKind::Integer
+            TokenKind::LeftParen
+                | TokenKind::Integer
                 | TokenKind::Float
                 | TokenKind::String
                 | TokenKind::True
@@ -178,6 +179,15 @@ impl Parser {
                 | TokenKind::Slash
                 | TokenKind::Percent
                 | TokenKind::StarStar
+                | TokenKind::Less
+                | TokenKind::LessEqual
+                | TokenKind::Greater
+                | TokenKind::GreaterEqual
+                | TokenKind::EqualEqual
+                | TokenKind::BangEqual
+                | TokenKind::AmpAmp
+                | TokenKind::PipePipe
+                | TokenKind::QuestionQuestion
         )
     }
 
@@ -844,6 +854,10 @@ impl Parser {
     }
 
     fn parse_primary_expression(&mut self) -> Option<NodeId> {
+        if self.at(&TokenKind::LeftParen) {
+            return self.parse_grouped_expression();
+        }
+
         if self.at(&TokenKind::Integer) {
             return self.parse_integer_literal();
         }
@@ -991,6 +1005,34 @@ impl Parser {
         }
 
         Some(left)
+    }
+
+    fn parse_grouped_expression(&mut self) -> Option<NodeId> {
+        let left = self.expect(TokenKind::LeftParen)?;
+
+        self.skip_newlines();
+
+        if self.at(&TokenKind::RightParen) {
+            let found = self.current().clone();
+
+            self.graph.push_diagnostic(Diagnostic::error_with_message(
+                ParserDiagnosticCode::UnexpectedToken,
+                "expected expression, found `RightParen`",
+                found.span(),
+            ));
+
+            return None;
+        }
+
+        let expression = self.parse_expression()?;
+
+        self.skip_newlines();
+
+        let right = self.expect(TokenKind::RightParen)?;
+
+        let span = Span::cover(left.span(), right.span()).unwrap_or(left.span());
+
+        Some(self.add_node(SyntaxNodeKind::GroupedExpression, span, vec![expression]))
     }
 
     // MARK: Others
@@ -1304,13 +1346,26 @@ impl Parser {
 
     fn binary_operator_info(kind: &TokenKind) -> Option<(u8, BinaryAssociativity)> {
         match kind {
-            TokenKind::StarStar => Some((70, BinaryAssociativity::Right)),
+            TokenKind::StarStar => Some((80, BinaryAssociativity::Right)),
 
             TokenKind::Star | TokenKind::Slash | TokenKind::Percent => {
-                Some((60, BinaryAssociativity::Left))
+                Some((70, BinaryAssociativity::Left))
             }
 
-            TokenKind::Plus | TokenKind::Minus => Some((50, BinaryAssociativity::Left)),
+            TokenKind::Plus | TokenKind::Minus => Some((60, BinaryAssociativity::Left)),
+
+            TokenKind::Less
+            | TokenKind::LessEqual
+            | TokenKind::Greater
+            | TokenKind::GreaterEqual => Some((50, BinaryAssociativity::Left)),
+
+            TokenKind::EqualEqual | TokenKind::BangEqual => Some((45, BinaryAssociativity::Left)),
+
+            TokenKind::AmpAmp => Some((30, BinaryAssociativity::Left)),
+
+            TokenKind::PipePipe => Some((20, BinaryAssociativity::Left)),
+
+            TokenKind::QuestionQuestion => Some((10, BinaryAssociativity::Right)),
 
             _ => None,
         }

@@ -222,6 +222,7 @@ pub enum SyntaxNodeKind {
     Argument,
     BinaryExpression,
     BinaryOperator,
+    GroupedExpression,
 
     IntegerLiteral,
     FloatLiteral,
