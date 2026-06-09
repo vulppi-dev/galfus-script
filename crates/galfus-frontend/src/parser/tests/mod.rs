@@ -20,6 +20,7 @@ mod generic_constraints;
 mod generic_declarations;
 mod generic_expressions;
 mod generic_types;
+mod grouped_types;
 mod grouping_unary;
 mod if_statements;
 mod imports_exports;

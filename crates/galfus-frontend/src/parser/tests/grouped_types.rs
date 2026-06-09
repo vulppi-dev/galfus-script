@@ -1,0 +1,212 @@
+use super::*;
+
+#[test]
+fn parse_grouped_function_type() {
+    let source = source("type MaybeCallback = (fn (): null) | null");
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+
+    let root = syntax.root().unwrap();
+    let alias = syntax.node(root).unwrap().children()[0];
+    let alias_node = syntax.node(alias).unwrap();
+
+    let alias_type = alias_node.children()[1];
+    let alias_type_node = syntax.node(alias_type).unwrap();
+
+    assert_eq!(alias_type_node.kind(), SyntaxNodeKind::UnionType);
+    assert_eq!(
+        source.slice(alias_type_node.span()),
+        Some("(fn (): null) | null")
+    );
+
+    let left = alias_type_node.children()[0];
+    let right = alias_type_node.children()[1];
+
+    assert_eq!(
+        syntax.node(left).unwrap().kind(),
+        SyntaxNodeKind::GroupedType
+    );
+
+    assert_eq!(syntax.node(right).unwrap().kind(), SyntaxNodeKind::TypeNull);
+
+    let grouped_inner = syntax.node(left).unwrap().children()[0];
+
+    assert_eq!(
+        syntax.node(grouped_inner).unwrap().kind(),
+        SyntaxNodeKind::FunctionType
+    );
+}
+
+#[test]
+fn parse_function_type_returning_union() {
+    let source = source("type Callback = fn (): String | null");
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+
+    let root = syntax.root().unwrap();
+    let alias = syntax.node(root).unwrap().children()[0];
+    let alias_node = syntax.node(alias).unwrap();
+
+    let alias_type = alias_node.children()[1];
+    let alias_type_node = syntax.node(alias_type).unwrap();
+
+    assert_eq!(alias_type_node.kind(), SyntaxNodeKind::FunctionType);
+
+    let return_type = alias_type_node.children()[1];
+
+    assert_eq!(
+        syntax.node(return_type).unwrap().kind(),
+        SyntaxNodeKind::UnionType
+    );
+
+    assert_eq!(
+        source.slice(syntax.node(return_type).unwrap().span()),
+        Some("String | null")
+    );
+}
+
+#[test]
+fn parse_struct_field_nullable_function_type() {
+    let source = source("struct Button {\n  onClick: (fn (): null) | null = null,\n}");
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+
+    let root = syntax.root().unwrap();
+    let struct_item = syntax.node(root).unwrap().children()[0];
+    let struct_node = syntax.node(struct_item).unwrap();
+
+    let fields = struct_node.children()[1];
+    let field = syntax.node(fields).unwrap().children()[0];
+    let field_node = syntax.node(field).unwrap();
+
+    let field_type = field_node.children()[1];
+
+    assert_eq!(
+        syntax.node(field_type).unwrap().kind(),
+        SyntaxNodeKind::UnionType
+    );
+
+    assert_eq!(
+        source.slice(syntax.node(field_type).unwrap().span()),
+        Some("(fn (): null) | null")
+    );
+
+    let default = field_node.children()[2];
+
+    assert_eq!(
+        syntax.node(default).unwrap().kind(),
+        SyntaxNodeKind::StructFieldDefault
+    );
+}
+
+#[test]
+fn parse_var_annotation_nullable_function_type() {
+    let source =
+        source("fn main(): null {\n  var callback: (fn (): null) | null = null\n  return\n}");
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+
+    let root = syntax.root().unwrap();
+    let function = syntax.node(root).unwrap().children()[0];
+    let function_node = syntax.node(function).unwrap();
+
+    let body = function_node.children()[3];
+    let statement = syntax.node(body).unwrap().children()[0];
+    let statement_node = syntax.node(statement).unwrap();
+
+    let annotation = statement_node.children()[1];
+    let annotation_node = syntax.node(annotation).unwrap();
+
+    let annotation_type = annotation_node.children()[0];
+
+    assert_eq!(
+        syntax.node(annotation_type).unwrap().kind(),
+        SyntaxNodeKind::UnionType
+    );
+
+    assert_eq!(
+        source.slice(syntax.node(annotation_type).unwrap().span()),
+        Some("(fn (): null) | null")
+    );
+}
+
+#[test]
+fn parse_grouped_type_inside_generic_argument() {
+    let source = source("type Listener = Box<(fn (String): null) | null>");
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+
+    let root = syntax.root().unwrap();
+    let alias = syntax.node(root).unwrap().children()[0];
+    let alias_node = syntax.node(alias).unwrap();
+
+    let generic_type = alias_node.children()[1];
+    let generic_type_node = syntax.node(generic_type).unwrap();
+
+    assert_eq!(generic_type_node.kind(), SyntaxNodeKind::GenericType);
+
+    let args = generic_type_node.children()[1];
+    let first_arg = syntax.node(args).unwrap().children()[0];
+
+    assert_eq!(
+        syntax.node(first_arg).unwrap().kind(),
+        SyntaxNodeKind::UnionType
+    );
+
+    assert_eq!(
+        source.slice(syntax.node(first_arg).unwrap().span()),
+        Some("(fn (String): null) | null")
+    );
+}
+
+#[test]
+fn parse_grouped_union_type() {
+    let source = source("type MaybeUserList = [User | null]");
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+}
+
+#[test]
+fn parse_grouped_plain_union_type() {
+    let source = source("type MaybeUserList = [(User | null)]");
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+
+    let root = syntax.root().unwrap();
+    let alias = syntax.node(root).unwrap().children()[0];
+    let alias_node = syntax.node(alias).unwrap();
+
+    let array_type = alias_node.children()[1];
+    let element_type = syntax.node(array_type).unwrap().children()[0];
+
+    assert_eq!(
+        syntax.node(element_type).unwrap().kind(),
+        SyntaxNodeKind::GroupedType
+    );
+}

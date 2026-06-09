@@ -37,6 +37,10 @@ impl Parser {
             return self.parse_function_type();
         }
 
+        if self.at(&TokenKind::LeftParen) {
+            return self.parse_grouped_type();
+        }
+
         if self.at(&TokenKind::Null) {
             let token = self.bump();
 
@@ -483,5 +487,21 @@ impl Parser {
             span,
             vec![parameters, return_type],
         ))
+    }
+
+    pub(super) fn parse_grouped_type(&mut self) -> Option<NodeId> {
+        let left = self.expect(TokenKind::LeftParen)?;
+
+        self.skip_newlines();
+
+        let inner = self.parse_type()?;
+
+        self.skip_newlines();
+
+        let right = self.expect(TokenKind::RightParen)?;
+
+        let span = Span::cover(left.span(), right.span()).unwrap_or(left.span());
+
+        Some(self.add_node(SyntaxNodeKind::GroupedType, span, vec![inner]))
     }
 }

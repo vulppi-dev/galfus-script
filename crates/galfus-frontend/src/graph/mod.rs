@@ -251,9 +251,9 @@ pub enum SyntaxNodeKind {
     UnionType,
     FunctionType,
     FunctionTypeParameterList,
+    GroupedType,
 
     ImportSource,
-
     Identifier,
 
     Argument,
