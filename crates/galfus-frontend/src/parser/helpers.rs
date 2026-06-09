@@ -15,6 +15,7 @@ impl Parser {
                 | TokenKind::LeftParen
                 | TokenKind::LeftBracket
                 | TokenKind::Struct
+                | TokenKind::Copy
                 | TokenKind::Minus
                 | TokenKind::Bang
                 | TokenKind::Tilde

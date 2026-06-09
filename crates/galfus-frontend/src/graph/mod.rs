@@ -250,6 +250,7 @@ pub enum SyntaxNodeKind {
     AnchorExpression,
     IndexExpression,
     GroupedExpression,
+    CopyExpression,
     UnaryExpression,
     BinaryExpression,
     ArrowFunctionExpression,

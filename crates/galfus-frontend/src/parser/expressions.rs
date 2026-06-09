@@ -243,6 +243,10 @@ impl Parser {
     }
 
     fn parse_unary_expression(&mut self, boundary: ExpressionBoundary) -> Option<NodeId> {
+        if self.at(&TokenKind::Copy) {
+            return self.parse_copy_expression(boundary);
+        }
+
         if Self::is_unary_operator(self.current().kind()) {
             let operator_token = self.bump();
 
@@ -378,5 +382,18 @@ impl Parser {
             .unwrap_or_else(|| self.node_span(parameters));
 
         Some(self.add_node(SyntaxNodeKind::ArrowFunctionExpression, span, children))
+    }
+
+    pub(super) fn parse_copy_expression(&mut self, boundary: ExpressionBoundary) -> Option<NodeId> {
+        let copy_token = self.expect(TokenKind::Copy)?;
+
+        self.skip_newlines();
+
+        let value = self.parse_unary_expression(boundary)?;
+
+        let span =
+            Span::cover(copy_token.span(), self.node_span(value)).unwrap_or(copy_token.span());
+
+        Some(self.add_node(SyntaxNodeKind::CopyExpression, span, vec![value]))
     }
 }

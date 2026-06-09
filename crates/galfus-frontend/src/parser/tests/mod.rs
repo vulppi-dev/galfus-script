@@ -8,6 +8,7 @@ mod binary;
 mod calls_members;
 mod compound_assignment_statements;
 mod control_flow_statements;
+mod copy_expressions;
 mod core;
 mod default_parameters;
 mod expression_statements;
