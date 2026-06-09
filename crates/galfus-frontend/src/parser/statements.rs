@@ -30,6 +30,10 @@ impl Parser {
             return self.parse_for_statement();
         }
 
+        if self.at(&TokenKind::Loop) {
+            return self.parse_loop_statement();
+        }
+
         if self.can_start_expression() {
             return self.parse_expression_or_assignment_statement();
         }
@@ -321,5 +325,18 @@ impl Parser {
             continue_token.span(),
             Vec::new(),
         ))
+    }
+
+    pub(super) fn parse_loop_statement(&mut self) -> Option<NodeId> {
+        let loop_token = self.expect(TokenKind::Loop)?;
+
+        self.skip_newlines();
+
+        let body = self.parse_block()?;
+
+        let span =
+            Span::cover(loop_token.span(), self.node_span(body)).unwrap_or(loop_token.span());
+
+        Some(self.add_node(SyntaxNodeKind::LoopStatement, span, vec![body]))
     }
 }

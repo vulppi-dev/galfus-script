@@ -207,6 +207,8 @@ pub enum SyntaxNodeKind {
     ElseClause,
     ForStatement,
     ForBinding,
+    LoopStatement,
+    AssignmentStatement,
     TypeAnnotation,
     Initializer,
 
@@ -232,7 +234,6 @@ pub enum SyntaxNodeKind {
     GroupedExpression,
     UnaryExpression,
     BinaryExpression,
-    AssignmentStatement,
 
     UnaryOperator,
     BinaryOperator,
