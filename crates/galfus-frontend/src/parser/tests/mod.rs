@@ -1,6 +1,7 @@
 use super::*;
 use galfus_core::{SourceFile, SourceId};
 
+mod anchored_functions;
 mod array_literals;
 mod arrow_functions;
 mod assignment_statements;

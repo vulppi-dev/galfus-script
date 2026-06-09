@@ -90,21 +90,39 @@ impl Parser {
 
         Some(self.add_node(SyntaxNodeKind::ImportItem, span, vec![clause, source]))
     }
-
     pub(super) fn parse_function_item(&mut self) -> Option<NodeId> {
         let fn_token = self.expect(TokenKind::Fn)?;
 
         self.skip_newlines();
 
-        let name = self.parse_identifier()?;
+        let first_identifier = self.parse_identifier()?;
+
+        let anchor = if self.at(&TokenKind::ColonColon) {
+            let anchor = self.parse_function_anchor_from_identifier(first_identifier)?;
+
+            self.expect(TokenKind::ColonColon)?;
+
+            self.skip_newlines();
+
+            Some(anchor)
+        } else {
+            None
+        };
+
+        let name = if anchor.is_some() {
+            self.parse_identifier()?
+        } else {
+            first_identifier
+        };
 
         let generic_parameters = if self.at(&TokenKind::Less) {
             let generics = self.parse_generic_parameter_list()?;
-            self.skip_newlines();
             Some(generics)
         } else {
             None
         };
+
+        self.skip_newlines();
 
         let parameters = self.parse_parameter_list()?;
 
@@ -120,7 +138,13 @@ impl Parser {
 
         let body = self.parse_block()?;
 
-        let mut children = vec![name];
+        let mut children = Vec::new();
+
+        if let Some(anchor) = anchor {
+            children.push(anchor);
+        }
+
+        children.push(name);
 
         if let Some(generic_parameters) = generic_parameters {
             children.push(generic_parameters);
@@ -424,5 +448,23 @@ impl Parser {
         let span = Span::cover(satisfies_token.span(), end_span).unwrap_or(satisfies_token.span());
 
         Some(self.add_node(SyntaxNodeKind::SatisfiesClause, span, constraints))
+    }
+
+    pub(super) fn parse_function_anchor_from_identifier(
+        &mut self,
+        identifier: NodeId,
+    ) -> Option<NodeId> {
+        let identifier_span = self.node_span(identifier);
+
+        let target_type =
+            self.add_node(SyntaxNodeKind::TypeName, identifier_span, vec![identifier]);
+
+        let target_span = self.node_span(target_type);
+
+        Some(self.add_node(
+            SyntaxNodeKind::FunctionAnchor,
+            target_span,
+            vec![target_type],
+        ))
     }
 }

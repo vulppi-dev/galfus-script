@@ -196,6 +196,7 @@ pub enum SyntaxNodeKind {
     ChoiceVariant,
     ChoicePayload,
 
+    FunctionAnchor,
     ParameterList,
     Parameter,
     RestParameter,
