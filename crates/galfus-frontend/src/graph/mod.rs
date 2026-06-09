@@ -220,6 +220,8 @@ pub enum SyntaxNodeKind {
     CallExpression,
     ArgumentList,
     Argument,
+    BinaryExpression,
+    BinaryOperator,
 
     IntegerLiteral,
     FloatLiteral,

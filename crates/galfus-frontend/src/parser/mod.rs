@@ -4,6 +4,12 @@ mod tests;
 use crate::{ModuleGraph, ParserDiagnosticCode, SyntaxNodeKind, Token, TokenKind, lex};
 use galfus_core::{Diagnostic, DiagnosticBag, NodeId, SourceFile, Span};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum BinaryAssociativity {
+    Left,
+    Right,
+}
+
 #[derive(Debug, Clone)]
 pub struct ParseResult {
     graph: ModuleGraph,
@@ -162,7 +168,17 @@ impl Parser {
     }
 
     fn can_continue_expression_after_newline(kind: &TokenKind) -> bool {
-        matches!(kind, TokenKind::Dot | TokenKind::ColonColon)
+        matches!(
+            kind,
+            TokenKind::Dot
+                | TokenKind::ColonColon
+                | TokenKind::Plus
+                | TokenKind::Minus
+                | TokenKind::Star
+                | TokenKind::Slash
+                | TokenKind::Percent
+                | TokenKind::StarStar
+        )
     }
 
     // MARK: Start
@@ -814,6 +830,169 @@ impl Parser {
         Some(self.add_node(SyntaxNodeKind::ArgumentList, span, arguments))
     }
 
+    // MARK: Expressions
+
+    fn parse_expression(&mut self) -> Option<NodeId> {
+        self.parse_binary_expression(0)
+    }
+
+    fn parse_name_expression(&mut self) -> Option<NodeId> {
+        let identifier = self.parse_identifier()?;
+        let span = self.node_span(identifier);
+
+        Some(self.add_node(SyntaxNodeKind::NameExpression, span, vec![identifier]))
+    }
+
+    fn parse_primary_expression(&mut self) -> Option<NodeId> {
+        if self.at(&TokenKind::Integer) {
+            return self.parse_integer_literal();
+        }
+
+        if self.at(&TokenKind::Float) {
+            return self.parse_float_literal();
+        }
+
+        if self.at(&TokenKind::String) {
+            return self.parse_string_literal();
+        }
+
+        if self.at(&TokenKind::True) || self.at(&TokenKind::False) {
+            return self.parse_bool_literal();
+        }
+
+        if self.at(&TokenKind::Null) {
+            return self.parse_null_literal();
+        }
+
+        if self.at(&TokenKind::Identifier) {
+            return self.parse_name_expression();
+        }
+
+        let found = self.bump();
+
+        self.graph.push_diagnostic(Diagnostic::error_with_message(
+            ParserDiagnosticCode::UnexpectedToken,
+            format!("expected expression, found `{:?}`", found.kind()),
+            found.span(),
+        ));
+
+        None
+    }
+
+    fn parse_postfix_expression(&mut self) -> Option<NodeId> {
+        let mut expression = self.parse_primary_expression()?;
+
+        loop {
+            self.skip_soft_newlines_before_expression_continuation();
+
+            if self.at(&TokenKind::Dot) {
+                expression = self.parse_member_expression(expression)?;
+                continue;
+            }
+
+            if self.at(&TokenKind::ColonColon) {
+                expression = self.parse_anchor_expression(expression)?;
+                continue;
+            }
+
+            if self.at(&TokenKind::LeftParen) {
+                expression = self.parse_call_expression(expression)?;
+                continue;
+            }
+
+            break;
+        }
+
+        Some(expression)
+    }
+
+    fn parse_call_expression(&mut self, target: NodeId) -> Option<NodeId> {
+        let arguments = self.parse_argument_list()?;
+
+        let span = Span::cover(self.node_span(target), self.node_span(arguments))
+            .unwrap_or_else(|| self.node_span(target));
+
+        Some(self.add_node(
+            SyntaxNodeKind::CallExpression,
+            span,
+            vec![target, arguments],
+        ))
+    }
+
+    fn parse_member_expression(&mut self, target: NodeId) -> Option<NodeId> {
+        self.expect(TokenKind::Dot)?;
+
+        self.skip_newlines();
+
+        let member = self.parse_identifier()?;
+
+        let span = Span::cover(self.node_span(target), self.node_span(member))
+            .unwrap_or_else(|| self.node_span(target));
+
+        Some(self.add_node(SyntaxNodeKind::MemberExpression, span, vec![target, member]))
+    }
+
+    fn parse_anchor_expression(&mut self, target: NodeId) -> Option<NodeId> {
+        self.expect(TokenKind::ColonColon)?;
+
+        self.skip_newlines();
+
+        let anchor = self.parse_identifier()?;
+
+        let span = Span::cover(self.node_span(target), self.node_span(anchor))
+            .unwrap_or_else(|| self.node_span(target));
+
+        Some(self.add_node(SyntaxNodeKind::AnchorExpression, span, vec![target, anchor]))
+    }
+
+    fn parse_binary_expression(&mut self, min_precedence: u8) -> Option<NodeId> {
+        let mut left = self.parse_postfix_expression()?;
+
+        loop {
+            self.skip_soft_newlines_before_expression_continuation();
+
+            let operator_token = self.current().clone();
+
+            let Some((precedence, associativity)) =
+                Self::binary_operator_info(operator_token.kind())
+            else {
+                break;
+            };
+
+            if precedence < min_precedence {
+                break;
+            }
+
+            self.bump();
+
+            let operator = self.add_node(
+                SyntaxNodeKind::BinaryOperator,
+                operator_token.span(),
+                Vec::new(),
+            );
+
+            self.skip_newlines();
+
+            let next_min_precedence = match associativity {
+                BinaryAssociativity::Left => precedence + 1,
+                BinaryAssociativity::Right => precedence,
+            };
+
+            let right = self.parse_binary_expression(next_min_precedence)?;
+
+            let span = Span::cover(self.node_span(left), self.node_span(right))
+                .unwrap_or_else(|| self.node_span(left));
+
+            left = self.add_node(
+                SyntaxNodeKind::BinaryExpression,
+                span,
+                vec![left, operator, right],
+            );
+        }
+
+        Some(left)
+    }
+
     // MARK: Others
 
     fn parse_identifier(&mut self) -> Option<NodeId> {
@@ -1107,76 +1286,6 @@ impl Parser {
         Some(self.add_node(SyntaxNodeKind::TypeAnnotation, span, vec![type_node]))
     }
 
-    fn parse_name_expression(&mut self) -> Option<NodeId> {
-        let identifier = self.parse_identifier()?;
-        let span = self.node_span(identifier);
-
-        Some(self.add_node(SyntaxNodeKind::NameExpression, span, vec![identifier]))
-    }
-
-    fn parse_primary_expression(&mut self) -> Option<NodeId> {
-        if self.at(&TokenKind::Integer) {
-            return self.parse_integer_literal();
-        }
-
-        if self.at(&TokenKind::Float) {
-            return self.parse_float_literal();
-        }
-
-        if self.at(&TokenKind::String) {
-            return self.parse_string_literal();
-        }
-
-        if self.at(&TokenKind::True) || self.at(&TokenKind::False) {
-            return self.parse_bool_literal();
-        }
-
-        if self.at(&TokenKind::Null) {
-            return self.parse_null_literal();
-        }
-
-        if self.at(&TokenKind::Identifier) {
-            return self.parse_name_expression();
-        }
-
-        let found = self.bump();
-
-        self.graph.push_diagnostic(Diagnostic::error_with_message(
-            ParserDiagnosticCode::UnexpectedToken,
-            format!("expected expression, found `{:?}`", found.kind()),
-            found.span(),
-        ));
-
-        None
-    }
-
-    fn parse_expression(&mut self) -> Option<NodeId> {
-        let mut expression = self.parse_primary_expression()?;
-
-        loop {
-            self.skip_soft_newlines_before_expression_continuation();
-
-            if self.at(&TokenKind::Dot) {
-                expression = self.parse_member_expression(expression)?;
-                continue;
-            }
-
-            if self.at(&TokenKind::ColonColon) {
-                expression = self.parse_anchor_expression(expression)?;
-                continue;
-            }
-
-            if self.at(&TokenKind::LeftParen) {
-                expression = self.parse_call_expression(expression)?;
-                continue;
-            }
-
-            break;
-        }
-
-        Some(expression)
-    }
-
     fn parse_initializer(&mut self) -> Option<NodeId> {
         let equal = self.expect(TokenKind::Equal)?;
         let expression = self.parse_expression()?;
@@ -1193,43 +1302,18 @@ impl Parser {
         Some(self.add_node(SyntaxNodeKind::Argument, span, vec![expression]))
     }
 
-    fn parse_call_expression(&mut self, target: NodeId) -> Option<NodeId> {
-        let arguments = self.parse_argument_list()?;
+    fn binary_operator_info(kind: &TokenKind) -> Option<(u8, BinaryAssociativity)> {
+        match kind {
+            TokenKind::StarStar => Some((70, BinaryAssociativity::Right)),
 
-        let span = Span::cover(self.node_span(target), self.node_span(arguments))
-            .unwrap_or_else(|| self.node_span(target));
+            TokenKind::Star | TokenKind::Slash | TokenKind::Percent => {
+                Some((60, BinaryAssociativity::Left))
+            }
 
-        Some(self.add_node(
-            SyntaxNodeKind::CallExpression,
-            span,
-            vec![target, arguments],
-        ))
-    }
+            TokenKind::Plus | TokenKind::Minus => Some((50, BinaryAssociativity::Left)),
 
-    fn parse_member_expression(&mut self, target: NodeId) -> Option<NodeId> {
-        self.expect(TokenKind::Dot)?;
-
-        self.skip_newlines();
-
-        let member = self.parse_identifier()?;
-
-        let span = Span::cover(self.node_span(target), self.node_span(member))
-            .unwrap_or_else(|| self.node_span(target));
-
-        Some(self.add_node(SyntaxNodeKind::MemberExpression, span, vec![target, member]))
-    }
-
-    fn parse_anchor_expression(&mut self, target: NodeId) -> Option<NodeId> {
-        self.expect(TokenKind::ColonColon)?;
-
-        self.skip_newlines();
-
-        let anchor = self.parse_identifier()?;
-
-        let span = Span::cover(self.node_span(target), self.node_span(anchor))
-            .unwrap_or_else(|| self.node_span(target));
-
-        Some(self.add_node(SyntaxNodeKind::AnchorExpression, span, vec![target, anchor]))
+            _ => None,
+        }
     }
 }
 
