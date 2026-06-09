@@ -278,4 +278,71 @@ impl Parser {
 
         self.expect(TokenKind::Greater)
     }
+
+    pub(super) fn can_parse_generic_call_suffix(&self) -> bool {
+        if !self.at(&TokenKind::Less) {
+            return false;
+        }
+
+        let mut index = self.position;
+        let mut depth = 0usize;
+
+        while index < self.tokens.len() {
+            match self.tokens[index].kind() {
+                TokenKind::Less => {
+                    depth += 1;
+                }
+
+                TokenKind::Greater => {
+                    depth -= 1;
+
+                    if depth == 0 {
+                        index += 1;
+
+                        while index < self.tokens.len()
+                            && self.tokens[index].kind() == &TokenKind::Newline
+                        {
+                            index += 1;
+                        }
+
+                        return self
+                            .tokens
+                            .get(index)
+                            .is_some_and(|token| token.kind() == &TokenKind::LeftParen);
+                    }
+                }
+
+                TokenKind::ShiftRight => {
+                    if depth >= 2 {
+                        depth -= 2;
+
+                        if depth == 0 {
+                            index += 1;
+
+                            while index < self.tokens.len()
+                                && self.tokens[index].kind() == &TokenKind::Newline
+                            {
+                                index += 1;
+                            }
+
+                            return self
+                                .tokens
+                                .get(index)
+                                .is_some_and(|token| token.kind() == &TokenKind::LeftParen);
+                        }
+                    } else {
+                        return false;
+                    }
+                }
+
+                TokenKind::Eof => return false,
+
+                _ => {}
+            }
+
+            index += 1;
+        }
+
+        false
+    }
 }

@@ -14,6 +14,7 @@ mod default_parameters;
 mod expression_statements;
 mod for_statements;
 mod functions;
+mod generic_expressions;
 mod generic_types;
 mod grouping_unary;
 mod if_statements;

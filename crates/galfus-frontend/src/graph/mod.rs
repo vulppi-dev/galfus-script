@@ -257,6 +257,8 @@ pub enum SyntaxNodeKind {
     UnaryExpression,
     BinaryExpression,
     ArrowFunctionExpression,
+    GenericExpression,
+    GenericArgumentList,
 
     UnaryOperator,
     BinaryOperator,

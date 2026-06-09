@@ -112,6 +112,11 @@ impl Parser {
                 continue;
             }
 
+            if self.at(&TokenKind::Less) && self.can_parse_generic_call_suffix() {
+                expression = self.parse_generic_expression(expression)?;
+                continue;
+            }
+
             if self.at(&TokenKind::LeftParen) {
                 expression = self.parse_call_expression(expression)?;
                 continue;
@@ -395,5 +400,18 @@ impl Parser {
             Span::cover(copy_token.span(), self.node_span(value)).unwrap_or(copy_token.span());
 
         Some(self.add_node(SyntaxNodeKind::CopyExpression, span, vec![value]))
+    }
+
+    pub(super) fn parse_generic_expression(&mut self, target: NodeId) -> Option<NodeId> {
+        let arguments = self.parse_generic_argument_list()?;
+
+        let span = Span::cover(self.node_span(target), self.node_span(arguments))
+            .unwrap_or_else(|| self.node_span(target));
+
+        Some(self.add_node(
+            SyntaxNodeKind::GenericExpression,
+            span,
+            vec![target, arguments],
+        ))
     }
 }
