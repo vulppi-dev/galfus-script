@@ -42,6 +42,10 @@ impl Parser {
             return self.parse_match_statement();
         }
 
+        if self.at(&TokenKind::Instanceof) {
+            return self.parse_instanceof_statement();
+        }
+
         if self.can_start_expression() {
             return self.parse_expression_or_assignment_statement();
         }
@@ -355,5 +359,43 @@ impl Parser {
             Span::cover(match_token.span(), self.node_span(arms)).unwrap_or(match_token.span());
 
         Some(self.add_node(SyntaxNodeKind::MatchStatement, span, vec![subject, arms]))
+    }
+
+    pub(super) fn parse_instanceof_arm(&mut self) -> Option<NodeId> {
+        let pattern = self.parse_instanceof_pattern()?;
+
+        self.skip_newlines();
+
+        self.expect(TokenKind::Arrow)?;
+
+        self.skip_newlines();
+
+        let body = self.parse_block()?;
+
+        let span = Span::cover(self.node_span(pattern), self.node_span(body))
+            .unwrap_or_else(|| self.node_span(pattern));
+
+        Some(self.add_node(SyntaxNodeKind::InstanceofArm, span, vec![pattern, body]))
+    }
+
+    pub(super) fn parse_instanceof_statement(&mut self) -> Option<NodeId> {
+        let instanceof_token = self.expect(TokenKind::Instanceof)?;
+
+        self.skip_newlines();
+
+        let subject = self.parse_expression_before_block()?;
+
+        self.skip_newlines();
+
+        let arms = self.parse_instanceof_arm_list()?;
+
+        let span = Span::cover(instanceof_token.span(), self.node_span(arms))
+            .unwrap_or(instanceof_token.span());
+
+        Some(self.add_node(
+            SyntaxNodeKind::InstanceofStatement,
+            span,
+            vec![subject, arms],
+        ))
     }
 }

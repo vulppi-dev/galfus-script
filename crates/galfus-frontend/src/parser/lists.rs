@@ -433,4 +433,32 @@ impl Parser {
 
         Some(self.add_node(SyntaxNodeKind::MatchArmList, span, arms))
     }
+
+    pub(super) fn parse_instanceof_arm_list(&mut self) -> Option<NodeId> {
+        let left = self.expect(TokenKind::LeftBrace)?;
+
+        let mut arms = Vec::new();
+
+        self.skip_newlines();
+
+        while !self.is_eof() && !self.at(&TokenKind::RightBrace) {
+            let start_position = self.position;
+
+            if let Some(arm) = self.parse_instanceof_arm() {
+                arms.push(arm);
+            }
+
+            self.skip_newlines();
+
+            if self.position == start_position {
+                self.bump();
+            }
+        }
+
+        let right = self.expect(TokenKind::RightBrace)?;
+
+        let span = Span::cover(left.span(), right.span()).unwrap_or(left.span());
+
+        Some(self.add_node(SyntaxNodeKind::InstanceofArmList, span, arms))
+    }
 }

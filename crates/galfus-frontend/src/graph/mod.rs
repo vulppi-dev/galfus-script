@@ -216,6 +216,11 @@ pub enum SyntaxNodeKind {
     MatchStatement,
     MatchArmList,
     MatchArm,
+    InstanceofStatement,
+    InstanceofArmList,
+    InstanceofArm,
+    TypePattern,
+    TypePatternBinding,
 
     BindingPattern,
     VariantPattern,

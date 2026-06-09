@@ -152,11 +152,61 @@ impl Parser {
 
         self.skip_newlines();
 
+        self.expect(TokenKind::Arrow)?;
+
+        self.skip_newlines();
+
         let body = self.parse_block()?;
 
         let span = Span::cover(self.node_span(pattern), self.node_span(body))
             .unwrap_or_else(|| self.node_span(pattern));
 
         Some(self.add_node(SyntaxNodeKind::MatchArm, span, vec![pattern, body]))
+    }
+
+    pub(super) fn parse_type_pattern_binding(&mut self) -> Option<NodeId> {
+        let left = self.expect(TokenKind::LeftParen)?;
+
+        self.skip_newlines();
+
+        let name = self.parse_identifier()?;
+
+        self.skip_newlines();
+
+        let right = self.expect(TokenKind::RightParen)?;
+
+        let span = Span::cover(left.span(), right.span()).unwrap_or(left.span());
+
+        Some(self.add_node(SyntaxNodeKind::TypePatternBinding, span, vec![name]))
+    }
+
+    pub(super) fn parse_type_pattern(&mut self) -> Option<NodeId> {
+        let pattern_type = self.parse_type()?;
+
+        let mut children = vec![pattern_type];
+        let mut end_span = self.node_span(pattern_type);
+
+        self.skip_newlines();
+
+        if self.at(&TokenKind::LeftParen) {
+            let binding = self.parse_type_pattern_binding()?;
+            end_span = self.node_span(binding);
+            children.push(binding);
+        }
+
+        let span = Span::cover(self.node_span(pattern_type), end_span)
+            .unwrap_or_else(|| self.node_span(pattern_type));
+
+        Some(self.add_node(SyntaxNodeKind::TypePattern, span, children))
+    }
+
+    pub(super) fn parse_instanceof_pattern(&mut self) -> Option<NodeId> {
+        if self.at(&TokenKind::Identifier)
+            && self.peek_after_newlines(1).kind() != &TokenKind::LeftParen
+        {
+            return self.parse_binding_pattern();
+        }
+
+        self.parse_type_pattern()
     }
 }

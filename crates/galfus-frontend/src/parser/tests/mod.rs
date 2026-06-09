@@ -18,6 +18,7 @@ mod if_statements;
 mod imports_exports;
 mod index_expressions;
 mod inferred_struct_literals;
+mod instanceof_statement;
 mod loop_statements;
 mod match_statements;
 mod rest_parameters;
