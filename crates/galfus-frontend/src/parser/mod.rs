@@ -144,20 +144,6 @@ impl Parser {
             .span()
     }
 
-    fn can_start_expression(&self) -> bool {
-        matches!(
-            self.current().kind(),
-            TokenKind::LeftParen
-                | TokenKind::Integer
-                | TokenKind::Float
-                | TokenKind::String
-                | TokenKind::True
-                | TokenKind::False
-                | TokenKind::Null
-                | TokenKind::Identifier
-        )
-    }
-
     fn peek_after_newlines(&self, start_offset: usize) -> &Token {
         let mut offset = start_offset;
 
@@ -166,6 +152,23 @@ impl Parser {
         }
 
         self.peek(offset)
+    }
+
+    fn can_start_expression(&self) -> bool {
+        matches!(
+            self.current().kind(),
+            TokenKind::Minus
+                | TokenKind::Bang
+                | TokenKind::Tilde
+                | TokenKind::LeftParen
+                | TokenKind::Integer
+                | TokenKind::Float
+                | TokenKind::String
+                | TokenKind::True
+                | TokenKind::False
+                | TokenKind::Null
+                | TokenKind::Identifier
+        )
     }
 
     fn can_continue_expression_after_newline(kind: &TokenKind) -> bool {
@@ -189,6 +192,37 @@ impl Parser {
                 | TokenKind::PipePipe
                 | TokenKind::QuestionQuestion
         )
+    }
+
+    fn binary_operator_info(kind: &TokenKind) -> Option<(u8, BinaryAssociativity)> {
+        match kind {
+            TokenKind::StarStar => Some((80, BinaryAssociativity::Right)),
+
+            TokenKind::Star | TokenKind::Slash | TokenKind::Percent => {
+                Some((70, BinaryAssociativity::Left))
+            }
+
+            TokenKind::Plus | TokenKind::Minus => Some((60, BinaryAssociativity::Left)),
+
+            TokenKind::Less
+            | TokenKind::LessEqual
+            | TokenKind::Greater
+            | TokenKind::GreaterEqual => Some((50, BinaryAssociativity::Left)),
+
+            TokenKind::EqualEqual | TokenKind::BangEqual => Some((45, BinaryAssociativity::Left)),
+
+            TokenKind::AmpAmp => Some((30, BinaryAssociativity::Left)),
+
+            TokenKind::PipePipe => Some((20, BinaryAssociativity::Left)),
+
+            TokenKind::QuestionQuestion => Some((10, BinaryAssociativity::Right)),
+
+            _ => None,
+        }
+    }
+
+    fn is_unary_operator(kind: &TokenKind) -> bool {
+        matches!(kind, TokenKind::Minus | TokenKind::Bang | TokenKind::Tilde)
     }
 
     // MARK: Start
@@ -960,7 +994,7 @@ impl Parser {
     }
 
     fn parse_binary_expression(&mut self, min_precedence: u8) -> Option<NodeId> {
-        let mut left = self.parse_postfix_expression()?;
+        let mut left = self.parse_unary_expression()?;
 
         loop {
             self.skip_soft_newlines_before_expression_continuation();
@@ -1033,6 +1067,33 @@ impl Parser {
         let span = Span::cover(left.span(), right.span()).unwrap_or(left.span());
 
         Some(self.add_node(SyntaxNodeKind::GroupedExpression, span, vec![expression]))
+    }
+
+    fn parse_unary_expression(&mut self) -> Option<NodeId> {
+        if Self::is_unary_operator(self.current().kind()) {
+            let operator_token = self.bump();
+
+            let operator = self.add_node(
+                SyntaxNodeKind::UnaryOperator,
+                operator_token.span(),
+                Vec::new(),
+            );
+
+            self.skip_newlines();
+
+            let operand = self.parse_unary_expression()?;
+
+            let span = Span::cover(operator_token.span(), self.node_span(operand))
+                .unwrap_or(operator_token.span());
+
+            return Some(self.add_node(
+                SyntaxNodeKind::UnaryExpression,
+                span,
+                vec![operator, operand],
+            ));
+        }
+
+        self.parse_postfix_expression()
     }
 
     // MARK: Others
@@ -1342,33 +1403,6 @@ impl Parser {
         let span = self.node_span(expression);
 
         Some(self.add_node(SyntaxNodeKind::Argument, span, vec![expression]))
-    }
-
-    fn binary_operator_info(kind: &TokenKind) -> Option<(u8, BinaryAssociativity)> {
-        match kind {
-            TokenKind::StarStar => Some((80, BinaryAssociativity::Right)),
-
-            TokenKind::Star | TokenKind::Slash | TokenKind::Percent => {
-                Some((70, BinaryAssociativity::Left))
-            }
-
-            TokenKind::Plus | TokenKind::Minus => Some((60, BinaryAssociativity::Left)),
-
-            TokenKind::Less
-            | TokenKind::LessEqual
-            | TokenKind::Greater
-            | TokenKind::GreaterEqual => Some((50, BinaryAssociativity::Left)),
-
-            TokenKind::EqualEqual | TokenKind::BangEqual => Some((45, BinaryAssociativity::Left)),
-
-            TokenKind::AmpAmp => Some((30, BinaryAssociativity::Left)),
-
-            TokenKind::PipePipe => Some((20, BinaryAssociativity::Left)),
-
-            TokenKind::QuestionQuestion => Some((10, BinaryAssociativity::Right)),
-
-            _ => None,
-        }
     }
 }
 

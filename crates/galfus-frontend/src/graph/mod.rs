@@ -214,15 +214,19 @@ pub enum SyntaxNodeKind {
 
     Identifier,
 
+    ArgumentList,
+    Argument,
+
+    CallExpression,
     NameExpression,
     MemberExpression,
     AnchorExpression,
-    CallExpression,
-    ArgumentList,
-    Argument,
-    BinaryExpression,
-    BinaryOperator,
     GroupedExpression,
+    UnaryExpression,
+    BinaryExpression,
+
+    UnaryOperator,
+    BinaryOperator,
 
     IntegerLiteral,
     FloatLiteral,
