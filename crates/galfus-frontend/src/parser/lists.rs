@@ -565,4 +565,56 @@ impl Parser {
 
         Some(self.add_node(SyntaxNodeKind::GenericArgumentList, span, arguments))
     }
+
+    pub(super) fn parse_generic_parameter_list(&mut self) -> Option<NodeId> {
+        let left = self.expect(TokenKind::Less)?;
+
+        let mut parameters = Vec::new();
+
+        self.skip_newlines();
+
+        while !self.is_eof() && !self.at_type_argument_close() {
+            let start_position = self.position;
+
+            if let Some(parameter) = self.parse_generic_parameter() {
+                parameters.push(parameter);
+            }
+
+            self.skip_newlines();
+
+            if self.at_type_argument_close() {
+                break;
+            }
+
+            if self.at(&TokenKind::Comma) {
+                self.bump();
+
+                self.skip_newlines();
+
+                if self.at_type_argument_close() {
+                    break;
+                }
+
+                continue;
+            }
+
+            let found = self.current().clone();
+
+            self.graph.push_diagnostic(Diagnostic::error_with_message(
+                ParserDiagnosticCode::ExpectedToken,
+                format!("expected `Comma`, found `{:?}`", found.kind()),
+                found.span(),
+            ));
+
+            if self.position == start_position {
+                self.bump();
+            }
+        }
+
+        let right = self.expect_type_argument_close()?;
+
+        let span = Span::cover(left.span(), right.span()).unwrap_or(left.span());
+
+        Some(self.add_node(SyntaxNodeKind::GenericParameterList, span, parameters))
+    }
 }

@@ -199,6 +199,8 @@ pub enum SyntaxNodeKind {
     Parameter,
     RestParameter,
     ParameterDefault,
+    GenericParameterList,
+    GenericParameter,
 
     Block,
     ReturnStatement,

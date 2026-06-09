@@ -50,21 +50,45 @@ impl Parser {
     pub(super) fn parse_function_item(&mut self) -> Option<NodeId> {
         let fn_token = self.expect(TokenKind::Fn)?;
 
+        self.skip_newlines();
+
         let name = self.parse_identifier()?;
+
+        let generic_parameters = if self.at(&TokenKind::Less) {
+            let generics = self.parse_generic_parameter_list()?;
+            self.skip_newlines();
+            Some(generics)
+        } else {
+            None
+        };
+
         let parameters = self.parse_parameter_list()?;
+
+        self.skip_newlines();
 
         self.expect(TokenKind::Colon)?;
 
+        self.skip_newlines();
+
         let return_type = self.parse_type()?;
+
+        self.skip_newlines();
+
         let body = self.parse_block()?;
+
+        let mut children = vec![name];
+
+        if let Some(generic_parameters) = generic_parameters {
+            children.push(generic_parameters);
+        }
+
+        children.push(parameters);
+        children.push(return_type);
+        children.push(body);
 
         let span = Span::cover(fn_token.span(), self.node_span(body)).unwrap_or(fn_token.span());
 
-        Some(self.add_node(
-            SyntaxNodeKind::FunctionItem,
-            span,
-            vec![name, parameters, return_type, body],
-        ))
+        Some(self.add_node(SyntaxNodeKind::FunctionItem, span, children))
     }
 
     pub(super) fn parse_type_alias_item(&mut self) -> Option<NodeId> {
@@ -89,13 +113,32 @@ impl Parser {
     pub(super) fn parse_struct_item(&mut self) -> Option<NodeId> {
         let struct_token = self.expect(TokenKind::Struct)?;
 
+        self.skip_newlines();
+
         let name = self.parse_identifier()?;
+
+        let generic_parameters = if self.at(&TokenKind::Less) {
+            let generics = self.parse_generic_parameter_list()?;
+            self.skip_newlines();
+            Some(generics)
+        } else {
+            None
+        };
+
         let fields = self.parse_struct_field_list()?;
+
+        let mut children = vec![name];
+
+        if let Some(generic_parameters) = generic_parameters {
+            children.push(generic_parameters);
+        }
+
+        children.push(fields);
 
         let span =
             Span::cover(struct_token.span(), self.node_span(fields)).unwrap_or(struct_token.span());
 
-        Some(self.add_node(SyntaxNodeKind::StructItem, span, vec![name, fields]))
+        Some(self.add_node(SyntaxNodeKind::StructItem, span, children))
     }
 
     pub(super) fn parse_enum_item(&mut self) -> Option<NodeId> {
@@ -132,5 +175,12 @@ impl Parser {
         let span = Span::cover(equal.span(), self.node_span(value)).unwrap_or(equal.span());
 
         Some(self.add_node(SyntaxNodeKind::StructFieldDefault, span, vec![value]))
+    }
+
+    pub(super) fn parse_generic_parameter(&mut self) -> Option<NodeId> {
+        let name = self.parse_identifier()?;
+        let span = self.node_span(name);
+
+        Some(self.add_node(SyntaxNodeKind::GenericParameter, span, vec![name]))
     }
 }
