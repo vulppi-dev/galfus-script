@@ -210,9 +210,17 @@ pub enum SyntaxNodeKind {
     WhileStatement,
     LoopStatement,
     AssignmentStatement,
+    MatchStatement,
+    MatchArmList,
+    MatchArm,
+
+    BindingPattern,
+    VariantPattern,
+    VariantPatternPayload,
+    LiteralPattern,
+
     TypeAnnotation,
     Initializer,
-
     TypeNull,
     TypeName,
     ArrayType,

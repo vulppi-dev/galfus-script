@@ -5,6 +5,7 @@ mod expressions;
 mod items;
 mod lists;
 mod literals;
+mod patterns;
 mod start;
 mod statements;
 mod syntax;

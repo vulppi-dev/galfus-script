@@ -38,6 +38,10 @@ impl Parser {
             return self.parse_loop_statement();
         }
 
+        if self.at(&TokenKind::Match) {
+            return self.parse_match_statement();
+        }
+
         if self.can_start_expression() {
             return self.parse_expression_or_assignment_statement();
         }
@@ -359,5 +363,22 @@ impl Parser {
             Span::cover(while_token.span(), self.node_span(body)).unwrap_or(while_token.span());
 
         Some(self.add_node(SyntaxNodeKind::WhileStatement, span, vec![condition, body]))
+    }
+
+    pub(super) fn parse_match_statement(&mut self) -> Option<NodeId> {
+        let match_token = self.expect(TokenKind::Match)?;
+
+        self.skip_newlines();
+
+        let subject = self.parse_expression_before_block()?;
+
+        self.skip_newlines();
+
+        let arms = self.parse_match_arm_list()?;
+
+        let span =
+            Span::cover(match_token.span(), self.node_span(arms)).unwrap_or(match_token.span());
+
+        Some(self.add_node(SyntaxNodeKind::MatchStatement, span, vec![subject, arms]))
     }
 }
