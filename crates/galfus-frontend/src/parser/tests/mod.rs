@@ -2,6 +2,7 @@ use super::*;
 use galfus_core::{SourceFile, SourceId};
 
 mod array_literals;
+mod arrow_functions;
 mod assignment_statements;
 mod binary;
 mod calls_members;

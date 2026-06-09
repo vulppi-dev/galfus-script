@@ -30,6 +30,10 @@ impl Parser {
         &mut self,
         boundary: ExpressionBoundary,
     ) -> Option<NodeId> {
+        if self.at(&TokenKind::LeftParen) && self.is_arrow_function_start() {
+            return self.parse_arrow_function_expression();
+        }
+
         if self.at(&TokenKind::LeftParen) {
             return self.parse_grouped_expression();
         }
@@ -329,5 +333,46 @@ impl Parser {
             Span::cover(struct_token.span(), self.node_span(fields)).unwrap_or(struct_token.span());
 
         Some(self.add_node(SyntaxNodeKind::InferredStructLiteral, span, vec![fields]))
+    }
+
+    pub(super) fn parse_arrow_function_expression(&mut self) -> Option<NodeId> {
+        let parameters = self.parse_parameter_list()?;
+
+        self.skip_newlines();
+
+        let return_type = if self.at(&TokenKind::Colon) {
+            self.bump();
+
+            self.skip_newlines();
+
+            Some(self.parse_type()?)
+        } else {
+            None
+        };
+
+        self.skip_newlines();
+
+        self.expect(TokenKind::Arrow)?;
+
+        self.skip_newlines();
+
+        let body = if self.at(&TokenKind::LeftBrace) {
+            self.parse_block()?
+        } else {
+            self.parse_expression()?
+        };
+
+        let mut children = vec![parameters];
+
+        if let Some(return_type) = return_type {
+            children.push(return_type);
+        }
+
+        children.push(body);
+
+        let span = Span::cover(self.node_span(parameters), self.node_span(body))
+            .unwrap_or_else(|| self.node_span(parameters));
+
+        Some(self.add_node(SyntaxNodeKind::ArrowFunctionExpression, span, children))
     }
 }

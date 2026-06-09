@@ -163,4 +163,45 @@ impl Parser {
                 None => false,
             })
     }
+
+    pub(super) fn is_arrow_function_start(&self) -> bool {
+        if !self.at(&TokenKind::LeftParen) {
+            return false;
+        }
+
+        let mut index = self.position;
+        let mut depth = 0usize;
+
+        while index < self.tokens.len() {
+            match self.tokens[index].kind() {
+                TokenKind::LeftParen => {
+                    depth += 1;
+                }
+                TokenKind::RightParen => {
+                    depth -= 1;
+
+                    if depth == 0 {
+                        index += 1;
+
+                        while index < self.tokens.len()
+                            && self.tokens[index].kind() == &TokenKind::Newline
+                        {
+                            index += 1;
+                        }
+
+                        return matches!(
+                            self.tokens.get(index).map(|token| token.kind()),
+                            Some(TokenKind::Arrow) | Some(TokenKind::Colon)
+                        );
+                    }
+                }
+                TokenKind::Eof => return false,
+                _ => {}
+            }
+
+            index += 1;
+        }
+
+        false
+    }
 }

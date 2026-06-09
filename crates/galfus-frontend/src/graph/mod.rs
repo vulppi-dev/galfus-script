@@ -246,6 +246,7 @@ pub enum SyntaxNodeKind {
     GroupedExpression,
     UnaryExpression,
     BinaryExpression,
+    ArrowFunctionExpression,
 
     UnaryOperator,
     BinaryOperator,
