@@ -33,6 +33,10 @@ impl Parser {
     }
 
     pub(super) fn parse_primary_type(&mut self) -> Option<NodeId> {
+        if self.at(&TokenKind::Fn) {
+            return self.parse_function_type();
+        }
+
         if self.at(&TokenKind::Null) {
             let token = self.bump();
 
@@ -453,6 +457,31 @@ impl Parser {
             SyntaxNodeKind::ConstraintField,
             span,
             vec![name, field_type],
+        ))
+    }
+
+    pub(super) fn parse_function_type(&mut self) -> Option<NodeId> {
+        let fn_token = self.expect(TokenKind::Fn)?;
+
+        self.skip_newlines();
+
+        let parameters = self.parse_function_type_parameter_list()?;
+
+        self.skip_newlines();
+
+        self.expect(TokenKind::Colon)?;
+
+        self.skip_newlines();
+
+        let return_type = self.parse_type()?;
+
+        let span =
+            Span::cover(fn_token.span(), self.node_span(return_type)).unwrap_or(fn_token.span());
+
+        Some(self.add_node(
+            SyntaxNodeKind::FunctionType,
+            span,
+            vec![parameters, return_type],
         ))
     }
 }

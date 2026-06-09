@@ -249,6 +249,8 @@ pub enum SyntaxNodeKind {
     FixedArrayType,
     ArraySize,
     UnionType,
+    FunctionType,
+    FunctionTypeParameterList,
 
     ImportSource,
 

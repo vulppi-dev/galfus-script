@@ -699,4 +699,56 @@ impl Parser {
 
         Some(self.add_node(SyntaxNodeKind::ConstraintMemberList, span, members))
     }
+
+    pub(super) fn parse_function_type_parameter_list(&mut self) -> Option<NodeId> {
+        let left = self.expect(TokenKind::LeftParen)?;
+
+        let mut parameters = Vec::new();
+
+        self.skip_newlines();
+
+        while !self.is_eof() && !self.at(&TokenKind::RightParen) {
+            let start_position = self.position;
+
+            if let Some(parameter_type) = self.parse_type() {
+                parameters.push(parameter_type);
+            }
+
+            self.skip_newlines();
+
+            if self.at(&TokenKind::RightParen) {
+                break;
+            }
+
+            if self.at(&TokenKind::Comma) {
+                self.bump();
+
+                self.skip_newlines();
+
+                if self.at(&TokenKind::RightParen) {
+                    break;
+                }
+
+                continue;
+            }
+
+            let found = self.current().clone();
+
+            self.graph.push_diagnostic(Diagnostic::error_with_message(
+                ParserDiagnosticCode::ExpectedToken,
+                format!("expected `Comma`, found `{:?}`", found.kind()),
+                found.span(),
+            ));
+
+            if self.position == start_position {
+                self.bump();
+            }
+        }
+
+        let right = self.expect(TokenKind::RightParen)?;
+
+        let span = Span::cover(left.span(), right.span()).unwrap_or(left.span());
+
+        Some(self.add_node(SyntaxNodeKind::FunctionTypeParameterList, span, parameters))
+    }
 }

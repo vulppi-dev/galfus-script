@@ -109,8 +109,8 @@ fn parse_generic_parameter_constraint_enum() {
 }
 
 #[test]
-fn parse_generic_parameter_constraint_fn() {
-    let source = source("fn call<T: fn>(callback: T): T {\n  return callback\n}");
+fn parse_generic_parameter_constraint_function_type() {
+    let source = source("fn call<T: fn (): null>(callback: T): T {\n  return callback\n}");
 
     let result = parse(&source);
 
@@ -127,14 +127,17 @@ fn parse_generic_parameter_constraint_fn() {
     let parameter_node = syntax.node(parameter).unwrap();
 
     let constraint = parameter_node.children()[1];
-    let child = syntax.node(constraint).unwrap().children()[0];
+    let constraint_type = syntax.node(constraint).unwrap().children()[0];
 
     assert_eq!(
-        syntax.node(child).unwrap().kind(),
-        SyntaxNodeKind::BasicConstraint
+        syntax.node(constraint_type).unwrap().kind(),
+        SyntaxNodeKind::FunctionType
     );
 
-    assert_eq!(source.slice(syntax.node(child).unwrap().span()), Some("fn"));
+    assert_eq!(
+        source.slice(syntax.node(constraint_type).unwrap().span()),
+        Some("fn (): null")
+    );
 }
 
 #[test]

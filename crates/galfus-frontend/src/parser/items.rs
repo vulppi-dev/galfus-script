@@ -138,20 +138,37 @@ impl Parser {
     pub(super) fn parse_type_alias_item(&mut self) -> Option<NodeId> {
         let type_token = self.expect(TokenKind::Type)?;
 
+        self.skip_newlines();
+
         let name = self.parse_identifier()?;
+
+        let generic_parameters = if self.at(&TokenKind::Less) {
+            let generics = self.parse_generic_parameter_list()?;
+            Some(generics)
+        } else {
+            None
+        };
+
+        self.skip_newlines();
 
         self.expect(TokenKind::Equal)?;
 
+        self.skip_newlines();
+
         let aliased_type = self.parse_type()?;
+
+        let mut children = vec![name];
+
+        if let Some(generic_parameters) = generic_parameters {
+            children.push(generic_parameters);
+        }
+
+        children.push(aliased_type);
 
         let span = Span::cover(type_token.span(), self.node_span(aliased_type))
             .unwrap_or(type_token.span());
 
-        Some(self.add_node(
-            SyntaxNodeKind::TypeAliasItem,
-            span,
-            vec![name, aliased_type],
-        ))
+        Some(self.add_node(SyntaxNodeKind::TypeAliasItem, span, children))
     }
 
     pub(super) fn parse_struct_item(&mut self) -> Option<NodeId> {
@@ -278,10 +295,7 @@ impl Parser {
 
         self.skip_newlines();
 
-        let constraint = if self.at(&TokenKind::Struct)
-            || self.at(&TokenKind::Enum)
-            || self.at(&TokenKind::Fn)
-        {
+        let constraint = if self.at(&TokenKind::Struct) || self.at(&TokenKind::Enum) {
             self.parse_basic_constraint()?
         } else {
             self.parse_type()?

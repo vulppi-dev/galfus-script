@@ -14,6 +14,7 @@ mod core;
 mod default_parameters;
 mod expression_statements;
 mod for_statements;
+mod function_types;
 mod functions;
 mod generic_constraints;
 mod generic_declarations;
