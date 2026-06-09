@@ -37,6 +37,7 @@ mod spread_expressions;
 mod statements;
 mod struct_literals;
 mod structs_choices;
+mod type_paths;
 mod types;
 mod variant_construction;
 mod weak_fields;

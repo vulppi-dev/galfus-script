@@ -346,38 +346,10 @@ impl Parser {
         false
     }
 
-    pub(super) fn can_parse_function_anchor(&self) -> bool {
-        if !matches!(
-            self.tokens.get(self.position).map(|token| token.kind()),
-            Some(TokenKind::Identifier)
-        ) {
-            return false;
-        }
-
-        let mut index = self.position + 1;
-
-        if matches!(
-            self.tokens.get(index).map(|token| token.kind()),
-            Some(TokenKind::Less)
-        ) {
-            let Some(next_index) = self.skip_generic_type_arguments_in_lookahead(index) else {
-                return false;
-            };
-
-            index = next_index;
-        }
-
-        matches!(
-            self.tokens.get(index).map(|token| token.kind()),
-            Some(TokenKind::ColonColon)
-        )
-    }
-
-    pub(super) fn skip_generic_type_arguments_in_lookahead(
-        &self,
-        mut index: usize,
-    ) -> Option<usize> {
+    pub(super) fn find_function_anchor_separator(&self) -> Option<usize> {
+        let mut index = self.position;
         let mut depth = 0usize;
+        let mut separator = None;
 
         while index < self.tokens.len() {
             match self.tokens[index].kind() {
@@ -386,31 +358,36 @@ impl Parser {
                 }
 
                 TokenKind::Greater => {
-                    if depth == 0 {
-                        return None;
-                    }
-
-                    depth -= 1;
-
-                    if depth == 0 {
-                        return Some(index + 1);
+                    if depth > 0 {
+                        depth -= 1;
                     }
                 }
 
                 TokenKind::ShiftRight => {
-                    if depth < 2 {
-                        return None;
-                    }
-
-                    depth -= 2;
-
-                    if depth == 0 {
-                        return Some(index + 1);
+                    if depth >= 2 {
+                        depth -= 2;
+                    } else if depth == 1 {
+                        depth = 0;
                     }
                 }
 
-                TokenKind::Eof | TokenKind::Newline => {
-                    return None;
+                TokenKind::ColonColon if depth == 0 => {
+                    let next = index + 1;
+
+                    if matches!(
+                        self.tokens.get(next).map(|token| token.kind()),
+                        Some(TokenKind::Identifier)
+                    ) {
+                        separator = Some(index);
+                    }
+                }
+
+                TokenKind::LeftParen if depth == 0 => {
+                    return separator;
+                }
+
+                TokenKind::Eof | TokenKind::Newline if depth == 0 => {
+                    return separator;
                 }
 
                 _ => {}
@@ -419,6 +396,6 @@ impl Parser {
             index += 1;
         }
 
-        None
+        separator
     }
 }

@@ -96,8 +96,8 @@ impl Parser {
 
         self.skip_newlines();
 
-        let anchor = if self.can_parse_function_anchor() {
-            let anchor = self.parse_function_anchor()?;
+        let anchor = if let Some(separator_position) = self.find_function_anchor_separator() {
+            let anchor = self.parse_function_anchor_until(separator_position)?;
 
             self.expect(TokenKind::ColonColon)?;
 
@@ -441,16 +441,5 @@ impl Parser {
         let span = Span::cover(satisfies_token.span(), end_span).unwrap_or(satisfies_token.span());
 
         Some(self.add_node(SyntaxNodeKind::SatisfiesClause, span, constraints))
-    }
-
-    pub(super) fn parse_function_anchor(&mut self) -> Option<NodeId> {
-        let anchor_type = self.parse_type()?;
-        let anchor_span = self.node_span(anchor_type);
-
-        Some(self.add_node(
-            SyntaxNodeKind::FunctionAnchor,
-            anchor_span,
-            vec![anchor_type],
-        ))
     }
 }
