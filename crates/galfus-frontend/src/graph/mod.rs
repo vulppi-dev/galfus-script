@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests;
 
-use crate::Token;
+use crate::{Token, TokenKind};
 use galfus_core::{Diagnostic, DiagnosticBag, NodeId, SourceId, Span};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -169,6 +169,18 @@ impl SyntaxLayer {
             .flat_map(|node| node.children().iter().copied())
             .filter(move |child| self.node(*child).is_some_and(|node| node.kind() == kind))
     }
+
+    pub fn add_operator_node(
+        &mut self,
+        kind: SyntaxNodeKind,
+        span: Span,
+        operator: OperatorKind,
+    ) -> NodeId {
+        let id = NodeId::new(self.nodes.len() as u32);
+        self.nodes
+            .push(SyntaxNode::new_operator(kind, span, operator));
+        id
+    }
 }
 
 impl Default for SyntaxLayer {
@@ -177,11 +189,160 @@ impl Default for SyntaxLayer {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum UnaryOperatorKind {
+    Negate,
+    Not,
+    BitwiseNot,
+}
+
+impl UnaryOperatorKind {
+    pub fn from_token(kind: &TokenKind) -> Option<Self> {
+        match kind {
+            TokenKind::Minus => Some(Self::Negate),
+            TokenKind::Bang => Some(Self::Not),
+            TokenKind::Tilde => Some(Self::BitwiseNot),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum BinaryOperatorKind {
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+    Remainder,
+    Power,
+
+    Equal,
+    NotEqual,
+    Less,
+    LessEqual,
+    Greater,
+    GreaterEqual,
+
+    LogicalAnd,
+    LogicalOr,
+
+    NullFallback,
+}
+
+impl BinaryOperatorKind {
+    pub fn from_token(kind: &TokenKind) -> Option<Self> {
+        match kind {
+            TokenKind::Plus => Some(Self::Add),
+            TokenKind::Minus => Some(Self::Subtract),
+            TokenKind::Star => Some(Self::Multiply),
+            TokenKind::Slash => Some(Self::Divide),
+            TokenKind::Percent => Some(Self::Remainder),
+            TokenKind::StarStar => Some(Self::Power),
+
+            TokenKind::EqualEqual => Some(Self::Equal),
+            TokenKind::BangEqual => Some(Self::NotEqual),
+            TokenKind::Less => Some(Self::Less),
+            TokenKind::LessEqual => Some(Self::LessEqual),
+            TokenKind::Greater => Some(Self::Greater),
+            TokenKind::GreaterEqual => Some(Self::GreaterEqual),
+
+            TokenKind::AmpAmp => Some(Self::LogicalAnd),
+            TokenKind::PipePipe => Some(Self::LogicalOr),
+
+            TokenKind::QuestionQuestion => Some(Self::NullFallback),
+
+            _ => None,
+        }
+    }
+
+    pub fn precedence(self) -> u8 {
+        match self {
+            Self::Power => 80,
+
+            Self::Multiply | Self::Divide | Self::Remainder => 70,
+
+            Self::Add | Self::Subtract => 60,
+
+            Self::Less | Self::LessEqual | Self::Greater | Self::GreaterEqual => 50,
+
+            Self::Equal | Self::NotEqual => 45,
+
+            Self::LogicalAnd => 30,
+
+            Self::LogicalOr => 20,
+
+            Self::NullFallback => 10,
+        }
+    }
+
+    pub fn associativity(self) -> BinaryAssociativity {
+        match self {
+            Self::Power | Self::NullFallback => BinaryAssociativity::Right,
+            _ => BinaryAssociativity::Left,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum AssignmentOperatorKind {
+    Assign,
+
+    AddAssign,
+    SubtractAssign,
+    MultiplyAssign,
+    DivideAssign,
+    RemainderAssign,
+    PowerAssign,
+
+    BitwiseAndAssign,
+    BitwiseOrAssign,
+    BitwiseXorAssign,
+    ShiftLeftAssign,
+    ShiftRightAssign,
+}
+
+impl AssignmentOperatorKind {
+    pub fn from_token(kind: &TokenKind) -> Option<Self> {
+        match kind {
+            TokenKind::Equal => Some(Self::Assign),
+
+            TokenKind::PlusEqual => Some(Self::AddAssign),
+            TokenKind::MinusEqual => Some(Self::SubtractAssign),
+            TokenKind::StarEqual => Some(Self::MultiplyAssign),
+            TokenKind::SlashEqual => Some(Self::DivideAssign),
+            TokenKind::PercentEqual => Some(Self::RemainderAssign),
+            TokenKind::StarStarEqual => Some(Self::PowerAssign),
+
+            TokenKind::AmpEqual => Some(Self::BitwiseAndAssign),
+            TokenKind::PipeEqual => Some(Self::BitwiseOrAssign),
+            TokenKind::CaretEqual => Some(Self::BitwiseXorAssign),
+            TokenKind::ShiftLeftEqual => Some(Self::ShiftLeftAssign),
+            TokenKind::ShiftRightEqual => Some(Self::ShiftRightAssign),
+
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum BinaryAssociativity {
+    Left,
+    Right,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum OperatorKind {
+    Unary(UnaryOperatorKind),
+    Binary(BinaryOperatorKind),
+    Assignment(AssignmentOperatorKind),
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SyntaxNode {
     kind: SyntaxNodeKind,
     span: Span,
     children: Vec<NodeId>,
+    operator: Option<OperatorKind>,
 }
 
 impl SyntaxNode {
@@ -190,6 +351,16 @@ impl SyntaxNode {
             kind,
             span,
             children,
+            operator: None,
+        }
+    }
+
+    pub fn new_operator(kind: SyntaxNodeKind, span: Span, operator: OperatorKind) -> Self {
+        Self {
+            kind,
+            span,
+            children: Vec::new(),
+            operator: Some(operator),
         }
     }
 
@@ -223,6 +394,31 @@ impl SyntaxNode {
 
     pub fn is(&self, kind: SyntaxNodeKind) -> bool {
         self.kind == kind
+    }
+
+    pub fn operator(&self) -> Option<OperatorKind> {
+        self.operator
+    }
+
+    pub fn unary_operator(&self) -> Option<UnaryOperatorKind> {
+        match self.operator {
+            Some(OperatorKind::Unary(operator)) => Some(operator),
+            _ => None,
+        }
+    }
+
+    pub fn binary_operator(&self) -> Option<BinaryOperatorKind> {
+        match self.operator {
+            Some(OperatorKind::Binary(operator)) => Some(operator),
+            _ => None,
+        }
+    }
+
+    pub fn assignment_operator(&self) -> Option<AssignmentOperatorKind> {
+        match self.operator {
+            Some(OperatorKind::Assignment(operator)) => Some(operator),
+            _ => None,
+        }
     }
 }
 

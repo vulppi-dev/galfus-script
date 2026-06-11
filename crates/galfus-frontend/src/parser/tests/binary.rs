@@ -1,3 +1,5 @@
+use crate::BinaryOperatorKind;
+
 use super::*;
 
 #[test]
@@ -437,4 +439,40 @@ fn parse_logical_expression_allows_newline_after_operator() {
 
     assert_eq!(expression_node.kind(), SyntaxNodeKind::BinaryExpression);
     assert_eq!(source.slice(expression_node.span()), Some("a &&\n  b"));
+}
+
+#[test]
+fn parse_binary_operator_keeps_operator_kind() {
+    let source = source("fn main(): null { var value = 1 + 2; return }");
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+    let root = syntax.root().unwrap();
+
+    let function = syntax.first_child(root).unwrap();
+    let body = syntax
+        .first_child_of_kind(function, SyntaxNodeKind::Block)
+        .unwrap();
+
+    let var_statement = syntax.first_child(body).unwrap();
+    let initializer = syntax
+        .first_child_of_kind(var_statement, SyntaxNodeKind::Initializer)
+        .unwrap();
+
+    let expression = syntax.first_child(initializer).unwrap();
+    let expression_node = syntax.node(expression).unwrap();
+
+    assert_eq!(expression_node.kind(), SyntaxNodeKind::BinaryExpression);
+
+    let operator = syntax.child(expression, 1).unwrap();
+    let operator_node = syntax.node(operator).unwrap();
+
+    assert_eq!(operator_node.kind(), SyntaxNodeKind::BinaryOperator);
+    assert_eq!(
+        operator_node.binary_operator(),
+        Some(BinaryOperatorKind::Add)
+    );
 }

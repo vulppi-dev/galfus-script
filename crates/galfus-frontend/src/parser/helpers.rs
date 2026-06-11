@@ -1,3 +1,5 @@
+use crate::{AssignmentOperatorKind, BinaryAssociativity, BinaryOperatorKind, UnaryOperatorKind};
+
 use super::*;
 
 impl Parser {
@@ -47,52 +49,17 @@ impl Parser {
     }
 
     pub(super) fn binary_operator_info(kind: &TokenKind) -> Option<(u8, BinaryAssociativity)> {
-        match kind {
-            TokenKind::StarStar => Some((80, BinaryAssociativity::Right)),
+        let operator = BinaryOperatorKind::from_token(kind)?;
 
-            TokenKind::Star | TokenKind::Slash | TokenKind::Percent => {
-                Some((70, BinaryAssociativity::Left))
-            }
-
-            TokenKind::Plus | TokenKind::Minus => Some((60, BinaryAssociativity::Left)),
-
-            TokenKind::Less
-            | TokenKind::LessEqual
-            | TokenKind::Greater
-            | TokenKind::GreaterEqual => Some((50, BinaryAssociativity::Left)),
-
-            TokenKind::EqualEqual | TokenKind::BangEqual => Some((45, BinaryAssociativity::Left)),
-
-            TokenKind::AmpAmp => Some((30, BinaryAssociativity::Left)),
-
-            TokenKind::PipePipe => Some((20, BinaryAssociativity::Left)),
-
-            TokenKind::QuestionQuestion => Some((10, BinaryAssociativity::Right)),
-
-            _ => None,
-        }
+        Some((operator.precedence(), operator.associativity()))
     }
 
     pub(super) fn is_unary_operator(kind: &TokenKind) -> bool {
-        matches!(kind, TokenKind::Minus | TokenKind::Bang | TokenKind::Tilde)
+        UnaryOperatorKind::from_token(kind).is_some()
     }
 
     pub(super) fn is_assignment_operator(kind: &TokenKind) -> bool {
-        matches!(
-            kind,
-            TokenKind::Equal
-                | TokenKind::PlusEqual
-                | TokenKind::MinusEqual
-                | TokenKind::StarEqual
-                | TokenKind::SlashEqual
-                | TokenKind::PercentEqual
-                | TokenKind::StarStarEqual
-                | TokenKind::AmpEqual
-                | TokenKind::PipeEqual
-                | TokenKind::CaretEqual
-                | TokenKind::ShiftLeftEqual
-                | TokenKind::ShiftRightEqual
-        )
+        AssignmentOperatorKind::from_token(kind).is_some()
     }
 
     pub(super) fn expression_can_be_assignment_target(&self, expression: NodeId) -> bool {

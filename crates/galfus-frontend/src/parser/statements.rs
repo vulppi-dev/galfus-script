@@ -1,3 +1,5 @@
+use crate::AssignmentOperatorKind;
+
 use super::*;
 
 impl Parser {
@@ -206,10 +208,13 @@ impl Parser {
             self.expect(TokenKind::Equal)?
         };
 
-        let operator = self.add_node(
+        let operator_kind = AssignmentOperatorKind::from_token(operator_token.kind())
+            .expect("parser accepted token as assignment operator");
+
+        let operator = self.add_operator_node(
             SyntaxNodeKind::AssignmentOperator,
             operator_token.span(),
-            Vec::new(),
+            OperatorKind::Assignment(operator_kind),
         );
 
         self.skip_newlines();

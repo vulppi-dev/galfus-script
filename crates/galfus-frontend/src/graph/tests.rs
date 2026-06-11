@@ -139,3 +139,42 @@ fn syntax_node_kind_classifies_major_groups() {
     assert!(!SyntaxNodeKind::VarStatement.is_item());
     assert!(!SyntaxNodeKind::Identifier.is_expression());
 }
+
+#[test]
+fn binary_operator_kind_reports_precedence_and_associativity() {
+    assert_eq!(BinaryOperatorKind::Power.precedence(), 80);
+    assert_eq!(
+        BinaryOperatorKind::Power.associativity(),
+        BinaryAssociativity::Right
+    );
+
+    assert_eq!(BinaryOperatorKind::Multiply.precedence(), 70);
+    assert_eq!(
+        BinaryOperatorKind::Multiply.associativity(),
+        BinaryAssociativity::Left
+    );
+
+    assert_eq!(BinaryOperatorKind::NullFallback.precedence(), 10);
+    assert_eq!(
+        BinaryOperatorKind::NullFallback.associativity(),
+        BinaryAssociativity::Right
+    );
+}
+
+#[test]
+fn operator_kinds_are_created_from_tokens() {
+    assert_eq!(
+        UnaryOperatorKind::from_token(&TokenKind::Bang),
+        Some(UnaryOperatorKind::Not)
+    );
+
+    assert_eq!(
+        BinaryOperatorKind::from_token(&TokenKind::Plus),
+        Some(BinaryOperatorKind::Add)
+    );
+
+    assert_eq!(
+        AssignmentOperatorKind::from_token(&TokenKind::PlusEqual),
+        Some(AssignmentOperatorKind::AddAssign)
+    );
+}

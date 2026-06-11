@@ -1,3 +1,5 @@
+use crate::{BinaryAssociativity, BinaryOperatorKind, OperatorKind, UnaryOperatorKind};
+
 use super::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -191,12 +193,14 @@ impl Parser {
 
             self.bump();
 
-            let operator = self.add_node(
+            let operator_kind = BinaryOperatorKind::from_token(operator_token.kind())
+                .expect("parser accepted token as binary operator");
+
+            let operator = self.add_operator_node(
                 SyntaxNodeKind::BinaryOperator,
                 operator_token.span(),
-                Vec::new(),
+                OperatorKind::Binary(operator_kind),
             );
-
             self.skip_newlines();
 
             let next_min_precedence = match associativity {
@@ -255,10 +259,13 @@ impl Parser {
         if Self::is_unary_operator(self.current().kind()) {
             let operator_token = self.bump();
 
-            let operator = self.add_node(
+            let operator_kind = UnaryOperatorKind::from_token(operator_token.kind())
+                .expect("parser accepted token as unary operator");
+
+            let operator = self.graph.syntax_mut().add_operator_node(
                 SyntaxNodeKind::UnaryOperator,
                 operator_token.span(),
-                Vec::new(),
+                OperatorKind::Unary(operator_kind),
             );
 
             self.skip_newlines();

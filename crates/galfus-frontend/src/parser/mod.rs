@@ -11,14 +11,10 @@ mod start;
 mod statements;
 mod syntax;
 
-use crate::{ModuleGraph, ParserDiagnosticCode, SyntaxNodeKind, Token, TokenKind, lex};
+use crate::{
+    ModuleGraph, OperatorKind, ParserDiagnosticCode, SyntaxNodeKind, Token, TokenKind, lex,
+};
 use galfus_core::{Diagnostic, DiagnosticBag, NodeId, SourceFile, Span};
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum BinaryAssociativity {
-    Left,
-    Right,
-}
 
 #[derive(Debug, Clone)]
 pub struct ParseResult {
@@ -144,6 +140,17 @@ impl Parser {
 
     fn add_node(&mut self, kind: SyntaxNodeKind, span: Span, children: Vec<NodeId>) -> NodeId {
         self.graph.syntax_mut().add_node(kind, span, children)
+    }
+
+    pub(super) fn add_operator_node(
+        &mut self,
+        kind: SyntaxNodeKind,
+        span: Span,
+        operator: OperatorKind,
+    ) -> NodeId {
+        self.graph
+            .syntax_mut()
+            .add_operator_node(kind, span, operator)
     }
 
     fn node_span(&self, id: NodeId) -> Span {

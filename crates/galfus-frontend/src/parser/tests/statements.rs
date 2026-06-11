@@ -1,3 +1,5 @@
+use crate::AssignmentOperatorKind;
+
 use super::*;
 
 #[test]
@@ -171,4 +173,42 @@ fn parse_empty_return_statement_still_works() {
     assert_eq!(return_node.kind(), SyntaxNodeKind::ReturnStatement);
     assert_eq!(source.slice(return_node.span()), Some("return"));
     assert!(return_node.children().is_empty());
+}
+
+#[test]
+fn parse_assignment_operator_keeps_operator_kind() {
+    let source = source(
+        "fn main(): null {
+            value += 1
+            return
+        }",
+    );
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+    let root = syntax.root().unwrap();
+
+    let function = syntax.first_child(root).unwrap();
+    let body = syntax
+        .first_child_of_kind(function, SyntaxNodeKind::Block)
+        .unwrap();
+
+    let assignment = syntax.first_child(body).unwrap();
+    let assignment_node = syntax.node(assignment).unwrap();
+
+    assert_eq!(assignment_node.kind(), SyntaxNodeKind::AssignmentStatement);
+
+    let operator = syntax
+        .first_child_of_kind(assignment, SyntaxNodeKind::AssignmentOperator)
+        .unwrap();
+
+    let operator_node = syntax.node(operator).unwrap();
+
+    assert_eq!(
+        operator_node.assignment_operator(),
+        Some(AssignmentOperatorKind::AddAssign)
+    );
 }
