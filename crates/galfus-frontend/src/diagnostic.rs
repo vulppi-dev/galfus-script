@@ -42,6 +42,7 @@ pub enum ParserDiagnosticCode {
     ExpectedType,
     ExpectedStatement,
     UnexpectedToken,
+    ExpectedInitializer,
 }
 
 impl DiagnosticCodeKind for ParserDiagnosticCode {
@@ -53,6 +54,7 @@ impl DiagnosticCodeKind for ParserDiagnosticCode {
             Self::ExpectedType => "P0004",
             Self::ExpectedStatement => "P0005",
             Self::UnexpectedToken => "P0006",
+            Self::ExpectedInitializer => "P0007",
         }
     }
 
@@ -64,6 +66,7 @@ impl DiagnosticCodeKind for ParserDiagnosticCode {
             Self::ExpectedType => "expected type",
             Self::ExpectedStatement => "expected statement",
             Self::UnexpectedToken => "unexpected token",
+            Self::ExpectedInitializer => "expected initializer",
         }
     }
 }

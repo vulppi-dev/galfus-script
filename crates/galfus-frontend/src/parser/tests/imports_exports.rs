@@ -269,8 +269,8 @@ fn parse_named_import_alias() {
 #[test]
 fn parse_export_constraint_item() {
     let source = source(
-        "export constraint Stringable::T {
-            fn T::toString(self: T): String
+        "export constraint Stringable<T> {
+            fn toString(self: T): String
         }",
     );
 

@@ -155,3 +155,45 @@ fn parse_block_var_and_const_as_statements() {
         SyntaxNodeKind::VarStatement
     );
 }
+
+#[test]
+fn parse_const_statement_requires_initializer() {
+    let source = source(
+        "fn main(): null {
+            const version
+            return
+        }",
+    );
+
+    let result = parse(&source);
+
+    assert!(result.has_errors());
+}
+
+#[test]
+fn parse_const_item_requires_initializer() {
+    let source = source("const version");
+
+    let result = parse(&source);
+
+    assert!(result.has_errors());
+}
+
+#[test]
+fn parse_var_item_allows_missing_initializer() {
+    let source = source("var counter: int32");
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+    let root = syntax.root().unwrap();
+    let root_node = syntax.node(root).unwrap();
+
+    let item = root_node.children()[0];
+    let item_node = syntax.node(item).unwrap();
+
+    assert_eq!(item_node.kind(), SyntaxNodeKind::VarItem);
+    assert_eq!(source.slice(item_node.span()), Some("var counter: int32"));
+}

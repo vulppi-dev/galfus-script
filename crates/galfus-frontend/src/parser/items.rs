@@ -460,7 +460,7 @@ impl Parser {
 
     pub(super) fn parse_var_item(&mut self) -> Option<NodeId> {
         let var_token = self.expect(TokenKind::Var)?;
-        let (children, end_span) = self.parse_var_binding_after_keyword()?;
+        let (children, end_span) = self.parse_binding_after_keyword(false)?;
 
         self.expect_statement_end();
 
@@ -471,7 +471,7 @@ impl Parser {
 
     pub(super) fn parse_const_item(&mut self) -> Option<NodeId> {
         let const_token = self.expect(TokenKind::Const)?;
-        let (children, end_span) = self.parse_const_binding_after_keyword()?;
+        let (children, end_span) = self.parse_binding_after_keyword(true)?;
 
         self.expect_statement_end();
 

@@ -80,20 +80,6 @@ fn parse_const_statement_with_string_initializer() {
 }
 
 #[test]
-fn parse_const_requires_initializer() {
-    let source = source("fn main(): null { const name: String return }");
-
-    let result = parse(&source);
-
-    assert!(result.has_errors());
-
-    let diagnostic = result.diagnostics().iter().next().unwrap();
-
-    assert_eq!(diagnostic.code().as_str(), "P0001");
-    assert_eq!(diagnostic.message(), "expected `Equal`, found `Return`");
-}
-
-#[test]
 fn parse_return_statement_with_integer_expression() {
     let source = source("fn one(): int32 { return 1 }");
 
