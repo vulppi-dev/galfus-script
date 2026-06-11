@@ -68,10 +68,21 @@ impl Parser {
     }
 
     pub(super) fn parse_binding_pattern(&mut self) -> Option<NodeId> {
-        let name = self.parse_identifier()?;
-        let span = self.node_span(name);
+        self.skip_newlines();
 
-        Some(self.add_node(SyntaxNodeKind::BindingPattern, span, vec![name]))
+        let inner = if self.at(&TokenKind::LeftBrace) {
+            self.parse_struct_binding_pattern()?
+        } else if self.at(&TokenKind::LeftParen) {
+            self.parse_tuple_binding_pattern()?
+        } else if self.at(&TokenKind::LeftBracket) {
+            self.parse_array_binding_pattern()?
+        } else {
+            self.parse_identifier()?
+        };
+
+        let span = self.node_span(inner);
+
+        Some(self.add_node(SyntaxNodeKind::BindingPattern, span, vec![inner]))
     }
 
     pub(super) fn parse_variant_pattern_payload(&mut self) -> Option<NodeId> {
@@ -219,5 +230,151 @@ impl Parser {
         let span = self.node_span(regex);
 
         Some(self.add_node(SyntaxNodeKind::RegexPattern, span, vec![regex]))
+    }
+
+    pub(super) fn parse_struct_binding_pattern(&mut self) -> Option<NodeId> {
+        let open = self.expect(TokenKind::LeftBrace)?;
+
+        self.skip_newlines();
+
+        let mut fields = Vec::new();
+
+        while !self.at(&TokenKind::RightBrace) && !self.at(&TokenKind::Eof) {
+            self.skip_newlines();
+
+            if self.at(&TokenKind::RightBrace) {
+                break;
+            }
+
+            let field = self.parse_struct_binding_field()?;
+            fields.push(field);
+
+            self.skip_newlines();
+
+            if self.at(&TokenKind::Comma) {
+                self.bump();
+                self.skip_newlines();
+                continue;
+            }
+
+            break;
+        }
+
+        let close = self.expect(TokenKind::RightBrace)?;
+
+        let span = Span::cover(open.span(), close.span()).unwrap_or(open.span());
+
+        Some(self.add_node(SyntaxNodeKind::StructBindingPattern, span, fields))
+    }
+
+    pub(super) fn parse_struct_binding_field(&mut self) -> Option<NodeId> {
+        self.skip_newlines();
+
+        let name = self.parse_identifier()?;
+        let mut children = vec![name];
+        let mut end_span = self.node_span(name);
+
+        self.skip_newlines();
+
+        if self.at(&TokenKind::Colon) {
+            self.bump();
+            self.skip_newlines();
+
+            let alias = self.parse_binding_pattern()?;
+            end_span = self.node_span(alias);
+            children.push(alias);
+        }
+
+        let span =
+            Span::cover(self.node_span(name), end_span).unwrap_or_else(|| self.node_span(name));
+
+        Some(self.add_node(SyntaxNodeKind::StructBindingField, span, children))
+    }
+
+    pub(super) fn parse_tuple_binding_pattern(&mut self) -> Option<NodeId> {
+        let open = self.expect(TokenKind::LeftParen)?;
+
+        self.skip_newlines();
+
+        let mut elements = Vec::new();
+
+        while !self.at(&TokenKind::RightParen) && !self.at(&TokenKind::Eof) {
+            self.skip_newlines();
+
+            if self.at(&TokenKind::RightParen) {
+                break;
+            }
+
+            let element = self.parse_binding_pattern()?;
+            elements.push(element);
+
+            self.skip_newlines();
+
+            if self.at(&TokenKind::Comma) {
+                self.bump();
+                self.skip_newlines();
+                continue;
+            }
+
+            break;
+        }
+
+        let close = self.expect(TokenKind::RightParen)?;
+
+        let span = Span::cover(open.span(), close.span()).unwrap_or(open.span());
+
+        Some(self.add_node(SyntaxNodeKind::TupleBindingPattern, span, elements))
+    }
+
+    pub(super) fn parse_array_binding_pattern(&mut self) -> Option<NodeId> {
+        let open = self.expect(TokenKind::LeftBracket)?;
+
+        self.skip_newlines();
+
+        let mut elements = Vec::new();
+
+        while !self.at(&TokenKind::RightBracket) && !self.at(&TokenKind::Eof) {
+            self.skip_newlines();
+
+            if self.at(&TokenKind::RightBracket) {
+                break;
+            }
+
+            let element = if self.at(&TokenKind::DotDotDot) {
+                self.parse_rest_binding_pattern()?
+            } else {
+                self.parse_binding_pattern()?
+            };
+
+            elements.push(element);
+
+            self.skip_newlines();
+
+            if self.at(&TokenKind::Comma) {
+                self.bump();
+                self.skip_newlines();
+                continue;
+            }
+
+            break;
+        }
+
+        let close = self.expect(TokenKind::RightBracket)?;
+
+        let span = Span::cover(open.span(), close.span()).unwrap_or(open.span());
+
+        Some(self.add_node(SyntaxNodeKind::ArrayBindingPattern, span, elements))
+    }
+
+    pub(super) fn parse_rest_binding_pattern(&mut self) -> Option<NodeId> {
+        let spread = self.expect(TokenKind::DotDotDot)?;
+
+        self.skip_newlines();
+
+        let pattern = self.parse_binding_pattern()?;
+
+        let span = Span::cover(spread.span(), self.node_span(pattern)).unwrap_or(spread.span());
+
+        Some(self.add_node(SyntaxNodeKind::RestBindingPattern, span, vec![pattern]))
     }
 }

@@ -31,6 +31,7 @@ mod instanceof_statement;
 mod items;
 mod loop_statements;
 mod match_statements;
+mod patterns;
 mod regex_literals;
 mod rest_parameters;
 mod satisfies_clause;

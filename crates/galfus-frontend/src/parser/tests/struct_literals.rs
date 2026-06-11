@@ -408,3 +408,93 @@ fn parse_struct_literal_shorthand_requires_comma_between_fields() {
 
     assert_eq!(diagnostic.code().as_str(), "P0001");
 }
+
+#[test]
+fn parse_struct_expansion_field() {
+    let source = source(
+        "struct Person {
+            ...User,
+            age: int32,
+        }",
+    );
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+    let root = syntax.root().unwrap();
+    let struct_item = syntax.first_child(root).unwrap();
+
+    let fields = syntax
+        .first_child_of_kind(struct_item, SyntaxNodeKind::StructFieldList)
+        .unwrap();
+
+    let expansion = syntax.child(fields, 0).unwrap();
+    let normal_field = syntax.child(fields, 1).unwrap();
+
+    assert_eq!(
+        syntax.node(expansion).unwrap().kind(),
+        SyntaxNodeKind::StructExpansion
+    );
+
+    assert_eq!(
+        syntax.node(normal_field).unwrap().kind(),
+        SyntaxNodeKind::StructField
+    );
+}
+
+#[test]
+fn parse_struct_literal_spread_field() {
+    let source = source(
+        "fn main(): null {
+            var user2 = User {
+                ...user,
+                name: \"Ana\",
+            }
+            return
+        }",
+    );
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+    let root = syntax.root().unwrap();
+    let function = syntax.first_child(root).unwrap();
+
+    let body = syntax
+        .first_child_of_kind(function, SyntaxNodeKind::Block)
+        .unwrap();
+
+    let var_statement = syntax.first_child(body).unwrap();
+
+    let initializer = syntax
+        .first_child_of_kind(var_statement, SyntaxNodeKind::Initializer)
+        .unwrap();
+
+    let struct_literal = syntax.first_child(initializer).unwrap();
+
+    assert_eq!(
+        syntax.node(struct_literal).unwrap().kind(),
+        SyntaxNodeKind::StructLiteral
+    );
+
+    let fields = syntax
+        .first_child_of_kind(struct_literal, SyntaxNodeKind::StructLiteralFieldList)
+        .unwrap();
+
+    let spread = syntax.child(fields, 0).unwrap();
+    let field = syntax.child(fields, 1).unwrap();
+
+    assert_eq!(
+        syntax.node(spread).unwrap().kind(),
+        SyntaxNodeKind::SpreadStructLiteralField
+    );
+
+    assert_eq!(
+        syntax.node(field).unwrap().kind(),
+        SyntaxNodeKind::StructLiteralField
+    );
+}

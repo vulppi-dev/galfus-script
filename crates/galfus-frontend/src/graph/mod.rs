@@ -471,6 +471,7 @@ pub enum SyntaxNodeKind {
     FunctionAnchor,
     StructFieldList,
     StructField,
+    StructExpansion,
     WeakStructField,
     StructFieldDefault,
     EnumVariantList,
@@ -525,6 +526,11 @@ pub enum SyntaxNodeKind {
     VariantPatternPayload,
     LiteralPattern,
     RegexPattern,
+    StructBindingPattern,
+    StructBindingField,
+    TupleBindingPattern,
+    ArrayBindingPattern,
+    RestBindingPattern,
 
     // Binding helpers
     TypeAnnotation,
@@ -575,6 +581,7 @@ pub enum SyntaxNodeKind {
     StructLiteralFieldList,
     StructLiteralField,
     StructLiteralFieldShorthand,
+    SpreadStructLiteralField,
     InferredStructLiteral,
     IntegerLiteral,
     FloatLiteral,
@@ -699,6 +706,24 @@ impl SyntaxNodeKind {
                 | SyntaxNodeKind::ArgumentList
                 | SyntaxNodeKind::GenericArgumentList
                 | SyntaxNodeKind::StructLiteralFieldList
+        )
+    }
+
+    pub fn is_pattern(self) -> bool {
+        matches!(
+            self,
+            SyntaxNodeKind::BindingPattern
+                | SyntaxNodeKind::StructBindingPattern
+                | SyntaxNodeKind::StructBindingField
+                | SyntaxNodeKind::TupleBindingPattern
+                | SyntaxNodeKind::ArrayBindingPattern
+                | SyntaxNodeKind::RestBindingPattern
+                | SyntaxNodeKind::TypePattern
+                | SyntaxNodeKind::TypePatternBinding
+                | SyntaxNodeKind::VariantPattern
+                | SyntaxNodeKind::VariantPatternPayload
+                | SyntaxNodeKind::LiteralPattern
+                | SyntaxNodeKind::RegexPattern
         )
     }
 }

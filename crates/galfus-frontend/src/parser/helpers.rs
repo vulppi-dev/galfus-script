@@ -372,9 +372,9 @@ impl Parser {
     ) -> Option<(Vec<NodeId>, Span)> {
         self.skip_newlines();
 
-        let name = self.parse_identifier()?;
-        let mut children = vec![name];
-        let mut end_span = self.node_span(name);
+        let binding = self.parse_binding_pattern()?;
+        let mut children = vec![binding];
+        let mut end_span = self.node_span(binding);
 
         self.skip_newlines();
 

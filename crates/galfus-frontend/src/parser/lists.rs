@@ -161,7 +161,11 @@ impl Parser {
 
             let start_position = self.position;
 
-            if let Some(field) = self.parse_struct_field() {
+            if self.at(&TokenKind::DotDotDot) {
+                let expansion = self.parse_struct_expansion()?;
+                fields.push(expansion);
+            } else {
+                let field = self.parse_struct_field()?;
                 fields.push(field);
             }
 
@@ -365,7 +369,11 @@ impl Parser {
         while !self.is_eof() && !self.at(&TokenKind::RightBrace) {
             let start_position = self.position;
 
-            if let Some(field) = self.parse_struct_literal_field() {
+            if self.at(&TokenKind::DotDotDot) {
+                let field = self.parse_spread_struct_literal_field()?;
+                fields.push(field);
+            } else {
+                let field = self.parse_struct_literal_field()?;
                 fields.push(field);
             }
 

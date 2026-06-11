@@ -305,3 +305,82 @@ fn parse_choice_item_with_unit_variant() {
     assert_eq!(source.slice(none_variant_node.span()), Some("None"));
     assert_eq!(none_variant_node.child_count(), 1);
 }
+
+#[test]
+fn parse_generic_choice_item() {
+    let source = source(
+        "choice Result<V, F> {
+            Ok(V),
+            Err(F),
+        }",
+    );
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+    let root = syntax.root().unwrap();
+    let choice = syntax.first_child(root).unwrap();
+    let choice_node = syntax.node(choice).unwrap();
+
+    assert_eq!(choice_node.kind(), SyntaxNodeKind::ChoiceItem);
+    assert_eq!(choice_node.child_count(), 3);
+
+    let name = choice_node.child(0).unwrap();
+    let generics = choice_node.child(1).unwrap();
+    let variants = choice_node.child(2).unwrap();
+
+    assert_eq!(
+        syntax.node(name).unwrap().kind(),
+        SyntaxNodeKind::Identifier
+    );
+    assert_eq!(
+        syntax.node(generics).unwrap().kind(),
+        SyntaxNodeKind::GenericParameterList
+    );
+    assert_eq!(
+        syntax.node(variants).unwrap().kind(),
+        SyntaxNodeKind::ChoiceVariantList
+    );
+}
+
+#[test]
+fn parse_enum_with_base_type() {
+    let source = source(
+        "enum<int64> TextureType {
+            Float32,
+            Float64,
+        }",
+    );
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+    let root = syntax.root().unwrap();
+    let enum_item = syntax.first_child(root).unwrap();
+    let enum_node = syntax.node(enum_item).unwrap();
+
+    assert_eq!(enum_node.kind(), SyntaxNodeKind::EnumItem);
+    assert_eq!(enum_node.child_count(), 3);
+
+    let base_type = enum_node.child(0).unwrap();
+    let name = enum_node.child(1).unwrap();
+    let variants = enum_node.child(2).unwrap();
+
+    assert!(syntax.node(base_type).unwrap().kind().is_type());
+    assert_eq!(
+        source.slice(syntax.node(base_type).unwrap().span()),
+        Some("int64")
+    );
+    assert_eq!(
+        syntax.node(name).unwrap().kind(),
+        SyntaxNodeKind::Identifier
+    );
+    assert_eq!(
+        syntax.node(variants).unwrap().kind(),
+        SyntaxNodeKind::EnumVariantList
+    );
+}

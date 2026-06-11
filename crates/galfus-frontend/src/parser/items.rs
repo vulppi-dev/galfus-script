@@ -251,25 +251,73 @@ impl Parser {
     pub(super) fn parse_enum_item(&mut self) -> Option<NodeId> {
         let enum_token = self.expect(TokenKind::Enum)?;
 
+        self.skip_newlines();
+
+        let base_type = if self.at(&TokenKind::Less) {
+            self.bump();
+            self.skip_newlines();
+
+            let ty = self.parse_type()?;
+
+            self.skip_newlines();
+            self.expect(TokenKind::Greater)?;
+            self.skip_newlines();
+
+            Some(ty)
+        } else {
+            None
+        };
+
         let name = self.parse_identifier()?;
+
+        self.skip_newlines();
+
         let variants = self.parse_enum_variant_list()?;
+
+        let mut children = Vec::new();
+
+        if let Some(base_type) = base_type {
+            children.push(base_type);
+        }
+
+        children.push(name);
+        children.push(variants);
 
         let span =
             Span::cover(enum_token.span(), self.node_span(variants)).unwrap_or(enum_token.span());
 
-        Some(self.add_node(SyntaxNodeKind::EnumItem, span, vec![name, variants]))
+        Some(self.add_node(SyntaxNodeKind::EnumItem, span, children))
     }
 
     pub(super) fn parse_choice_item(&mut self) -> Option<NodeId> {
         let choice_token = self.expect(TokenKind::Choice)?;
 
+        self.skip_newlines();
+
         let name = self.parse_identifier()?;
+
+        let generic_parameters = if self.at(&TokenKind::Less) {
+            let generics = self.parse_generic_parameter_list()?;
+            self.skip_newlines();
+            Some(generics)
+        } else {
+            None
+        };
+
         let variants = self.parse_choice_variant_list()?;
+
+        let mut children = vec![name];
+
+        if let Some(generic_parameters) = generic_parameters {
+            children.push(generic_parameters);
+        }
+
+        children.push(variants);
 
         let span = Span::cover(choice_token.span(), self.node_span(variants))
             .unwrap_or(choice_token.span());
 
-        Some(self.add_node(SyntaxNodeKind::ChoiceItem, span, vec![name, variants]))
+        Some(self.add_node(SyntaxNodeKind::ChoiceItem, span, children))
     }
 
     pub(super) fn parse_struct_field_default(&mut self) -> Option<NodeId> {
@@ -478,5 +526,35 @@ impl Parser {
         let span = Span::cover(const_token.span(), end_span).unwrap_or(const_token.span());
 
         Some(self.add_node(SyntaxNodeKind::ConstItem, span, children))
+    }
+
+    pub(super) fn parse_struct_expansion(&mut self) -> Option<NodeId> {
+        let spread_token = self.expect(TokenKind::DotDotDot)?;
+
+        self.skip_newlines();
+
+        let target = self.parse_type()?;
+
+        let span =
+            Span::cover(spread_token.span(), self.node_span(target)).unwrap_or(spread_token.span());
+
+        Some(self.add_node(SyntaxNodeKind::StructExpansion, span, vec![target]))
+    }
+
+    pub(super) fn parse_spread_struct_literal_field(&mut self) -> Option<NodeId> {
+        let spread_token = self.expect(TokenKind::DotDotDot)?;
+
+        self.skip_newlines();
+
+        let expression = self.parse_expression()?;
+
+        let span = Span::cover(spread_token.span(), self.node_span(expression))
+            .unwrap_or(spread_token.span());
+
+        Some(self.add_node(
+            SyntaxNodeKind::SpreadStructLiteralField,
+            span,
+            vec![expression],
+        ))
     }
 }
