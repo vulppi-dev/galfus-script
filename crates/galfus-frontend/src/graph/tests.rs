@@ -14,8 +14,7 @@ fn syntax_layer_starts_empty() {
 
 #[test]
 fn syntax_layer_adds_node() {
-    let source_id = SourceId::new(0);
-    let span = Span::new(source_id, 0, 4);
+    let span = Span::new(SourceId::new(0), 0, 4);
 
     let mut syntax = SyntaxLayer::new();
 
@@ -33,8 +32,7 @@ fn syntax_layer_adds_node() {
 
 #[test]
 fn syntax_layer_stores_root() {
-    let source_id = SourceId::new(0);
-    let span = Span::new(source_id, 0, 0);
+    let span = Span::new(SourceId::new(0), 0, 0);
 
     let mut syntax = SyntaxLayer::new();
 
@@ -54,4 +52,90 @@ fn module_graph_has_syntax_layer() {
     assert_eq!(graph.phase(), GraphPhase::Parsed);
     assert!(graph.syntax().is_empty());
     assert!(!graph.has_errors());
+}
+
+#[test]
+fn syntax_node_exposes_child_helpers() {
+    let node = SyntaxNode::new(
+        SyntaxNodeKind::SourceFile,
+        Span::new(SourceId::new(0), 0, 10),
+        vec![NodeId::new(1), NodeId::new(2)],
+    );
+
+    assert_eq!(node.child_count(), 2);
+    assert_eq!(node.first_child(), Some(NodeId::new(1)));
+    assert_eq!(node.last_child(), Some(NodeId::new(2)));
+    assert_eq!(node.child(0), Some(NodeId::new(1)));
+    assert_eq!(node.child(1), Some(NodeId::new(2)));
+    assert_eq!(node.child(2), None);
+    assert!(node.is(SyntaxNodeKind::SourceFile));
+}
+
+#[test]
+fn syntax_layer_exposes_child_navigation_helpers() {
+    let mut syntax = SyntaxLayer::new();
+
+    let first = syntax.add_node(
+        SyntaxNodeKind::Identifier,
+        Span::new(SourceId::new(0), 0, 1),
+        vec![],
+    );
+
+    let second = syntax.add_node(
+        SyntaxNodeKind::StringLiteral,
+        Span::new(SourceId::new(0), 2, 5),
+        vec![],
+    );
+
+    let parent = syntax.add_node(
+        SyntaxNodeKind::SourceFile,
+        Span::new(SourceId::new(0), 0, 5),
+        vec![first, second],
+    );
+
+    assert_eq!(syntax.child(parent, 0), Some(first));
+    assert_eq!(syntax.child(parent, 1), Some(second));
+    assert_eq!(syntax.child(parent, 2), None);
+
+    assert_eq!(syntax.first_child(parent), Some(first));
+    assert_eq!(syntax.last_child(parent), Some(second));
+    assert_eq!(syntax.child_count(parent), Some(2));
+
+    assert_eq!(
+        syntax.first_child_of_kind(parent, SyntaxNodeKind::StringLiteral),
+        Some(second)
+    );
+
+    let identifiers: Vec<_> = syntax
+        .children_of_kind(parent, SyntaxNodeKind::Identifier)
+        .collect();
+
+    assert_eq!(identifiers, vec![first]);
+}
+
+#[test]
+fn syntax_node_kind_classifies_major_groups() {
+    assert!(SyntaxNodeKind::FunctionItem.is_item());
+    assert!(SyntaxNodeKind::StructItem.is_item());
+    assert!(SyntaxNodeKind::VarItem.is_item());
+    assert!(SyntaxNodeKind::ConstItem.is_item());
+
+    assert!(SyntaxNodeKind::ReturnStatement.is_statement());
+    assert!(SyntaxNodeKind::VarStatement.is_statement());
+
+    assert!(SyntaxNodeKind::CallExpression.is_expression());
+    assert!(SyntaxNodeKind::NameExpression.is_expression());
+    assert!(SyntaxNodeKind::StringLiteral.is_expression());
+
+    assert!(SyntaxNodeKind::NamedType.is_type());
+    assert!(SyntaxNodeKind::Path.is_type());
+    assert!(SyntaxNodeKind::UnionType.is_type());
+
+    assert!(SyntaxNodeKind::StringLiteral.is_literal());
+    assert!(SyntaxNodeKind::BinaryOperator.is_operator());
+    assert!(SyntaxNodeKind::ParameterList.is_list());
+
+    assert!(!SyntaxNodeKind::FunctionItem.is_statement());
+    assert!(!SyntaxNodeKind::VarStatement.is_item());
+    assert!(!SyntaxNodeKind::Identifier.is_expression());
 }
