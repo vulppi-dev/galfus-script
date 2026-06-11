@@ -11,16 +11,16 @@ fn parse_default_parameter() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let parameters = function_node.children()[1];
+    let parameters = function_node.child(1).unwrap();
     let parameters_node = syntax.node(parameters).unwrap();
 
     assert_eq!(parameters_node.kind(), SyntaxNodeKind::ParameterList);
-    assert_eq!(parameters_node.children().len(), 2);
+    assert_eq!(parameters_node.child_count(), 2);
 
-    let parameter = parameters_node.children()[1];
+    let parameter = parameters_node.child(1).unwrap();
     let parameter_node = syntax.node(parameter).unwrap();
 
     assert_eq!(parameter_node.kind(), SyntaxNodeKind::Parameter);
@@ -29,15 +29,15 @@ fn parse_default_parameter() {
         Some("punctuation: String = \"!\"")
     );
 
-    assert_eq!(parameter_node.children().len(), 3);
+    assert_eq!(parameter_node.child_count(), 3);
 
-    let default = parameter_node.children()[2];
+    let default = parameter_node.child(2).unwrap();
     let default_node = syntax.node(default).unwrap();
 
     assert_eq!(default_node.kind(), SyntaxNodeKind::ParameterDefault);
     assert_eq!(source.slice(default_node.span()), Some("= \"!\""));
 
-    let value = default_node.children()[0];
+    let value = default_node.first_child().unwrap();
 
     assert_eq!(
         syntax.node(value).unwrap().kind(),
@@ -57,21 +57,21 @@ fn parse_multiple_default_parameters() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let parameters = function_node.children()[1];
+    let parameters = function_node.child(1).unwrap();
     let parameters_node = syntax.node(parameters).unwrap();
 
-    assert_eq!(parameters_node.children().len(), 2);
+    assert_eq!(parameters_node.child_count(), 2);
 
     for parameter in parameters_node.children() {
         let parameter_node = syntax.node(*parameter).unwrap();
 
         assert_eq!(parameter_node.kind(), SyntaxNodeKind::Parameter);
-        assert_eq!(parameter_node.children().len(), 3);
+        assert_eq!(parameter_node.child_count(), 3);
 
-        let default = parameter_node.children()[2];
+        let default = parameter_node.child(2).unwrap();
 
         assert_eq!(
             syntax.node(default).unwrap().kind(),
@@ -91,17 +91,17 @@ fn parse_default_parameter_with_expression() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let parameters = function_node.children()[1];
-    let parameter = syntax.node(parameters).unwrap().children()[0];
+    let parameters = function_node.child(1).unwrap();
+    let parameter = syntax.node(parameters).unwrap().first_child().unwrap();
     let parameter_node = syntax.node(parameter).unwrap();
 
-    let default = parameter_node.children()[2];
+    let default = parameter_node.child(2).unwrap();
     let default_node = syntax.node(default).unwrap();
 
-    let value = default_node.children()[0];
+    let value = default_node.first_child().unwrap();
 
     assert_eq!(
         syntax.node(value).unwrap().kind(),
@@ -125,17 +125,17 @@ fn parse_default_parameter_with_struct_literal() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let parameters = function_node.children()[1];
-    let parameter = syntax.node(parameters).unwrap().children()[0];
+    let parameters = function_node.child(1).unwrap();
+    let parameter = syntax.node(parameters).unwrap().first_child().unwrap();
     let parameter_node = syntax.node(parameter).unwrap();
 
-    let default = parameter_node.children()[2];
+    let default = parameter_node.child(2).unwrap();
     let default_node = syntax.node(default).unwrap();
 
-    let value = default_node.children()[0];
+    let value = default_node.first_child().unwrap();
     let value_node = syntax.node(value).unwrap();
 
     assert_eq!(value_node.kind(), SyntaxNodeKind::StructLiteral);
@@ -153,19 +153,19 @@ fn parse_default_parameter_accepts_trailing_comma() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let parameters = function_node.children()[1];
+    let parameters = function_node.child(1).unwrap();
     let parameters_node = syntax.node(parameters).unwrap();
 
-    assert_eq!(parameters_node.children().len(), 1);
+    assert_eq!(parameters_node.child_count(), 1);
 
-    let parameter = parameters_node.children()[0];
+    let parameter = parameters_node.first_child().unwrap();
     let parameter_node = syntax.node(parameter).unwrap();
 
     assert_eq!(parameter_node.kind(), SyntaxNodeKind::Parameter);
-    assert_eq!(parameter_node.children().len(), 3);
+    assert_eq!(parameter_node.child_count(), 3);
 }
 
 #[test]
@@ -238,22 +238,22 @@ fn parse_rest_parameter_after_default_with_default_is_valid() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let parameters = function_node.children()[1];
+    let parameters = function_node.child(1).unwrap();
     let parameters_node = syntax.node(parameters).unwrap();
 
-    assert_eq!(parameters_node.children().len(), 2);
+    assert_eq!(parameters_node.child_count(), 2);
 
-    let rest = parameters_node.children()[1];
+    let rest = parameters_node.child(1).unwrap();
     let rest_node = syntax.node(rest).unwrap();
 
     assert_eq!(rest_node.kind(), SyntaxNodeKind::RestParameter);
-    assert_eq!(rest_node.children().len(), 3);
+    assert_eq!(rest_node.child_count(), 3);
 
-    let rest_type = rest_node.children()[1];
-    let rest_default = rest_node.children()[2];
+    let rest_type = rest_node.child(1).unwrap();
+    let rest_default = rest_node.child(2).unwrap();
 
     assert_eq!(
         syntax.node(rest_type).unwrap().kind(),

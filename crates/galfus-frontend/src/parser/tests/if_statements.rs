@@ -12,20 +12,20 @@ fn parse_if_statement() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let if_statement = body_node.children()[0];
+    let if_statement = body_node.first_child().unwrap();
     let if_node = syntax.node(if_statement).unwrap();
 
     assert_eq!(if_node.kind(), SyntaxNodeKind::IfStatement);
-    assert_eq!(if_node.children().len(), 2);
+    assert_eq!(if_node.child_count(), 2);
 
-    let condition = if_node.children()[0];
-    let then_block = if_node.children()[1];
+    let condition = if_node.first_child().unwrap();
+    let then_block = if_node.child(1).unwrap();
 
     assert_eq!(
         syntax.node(condition).unwrap().kind(),
@@ -56,25 +56,25 @@ fn parse_if_else_statement() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let if_statement = body_node.children()[0];
+    let if_statement = body_node.first_child().unwrap();
     let if_node = syntax.node(if_statement).unwrap();
 
     assert_eq!(if_node.kind(), SyntaxNodeKind::IfStatement);
-    assert_eq!(if_node.children().len(), 3);
+    assert_eq!(if_node.child_count(), 3);
 
-    let else_clause = if_node.children()[2];
+    let else_clause = if_node.child(2).unwrap();
     let else_node = syntax.node(else_clause).unwrap();
 
     assert_eq!(else_node.kind(), SyntaxNodeKind::ElseClause);
-    assert_eq!(else_node.children().len(), 1);
+    assert_eq!(else_node.child_count(), 1);
 
-    let else_child = else_node.children()[0];
+    let else_child = else_node.first_child().unwrap();
 
     assert_eq!(
         syntax.node(else_child).unwrap().kind(),
@@ -95,35 +95,35 @@ fn parse_else_if_statement() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let if_statement = body_node.children()[0];
+    let if_statement = body_node.first_child().unwrap();
     let if_node = syntax.node(if_statement).unwrap();
 
     assert_eq!(if_node.kind(), SyntaxNodeKind::IfStatement);
-    assert_eq!(if_node.children().len(), 3);
+    assert_eq!(if_node.child_count(), 3);
 
-    let else_clause = if_node.children()[2];
+    let else_clause = if_node.child(2).unwrap();
     let else_node = syntax.node(else_clause).unwrap();
 
     assert_eq!(else_node.kind(), SyntaxNodeKind::ElseClause);
 
-    let nested_if = else_node.children()[0];
+    let nested_if = else_node.first_child().unwrap();
     let nested_if_node = syntax.node(nested_if).unwrap();
 
     assert_eq!(nested_if_node.kind(), SyntaxNodeKind::IfStatement);
-    assert_eq!(nested_if_node.children().len(), 3);
+    assert_eq!(nested_if_node.child_count(), 3);
 
-    let final_else = nested_if_node.children()[2];
+    let final_else = nested_if_node.child(2).unwrap();
     let final_else_node = syntax.node(final_else).unwrap();
 
     assert_eq!(final_else_node.kind(), SyntaxNodeKind::ElseClause);
 
-    let final_else_child = final_else_node.children()[0];
+    let final_else_child = final_else_node.first_child().unwrap();
 
     assert_eq!(
         syntax.node(final_else_child).unwrap().kind(),
@@ -155,16 +155,16 @@ fn parse_if_statement_with_binary_condition() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let if_statement = body_node.children()[0];
+    let if_statement = body_node.first_child().unwrap();
     let if_node = syntax.node(if_statement).unwrap();
 
-    let condition = if_node.children()[0];
+    let condition = if_node.first_child().unwrap();
 
     assert_eq!(
         syntax.node(condition).unwrap().kind(),

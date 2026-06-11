@@ -11,32 +11,32 @@ fn parse_spread_call_argument() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let statement = body_node.children()[0];
+    let statement = body_node.first_child().unwrap();
     let statement_node = syntax.node(statement).unwrap();
 
-    let expression = statement_node.children()[0];
+    let expression = statement_node.first_child().unwrap();
     let expression_node = syntax.node(expression).unwrap();
 
     assert_eq!(expression_node.kind(), SyntaxNodeKind::CallExpression);
 
-    let arguments = expression_node.children()[1];
+    let arguments = expression_node.child(1).unwrap();
     let arguments_node = syntax.node(arguments).unwrap();
 
-    assert_eq!(arguments_node.children().len(), 1);
+    assert_eq!(arguments_node.child_count(), 1);
 
-    let argument = arguments_node.children()[0];
+    let argument = arguments_node.first_child().unwrap();
     let argument_node = syntax.node(argument).unwrap();
 
     assert_eq!(argument_node.kind(), SyntaxNodeKind::SpreadArgument);
     assert_eq!(source.slice(argument_node.span()), Some("...values"));
 
-    let value = argument_node.children()[0];
+    let value = argument_node.first_child().unwrap();
 
     assert_eq!(
         syntax.node(value).unwrap().kind(),
@@ -55,26 +55,26 @@ fn parse_mixed_call_arguments_with_spread() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let statement = body_node.children()[0];
+    let statement = body_node.first_child().unwrap();
     let statement_node = syntax.node(statement).unwrap();
 
-    let expression = statement_node.children()[0];
+    let expression = statement_node.first_child().unwrap();
     let expression_node = syntax.node(expression).unwrap();
 
-    let arguments = expression_node.children()[1];
+    let arguments = expression_node.child(1).unwrap();
     let arguments_node = syntax.node(arguments).unwrap();
 
-    assert_eq!(arguments_node.children().len(), 3);
+    assert_eq!(arguments_node.child_count(), 3);
 
-    let first = arguments_node.children()[0];
-    let second = arguments_node.children()[1];
-    let third = arguments_node.children()[2];
+    let first = arguments_node.first_child().unwrap();
+    let second = arguments_node.child(1).unwrap();
+    let third = arguments_node.child(2).unwrap();
 
     assert_eq!(syntax.node(first).unwrap().kind(), SyntaxNodeKind::Argument);
     assert_eq!(
@@ -100,27 +100,27 @@ fn parse_spread_array_element() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let statement = body_node.children()[0];
+    let statement = body_node.first_child().unwrap();
     let statement_node = syntax.node(statement).unwrap();
 
-    let initializer = statement_node.children()[1];
+    let initializer = statement_node.child(1).unwrap();
     let initializer_node = syntax.node(initializer).unwrap();
 
-    let expression = initializer_node.children()[0];
+    let expression = initializer_node.first_child().unwrap();
     let expression_node = syntax.node(expression).unwrap();
 
     assert_eq!(expression_node.kind(), SyntaxNodeKind::ArrayLiteral);
     assert_eq!(source.slice(expression_node.span()), Some("[1, ...rest]"));
-    assert_eq!(expression_node.children().len(), 2);
+    assert_eq!(expression_node.child_count(), 2);
 
-    let first = expression_node.children()[0];
-    let second = expression_node.children()[1];
+    let first = expression_node.first_child().unwrap();
+    let second = expression_node.child(1).unwrap();
 
     assert_eq!(
         syntax.node(first).unwrap().kind(),
@@ -148,22 +148,22 @@ fn parse_spread_array_element_allows_newline_after_spread() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let statement = body_node.children()[0];
+    let statement = body_node.first_child().unwrap();
     let statement_node = syntax.node(statement).unwrap();
 
-    let initializer = statement_node.children()[1];
+    let initializer = statement_node.child(1).unwrap();
     let initializer_node = syntax.node(initializer).unwrap();
 
-    let expression = initializer_node.children()[0];
+    let expression = initializer_node.first_child().unwrap();
     let expression_node = syntax.node(expression).unwrap();
 
-    let element = expression_node.children()[0];
+    let element = expression_node.first_child().unwrap();
     let element_node = syntax.node(element).unwrap();
 
     assert_eq!(element_node.kind(), SyntaxNodeKind::SpreadArrayElement);
@@ -182,24 +182,24 @@ fn parse_spread_call_argument_accepts_trailing_comma() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let statement = body_node.children()[0];
+    let statement = body_node.first_child().unwrap();
     let statement_node = syntax.node(statement).unwrap();
 
-    let expression = statement_node.children()[0];
+    let expression = statement_node.first_child().unwrap();
     let expression_node = syntax.node(expression).unwrap();
 
-    let arguments = expression_node.children()[1];
+    let arguments = expression_node.child(1).unwrap();
     let arguments_node = syntax.node(arguments).unwrap();
 
-    assert_eq!(arguments_node.children().len(), 1);
+    assert_eq!(arguments_node.child_count(), 1);
 
-    let argument = arguments_node.children()[0];
+    let argument = arguments_node.first_child().unwrap();
 
     assert_eq!(
         syntax.node(argument).unwrap().kind(),

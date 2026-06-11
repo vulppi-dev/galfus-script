@@ -11,27 +11,27 @@ fn parse_call_expression_without_arguments() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let var_statement = body_node.children()[0];
+    let var_statement = body_node.first_child().unwrap();
     let var_node = syntax.node(var_statement).unwrap();
 
-    let initializer = var_node.children()[2];
+    let initializer = var_node.child(2).unwrap();
     let initializer_node = syntax.node(initializer).unwrap();
 
-    let expression = initializer_node.children()[0];
+    let expression = initializer_node.first_child().unwrap();
     let expression_node = syntax.node(expression).unwrap();
 
     assert_eq!(expression_node.kind(), SyntaxNodeKind::CallExpression);
     assert_eq!(source.slice(expression_node.span()), Some("createUser()"));
-    assert_eq!(expression_node.children().len(), 2);
+    assert_eq!(expression_node.child_count(), 2);
 
-    let target = expression_node.children()[0];
-    let arguments = expression_node.children()[1];
+    let target = expression_node.first_child().unwrap();
+    let arguments = expression_node.child(1).unwrap();
 
     assert_eq!(
         syntax.node(target).unwrap().kind(),
@@ -60,36 +60,36 @@ fn parse_call_expression_with_arguments() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let const_statement = body_node.children()[0];
+    let const_statement = body_node.first_child().unwrap();
     let const_node = syntax.node(const_statement).unwrap();
 
-    let initializer = const_node.children()[1];
+    let initializer = const_node.child(1).unwrap();
     let initializer_node = syntax.node(initializer).unwrap();
 
-    let expression = initializer_node.children()[0];
+    let expression = initializer_node.first_child().unwrap();
     let expression_node = syntax.node(expression).unwrap();
 
     assert_eq!(expression_node.kind(), SyntaxNodeKind::CallExpression);
     assert_eq!(source.slice(expression_node.span()), Some("add(1, 2)"));
 
-    let arguments = expression_node.children()[1];
+    let arguments = expression_node.child(1).unwrap();
     let arguments_node = syntax.node(arguments).unwrap();
 
     assert_eq!(arguments_node.kind(), SyntaxNodeKind::ArgumentList);
-    assert_eq!(arguments_node.children().len(), 2);
+    assert_eq!(arguments_node.child_count(), 2);
 
-    let first_argument = arguments_node.children()[0];
+    let first_argument = arguments_node.first_child().unwrap();
     let first_argument_node = syntax.node(first_argument).unwrap();
 
     assert_eq!(first_argument_node.kind(), SyntaxNodeKind::Argument);
 
-    let first_expression = first_argument_node.children()[0];
+    let first_expression = first_argument_node.first_child().unwrap();
 
     assert_eq!(
         syntax.node(first_expression).unwrap().kind(),
@@ -113,25 +113,25 @@ fn parse_call_expression_accepts_trailing_comma() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let const_statement = body_node.children()[0];
+    let const_statement = body_node.first_child().unwrap();
     let const_node = syntax.node(const_statement).unwrap();
 
-    let initializer = const_node.children()[1];
+    let initializer = const_node.child(1).unwrap();
     let initializer_node = syntax.node(initializer).unwrap();
 
-    let expression = initializer_node.children()[0];
+    let expression = initializer_node.first_child().unwrap();
     let expression_node = syntax.node(expression).unwrap();
 
-    let arguments = expression_node.children()[1];
+    let arguments = expression_node.child(1).unwrap();
     let arguments_node = syntax.node(arguments).unwrap();
 
-    assert_eq!(arguments_node.children().len(), 2);
+    assert_eq!(arguments_node.child_count(), 2);
     assert_eq!(source.slice(arguments_node.span()), Some("(1, 2,)"));
 }
 
@@ -163,24 +163,24 @@ fn parse_member_expression_in_return() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let return_statement = body_node.children()[0];
+    let return_statement = body_node.first_child().unwrap();
     let return_node = syntax.node(return_statement).unwrap();
 
-    let expression = return_node.children()[0];
+    let expression = return_node.first_child().unwrap();
     let expression_node = syntax.node(expression).unwrap();
 
     assert_eq!(expression_node.kind(), SyntaxNodeKind::MemberExpression);
     assert_eq!(source.slice(expression_node.span()), Some("user.name"));
-    assert_eq!(expression_node.children().len(), 2);
+    assert_eq!(expression_node.child_count(), 2);
 
-    let target = expression_node.children()[0];
-    let member = expression_node.children()[1];
+    let target = expression_node.first_child().unwrap();
+    let member = expression_node.child(1).unwrap();
 
     assert_eq!(
         syntax.node(target).unwrap().kind(),
@@ -212,35 +212,35 @@ fn parse_call_on_member_expression() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let const_statement = body_node.children()[0];
+    let const_statement = body_node.first_child().unwrap();
     let const_node = syntax.node(const_statement).unwrap();
 
-    let initializer = const_node.children()[1];
+    let initializer = const_node.child(1).unwrap();
     let initializer_node = syntax.node(initializer).unwrap();
 
-    let expression = initializer_node.children()[0];
+    let expression = initializer_node.first_child().unwrap();
     let expression_node = syntax.node(expression).unwrap();
 
     assert_eq!(expression_node.kind(), SyntaxNodeKind::CallExpression);
     assert_eq!(source.slice(expression_node.span()), Some("math.sin(1)"));
 
-    let target = expression_node.children()[0];
+    let target = expression_node.first_child().unwrap();
     let target_node = syntax.node(target).unwrap();
 
     assert_eq!(target_node.kind(), SyntaxNodeKind::MemberExpression);
     assert_eq!(source.slice(target_node.span()), Some("math.sin"));
 
-    let arguments = expression_node.children()[1];
+    let arguments = expression_node.child(1).unwrap();
     let arguments_node = syntax.node(arguments).unwrap();
 
     assert_eq!(arguments_node.kind(), SyntaxNodeKind::ArgumentList);
-    assert_eq!(arguments_node.children().len(), 1);
+    assert_eq!(arguments_node.child_count(), 1);
 }
 
 #[test]
@@ -254,19 +254,19 @@ fn parse_allows_newline_before_member_access() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let const_statement = body_node.children()[0];
+    let const_statement = body_node.first_child().unwrap();
     let const_node = syntax.node(const_statement).unwrap();
 
-    let initializer = const_node.children()[1];
+    let initializer = const_node.child(1).unwrap();
     let initializer_node = syntax.node(initializer).unwrap();
 
-    let expression = initializer_node.children()[0];
+    let expression = initializer_node.first_child().unwrap();
     let expression_node = syntax.node(expression).unwrap();
 
     assert_eq!(expression_node.kind(), SyntaxNodeKind::CallExpression);
@@ -275,7 +275,7 @@ fn parse_allows_newline_before_member_access() {
         Some("math\n  .random()")
     );
 
-    let target = expression_node.children()[0];
+    let target = expression_node.first_child().unwrap();
     let target_node = syntax.node(target).unwrap();
 
     assert_eq!(target_node.kind(), SyntaxNodeKind::MemberExpression);
@@ -293,19 +293,19 @@ fn parse_allows_newline_after_member_dot() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let const_statement = body_node.children()[0];
+    let const_statement = body_node.first_child().unwrap();
     let const_node = syntax.node(const_statement).unwrap();
 
-    let initializer = const_node.children()[1];
+    let initializer = const_node.child(1).unwrap();
     let initializer_node = syntax.node(initializer).unwrap();
 
-    let expression = initializer_node.children()[0];
+    let expression = initializer_node.first_child().unwrap();
     let expression_node = syntax.node(expression).unwrap();
 
     assert_eq!(expression_node.kind(), SyntaxNodeKind::CallExpression);
@@ -327,19 +327,19 @@ fn parse_allows_newline_before_anchor_access() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let const_statement = body_node.children()[0];
+    let const_statement = body_node.first_child().unwrap();
     let const_node = syntax.node(const_statement).unwrap();
 
-    let initializer = const_node.children()[1];
+    let initializer = const_node.child(1).unwrap();
     let initializer_node = syntax.node(initializer).unwrap();
 
-    let expression = initializer_node.children()[0];
+    let expression = initializer_node.first_child().unwrap();
     let expression_node = syntax.node(expression).unwrap();
 
     assert_eq!(expression_node.kind(), SyntaxNodeKind::CallExpression);
@@ -348,7 +348,7 @@ fn parse_allows_newline_before_anchor_access() {
         Some("user\n  ::rename(\"Ana\")")
     );
 
-    let target = expression_node.children()[0];
+    let target = expression_node.first_child().unwrap();
     let target_node = syntax.node(target).unwrap();
 
     assert_eq!(target_node.kind(), SyntaxNodeKind::PathExpression);
@@ -367,19 +367,19 @@ fn parse_allows_newline_after_anchor_operator() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let const_statement = body_node.children()[0];
+    let const_statement = body_node.first_child().unwrap();
     let const_node = syntax.node(const_statement).unwrap();
 
-    let initializer = const_node.children()[1];
+    let initializer = const_node.child(1).unwrap();
     let initializer_node = syntax.node(initializer).unwrap();
 
-    let expression = initializer_node.children()[0];
+    let expression = initializer_node.first_child().unwrap();
     let expression_node = syntax.node(expression).unwrap();
 
     assert_eq!(expression_node.kind(), SyntaxNodeKind::CallExpression);

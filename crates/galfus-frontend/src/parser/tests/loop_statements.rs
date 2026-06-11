@@ -11,25 +11,25 @@ fn parse_loop_statement() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let loop_statement = body_node.children()[0];
+    let loop_statement = body_node.first_child().unwrap();
     let loop_node = syntax.node(loop_statement).unwrap();
 
     assert_eq!(loop_node.kind(), SyntaxNodeKind::LoopStatement);
-    assert_eq!(loop_node.children().len(), 1);
+    assert_eq!(loop_node.child_count(), 1);
 
-    let loop_body = loop_node.children()[0];
+    let loop_body = loop_node.first_child().unwrap();
     let loop_body_node = syntax.node(loop_body).unwrap();
 
     assert_eq!(loop_body_node.kind(), SyntaxNodeKind::Block);
-    assert_eq!(loop_body_node.children().len(), 1);
+    assert_eq!(loop_body_node.child_count(), 1);
 
-    let inner_statement = loop_body_node.children()[0];
+    let inner_statement = loop_body_node.first_child().unwrap();
 
     assert_eq!(
         syntax.node(inner_statement).unwrap().kind(),
@@ -48,19 +48,19 @@ fn parse_loop_statement_with_break() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let loop_statement = body_node.children()[0];
+    let loop_statement = body_node.first_child().unwrap();
     let loop_node = syntax.node(loop_statement).unwrap();
 
-    let loop_body = loop_node.children()[0];
+    let loop_body = loop_node.first_child().unwrap();
     let loop_body_node = syntax.node(loop_body).unwrap();
 
-    let break_statement = loop_body_node.children()[0];
+    let break_statement = loop_body_node.first_child().unwrap();
     let break_node = syntax.node(break_statement).unwrap();
 
     assert_eq!(break_node.kind(), SyntaxNodeKind::BreakStatement);
@@ -78,19 +78,19 @@ fn parse_loop_statement_with_continue() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let loop_statement = body_node.children()[0];
+    let loop_statement = body_node.first_child().unwrap();
     let loop_node = syntax.node(loop_statement).unwrap();
 
-    let loop_body = loop_node.children()[0];
+    let loop_body = loop_node.first_child().unwrap();
     let loop_body_node = syntax.node(loop_body).unwrap();
 
-    let continue_statement = loop_body_node.children()[0];
+    let continue_statement = loop_body_node.first_child().unwrap();
     let continue_node = syntax.node(continue_statement).unwrap();
 
     assert_eq!(continue_node.kind(), SyntaxNodeKind::ContinueStatement);
@@ -111,22 +111,22 @@ fn parse_loop_statement_with_if_break() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let loop_statement = body_node.children()[0];
+    let loop_statement = body_node.first_child().unwrap();
     let loop_node = syntax.node(loop_statement).unwrap();
 
-    let loop_body = loop_node.children()[0];
+    let loop_body = loop_node.first_child().unwrap();
     let loop_body_node = syntax.node(loop_body).unwrap();
 
-    assert_eq!(loop_body_node.children().len(), 2);
+    assert_eq!(loop_body_node.child_count(), 2);
 
-    let if_statement = loop_body_node.children()[0];
-    let tick_statement = loop_body_node.children()[1];
+    let if_statement = loop_body_node.first_child().unwrap();
+    let tick_statement = loop_body_node.child(1).unwrap();
 
     assert_eq!(
         syntax.node(if_statement).unwrap().kind(),
@@ -139,10 +139,10 @@ fn parse_loop_statement_with_if_break() {
     );
 
     let if_node = syntax.node(if_statement).unwrap();
-    let if_body = if_node.children()[1];
+    let if_body = if_node.child(1).unwrap();
     let if_body_node = syntax.node(if_body).unwrap();
 
-    let break_statement = if_body_node.children()[0];
+    let break_statement = if_body_node.first_child().unwrap();
 
     assert_eq!(
         syntax.node(break_statement).unwrap().kind(),

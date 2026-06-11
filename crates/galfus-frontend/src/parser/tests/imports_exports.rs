@@ -13,17 +13,17 @@ fn parse_type_alias_item() {
     let root = syntax.root().unwrap();
     let root_node = syntax.node(root).unwrap();
 
-    assert_eq!(root_node.children().len(), 1);
+    assert_eq!(root_node.child_count(), 1);
 
-    let item = root_node.children()[0];
+    let item = root_node.first_child().unwrap();
     let item_node = syntax.node(item).unwrap();
 
     assert_eq!(item_node.kind(), SyntaxNodeKind::TypeAliasItem);
     assert_eq!(source.slice(item_node.span()), Some("type UserId = int32"));
-    assert_eq!(item_node.children().len(), 2);
+    assert_eq!(item_node.child_count(), 2);
 
-    let name = item_node.children()[0];
-    let aliased_type = item_node.children()[1];
+    let name = item_node.first_child().unwrap();
+    let aliased_type = item_node.child(1).unwrap();
 
     assert_eq!(
         syntax.node(name).unwrap().kind(),
@@ -57,10 +57,10 @@ fn parse_type_alias_followed_by_function() {
     let root = syntax.root().unwrap();
     let root_node = syntax.node(root).unwrap();
 
-    assert_eq!(root_node.children().len(), 2);
+    assert_eq!(root_node.child_count(), 2);
 
-    let alias = root_node.children()[0];
-    let function = root_node.children()[1];
+    let alias = root_node.first_child().unwrap();
+    let function = root_node.child(1).unwrap();
 
     assert_eq!(
         syntax.node(alias).unwrap().kind(),
@@ -86,9 +86,9 @@ fn parse_export_type_alias_item() {
     let root = syntax.root().unwrap();
     let root_node = syntax.node(root).unwrap();
 
-    assert_eq!(root_node.children().len(), 1);
+    assert_eq!(root_node.child_count(), 1);
 
-    let export = root_node.children()[0];
+    let export = root_node.first_child().unwrap();
     let export_node = syntax.node(export).unwrap();
 
     assert_eq!(export_node.kind(), SyntaxNodeKind::ExportItem);
@@ -96,9 +96,9 @@ fn parse_export_type_alias_item() {
         source.slice(export_node.span()),
         Some("export type UserId = int32")
     );
-    assert_eq!(export_node.children().len(), 1);
+    assert_eq!(export_node.child_count(), 1);
 
-    let inner = export_node.children()[0];
+    let inner = export_node.first_child().unwrap();
     let inner_node = syntax.node(inner).unwrap();
 
     assert_eq!(inner_node.kind(), SyntaxNodeKind::TypeAliasItem);
@@ -117,9 +117,9 @@ fn parse_export_function_item() {
     let root = syntax.root().unwrap();
     let root_node = syntax.node(root).unwrap();
 
-    assert_eq!(root_node.children().len(), 1);
+    assert_eq!(root_node.child_count(), 1);
 
-    let export = root_node.children()[0];
+    let export = root_node.first_child().unwrap();
     let export_node = syntax.node(export).unwrap();
 
     assert_eq!(export_node.kind(), SyntaxNodeKind::ExportItem);
@@ -127,9 +127,9 @@ fn parse_export_function_item() {
         source.slice(export_node.span()),
         Some("export fn main(): null { return }")
     );
-    assert_eq!(export_node.children().len(), 1);
+    assert_eq!(export_node.child_count(), 1);
 
-    let inner = export_node.children()[0];
+    let inner = export_node.first_child().unwrap();
     let inner_node = syntax.node(inner).unwrap();
 
     assert_eq!(inner_node.kind(), SyntaxNodeKind::FunctionItem);
@@ -162,15 +162,15 @@ fn parse_namespace_import_item() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let import = syntax.node(root).unwrap().children()[0];
+    let import = syntax.node(root).unwrap().first_child().unwrap();
     let import_node = syntax.node(import).unwrap();
 
-    let clause = import_node.children()[0];
+    let clause = import_node.first_child().unwrap();
     let clause_node = syntax.node(clause).unwrap();
 
     assert_eq!(clause_node.kind(), SyntaxNodeKind::NamespaceImport);
 
-    let name = clause_node.children()[0];
+    let name = clause_node.first_child().unwrap();
 
     assert_eq!(
         source.slice(syntax.node(name).unwrap().span()),
@@ -189,18 +189,18 @@ fn parse_named_import_list() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let import = syntax.node(root).unwrap().children()[0];
+    let import = syntax.node(root).unwrap().first_child().unwrap();
     let import_node = syntax.node(import).unwrap();
 
-    let clause = import_node.children()[0];
+    let clause = import_node.first_child().unwrap();
     let clause_node = syntax.node(clause).unwrap();
 
     assert_eq!(clause_node.kind(), SyntaxNodeKind::NamedImportList);
     assert_eq!(source.slice(clause_node.span()), Some("{ sin, cos }"));
-    assert_eq!(clause_node.children().len(), 2);
+    assert_eq!(clause_node.child_count(), 2);
 
-    let first = clause_node.children()[0];
-    let second = clause_node.children()[1];
+    let first = clause_node.first_child().unwrap();
+    let second = clause_node.child(1).unwrap();
 
     assert_eq!(
         syntax.node(first).unwrap().kind(),
@@ -223,24 +223,24 @@ fn parse_named_import_alias() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let import = syntax.node(root).unwrap().children()[0];
+    let import = syntax.node(root).unwrap().first_child().unwrap();
     let import_node = syntax.node(import).unwrap();
 
-    let clause = import_node.children()[0];
+    let clause = import_node.first_child().unwrap();
     let clause_node = syntax.node(clause).unwrap();
 
     assert_eq!(clause_node.kind(), SyntaxNodeKind::NamedImportList);
-    assert_eq!(clause_node.children().len(), 2);
+    assert_eq!(clause_node.child_count(), 2);
 
-    let first_import = clause_node.children()[0];
+    let first_import = clause_node.first_child().unwrap();
     let first_import_node = syntax.node(first_import).unwrap();
 
     assert_eq!(first_import_node.kind(), SyntaxNodeKind::NamedImport);
     assert_eq!(source.slice(first_import_node.span()), Some("sin as sine"));
-    assert_eq!(first_import_node.children().len(), 2);
+    assert_eq!(first_import_node.child_count(), 2);
 
-    let imported_name = first_import_node.children()[0];
-    let alias = first_import_node.children()[1];
+    let imported_name = first_import_node.first_child().unwrap();
+    let alias = first_import_node.child(1).unwrap();
 
     assert_eq!(
         source.slice(syntax.node(imported_name).unwrap().span()),
@@ -252,18 +252,18 @@ fn parse_named_import_alias() {
     assert_eq!(alias_node.kind(), SyntaxNodeKind::ImportAlias);
     assert_eq!(source.slice(alias_node.span()), Some("as sine"));
 
-    let local_name = alias_node.children()[0];
+    let local_name = alias_node.first_child().unwrap();
 
     assert_eq!(
         source.slice(syntax.node(local_name).unwrap().span()),
         Some("sine")
     );
 
-    let second_import = clause_node.children()[1];
+    let second_import = clause_node.child(1).unwrap();
     let second_import_node = syntax.node(second_import).unwrap();
 
     assert_eq!(source.slice(second_import_node.span()), Some("cos"));
-    assert_eq!(second_import_node.children().len(), 1);
+    assert_eq!(second_import_node.child_count(), 1);
 }
 
 #[test]
@@ -282,15 +282,15 @@ fn parse_export_constraint_item() {
     let root = syntax.root().unwrap();
     let root_node = syntax.node(root).unwrap();
 
-    assert_eq!(root_node.children().len(), 1);
+    assert_eq!(root_node.child_count(), 1);
 
-    let export = root_node.children()[0];
+    let export = root_node.first_child().unwrap();
     let export_node = syntax.node(export).unwrap();
 
     assert_eq!(export_node.kind(), SyntaxNodeKind::ExportItem);
-    assert_eq!(export_node.children().len(), 1);
+    assert_eq!(export_node.child_count(), 1);
 
-    let inner = export_node.children()[0];
+    let inner = export_node.first_child().unwrap();
     let inner_node = syntax.node(inner).unwrap();
 
     assert_eq!(inner_node.kind(), SyntaxNodeKind::ConstraintItem);

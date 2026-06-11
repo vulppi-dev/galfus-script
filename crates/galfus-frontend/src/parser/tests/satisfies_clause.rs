@@ -11,15 +11,15 @@ fn parse_struct_satisfies_single_constraint() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let struct_item = syntax.node(root).unwrap().children()[0];
+    let struct_item = syntax.node(root).unwrap().first_child().unwrap();
     let struct_node = syntax.node(struct_item).unwrap();
 
     assert_eq!(struct_node.kind(), SyntaxNodeKind::StructItem);
-    assert_eq!(struct_node.children().len(), 3);
+    assert_eq!(struct_node.child_count(), 3);
 
-    let name = struct_node.children()[0];
-    let satisfies = struct_node.children()[1];
-    let fields = struct_node.children()[2];
+    let name = struct_node.first_child().unwrap();
+    let satisfies = struct_node.child(1).unwrap();
+    let fields = struct_node.child(2).unwrap();
 
     assert_eq!(
         source.slice(syntax.node(name).unwrap().span()),
@@ -35,9 +35,9 @@ fn parse_struct_satisfies_single_constraint() {
         Some("satisfies Identifiable")
     );
 
-    assert_eq!(satisfies_node.children().len(), 1);
+    assert_eq!(satisfies_node.child_count(), 1);
 
-    let constraint = satisfies_node.children()[0];
+    let constraint = satisfies_node.first_child().unwrap();
 
     assert_eq!(
         syntax.node(constraint).unwrap().kind(),
@@ -68,22 +68,22 @@ fn parse_struct_satisfies_multiple_constraints() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let struct_item = syntax.node(root).unwrap().children()[0];
+    let struct_item = syntax.node(root).unwrap().first_child().unwrap();
     let struct_node = syntax.node(struct_item).unwrap();
 
-    let satisfies = struct_node.children()[1];
+    let satisfies = struct_node.child(1).unwrap();
     let satisfies_node = syntax.node(satisfies).unwrap();
 
     assert_eq!(satisfies_node.kind(), SyntaxNodeKind::SatisfiesClause);
-    assert_eq!(satisfies_node.children().len(), 2);
+    assert_eq!(satisfies_node.child_count(), 2);
 
     assert_eq!(
         source.slice(satisfies_node.span()),
         Some("satisfies Identifiable, Stringable")
     );
 
-    let first = satisfies_node.children()[0];
-    let second = satisfies_node.children()[1];
+    let first = satisfies_node.first_child().unwrap();
+    let second = satisfies_node.child(1).unwrap();
 
     assert_eq!(
         source.slice(syntax.node(first).unwrap().span()),
@@ -109,16 +109,16 @@ fn parse_struct_satisfies_generic_constraint() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let struct_item = syntax.node(root).unwrap().children()[0];
+    let struct_item = syntax.node(root).unwrap().first_child().unwrap();
     let struct_node = syntax.node(struct_item).unwrap();
 
-    let satisfies = struct_node.children()[1];
+    let satisfies = struct_node.child(1).unwrap();
     let satisfies_node = syntax.node(satisfies).unwrap();
 
     assert_eq!(satisfies_node.kind(), SyntaxNodeKind::SatisfiesClause);
-    assert_eq!(satisfies_node.children().len(), 1);
+    assert_eq!(satisfies_node.child_count(), 1);
 
-    let constraint = satisfies_node.children()[0];
+    let constraint = satisfies_node.first_child().unwrap();
     let constraint_node = syntax.node(constraint).unwrap();
 
     assert_eq!(constraint_node.kind(), SyntaxNodeKind::GenericType);
@@ -140,15 +140,15 @@ fn parse_generic_struct_with_satisfies_clause() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let struct_item = syntax.node(root).unwrap().children()[0];
+    let struct_item = syntax.node(root).unwrap().first_child().unwrap();
     let struct_node = syntax.node(struct_item).unwrap();
 
-    assert_eq!(struct_node.children().len(), 4);
+    assert_eq!(struct_node.child_count(), 4);
 
-    let name = struct_node.children()[0];
-    let generics = struct_node.children()[1];
-    let satisfies = struct_node.children()[2];
-    let fields = struct_node.children()[3];
+    let name = struct_node.first_child().unwrap();
+    let generics = struct_node.child(1).unwrap();
+    let satisfies = struct_node.child(2).unwrap();
+    let fields = struct_node.child(3).unwrap();
 
     assert_eq!(source.slice(syntax.node(name).unwrap().span()), Some("Box"));
 
@@ -179,13 +179,13 @@ fn parse_struct_without_satisfies_shape_is_unchanged() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let struct_item = syntax.node(root).unwrap().children()[0];
+    let struct_item = syntax.node(root).unwrap().first_child().unwrap();
     let struct_node = syntax.node(struct_item).unwrap();
 
-    assert_eq!(struct_node.children().len(), 2);
+    assert_eq!(struct_node.child_count(), 2);
 
     assert_eq!(
-        syntax.node(struct_node.children()[1]).unwrap().kind(),
+        syntax.node(struct_node.child(1).unwrap()).unwrap().kind(),
         SyntaxNodeKind::StructFieldList
     );
 }

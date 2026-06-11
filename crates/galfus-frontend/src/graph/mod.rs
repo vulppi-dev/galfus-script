@@ -143,7 +143,7 @@ impl SyntaxLayer {
     }
 
     pub fn child_count(&self, parent: NodeId) -> Option<usize> {
-        Some(self.node(parent)?.children().len())
+        Some(self.node(parent)?.child_count())
     }
 
     pub fn child_node(&self, parent: NodeId, index: usize) -> Option<&SyntaxNode> {

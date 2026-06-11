@@ -11,17 +11,17 @@ fn parse_anchored_function_declaration() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
     assert_eq!(function_node.kind(), SyntaxNodeKind::FunctionItem);
-    assert_eq!(function_node.children().len(), 5);
+    assert_eq!(function_node.child_count(), 5);
 
-    let anchor = function_node.children()[0];
-    let name = function_node.children()[1];
-    let parameters = function_node.children()[2];
-    let return_type = function_node.children()[3];
-    let body = function_node.children()[4];
+    let anchor = function_node.first_child().unwrap();
+    let name = function_node.child(1).unwrap();
+    let parameters = function_node.child(2).unwrap();
+    let return_type = function_node.child(3).unwrap();
+    let body = function_node.child(4).unwrap();
 
     assert_eq!(
         syntax.node(anchor).unwrap().kind(),
@@ -33,7 +33,7 @@ fn parse_anchored_function_declaration() {
         Some("User")
     );
 
-    let anchor_type = syntax.node(anchor).unwrap().children()[0];
+    let anchor_type = syntax.node(anchor).unwrap().first_child().unwrap();
 
     assert_eq!(
         syntax.node(anchor_type).unwrap().kind(),
@@ -69,29 +69,34 @@ fn parse_regular_function_declaration_shape_is_unchanged() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
     assert_eq!(function_node.kind(), SyntaxNodeKind::FunctionItem);
-    assert_eq!(function_node.children().len(), 4);
+    assert_eq!(function_node.child_count(), 4);
 
     assert_eq!(
-        source.slice(syntax.node(function_node.children()[0]).unwrap().span()),
+        source.slice(
+            syntax
+                .node(function_node.first_child().unwrap())
+                .unwrap()
+                .span()
+        ),
         Some("main")
     );
 
     assert_eq!(
-        syntax.node(function_node.children()[1]).unwrap().kind(),
+        syntax.node(function_node.child(1).unwrap()).unwrap().kind(),
         SyntaxNodeKind::ParameterList
     );
 
     assert_eq!(
-        syntax.node(function_node.children()[2]).unwrap().kind(),
+        syntax.node(function_node.child(2).unwrap()).unwrap().kind(),
         SyntaxNodeKind::TypeNull
     );
 
     assert_eq!(
-        syntax.node(function_node.children()[3]).unwrap().kind(),
+        syntax.node(function_node.child(3).unwrap()).unwrap().kind(),
         SyntaxNodeKind::Block
     );
 }
@@ -107,17 +112,17 @@ fn parse_anchored_generic_function_declaration() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    assert_eq!(function_node.children().len(), 6);
+    assert_eq!(function_node.child_count(), 6);
 
-    let anchor = function_node.children()[0];
-    let name = function_node.children()[1];
-    let generics = function_node.children()[2];
-    let parameters = function_node.children()[3];
-    let return_type = function_node.children()[4];
-    let body = function_node.children()[5];
+    let anchor = function_node.first_child().unwrap();
+    let name = function_node.child(1).unwrap();
+    let generics = function_node.child(2).unwrap();
+    let parameters = function_node.child(3).unwrap();
+    let return_type = function_node.child(4).unwrap();
+    let body = function_node.child(5).unwrap();
 
     assert_eq!(
         syntax.node(anchor).unwrap().kind(),
@@ -164,17 +169,17 @@ fn parse_exported_anchored_function_declaration() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let export = syntax.node(root).unwrap().children()[0];
+    let export = syntax.node(root).unwrap().first_child().unwrap();
     let export_node = syntax.node(export).unwrap();
 
     assert_eq!(export_node.kind(), SyntaxNodeKind::ExportItem);
 
-    let function = export_node.children()[0];
+    let function = export_node.first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
     assert_eq!(function_node.kind(), SyntaxNodeKind::FunctionItem);
 
-    let anchor = function_node.children()[0];
+    let anchor = function_node.first_child().unwrap();
 
     assert_eq!(
         syntax.node(anchor).unwrap().kind(),
@@ -193,21 +198,21 @@ fn parse_generic_anchored_function_declaration() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
     assert_eq!(function_node.kind(), SyntaxNodeKind::FunctionItem);
-    assert_eq!(function_node.children().len(), 5);
+    assert_eq!(function_node.child_count(), 5);
 
-    let anchor = function_node.children()[0];
-    let name = function_node.children()[1];
+    let anchor = function_node.first_child().unwrap();
+    let name = function_node.child(1).unwrap();
 
     let anchor_node = syntax.node(anchor).unwrap();
 
     assert_eq!(anchor_node.kind(), SyntaxNodeKind::FunctionAnchor);
     assert_eq!(source.slice(anchor_node.span()), Some("Box<T>"));
 
-    let anchor_type = anchor_node.children()[0];
+    let anchor_type = anchor_node.first_child().unwrap();
 
     assert_eq!(
         syntax.node(anchor_type).unwrap().kind(),
@@ -232,16 +237,16 @@ fn parse_generic_anchor_with_generic_function_declaration() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    assert_eq!(function_node.children().len(), 6);
+    assert_eq!(function_node.child_count(), 6);
 
-    let anchor = function_node.children()[0];
-    let name = function_node.children()[1];
-    let generics = function_node.children()[2];
-    let parameters = function_node.children()[3];
-    let return_type = function_node.children()[4];
+    let anchor = function_node.first_child().unwrap();
+    let name = function_node.child(1).unwrap();
+    let generics = function_node.child(2).unwrap();
+    let parameters = function_node.child(3).unwrap();
+    let return_type = function_node.child(4).unwrap();
 
     assert_eq!(
         syntax.node(anchor).unwrap().kind(),
@@ -292,14 +297,14 @@ fn parse_generic_function_is_not_anchor() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
     assert_eq!(function_node.kind(), SyntaxNodeKind::FunctionItem);
-    assert_eq!(function_node.children().len(), 5);
+    assert_eq!(function_node.child_count(), 5);
 
-    let name = function_node.children()[0];
-    let generics = function_node.children()[1];
+    let name = function_node.first_child().unwrap();
+    let generics = function_node.child(1).unwrap();
 
     assert_eq!(
         source.slice(syntax.node(name).unwrap().span()),
@@ -325,10 +330,10 @@ fn parse_nested_generic_anchor_function_declaration() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let anchor = function_node.children()[0];
+    let anchor = function_node.first_child().unwrap();
     let anchor_node = syntax.node(anchor).unwrap();
 
     assert_eq!(anchor_node.kind(), SyntaxNodeKind::FunctionAnchor);
@@ -338,7 +343,7 @@ fn parse_nested_generic_anchor_function_declaration() {
         Some("Registry<Map<String, User>>")
     );
 
-    let anchor_type = anchor_node.children()[0];
+    let anchor_type = anchor_node.first_child().unwrap();
 
     assert_eq!(
         syntax.node(anchor_type).unwrap().kind(),

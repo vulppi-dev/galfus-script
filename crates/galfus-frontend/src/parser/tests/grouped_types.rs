@@ -11,10 +11,10 @@ fn parse_grouped_function_type() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let alias = syntax.node(root).unwrap().children()[0];
+    let alias = syntax.node(root).unwrap().first_child().unwrap();
     let alias_node = syntax.node(alias).unwrap();
 
-    let alias_type = alias_node.children()[1];
+    let alias_type = alias_node.child(1).unwrap();
     let alias_type_node = syntax.node(alias_type).unwrap();
 
     assert_eq!(alias_type_node.kind(), SyntaxNodeKind::UnionType);
@@ -23,8 +23,8 @@ fn parse_grouped_function_type() {
         Some("(fn (): null) | null")
     );
 
-    let left = alias_type_node.children()[0];
-    let right = alias_type_node.children()[1];
+    let left = alias_type_node.first_child().unwrap();
+    let right = alias_type_node.child(1).unwrap();
 
     assert_eq!(
         syntax.node(left).unwrap().kind(),
@@ -33,7 +33,7 @@ fn parse_grouped_function_type() {
 
     assert_eq!(syntax.node(right).unwrap().kind(), SyntaxNodeKind::TypeNull);
 
-    let grouped_inner = syntax.node(left).unwrap().children()[0];
+    let grouped_inner = syntax.node(left).unwrap().first_child().unwrap();
 
     assert_eq!(
         syntax.node(grouped_inner).unwrap().kind(),
@@ -52,15 +52,15 @@ fn parse_function_type_returning_union() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let alias = syntax.node(root).unwrap().children()[0];
+    let alias = syntax.node(root).unwrap().first_child().unwrap();
     let alias_node = syntax.node(alias).unwrap();
 
-    let alias_type = alias_node.children()[1];
+    let alias_type = alias_node.child(1).unwrap();
     let alias_type_node = syntax.node(alias_type).unwrap();
 
     assert_eq!(alias_type_node.kind(), SyntaxNodeKind::FunctionType);
 
-    let return_type = alias_type_node.children()[1];
+    let return_type = alias_type_node.child(1).unwrap();
 
     assert_eq!(
         syntax.node(return_type).unwrap().kind(),
@@ -84,14 +84,14 @@ fn parse_struct_field_nullable_function_type() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let struct_item = syntax.node(root).unwrap().children()[0];
+    let struct_item = syntax.node(root).unwrap().first_child().unwrap();
     let struct_node = syntax.node(struct_item).unwrap();
 
-    let fields = struct_node.children()[1];
-    let field = syntax.node(fields).unwrap().children()[0];
+    let fields = struct_node.child(1).unwrap();
+    let field = syntax.node(fields).unwrap().first_child().unwrap();
     let field_node = syntax.node(field).unwrap();
 
-    let field_type = field_node.children()[1];
+    let field_type = field_node.child(1).unwrap();
 
     assert_eq!(
         syntax.node(field_type).unwrap().kind(),
@@ -103,7 +103,7 @@ fn parse_struct_field_nullable_function_type() {
         Some("(fn (): null) | null")
     );
 
-    let default = field_node.children()[2];
+    let default = field_node.child(2).unwrap();
 
     assert_eq!(
         syntax.node(default).unwrap().kind(),
@@ -123,17 +123,17 @@ fn parse_var_annotation_nullable_function_type() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
-    let statement = syntax.node(body).unwrap().children()[0];
+    let body = function_node.child(3).unwrap();
+    let statement = syntax.node(body).unwrap().first_child().unwrap();
     let statement_node = syntax.node(statement).unwrap();
 
-    let annotation = statement_node.children()[1];
+    let annotation = statement_node.child(1).unwrap();
     let annotation_node = syntax.node(annotation).unwrap();
 
-    let annotation_type = annotation_node.children()[0];
+    let annotation_type = annotation_node.first_child().unwrap();
 
     assert_eq!(
         syntax.node(annotation_type).unwrap().kind(),
@@ -157,16 +157,16 @@ fn parse_grouped_type_inside_generic_argument() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let alias = syntax.node(root).unwrap().children()[0];
+    let alias = syntax.node(root).unwrap().first_child().unwrap();
     let alias_node = syntax.node(alias).unwrap();
 
-    let generic_type = alias_node.children()[1];
+    let generic_type = alias_node.child(1).unwrap();
     let generic_type_node = syntax.node(generic_type).unwrap();
 
     assert_eq!(generic_type_node.kind(), SyntaxNodeKind::GenericType);
 
-    let args = generic_type_node.children()[1];
-    let first_arg = syntax.node(args).unwrap().children()[0];
+    let args = generic_type_node.child(1).unwrap();
+    let first_arg = syntax.node(args).unwrap().first_child().unwrap();
 
     assert_eq!(
         syntax.node(first_arg).unwrap().kind(),
@@ -199,11 +199,11 @@ fn parse_grouped_plain_union_type() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let alias = syntax.node(root).unwrap().children()[0];
+    let alias = syntax.node(root).unwrap().first_child().unwrap();
     let alias_node = syntax.node(alias).unwrap();
 
-    let array_type = alias_node.children()[1];
-    let element_type = syntax.node(array_type).unwrap().children()[0];
+    let array_type = alias_node.child(1).unwrap();
+    let element_type = syntax.node(array_type).unwrap().first_child().unwrap();
 
     assert_eq!(
         syntax.node(element_type).unwrap().kind(),

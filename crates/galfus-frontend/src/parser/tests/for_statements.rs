@@ -12,21 +12,21 @@ fn parse_for_statement() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let for_statement = body_node.children()[0];
+    let for_statement = body_node.first_child().unwrap();
     let for_node = syntax.node(for_statement).unwrap();
 
     assert_eq!(for_node.kind(), SyntaxNodeKind::ForStatement);
-    assert_eq!(for_node.children().len(), 3);
+    assert_eq!(for_node.child_count(), 3);
 
-    let binding = for_node.children()[0];
-    let iterable = for_node.children()[1];
-    let loop_body = for_node.children()[2];
+    let binding = for_node.first_child().unwrap();
+    let iterable = for_node.child(1).unwrap();
+    let loop_body = for_node.child(2).unwrap();
 
     assert_eq!(
         syntax.node(binding).unwrap().kind(),
@@ -64,16 +64,16 @@ fn parse_for_statement_with_call_iterable() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let for_statement = body_node.children()[0];
+    let for_statement = body_node.first_child().unwrap();
     let for_node = syntax.node(for_statement).unwrap();
 
-    let iterable = for_node.children()[1];
+    let iterable = for_node.child(1).unwrap();
 
     assert_eq!(
         syntax.node(iterable).unwrap().kind(),
@@ -99,16 +99,16 @@ fn parse_for_statement_with_member_index_iterable() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let for_statement = body_node.children()[0];
+    let for_statement = body_node.first_child().unwrap();
     let for_node = syntax.node(for_statement).unwrap();
 
-    let iterable = for_node.children()[1];
+    let iterable = for_node.child(1).unwrap();
     let iterable_node = syntax.node(iterable).unwrap();
 
     assert_eq!(iterable_node.kind(), SyntaxNodeKind::IndexExpression);
@@ -138,16 +138,16 @@ fn parse_for_iterable_identifier_does_not_become_struct_literal() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let for_statement = body_node.children()[0];
+    let for_statement = body_node.first_child().unwrap();
     let for_node = syntax.node(for_statement).unwrap();
 
-    let iterable = for_node.children()[1];
+    let iterable = for_node.child(1).unwrap();
     let iterable_node = syntax.node(iterable).unwrap();
 
     assert_eq!(iterable_node.kind(), SyntaxNodeKind::NameExpression);
@@ -167,16 +167,16 @@ fn parse_for_iterable_allows_struct_literal_inside_call_argument() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let for_statement = body_node.children()[0];
+    let for_statement = body_node.first_child().unwrap();
     let for_node = syntax.node(for_statement).unwrap();
 
-    let iterable = for_node.children()[1];
+    let iterable = for_node.child(1).unwrap();
     let iterable_node = syntax.node(iterable).unwrap();
 
     assert_eq!(iterable_node.kind(), SyntaxNodeKind::CallExpression);
@@ -185,11 +185,11 @@ fn parse_for_iterable_allows_struct_literal_inside_call_argument() {
         Some("getItems(Filter { active: true })")
     );
 
-    let arguments = iterable_node.children()[1];
-    let argument = syntax.node(arguments).unwrap().children()[0];
+    let arguments = iterable_node.child(1).unwrap();
+    let argument = syntax.node(arguments).unwrap().first_child().unwrap();
     let argument_node = syntax.node(argument).unwrap();
 
-    let value = argument_node.children()[0];
+    let value = argument_node.first_child().unwrap();
     let value_node = syntax.node(value).unwrap();
 
     assert_eq!(value_node.kind(), SyntaxNodeKind::StructLiteral);

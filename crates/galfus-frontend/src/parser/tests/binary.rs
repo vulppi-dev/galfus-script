@@ -11,24 +11,24 @@ fn parse_binary_addition_expression() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let return_statement = body_node.children()[0];
+    let return_statement = body_node.first_child().unwrap();
     let return_node = syntax.node(return_statement).unwrap();
 
-    let expression = return_node.children()[0];
+    let expression = return_node.first_child().unwrap();
     let expression_node = syntax.node(expression).unwrap();
 
     assert_eq!(expression_node.kind(), SyntaxNodeKind::BinaryExpression);
     assert_eq!(source.slice(expression_node.span()), Some("1 + 2"));
 
-    let left = expression_node.children()[0];
-    let operator = expression_node.children()[1];
-    let right = expression_node.children()[2];
+    let left = expression_node.first_child().unwrap();
+    let operator = expression_node.child(1).unwrap();
+    let right = expression_node.child(2).unwrap();
 
     assert_eq!(
         syntax.node(left).unwrap().kind(),
@@ -63,34 +63,34 @@ fn parse_binary_expression_respects_precedence() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let return_statement = body_node.children()[0];
+    let return_statement = body_node.first_child().unwrap();
     let return_node = syntax.node(return_statement).unwrap();
 
-    let expression = return_node.children()[0];
+    let expression = return_node.first_child().unwrap();
     let expression_node = syntax.node(expression).unwrap();
 
     assert_eq!(expression_node.kind(), SyntaxNodeKind::BinaryExpression);
     assert_eq!(source.slice(expression_node.span()), Some("1 + 2 * 3"));
 
-    let root_operator = expression_node.children()[1];
+    let root_operator = expression_node.child(1).unwrap();
 
     assert_eq!(
         source.slice(syntax.node(root_operator).unwrap().span()),
         Some("+")
     );
 
-    let right = expression_node.children()[2];
+    let right = expression_node.child(2).unwrap();
     let right_node = syntax.node(right).unwrap();
 
     assert_eq!(right_node.kind(), SyntaxNodeKind::BinaryExpression);
 
-    let right_operator = right_node.children()[1];
+    let right_operator = right_node.child(1).unwrap();
 
     assert_eq!(
         source.slice(syntax.node(right_operator).unwrap().span()),
@@ -109,34 +109,34 @@ fn parse_power_expression_is_right_associative() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let return_statement = body_node.children()[0];
+    let return_statement = body_node.first_child().unwrap();
     let return_node = syntax.node(return_statement).unwrap();
 
-    let expression = return_node.children()[0];
+    let expression = return_node.first_child().unwrap();
     let expression_node = syntax.node(expression).unwrap();
 
     assert_eq!(expression_node.kind(), SyntaxNodeKind::BinaryExpression);
     assert_eq!(source.slice(expression_node.span()), Some("2 ** 3 ** 4"));
 
-    let root_operator = expression_node.children()[1];
+    let root_operator = expression_node.child(1).unwrap();
 
     assert_eq!(
         source.slice(syntax.node(root_operator).unwrap().span()),
         Some("**")
     );
 
-    let right = expression_node.children()[2];
+    let right = expression_node.child(2).unwrap();
     let right_node = syntax.node(right).unwrap();
 
     assert_eq!(right_node.kind(), SyntaxNodeKind::BinaryExpression);
 
-    let right_operator = right_node.children()[1];
+    let right_operator = right_node.child(1).unwrap();
 
     assert_eq!(
         source.slice(syntax.node(right_operator).unwrap().span()),
@@ -155,16 +155,16 @@ fn parse_binary_expression_allows_newline_before_operator() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let return_statement = body_node.children()[0];
+    let return_statement = body_node.first_child().unwrap();
     let return_node = syntax.node(return_statement).unwrap();
 
-    let expression = return_node.children()[0];
+    let expression = return_node.first_child().unwrap();
     let expression_node = syntax.node(expression).unwrap();
 
     assert_eq!(expression_node.kind(), SyntaxNodeKind::BinaryExpression);
@@ -182,16 +182,16 @@ fn parse_binary_expression_allows_newline_after_operator() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let return_statement = body_node.children()[0];
+    let return_statement = body_node.first_child().unwrap();
     let return_node = syntax.node(return_statement).unwrap();
 
-    let expression = return_node.children()[0];
+    let expression = return_node.first_child().unwrap();
     let expression_node = syntax.node(expression).unwrap();
 
     assert_eq!(expression_node.kind(), SyntaxNodeKind::BinaryExpression);
@@ -209,34 +209,34 @@ fn parse_comparison_expression_after_arithmetic() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let return_statement = body_node.children()[0];
+    let return_statement = body_node.first_child().unwrap();
     let return_node = syntax.node(return_statement).unwrap();
 
-    let expression = return_node.children()[0];
+    let expression = return_node.first_child().unwrap();
     let expression_node = syntax.node(expression).unwrap();
 
     assert_eq!(expression_node.kind(), SyntaxNodeKind::BinaryExpression);
     assert_eq!(source.slice(expression_node.span()), Some("1 + 2 > 3"));
 
-    let root_operator = expression_node.children()[1];
+    let root_operator = expression_node.child(1).unwrap();
 
     assert_eq!(
         source.slice(syntax.node(root_operator).unwrap().span()),
         Some(">")
     );
 
-    let left = expression_node.children()[0];
+    let left = expression_node.first_child().unwrap();
     let left_node = syntax.node(left).unwrap();
 
     assert_eq!(left_node.kind(), SyntaxNodeKind::BinaryExpression);
 
-    let left_operator = left_node.children()[1];
+    let left_operator = left_node.child(1).unwrap();
 
     assert_eq!(
         source.slice(syntax.node(left_operator).unwrap().span()),
@@ -255,34 +255,34 @@ fn parse_logical_and_has_higher_precedence_than_or() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let return_statement = body_node.children()[0];
+    let return_statement = body_node.first_child().unwrap();
     let return_node = syntax.node(return_statement).unwrap();
 
-    let expression = return_node.children()[0];
+    let expression = return_node.first_child().unwrap();
     let expression_node = syntax.node(expression).unwrap();
 
     assert_eq!(expression_node.kind(), SyntaxNodeKind::BinaryExpression);
     assert_eq!(source.slice(expression_node.span()), Some("a || b && c"));
 
-    let root_operator = expression_node.children()[1];
+    let root_operator = expression_node.child(1).unwrap();
 
     assert_eq!(
         source.slice(syntax.node(root_operator).unwrap().span()),
         Some("||")
     );
 
-    let right = expression_node.children()[2];
+    let right = expression_node.child(2).unwrap();
     let right_node = syntax.node(right).unwrap();
 
     assert_eq!(right_node.kind(), SyntaxNodeKind::BinaryExpression);
 
-    let right_operator = right_node.children()[1];
+    let right_operator = right_node.child(1).unwrap();
 
     assert_eq!(
         source.slice(syntax.node(right_operator).unwrap().span()),
@@ -301,16 +301,16 @@ fn parse_equality_has_higher_precedence_than_logical_and() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let return_statement = body_node.children()[0];
+    let return_statement = body_node.first_child().unwrap();
     let return_node = syntax.node(return_statement).unwrap();
 
-    let expression = return_node.children()[0];
+    let expression = return_node.first_child().unwrap();
     let expression_node = syntax.node(expression).unwrap();
 
     assert_eq!(expression_node.kind(), SyntaxNodeKind::BinaryExpression);
@@ -319,15 +319,15 @@ fn parse_equality_has_higher_precedence_than_logical_and() {
         Some("a == b && c != d")
     );
 
-    let root_operator = expression_node.children()[1];
+    let root_operator = expression_node.child(1).unwrap();
 
     assert_eq!(
         source.slice(syntax.node(root_operator).unwrap().span()),
         Some("&&")
     );
 
-    let left = expression_node.children()[0];
-    let right = expression_node.children()[2];
+    let left = expression_node.first_child().unwrap();
+    let right = expression_node.child(2).unwrap();
 
     assert_eq!(
         syntax.node(left).unwrap().kind(),
@@ -350,34 +350,34 @@ fn parse_null_coalescing_is_right_associative() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let return_statement = body_node.children()[0];
+    let return_statement = body_node.first_child().unwrap();
     let return_node = syntax.node(return_statement).unwrap();
 
-    let expression = return_node.children()[0];
+    let expression = return_node.first_child().unwrap();
     let expression_node = syntax.node(expression).unwrap();
 
     assert_eq!(expression_node.kind(), SyntaxNodeKind::BinaryExpression);
     assert_eq!(source.slice(expression_node.span()), Some("a ?? b ?? c"));
 
-    let root_operator = expression_node.children()[1];
+    let root_operator = expression_node.child(1).unwrap();
 
     assert_eq!(
         source.slice(syntax.node(root_operator).unwrap().span()),
         Some("??")
     );
 
-    let right = expression_node.children()[2];
+    let right = expression_node.child(2).unwrap();
     let right_node = syntax.node(right).unwrap();
 
     assert_eq!(right_node.kind(), SyntaxNodeKind::BinaryExpression);
 
-    let right_operator = right_node.children()[1];
+    let right_operator = right_node.child(1).unwrap();
 
     assert_eq!(
         source.slice(syntax.node(right_operator).unwrap().span()),
@@ -396,16 +396,16 @@ fn parse_logical_expression_allows_newline_before_operator() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let return_statement = body_node.children()[0];
+    let return_statement = body_node.first_child().unwrap();
     let return_node = syntax.node(return_statement).unwrap();
 
-    let expression = return_node.children()[0];
+    let expression = return_node.first_child().unwrap();
     let expression_node = syntax.node(expression).unwrap();
 
     assert_eq!(expression_node.kind(), SyntaxNodeKind::BinaryExpression);
@@ -423,16 +423,16 @@ fn parse_logical_expression_allows_newline_after_operator() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let return_statement = body_node.children()[0];
+    let return_statement = body_node.first_child().unwrap();
     let return_node = syntax.node(return_statement).unwrap();
 
-    let expression = return_node.children()[0];
+    let expression = return_node.first_child().unwrap();
     let expression_node = syntax.node(expression).unwrap();
 
     assert_eq!(expression_node.kind(), SyntaxNodeKind::BinaryExpression);

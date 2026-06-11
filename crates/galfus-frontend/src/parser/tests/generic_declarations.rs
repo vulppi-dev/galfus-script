@@ -11,15 +11,15 @@ fn parse_generic_struct_declaration() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let struct_item = syntax.node(root).unwrap().children()[0];
+    let struct_item = syntax.node(root).unwrap().first_child().unwrap();
     let struct_node = syntax.node(struct_item).unwrap();
 
     assert_eq!(struct_node.kind(), SyntaxNodeKind::StructItem);
-    assert_eq!(struct_node.children().len(), 3);
+    assert_eq!(struct_node.child_count(), 3);
 
-    let name = struct_node.children()[0];
-    let generics = struct_node.children()[1];
-    let fields = struct_node.children()[2];
+    let name = struct_node.first_child().unwrap();
+    let generics = struct_node.child(1).unwrap();
+    let fields = struct_node.child(2).unwrap();
 
     assert_eq!(source.slice(syntax.node(name).unwrap().span()), Some("Box"));
 
@@ -27,10 +27,10 @@ fn parse_generic_struct_declaration() {
 
     assert_eq!(generics_node.kind(), SyntaxNodeKind::GenericParameterList);
 
-    assert_eq!(generics_node.children().len(), 1);
+    assert_eq!(generics_node.child_count(), 1);
     assert_eq!(source.slice(generics_node.span()), Some("<T>"));
 
-    let generic = generics_node.children()[0];
+    let generic = generics_node.first_child().unwrap();
 
     assert_eq!(
         syntax.node(generic).unwrap().kind(),
@@ -59,14 +59,14 @@ fn parse_generic_struct_declaration_with_multiple_parameters() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let struct_item = syntax.node(root).unwrap().children()[0];
+    let struct_item = syntax.node(root).unwrap().first_child().unwrap();
     let struct_node = syntax.node(struct_item).unwrap();
 
-    let generics = struct_node.children()[1];
+    let generics = struct_node.child(1).unwrap();
     let generics_node = syntax.node(generics).unwrap();
 
     assert_eq!(generics_node.kind(), SyntaxNodeKind::GenericParameterList);
-    assert_eq!(generics_node.children().len(), 2);
+    assert_eq!(generics_node.child_count(), 2);
     assert_eq!(source.slice(generics_node.span()), Some("<T, U>"));
 }
 
@@ -81,13 +81,13 @@ fn parse_regular_struct_declaration_shape_is_unchanged() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let struct_item = syntax.node(root).unwrap().children()[0];
+    let struct_item = syntax.node(root).unwrap().first_child().unwrap();
     let struct_node = syntax.node(struct_item).unwrap();
 
-    assert_eq!(struct_node.children().len(), 2);
+    assert_eq!(struct_node.child_count(), 2);
 
     assert_eq!(
-        syntax.node(struct_node.children()[1]).unwrap().kind(),
+        syntax.node(struct_node.child(1).unwrap()).unwrap().kind(),
         SyntaxNodeKind::StructFieldList
     );
 }
@@ -103,17 +103,17 @@ fn parse_generic_function_declaration() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
     assert_eq!(function_node.kind(), SyntaxNodeKind::FunctionItem);
-    assert_eq!(function_node.children().len(), 5);
+    assert_eq!(function_node.child_count(), 5);
 
-    let name = function_node.children()[0];
-    let generics = function_node.children()[1];
-    let parameters = function_node.children()[2];
-    let return_type = function_node.children()[3];
-    let body = function_node.children()[4];
+    let name = function_node.first_child().unwrap();
+    let generics = function_node.child(1).unwrap();
+    let parameters = function_node.child(2).unwrap();
+    let return_type = function_node.child(3).unwrap();
+    let body = function_node.child(4).unwrap();
 
     assert_eq!(
         source.slice(syntax.node(name).unwrap().span()),
@@ -154,23 +154,23 @@ fn parse_regular_function_declaration_shape_is_unchanged() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    assert_eq!(function_node.children().len(), 4);
+    assert_eq!(function_node.child_count(), 4);
 
     assert_eq!(
-        syntax.node(function_node.children()[1]).unwrap().kind(),
+        syntax.node(function_node.child(1).unwrap()).unwrap().kind(),
         SyntaxNodeKind::ParameterList
     );
 
     assert_eq!(
-        syntax.node(function_node.children()[2]).unwrap().kind(),
+        syntax.node(function_node.child(2).unwrap()).unwrap().kind(),
         SyntaxNodeKind::TypeNull
     );
 
     assert_eq!(
-        syntax.node(function_node.children()[3]).unwrap().kind(),
+        syntax.node(function_node.child(3).unwrap()).unwrap().kind(),
         SyntaxNodeKind::Block
     );
 }
@@ -186,13 +186,13 @@ fn parse_generic_parameter_list_with_trailing_comma() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let struct_item = syntax.node(root).unwrap().children()[0];
+    let struct_item = syntax.node(root).unwrap().first_child().unwrap();
     let struct_node = syntax.node(struct_item).unwrap();
 
-    let generics = struct_node.children()[1];
+    let generics = struct_node.child(1).unwrap();
     let generics_node = syntax.node(generics).unwrap();
 
-    assert_eq!(generics_node.children().len(), 2);
+    assert_eq!(generics_node.child_count(), 2);
 }
 
 #[test]

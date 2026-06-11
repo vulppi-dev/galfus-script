@@ -11,21 +11,21 @@ fn parse_plus_equal_assignment_statement() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let assignment = body_node.children()[0];
+    let assignment = body_node.first_child().unwrap();
     let assignment_node = syntax.node(assignment).unwrap();
 
     assert_eq!(assignment_node.kind(), SyntaxNodeKind::AssignmentStatement);
     assert_eq!(source.slice(assignment_node.span()), Some("count += 1"));
 
-    let target = assignment_node.children()[0];
-    let operator = assignment_node.children()[1];
-    let value = assignment_node.children()[2];
+    let target = assignment_node.first_child().unwrap();
+    let operator = assignment_node.child(1).unwrap();
+    let value = assignment_node.child(2).unwrap();
 
     assert_eq!(
         syntax.node(target).unwrap().kind(),
@@ -63,13 +63,13 @@ fn parse_member_compound_assignment_statement() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let assignment = body_node.children()[0];
+    let assignment = body_node.first_child().unwrap();
     let assignment_node = syntax.node(assignment).unwrap();
 
     assert_eq!(assignment_node.kind(), SyntaxNodeKind::AssignmentStatement);
@@ -78,13 +78,13 @@ fn parse_member_compound_assignment_statement() {
         Some("user.score += 10")
     );
 
-    let target = assignment_node.children()[0];
+    let target = assignment_node.first_child().unwrap();
     let target_node = syntax.node(target).unwrap();
 
     assert_eq!(target_node.kind(), SyntaxNodeKind::MemberExpression);
     assert_eq!(source.slice(target_node.span()), Some("user.score"));
 
-    let operator = assignment_node.children()[1];
+    let operator = assignment_node.child(1).unwrap();
 
     assert_eq!(
         source.slice(syntax.node(operator).unwrap().span()),
@@ -112,13 +112,13 @@ fn parse_all_compound_assignment_operators() {
         let syntax = result.graph().syntax();
 
         let root = syntax.root().unwrap();
-        let function = syntax.node(root).unwrap().children()[0];
+        let function = syntax.node(root).unwrap().first_child().unwrap();
         let function_node = syntax.node(function).unwrap();
 
-        let body = function_node.children()[3];
+        let body = function_node.child(3).unwrap();
         let body_node = syntax.node(body).unwrap();
 
-        let assignment = body_node.children()[0];
+        let assignment = body_node.first_child().unwrap();
         let assignment_node = syntax.node(assignment).unwrap();
 
         assert_eq!(
@@ -127,7 +127,7 @@ fn parse_all_compound_assignment_operators() {
             "expected `{operator}` to create AssignmentStatement"
         );
 
-        let operator_node = assignment_node.children()[1];
+        let operator_node = assignment_node.child(1).unwrap();
 
         assert_eq!(
             source.slice(syntax.node(operator_node).unwrap().span()),
@@ -147,13 +147,13 @@ fn parse_compound_assignment_allows_newline_after_operator() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let assignment = body_node.children()[0];
+    let assignment = body_node.first_child().unwrap();
     let assignment_node = syntax.node(assignment).unwrap();
 
     assert_eq!(assignment_node.kind(), SyntaxNodeKind::AssignmentStatement);

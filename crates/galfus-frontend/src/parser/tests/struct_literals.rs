@@ -11,27 +11,27 @@ fn parse_empty_struct_literal() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let statement = body_node.children()[0];
+    let statement = body_node.first_child().unwrap();
     let statement_node = syntax.node(statement).unwrap();
 
-    let initializer = statement_node.children()[1];
+    let initializer = statement_node.child(1).unwrap();
     let initializer_node = syntax.node(initializer).unwrap();
 
-    let expression = initializer_node.children()[0];
+    let expression = initializer_node.first_child().unwrap();
     let expression_node = syntax.node(expression).unwrap();
 
     assert_eq!(expression_node.kind(), SyntaxNodeKind::StructLiteral);
     assert_eq!(source.slice(expression_node.span()), Some("User {}"));
-    assert_eq!(expression_node.children().len(), 2);
+    assert_eq!(expression_node.child_count(), 2);
 
-    let name = expression_node.children()[0];
-    let fields = expression_node.children()[1];
+    let name = expression_node.first_child().unwrap();
+    let fields = expression_node.child(1).unwrap();
 
     assert_eq!(
         source.slice(syntax.node(name).unwrap().span()),
@@ -58,38 +58,38 @@ fn parse_struct_literal_with_fields() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let statement = body_node.children()[0];
+    let statement = body_node.first_child().unwrap();
     let statement_node = syntax.node(statement).unwrap();
 
-    let initializer = statement_node.children()[1];
+    let initializer = statement_node.child(1).unwrap();
     let initializer_node = syntax.node(initializer).unwrap();
 
-    let expression = initializer_node.children()[0];
+    let expression = initializer_node.first_child().unwrap();
     let expression_node = syntax.node(expression).unwrap();
 
     assert_eq!(expression_node.kind(), SyntaxNodeKind::StructLiteral);
 
-    let fields = expression_node.children()[1];
+    let fields = expression_node.child(1).unwrap();
     let fields_node = syntax.node(fields).unwrap();
 
     assert_eq!(fields_node.kind(), SyntaxNodeKind::StructLiteralFieldList);
-    assert_eq!(fields_node.children().len(), 2);
+    assert_eq!(fields_node.child_count(), 2);
 
-    let first_field = fields_node.children()[0];
+    let first_field = fields_node.first_child().unwrap();
     let first_field_node = syntax.node(first_field).unwrap();
 
     assert_eq!(first_field_node.kind(), SyntaxNodeKind::StructLiteralField);
 
     assert_eq!(source.slice(first_field_node.span()), Some("name: \"Ana\""));
 
-    let first_name = first_field_node.children()[0];
-    let first_value = first_field_node.children()[1];
+    let first_name = first_field_node.first_child().unwrap();
+    let first_value = first_field_node.child(1).unwrap();
 
     assert_eq!(
         source.slice(syntax.node(first_name).unwrap().span()),
@@ -114,26 +114,26 @@ fn parse_struct_literal_field_value_can_be_expression() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let statement = body_node.children()[0];
+    let statement = body_node.first_child().unwrap();
     let statement_node = syntax.node(statement).unwrap();
 
-    let initializer = statement_node.children()[1];
+    let initializer = statement_node.child(1).unwrap();
     let initializer_node = syntax.node(initializer).unwrap();
 
-    let expression = initializer_node.children()[0];
+    let expression = initializer_node.first_child().unwrap();
     let expression_node = syntax.node(expression).unwrap();
 
-    let fields = expression_node.children()[1];
-    let field = syntax.node(fields).unwrap().children()[0];
+    let fields = expression_node.child(1).unwrap();
+    let field = syntax.node(fields).unwrap().first_child().unwrap();
     let field_node = syntax.node(field).unwrap();
 
-    let value = field_node.children()[1];
+    let value = field_node.child(1).unwrap();
 
     assert_eq!(
         syntax.node(value).unwrap().kind(),
@@ -159,26 +159,26 @@ fn parse_nested_struct_literal() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let statement = body_node.children()[0];
+    let statement = body_node.first_child().unwrap();
     let statement_node = syntax.node(statement).unwrap();
 
-    let initializer = statement_node.children()[1];
+    let initializer = statement_node.child(1).unwrap();
     let initializer_node = syntax.node(initializer).unwrap();
 
-    let expression = initializer_node.children()[0];
+    let expression = initializer_node.first_child().unwrap();
     let expression_node = syntax.node(expression).unwrap();
 
-    let fields = expression_node.children()[1];
-    let field = syntax.node(fields).unwrap().children()[0];
+    let fields = expression_node.child(1).unwrap();
+    let field = syntax.node(fields).unwrap().first_child().unwrap();
     let field_node = syntax.node(field).unwrap();
 
-    let value = field_node.children()[1];
+    let value = field_node.child(1).unwrap();
     let value_node = syntax.node(value).unwrap();
 
     assert_eq!(value_node.kind(), SyntaxNodeKind::StructLiteral);
@@ -220,16 +220,16 @@ fn parse_if_condition_allows_struct_literal_inside_call_argument() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let if_statement = body_node.children()[0];
+    let if_statement = body_node.first_child().unwrap();
     let if_node = syntax.node(if_statement).unwrap();
 
-    let condition = if_node.children()[0];
+    let condition = if_node.first_child().unwrap();
     let condition_node = syntax.node(condition).unwrap();
 
     assert_eq!(condition_node.kind(), SyntaxNodeKind::CallExpression);
@@ -238,13 +238,13 @@ fn parse_if_condition_allows_struct_literal_inside_call_argument() {
         Some("isValid(User { permission: permission })")
     );
 
-    let arguments = condition_node.children()[1];
+    let arguments = condition_node.child(1).unwrap();
     let arguments_node = syntax.node(arguments).unwrap();
 
-    let argument = arguments_node.children()[0];
+    let argument = arguments_node.first_child().unwrap();
     let argument_node = syntax.node(argument).unwrap();
 
-    let value = argument_node.children()[0];
+    let value = argument_node.first_child().unwrap();
     let value_node = syntax.node(value).unwrap();
 
     assert_eq!(value_node.kind(), SyntaxNodeKind::StructLiteral);
@@ -267,21 +267,21 @@ fn parse_if_condition_allows_parenthesized_struct_literal() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let if_statement = body_node.children()[0];
+    let if_statement = body_node.first_child().unwrap();
     let if_node = syntax.node(if_statement).unwrap();
 
-    let condition = if_node.children()[0];
+    let condition = if_node.first_child().unwrap();
     let condition_node = syntax.node(condition).unwrap();
 
     assert_eq!(condition_node.kind(), SyntaxNodeKind::GroupedExpression);
 
-    let inner = condition_node.children()[0];
+    let inner = condition_node.first_child().unwrap();
     let inner_node = syntax.node(inner).unwrap();
 
     assert_eq!(inner_node.kind(), SyntaxNodeKind::StructLiteral);
@@ -298,25 +298,25 @@ fn parse_struct_literal_field_shorthand() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let statement = body_node.children()[0];
+    let statement = body_node.first_child().unwrap();
     let statement_node = syntax.node(statement).unwrap();
 
-    let initializer = statement_node.children()[1];
+    let initializer = statement_node.child(1).unwrap();
     let initializer_node = syntax.node(initializer).unwrap();
 
-    let expression = initializer_node.children()[0];
+    let expression = initializer_node.first_child().unwrap();
     let expression_node = syntax.node(expression).unwrap();
 
-    let fields = expression_node.children()[1];
+    let fields = expression_node.child(1).unwrap();
     let fields_node = syntax.node(fields).unwrap();
 
-    let field = fields_node.children()[0];
+    let field = fields_node.first_child().unwrap();
     let field_node = syntax.node(field).unwrap();
 
     assert_eq!(
@@ -325,9 +325,9 @@ fn parse_struct_literal_field_shorthand() {
     );
 
     assert_eq!(source.slice(field_node.span()), Some("name"));
-    assert_eq!(field_node.children().len(), 1);
+    assert_eq!(field_node.child_count(), 1);
 
-    let name = field_node.children()[0];
+    let name = field_node.first_child().unwrap();
 
     assert_eq!(
         source.slice(syntax.node(name).unwrap().span()),
@@ -348,28 +348,28 @@ fn parse_struct_literal_mixed_shorthand_and_named_fields() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let statement = body_node.children()[0];
+    let statement = body_node.first_child().unwrap();
     let statement_node = syntax.node(statement).unwrap();
 
-    let initializer = statement_node.children()[1];
+    let initializer = statement_node.child(1).unwrap();
     let initializer_node = syntax.node(initializer).unwrap();
 
-    let expression = initializer_node.children()[0];
+    let expression = initializer_node.first_child().unwrap();
     let expression_node = syntax.node(expression).unwrap();
 
-    let fields = expression_node.children()[1];
+    let fields = expression_node.child(1).unwrap();
     let fields_node = syntax.node(fields).unwrap();
 
-    assert_eq!(fields_node.children().len(), 2);
+    assert_eq!(fields_node.child_count(), 2);
 
-    let first = fields_node.children()[0];
-    let second = fields_node.children()[1];
+    let first = fields_node.first_child().unwrap();
+    let second = fields_node.child(1).unwrap();
 
     assert_eq!(
         syntax.node(first).unwrap().kind(),

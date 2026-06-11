@@ -11,24 +11,24 @@ fn parse_type_alias_function_type_no_parameters() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let alias = syntax.node(root).unwrap().children()[0];
+    let alias = syntax.node(root).unwrap().first_child().unwrap();
     let alias_node = syntax.node(alias).unwrap();
 
-    let function_type = alias_node.children()[1];
+    let function_type = alias_node.child(1).unwrap();
     let function_type_node = syntax.node(function_type).unwrap();
 
     assert_eq!(function_type_node.kind(), SyntaxNodeKind::FunctionType);
     assert_eq!(source.slice(function_type_node.span()), Some("fn (): null"));
 
-    let parameters = function_type_node.children()[0];
-    let return_type = function_type_node.children()[1];
+    let parameters = function_type_node.first_child().unwrap();
+    let return_type = function_type_node.child(1).unwrap();
 
     assert_eq!(
         syntax.node(parameters).unwrap().kind(),
         SyntaxNodeKind::FunctionTypeParameterList
     );
 
-    assert_eq!(syntax.node(parameters).unwrap().children().len(), 0);
+    assert_eq!(syntax.node(parameters).unwrap().child_count(), 0);
 
     assert_eq!(
         syntax.node(return_type).unwrap().kind(),
@@ -47,10 +47,10 @@ fn parse_type_alias_function_type_with_parameters() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let alias = syntax.node(root).unwrap().children()[0];
+    let alias = syntax.node(root).unwrap().first_child().unwrap();
     let alias_node = syntax.node(alias).unwrap();
 
-    let function_type = alias_node.children()[1];
+    let function_type = alias_node.child(1).unwrap();
     let function_type_node = syntax.node(function_type).unwrap();
 
     assert_eq!(function_type_node.kind(), SyntaxNodeKind::FunctionType);
@@ -59,13 +59,13 @@ fn parse_type_alias_function_type_with_parameters() {
         Some("fn (String, int32): bool")
     );
 
-    let parameters = function_type_node.children()[0];
+    let parameters = function_type_node.first_child().unwrap();
     let parameters_node = syntax.node(parameters).unwrap();
 
-    assert_eq!(parameters_node.children().len(), 2);
+    assert_eq!(parameters_node.child_count(), 2);
 
-    let first = parameters_node.children()[0];
-    let second = parameters_node.children()[1];
+    let first = parameters_node.first_child().unwrap();
+    let second = parameters_node.child(1).unwrap();
 
     assert_eq!(
         source.slice(syntax.node(first).unwrap().span()),
@@ -89,14 +89,14 @@ fn parse_struct_field_function_type() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let struct_item = syntax.node(root).unwrap().children()[0];
+    let struct_item = syntax.node(root).unwrap().first_child().unwrap();
     let struct_node = syntax.node(struct_item).unwrap();
 
-    let fields = struct_node.children()[1];
-    let field = syntax.node(fields).unwrap().children()[0];
+    let fields = struct_node.child(1).unwrap();
+    let field = syntax.node(fields).unwrap().first_child().unwrap();
     let field_node = syntax.node(field).unwrap();
 
-    let field_type = field_node.children()[1];
+    let field_type = field_node.child(1).unwrap();
 
     assert_eq!(
         syntax.node(field_type).unwrap().kind(),
@@ -121,19 +121,19 @@ fn parse_var_type_annotation_function_type() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
-    let statement = syntax.node(body).unwrap().children()[0];
+    let body = function_node.child(3).unwrap();
+    let statement = syntax.node(body).unwrap().first_child().unwrap();
     let statement_node = syntax.node(statement).unwrap();
 
-    let type_annotation = statement_node.children()[1];
+    let type_annotation = statement_node.child(1).unwrap();
     let type_annotation_node = syntax.node(type_annotation).unwrap();
 
     assert_eq!(type_annotation_node.kind(), SyntaxNodeKind::TypeAnnotation);
 
-    let function_type = type_annotation_node.children()[0];
+    let function_type = type_annotation_node.first_child().unwrap();
 
     assert_eq!(
         syntax.node(function_type).unwrap().kind(),
@@ -152,24 +152,24 @@ fn parse_generic_function_type() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let alias = syntax.node(root).unwrap().children()[0];
+    let alias = syntax.node(root).unwrap().first_child().unwrap();
     let alias_node = syntax.node(alias).unwrap();
 
-    let function_type = alias_node.children()[2];
+    let function_type = alias_node.child(2).unwrap();
     let function_type_node = syntax.node(function_type).unwrap();
 
     assert_eq!(function_type_node.kind(), SyntaxNodeKind::FunctionType);
     assert_eq!(source.slice(function_type_node.span()), Some("fn (T): U"));
 
-    let parameters = function_type_node.children()[0];
-    let parameter = syntax.node(parameters).unwrap().children()[0];
+    let parameters = function_type_node.first_child().unwrap();
+    let parameter = syntax.node(parameters).unwrap().first_child().unwrap();
 
     assert_eq!(
         source.slice(syntax.node(parameter).unwrap().span()),
         Some("T")
     );
 
-    let return_type = function_type_node.children()[1];
+    let return_type = function_type_node.child(1).unwrap();
 
     assert_eq!(
         source.slice(syntax.node(return_type).unwrap().span()),
@@ -188,16 +188,16 @@ fn parse_function_type_as_generic_argument() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let alias = syntax.node(root).unwrap().children()[0];
+    let alias = syntax.node(root).unwrap().first_child().unwrap();
     let alias_node = syntax.node(alias).unwrap();
 
-    let generic_type = alias_node.children()[1];
+    let generic_type = alias_node.child(1).unwrap();
     let generic_type_node = syntax.node(generic_type).unwrap();
 
     assert_eq!(generic_type_node.kind(), SyntaxNodeKind::GenericType);
 
-    let args = generic_type_node.children()[1];
-    let first_arg = syntax.node(args).unwrap().children()[0];
+    let args = generic_type_node.child(1).unwrap();
+    let first_arg = syntax.node(args).unwrap().first_child().unwrap();
 
     assert_eq!(
         syntax.node(first_arg).unwrap().kind(),

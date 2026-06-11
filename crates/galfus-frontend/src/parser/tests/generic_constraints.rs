@@ -11,23 +11,23 @@ fn parse_generic_parameter_constraint_identifier() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let generics = function_node.children()[1];
+    let generics = function_node.child(1).unwrap();
     let generics_node = syntax.node(generics).unwrap();
 
     assert_eq!(generics_node.kind(), SyntaxNodeKind::GenericParameterList);
-    assert_eq!(generics_node.children().len(), 1);
+    assert_eq!(generics_node.child_count(), 1);
 
-    let parameter = generics_node.children()[0];
+    let parameter = generics_node.first_child().unwrap();
     let parameter_node = syntax.node(parameter).unwrap();
 
     assert_eq!(parameter_node.kind(), SyntaxNodeKind::GenericParameter);
-    assert_eq!(parameter_node.children().len(), 2);
+    assert_eq!(parameter_node.child_count(), 2);
     assert_eq!(source.slice(parameter_node.span()), Some("T: int"));
 
-    let constraint = parameter_node.children()[1];
+    let constraint = parameter_node.child(1).unwrap();
     let constraint_node = syntax.node(constraint).unwrap();
 
     assert_eq!(
@@ -35,7 +35,7 @@ fn parse_generic_parameter_constraint_identifier() {
         SyntaxNodeKind::GenericParameterConstraint
     );
 
-    let constraint_type = constraint_node.children()[0];
+    let constraint_type = constraint_node.first_child().unwrap();
 
     assert_eq!(
         syntax.node(constraint_type).unwrap().kind(),
@@ -59,17 +59,17 @@ fn parse_generic_parameter_constraint_struct() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let generics = function_node.children()[1];
-    let parameter = syntax.node(generics).unwrap().children()[0];
+    let generics = function_node.child(1).unwrap();
+    let parameter = syntax.node(generics).unwrap().first_child().unwrap();
     let parameter_node = syntax.node(parameter).unwrap();
 
-    let constraint = parameter_node.children()[1];
+    let constraint = parameter_node.child(1).unwrap();
     let constraint_node = syntax.node(constraint).unwrap();
 
-    let child = constraint_node.children()[0];
+    let child = constraint_node.first_child().unwrap();
     let child_node = syntax.node(child).unwrap();
 
     assert_eq!(child_node.kind(), SyntaxNodeKind::BasicConstraint);
@@ -87,15 +87,15 @@ fn parse_generic_parameter_constraint_enum() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let generics = function_node.children()[1];
-    let parameter = syntax.node(generics).unwrap().children()[0];
+    let generics = function_node.child(1).unwrap();
+    let parameter = syntax.node(generics).unwrap().first_child().unwrap();
     let parameter_node = syntax.node(parameter).unwrap();
 
-    let constraint = parameter_node.children()[1];
-    let child = syntax.node(constraint).unwrap().children()[0];
+    let constraint = parameter_node.child(1).unwrap();
+    let child = syntax.node(constraint).unwrap().first_child().unwrap();
 
     assert_eq!(
         syntax.node(child).unwrap().kind(),
@@ -119,15 +119,15 @@ fn parse_generic_parameter_constraint_function_type() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let generics = function_node.children()[1];
-    let parameter = syntax.node(generics).unwrap().children()[0];
+    let generics = function_node.child(1).unwrap();
+    let parameter = syntax.node(generics).unwrap().first_child().unwrap();
     let parameter_node = syntax.node(parameter).unwrap();
 
-    let constraint = parameter_node.children()[1];
-    let constraint_type = syntax.node(constraint).unwrap().children()[0];
+    let constraint = parameter_node.child(1).unwrap();
+    let constraint_type = syntax.node(constraint).unwrap().first_child().unwrap();
 
     assert_eq!(
         syntax.node(constraint_type).unwrap().kind(),
@@ -151,15 +151,15 @@ fn parse_generic_parameter_constraint_direct_type() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let generics = function_node.children()[1];
-    let parameter = syntax.node(generics).unwrap().children()[0];
+    let generics = function_node.child(1).unwrap();
+    let parameter = syntax.node(generics).unwrap().first_child().unwrap();
     let parameter_node = syntax.node(parameter).unwrap();
 
-    let constraint = parameter_node.children()[1];
-    let constraint_type = syntax.node(constraint).unwrap().children()[0];
+    let constraint = parameter_node.child(1).unwrap();
+    let constraint_type = syntax.node(constraint).unwrap().first_child().unwrap();
 
     assert_eq!(
         syntax.node(constraint_type).unwrap().kind(),
@@ -183,15 +183,15 @@ fn parse_generic_parameter_constraint_generic_type() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let generics = function_node.children()[1];
-    let parameter = syntax.node(generics).unwrap().children()[0];
+    let generics = function_node.child(1).unwrap();
+    let parameter = syntax.node(generics).unwrap().first_child().unwrap();
     let parameter_node = syntax.node(parameter).unwrap();
 
-    let constraint = parameter_node.children()[1];
-    let constraint_type = syntax.node(constraint).unwrap().children()[0];
+    let constraint = parameter_node.child(1).unwrap();
+    let constraint_type = syntax.node(constraint).unwrap().first_child().unwrap();
     let constraint_type_node = syntax.node(constraint_type).unwrap();
 
     assert_eq!(constraint_type_node.kind(), SyntaxNodeKind::GenericType);
@@ -212,16 +212,16 @@ fn parse_multiple_generic_parameter_constraints() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let generics = function_node.children()[1];
+    let generics = function_node.child(1).unwrap();
     let generics_node = syntax.node(generics).unwrap();
 
-    assert_eq!(generics_node.children().len(), 2);
+    assert_eq!(generics_node.child_count(), 2);
 
-    let first = generics_node.children()[0];
-    let second = generics_node.children()[1];
+    let first = generics_node.first_child().unwrap();
+    let second = generics_node.child(1).unwrap();
 
     assert_eq!(
         source.slice(syntax.node(first).unwrap().span()),
@@ -244,15 +244,15 @@ fn parse_unconstrained_generic_parameter_still_works() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let generics = function_node.children()[1];
+    let generics = function_node.child(1).unwrap();
     let generics_node = syntax.node(generics).unwrap();
 
-    let parameter = generics_node.children()[0];
+    let parameter = generics_node.first_child().unwrap();
     let parameter_node = syntax.node(parameter).unwrap();
 
     assert_eq!(parameter_node.kind(), SyntaxNodeKind::GenericParameter);
-    assert_eq!(parameter_node.children().len(), 1);
+    assert_eq!(parameter_node.child_count(), 1);
 }

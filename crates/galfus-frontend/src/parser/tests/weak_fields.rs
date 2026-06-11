@@ -11,17 +11,17 @@ fn parse_weak_struct_field() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let struct_item = syntax.node(root).unwrap().children()[0];
+    let struct_item = syntax.node(root).unwrap().first_child().unwrap();
     let struct_node = syntax.node(struct_item).unwrap();
 
     assert_eq!(struct_node.kind(), SyntaxNodeKind::StructItem);
 
-    let fields = struct_node.children()[1];
+    let fields = struct_node.child(1).unwrap();
     let fields_node = syntax.node(fields).unwrap();
 
-    assert_eq!(fields_node.children().len(), 1);
+    assert_eq!(fields_node.child_count(), 1);
 
-    let field = fields_node.children()[0];
+    let field = fields_node.first_child().unwrap();
     let field_node = syntax.node(field).unwrap();
 
     assert_eq!(field_node.kind(), SyntaxNodeKind::WeakStructField);
@@ -30,11 +30,11 @@ fn parse_weak_struct_field() {
         Some("weak resource: Resource | null = null")
     );
 
-    assert_eq!(field_node.children().len(), 3);
+    assert_eq!(field_node.child_count(), 3);
 
-    let name = field_node.children()[0];
-    let field_type = field_node.children()[1];
-    let default = field_node.children()[2];
+    let name = field_node.first_child().unwrap();
+    let field_type = field_node.child(1).unwrap();
+    let default = field_node.child(2).unwrap();
 
     assert_eq!(
         source.slice(syntax.node(name).unwrap().span()),

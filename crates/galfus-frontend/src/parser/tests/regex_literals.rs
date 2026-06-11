@@ -29,14 +29,14 @@ fn parse_slash_after_expression_as_division() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
-    let statement = syntax.node(body).unwrap().children()[0];
-    let initializer = syntax.node(statement).unwrap().children()[1];
+    let body = function_node.child(3).unwrap();
+    let statement = syntax.node(body).unwrap().first_child().unwrap();
+    let initializer = syntax.node(statement).unwrap().child(1).unwrap();
 
-    let expression = syntax.node(initializer).unwrap().children()[0];
+    let expression = syntax.node(initializer).unwrap().first_child().unwrap();
 
     assert_eq!(
         syntax.node(expression).unwrap().kind(),
@@ -57,26 +57,26 @@ fn parse_regex_pattern_in_match_statement() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
-    let match_statement = syntax.node(body).unwrap().children()[0];
+    let body = function_node.child(3).unwrap();
+    let match_statement = syntax.node(body).unwrap().first_child().unwrap();
     let match_node = syntax.node(match_statement).unwrap();
 
-    let arms = match_node.children()[1];
-    let first_arm = syntax.node(arms).unwrap().children()[0];
+    let arms = match_node.child(1).unwrap();
+    let first_arm = syntax.node(arms).unwrap().first_child().unwrap();
     let first_arm_node = syntax.node(first_arm).unwrap();
 
-    let pattern = first_arm_node.children()[0];
+    let pattern = first_arm_node.first_child().unwrap();
     let pattern_node = syntax.node(pattern).unwrap();
 
     assert_eq!(pattern_node.kind(), SyntaxNodeKind::RegexPattern);
     assert_eq!(source.slice(pattern_node.span()), Some("/^admin-/"));
 
-    assert_eq!(pattern_node.children().len(), 1);
+    assert_eq!(pattern_node.child_count(), 1);
 
-    let regex = pattern_node.children()[0];
+    let regex = pattern_node.first_child().unwrap();
     let regex_node = syntax.node(regex).unwrap();
 
     assert_eq!(regex_node.kind(), SyntaxNodeKind::RegexLiteral);
@@ -96,18 +96,18 @@ fn parse_regex_pattern_with_flags_in_match_statement() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
-    let match_statement = syntax.node(body).unwrap().children()[0];
+    let body = function_node.child(3).unwrap();
+    let match_statement = syntax.node(body).unwrap().first_child().unwrap();
     let match_node = syntax.node(match_statement).unwrap();
 
-    let arms = match_node.children()[1];
-    let first_arm = syntax.node(arms).unwrap().children()[0];
+    let arms = match_node.child(1).unwrap();
+    let first_arm = syntax.node(arms).unwrap().first_child().unwrap();
     let first_arm_node = syntax.node(first_arm).unwrap();
 
-    let pattern = first_arm_node.children()[0];
+    let pattern = first_arm_node.first_child().unwrap();
     let pattern_node = syntax.node(pattern).unwrap();
 
     assert_eq!(pattern_node.kind(), SyntaxNodeKind::RegexPattern);
@@ -127,23 +127,23 @@ fn parse_string_literal_pattern_still_uses_literal_pattern() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
-    let match_statement = syntax.node(body).unwrap().children()[0];
+    let body = function_node.child(3).unwrap();
+    let match_statement = syntax.node(body).unwrap().first_child().unwrap();
     let match_node = syntax.node(match_statement).unwrap();
 
-    let arms = match_node.children()[1];
-    let first_arm = syntax.node(arms).unwrap().children()[0];
+    let arms = match_node.child(1).unwrap();
+    let first_arm = syntax.node(arms).unwrap().first_child().unwrap();
     let first_arm_node = syntax.node(first_arm).unwrap();
 
-    let pattern = first_arm_node.children()[0];
+    let pattern = first_arm_node.first_child().unwrap();
     let pattern_node = syntax.node(pattern).unwrap();
 
     assert_eq!(pattern_node.kind(), SyntaxNodeKind::LiteralPattern);
 
-    let literal = pattern_node.children()[0];
+    let literal = pattern_node.first_child().unwrap();
 
     assert_eq!(
         syntax.node(literal).unwrap().kind(),
@@ -162,14 +162,14 @@ fn parse_regex_literal_expression() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
-    let statement = syntax.node(body).unwrap().children()[0];
-    let initializer = syntax.node(statement).unwrap().children()[1];
+    let body = function_node.child(3).unwrap();
+    let statement = syntax.node(body).unwrap().first_child().unwrap();
+    let initializer = syntax.node(statement).unwrap().child(1).unwrap();
 
-    let expression = syntax.node(initializer).unwrap().children()[0];
+    let expression = syntax.node(initializer).unwrap().first_child().unwrap();
     let expression_node = syntax.node(expression).unwrap();
 
     assert_eq!(expression_node.kind(), SyntaxNodeKind::RegexLiteral);

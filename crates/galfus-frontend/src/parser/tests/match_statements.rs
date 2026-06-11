@@ -13,20 +13,20 @@ fn parse_match_statement_with_binding_pattern() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let match_statement = body_node.children()[0];
+    let match_statement = body_node.first_child().unwrap();
     let match_node = syntax.node(match_statement).unwrap();
 
     assert_eq!(match_node.kind(), SyntaxNodeKind::MatchStatement);
-    assert_eq!(match_node.children().len(), 2);
+    assert_eq!(match_node.child_count(), 2);
 
-    let subject = match_node.children()[0];
-    let arms = match_node.children()[1];
+    let subject = match_node.first_child().unwrap();
+    let arms = match_node.child(1).unwrap();
 
     assert_eq!(
         syntax.node(subject).unwrap().kind(),
@@ -40,14 +40,14 @@ fn parse_match_statement_with_binding_pattern() {
     let arms_node = syntax.node(arms).unwrap();
 
     assert_eq!(arms_node.kind(), SyntaxNodeKind::MatchArmList);
-    assert_eq!(arms_node.children().len(), 1);
+    assert_eq!(arms_node.child_count(), 1);
 
-    let arm = arms_node.children()[0];
+    let arm = arms_node.first_child().unwrap();
     let arm_node = syntax.node(arm).unwrap();
 
     assert_eq!(arm_node.kind(), SyntaxNodeKind::MatchArm);
 
-    let pattern = arm_node.children()[0];
+    let pattern = arm_node.first_child().unwrap();
 
     assert_eq!(
         syntax.node(pattern).unwrap().kind(),
@@ -73,24 +73,24 @@ fn parse_match_statement_with_variant_patterns() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let match_statement = body_node.children()[0];
+    let match_statement = body_node.first_child().unwrap();
     let match_node = syntax.node(match_statement).unwrap();
 
-    let arms = match_node.children()[1];
+    let arms = match_node.child(1).unwrap();
     let arms_node = syntax.node(arms).unwrap();
 
-    assert_eq!(arms_node.children().len(), 2);
+    assert_eq!(arms_node.child_count(), 2);
 
-    let first_arm = arms_node.children()[0];
+    let first_arm = arms_node.first_child().unwrap();
     let first_arm_node = syntax.node(first_arm).unwrap();
 
-    let first_pattern = first_arm_node.children()[0];
+    let first_pattern = first_arm_node.first_child().unwrap();
     let first_pattern_node = syntax.node(first_pattern).unwrap();
 
     assert_eq!(first_pattern_node.kind(), SyntaxNodeKind::VariantPattern);
@@ -100,16 +100,16 @@ fn parse_match_statement_with_variant_patterns() {
         Some("Result::Ok(user)")
     );
 
-    assert_eq!(first_pattern_node.children().len(), 3);
+    assert_eq!(first_pattern_node.child_count(), 3);
 
-    let payload = first_pattern_node.children()[2];
+    let payload = first_pattern_node.child(2).unwrap();
     let payload_node = syntax.node(payload).unwrap();
 
     assert_eq!(payload_node.kind(), SyntaxNodeKind::VariantPatternPayload);
 
-    assert_eq!(payload_node.children().len(), 1);
+    assert_eq!(payload_node.child_count(), 1);
 
-    let payload_pattern = payload_node.children()[0];
+    let payload_pattern = payload_node.first_child().unwrap();
 
     assert_eq!(
         syntax.node(payload_pattern).unwrap().kind(),
@@ -130,25 +130,25 @@ fn parse_match_statement_with_unit_variant_pattern() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let match_statement = body_node.children()[0];
+    let match_statement = body_node.first_child().unwrap();
     let match_node = syntax.node(match_statement).unwrap();
 
-    let arms = match_node.children()[1];
-    let arm = syntax.node(arms).unwrap().children()[0];
+    let arms = match_node.child(1).unwrap();
+    let arm = syntax.node(arms).unwrap().first_child().unwrap();
     let arm_node = syntax.node(arm).unwrap();
 
-    let pattern = arm_node.children()[0];
+    let pattern = arm_node.first_child().unwrap();
     let pattern_node = syntax.node(pattern).unwrap();
 
     assert_eq!(pattern_node.kind(), SyntaxNodeKind::VariantPattern);
     assert_eq!(source.slice(pattern_node.span()), Some("Color::Red"));
-    assert_eq!(pattern_node.children().len(), 2);
+    assert_eq!(pattern_node.child_count(), 2);
 }
 
 #[test]
@@ -164,30 +164,30 @@ fn parse_match_statement_with_literal_patterns() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let match_statement = body_node.children()[0];
+    let match_statement = body_node.first_child().unwrap();
     let match_node = syntax.node(match_statement).unwrap();
 
-    let arms = match_node.children()[1];
+    let arms = match_node.child(1).unwrap();
     let arms_node = syntax.node(arms).unwrap();
 
-    assert_eq!(arms_node.children().len(), 2);
+    assert_eq!(arms_node.child_count(), 2);
 
-    let first_arm = arms_node.children()[0];
+    let first_arm = arms_node.first_child().unwrap();
     let first_arm_node = syntax.node(first_arm).unwrap();
 
-    let pattern = first_arm_node.children()[0];
+    let pattern = first_arm_node.first_child().unwrap();
     let pattern_node = syntax.node(pattern).unwrap();
 
     assert_eq!(pattern_node.kind(), SyntaxNodeKind::LiteralPattern);
     assert_eq!(source.slice(pattern_node.span()), Some("200"));
 
-    let literal = pattern_node.children()[0];
+    let literal = pattern_node.first_child().unwrap();
 
     assert_eq!(
         syntax.node(literal).unwrap().kind(),
@@ -208,16 +208,16 @@ fn parse_match_subject_allows_struct_literal_inside_call_argument() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let match_statement = body_node.children()[0];
+    let match_statement = body_node.first_child().unwrap();
     let match_node = syntax.node(match_statement).unwrap();
 
-    let subject = match_node.children()[0];
+    let subject = match_node.first_child().unwrap();
     let subject_node = syntax.node(subject).unwrap();
 
     assert_eq!(subject_node.kind(), SyntaxNodeKind::CallExpression);
@@ -240,16 +240,16 @@ fn parse_match_subject_identifier_does_not_become_struct_literal() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let match_statement = body_node.children()[0];
+    let match_statement = body_node.first_child().unwrap();
     let match_node = syntax.node(match_statement).unwrap();
 
-    let subject = match_node.children()[0];
+    let subject = match_node.first_child().unwrap();
 
     assert_eq!(
         syntax.node(subject).unwrap().kind(),
@@ -275,26 +275,26 @@ fn parse_match_statement_with_underscore_binding_pattern() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
-    let match_statement = body_node.children()[0];
+    let match_statement = body_node.first_child().unwrap();
     let match_node = syntax.node(match_statement).unwrap();
 
-    let arms = match_node.children()[1];
-    let arm = syntax.node(arms).unwrap().children()[0];
+    let arms = match_node.child(1).unwrap();
+    let arm = syntax.node(arms).unwrap().first_child().unwrap();
     let arm_node = syntax.node(arm).unwrap();
 
-    let pattern = arm_node.children()[0];
+    let pattern = arm_node.first_child().unwrap();
     let pattern_node = syntax.node(pattern).unwrap();
 
     assert_eq!(pattern_node.kind(), SyntaxNodeKind::BindingPattern);
     assert_eq!(source.slice(pattern_node.span()), Some("_"));
 
-    let identifier = pattern_node.children()[0];
+    let identifier = pattern_node.first_child().unwrap();
 
     assert_eq!(
         source.slice(syntax.node(identifier).unwrap().span()),

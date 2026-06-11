@@ -11,19 +11,19 @@ fn parse_copy_expression() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
-    let statement = syntax.node(body).unwrap().children()[0];
-    let initializer = syntax.node(statement).unwrap().children()[1];
-    let expression = syntax.node(initializer).unwrap().children()[0];
+    let body = function_node.child(3).unwrap();
+    let statement = syntax.node(body).unwrap().first_child().unwrap();
+    let initializer = syntax.node(statement).unwrap().child(1).unwrap();
+    let expression = syntax.node(initializer).unwrap().first_child().unwrap();
     let expression_node = syntax.node(expression).unwrap();
 
     assert_eq!(expression_node.kind(), SyntaxNodeKind::CopyExpression);
     assert_eq!(source.slice(expression_node.span()), Some("copy value"));
 
-    let value = expression_node.children()[0];
+    let value = expression_node.first_child().unwrap();
 
     assert_eq!(
         syntax.node(value).unwrap().kind(),
@@ -42,13 +42,13 @@ fn parse_copy_expression_with_member_expression() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
-    let statement = syntax.node(body).unwrap().children()[0];
-    let initializer = syntax.node(statement).unwrap().children()[1];
-    let expression = syntax.node(initializer).unwrap().children()[0];
+    let body = function_node.child(3).unwrap();
+    let statement = syntax.node(body).unwrap().first_child().unwrap();
+    let initializer = syntax.node(statement).unwrap().child(1).unwrap();
+    let expression = syntax.node(initializer).unwrap().first_child().unwrap();
     let expression_node = syntax.node(expression).unwrap();
 
     assert_eq!(expression_node.kind(), SyntaxNodeKind::CopyExpression);
@@ -57,7 +57,7 @@ fn parse_copy_expression_with_member_expression() {
         Some("copy user.profile")
     );
 
-    let value = expression_node.children()[0];
+    let value = expression_node.first_child().unwrap();
 
     assert_eq!(
         syntax.node(value).unwrap().kind(),
@@ -76,19 +76,19 @@ fn parse_copy_expression_as_call_argument() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
-    let statement = syntax.node(body).unwrap().children()[0];
-    let expression = syntax.node(statement).unwrap().children()[0];
+    let body = function_node.child(3).unwrap();
+    let statement = syntax.node(body).unwrap().first_child().unwrap();
+    let expression = syntax.node(statement).unwrap().first_child().unwrap();
     let expression_node = syntax.node(expression).unwrap();
 
-    let arguments = expression_node.children()[1];
-    let argument = syntax.node(arguments).unwrap().children()[0];
+    let arguments = expression_node.child(1).unwrap();
+    let argument = syntax.node(arguments).unwrap().first_child().unwrap();
     let argument_node = syntax.node(argument).unwrap();
 
-    let value = argument_node.children()[0];
+    let value = argument_node.first_child().unwrap();
     let value_node = syntax.node(value).unwrap();
 
     assert_eq!(value_node.kind(), SyntaxNodeKind::CopyExpression);
@@ -106,18 +106,18 @@ fn parse_copy_expression_has_unary_precedence() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
-    let statement = syntax.node(body).unwrap().children()[0];
-    let initializer = syntax.node(statement).unwrap().children()[1];
-    let expression = syntax.node(initializer).unwrap().children()[0];
+    let body = function_node.child(3).unwrap();
+    let statement = syntax.node(body).unwrap().first_child().unwrap();
+    let initializer = syntax.node(statement).unwrap().child(1).unwrap();
+    let expression = syntax.node(initializer).unwrap().first_child().unwrap();
     let expression_node = syntax.node(expression).unwrap();
 
     assert_eq!(expression_node.kind(), SyntaxNodeKind::BinaryExpression);
 
-    let left = expression_node.children()[0];
+    let left = expression_node.first_child().unwrap();
 
     assert_eq!(
         syntax.node(left).unwrap().kind(),
@@ -141,18 +141,18 @@ fn parse_copy_grouped_expression() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
-    let statement = syntax.node(body).unwrap().children()[0];
-    let initializer = syntax.node(statement).unwrap().children()[1];
-    let expression = syntax.node(initializer).unwrap().children()[0];
+    let body = function_node.child(3).unwrap();
+    let statement = syntax.node(body).unwrap().first_child().unwrap();
+    let initializer = syntax.node(statement).unwrap().child(1).unwrap();
+    let expression = syntax.node(initializer).unwrap().first_child().unwrap();
     let expression_node = syntax.node(expression).unwrap();
 
     assert_eq!(expression_node.kind(), SyntaxNodeKind::CopyExpression);
 
-    let value = expression_node.children()[0];
+    let value = expression_node.first_child().unwrap();
 
     assert_eq!(
         syntax.node(value).unwrap().kind(),
@@ -176,17 +176,17 @@ fn parse_weak_struct_field_without_default() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let struct_item = syntax.node(root).unwrap().children()[0];
+    let struct_item = syntax.node(root).unwrap().first_child().unwrap();
     let struct_node = syntax.node(struct_item).unwrap();
 
-    let fields = struct_node.children()[1];
-    let field = syntax.node(fields).unwrap().children()[0];
+    let fields = struct_node.child(1).unwrap();
+    let field = syntax.node(fields).unwrap().first_child().unwrap();
     let field_node = syntax.node(field).unwrap();
 
     assert_eq!(field_node.kind(), SyntaxNodeKind::WeakStructField);
-    assert_eq!(field_node.children().len(), 2);
+    assert_eq!(field_node.child_count(), 2);
 
-    let field_type = field_node.children()[1];
+    let field_type = field_node.child(1).unwrap();
 
     assert_eq!(
         syntax.node(field_type).unwrap().kind(),
@@ -205,11 +205,11 @@ fn parse_weak_struct_field_non_nullable_is_syntax_valid() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let struct_item = syntax.node(root).unwrap().children()[0];
+    let struct_item = syntax.node(root).unwrap().first_child().unwrap();
     let struct_node = syntax.node(struct_item).unwrap();
 
-    let fields = struct_node.children()[1];
-    let field = syntax.node(fields).unwrap().children()[0];
+    let fields = struct_node.child(1).unwrap();
+    let field = syntax.node(fields).unwrap().first_child().unwrap();
     let field_node = syntax.node(field).unwrap();
 
     assert_eq!(field_node.kind(), SyntaxNodeKind::WeakStructField);
@@ -230,19 +230,19 @@ fn parse_regular_struct_field_still_uses_struct_field() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let struct_item = syntax.node(root).unwrap().children()[0];
+    let struct_item = syntax.node(root).unwrap().first_child().unwrap();
     let struct_node = syntax.node(struct_item).unwrap();
 
-    let fields = struct_node.children()[1];
-    let field = syntax.node(fields).unwrap().children()[0];
+    let fields = struct_node.child(1).unwrap();
+    let field = syntax.node(fields).unwrap().first_child().unwrap();
     let field_node = syntax.node(field).unwrap();
 
     assert_eq!(field_node.kind(), SyntaxNodeKind::StructField);
-    assert_eq!(field_node.children().len(), 3);
+    assert_eq!(field_node.child_count(), 3);
 
-    let name = field_node.children()[0];
-    let field_type = field_node.children()[1];
-    let default = field_node.children()[2];
+    let name = field_node.first_child().unwrap();
+    let field_type = field_node.child(1).unwrap();
+    let default = field_node.child(2).unwrap();
 
     assert_eq!(
         source.slice(syntax.node(name).unwrap().span()),

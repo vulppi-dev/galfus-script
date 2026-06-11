@@ -11,21 +11,21 @@ fn parse_generic_type() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let struct_item = syntax.node(root).unwrap().children()[0];
+    let struct_item = syntax.node(root).unwrap().first_child().unwrap();
     let struct_node = syntax.node(struct_item).unwrap();
 
-    let fields = struct_node.children()[1];
-    let field = syntax.node(fields).unwrap().children()[0];
+    let fields = struct_node.child(1).unwrap();
+    let field = syntax.node(fields).unwrap().first_child().unwrap();
     let field_node = syntax.node(field).unwrap();
 
-    let field_type = field_node.children()[1];
+    let field_type = field_node.child(1).unwrap();
     let field_type_node = syntax.node(field_type).unwrap();
 
     assert_eq!(field_type_node.kind(), SyntaxNodeKind::GenericType);
     assert_eq!(source.slice(field_type_node.span()), Some("WeakVec<Node>"));
 
-    let base = field_type_node.children()[0];
-    let arguments = field_type_node.children()[1];
+    let base = field_type_node.first_child().unwrap();
+    let arguments = field_type_node.child(1).unwrap();
 
     assert_eq!(syntax.node(base).unwrap().kind(), SyntaxNodeKind::NamedType);
     assert_eq!(
@@ -36,7 +36,7 @@ fn parse_generic_type() {
     let arguments_node = syntax.node(arguments).unwrap();
 
     assert_eq!(arguments_node.kind(), SyntaxNodeKind::TypeArgumentList);
-    assert_eq!(arguments_node.children().len(), 1);
+    assert_eq!(arguments_node.child_count(), 1);
 }
 
 #[test]
@@ -50,14 +50,14 @@ fn parse_generic_type_with_multiple_arguments() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let struct_item = syntax.node(root).unwrap().children()[0];
+    let struct_item = syntax.node(root).unwrap().first_child().unwrap();
     let struct_node = syntax.node(struct_item).unwrap();
 
-    let fields = struct_node.children()[1];
-    let field = syntax.node(fields).unwrap().children()[0];
+    let fields = struct_node.child(1).unwrap();
+    let field = syntax.node(fields).unwrap().first_child().unwrap();
     let field_node = syntax.node(field).unwrap();
 
-    let field_type = field_node.children()[1];
+    let field_type = field_node.child(1).unwrap();
     let field_type_node = syntax.node(field_type).unwrap();
 
     assert_eq!(field_type_node.kind(), SyntaxNodeKind::GenericType);
@@ -66,13 +66,13 @@ fn parse_generic_type_with_multiple_arguments() {
         Some("Map<String, User>")
     );
 
-    let arguments = field_type_node.children()[1];
+    let arguments = field_type_node.child(1).unwrap();
     let arguments_node = syntax.node(arguments).unwrap();
 
-    assert_eq!(arguments_node.children().len(), 2);
+    assert_eq!(arguments_node.child_count(), 2);
 
-    let first = arguments_node.children()[0];
-    let second = arguments_node.children()[1];
+    let first = arguments_node.first_child().unwrap();
+    let second = arguments_node.child(1).unwrap();
 
     assert_eq!(
         source.slice(syntax.node(first).unwrap().span()),
@@ -95,14 +95,14 @@ fn parse_nested_generic_type() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let struct_item = syntax.node(root).unwrap().children()[0];
+    let struct_item = syntax.node(root).unwrap().first_child().unwrap();
     let struct_node = syntax.node(struct_item).unwrap();
 
-    let fields = struct_node.children()[1];
-    let field = syntax.node(fields).unwrap().children()[0];
+    let fields = struct_node.child(1).unwrap();
+    let field = syntax.node(fields).unwrap().first_child().unwrap();
     let field_node = syntax.node(field).unwrap();
 
-    let field_type = field_node.children()[1];
+    let field_type = field_node.child(1).unwrap();
     let field_type_node = syntax.node(field_type).unwrap();
 
     assert_eq!(field_type_node.kind(), SyntaxNodeKind::GenericType);
@@ -111,10 +111,10 @@ fn parse_nested_generic_type() {
         Some("Map<String, WeakVec<User>>")
     );
 
-    let arguments = field_type_node.children()[1];
+    let arguments = field_type_node.child(1).unwrap();
     let arguments_node = syntax.node(arguments).unwrap();
 
-    let nested = arguments_node.children()[1];
+    let nested = arguments_node.child(1).unwrap();
 
     assert_eq!(
         syntax.node(nested).unwrap().kind(),
@@ -138,14 +138,14 @@ fn parse_generic_type_with_union_argument() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let struct_item = syntax.node(root).unwrap().children()[0];
+    let struct_item = syntax.node(root).unwrap().first_child().unwrap();
     let struct_node = syntax.node(struct_item).unwrap();
 
-    let fields = struct_node.children()[1];
-    let field = syntax.node(fields).unwrap().children()[0];
+    let fields = struct_node.child(1).unwrap();
+    let field = syntax.node(fields).unwrap().first_child().unwrap();
     let field_node = syntax.node(field).unwrap();
 
-    let field_type = field_node.children()[1];
+    let field_type = field_node.child(1).unwrap();
     let field_type_node = syntax.node(field_type).unwrap();
 
     assert_eq!(field_type_node.kind(), SyntaxNodeKind::GenericType);
@@ -154,8 +154,8 @@ fn parse_generic_type_with_union_argument() {
         Some("Box<User | null>")
     );
 
-    let arguments = field_type_node.children()[1];
-    let first_argument = syntax.node(arguments).unwrap().children()[0];
+    let arguments = field_type_node.child(1).unwrap();
+    let first_argument = syntax.node(arguments).unwrap().first_child().unwrap();
 
     assert_eq!(
         syntax.node(first_argument).unwrap().kind(),
@@ -174,21 +174,21 @@ fn parse_generic_type_with_array_argument() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let struct_item = syntax.node(root).unwrap().children()[0];
+    let struct_item = syntax.node(root).unwrap().first_child().unwrap();
     let struct_node = syntax.node(struct_item).unwrap();
 
-    let fields = struct_node.children()[1];
-    let field = syntax.node(fields).unwrap().children()[0];
+    let fields = struct_node.child(1).unwrap();
+    let field = syntax.node(fields).unwrap().first_child().unwrap();
     let field_node = syntax.node(field).unwrap();
 
-    let field_type = field_node.children()[1];
+    let field_type = field_node.child(1).unwrap();
     let field_type_node = syntax.node(field_type).unwrap();
 
     assert_eq!(field_type_node.kind(), SyntaxNodeKind::GenericType);
     assert_eq!(source.slice(field_type_node.span()), Some("Box<[int32]>"));
 
-    let arguments = field_type_node.children()[1];
-    let first_argument = syntax.node(arguments).unwrap().children()[0];
+    let arguments = field_type_node.child(1).unwrap();
+    let first_argument = syntax.node(arguments).unwrap().first_child().unwrap();
 
     assert_eq!(
         syntax.node(first_argument).unwrap().kind(),
@@ -207,20 +207,20 @@ fn parse_generic_type_with_trailing_comma() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let struct_item = syntax.node(root).unwrap().children()[0];
+    let struct_item = syntax.node(root).unwrap().first_child().unwrap();
     let struct_node = syntax.node(struct_item).unwrap();
 
-    let fields = struct_node.children()[1];
-    let field = syntax.node(fields).unwrap().children()[0];
+    let fields = struct_node.child(1).unwrap();
+    let field = syntax.node(fields).unwrap().first_child().unwrap();
     let field_node = syntax.node(field).unwrap();
 
-    let field_type = field_node.children()[1];
+    let field_type = field_node.child(1).unwrap();
     let field_type_node = syntax.node(field_type).unwrap();
 
-    let arguments = field_type_node.children()[1];
+    let arguments = field_type_node.child(1).unwrap();
     let arguments_node = syntax.node(arguments).unwrap();
 
-    assert_eq!(arguments_node.children().len(), 2);
+    assert_eq!(arguments_node.child_count(), 2);
 }
 
 #[test]
@@ -234,14 +234,14 @@ fn parse_generic_type_with_newlines() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let struct_item = syntax.node(root).unwrap().children()[0];
+    let struct_item = syntax.node(root).unwrap().first_child().unwrap();
     let struct_node = syntax.node(struct_item).unwrap();
 
-    let fields = struct_node.children()[1];
-    let field = syntax.node(fields).unwrap().children()[0];
+    let fields = struct_node.child(1).unwrap();
+    let field = syntax.node(fields).unwrap().first_child().unwrap();
     let field_node = syntax.node(field).unwrap();
 
-    let field_type = field_node.children()[1];
+    let field_type = field_node.child(1).unwrap();
 
     assert_eq!(
         syntax.node(field_type).unwrap().kind(),

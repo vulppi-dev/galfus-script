@@ -13,9 +13,9 @@ fn parse_function_item_minimal() {
     let root_node = syntax.node(root).unwrap();
 
     assert_eq!(root_node.kind(), SyntaxNodeKind::SourceFile);
-    assert_eq!(root_node.children().len(), 1);
+    assert_eq!(root_node.child_count(), 1);
 
-    let function = root_node.children()[0];
+    let function = root_node.first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
     assert_eq!(function_node.kind(), SyntaxNodeKind::FunctionItem);
@@ -23,12 +23,12 @@ fn parse_function_item_minimal() {
         source.slice(function_node.span()),
         Some("fn main(): null {}")
     );
-    assert_eq!(function_node.children().len(), 4);
+    assert_eq!(function_node.child_count(), 4);
 
-    let name = function_node.children()[0];
-    let parameters = function_node.children()[1];
-    let return_type = function_node.children()[2];
-    let body = function_node.children()[3];
+    let name = function_node.first_child().unwrap();
+    let parameters = function_node.child(1).unwrap();
+    let return_type = function_node.child(2).unwrap();
+    let body = function_node.child(3).unwrap();
 
     assert_eq!(
         syntax.node(name).unwrap().kind(),
@@ -78,16 +78,16 @@ fn parse_return_statement_inside_block() {
     let root = syntax.root().unwrap();
     let root_node = syntax.node(root).unwrap();
 
-    let function = root_node.children()[0];
+    let function = root_node.first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let body = function_node.children()[3];
+    let body = function_node.child(3).unwrap();
     let body_node = syntax.node(body).unwrap();
 
     assert_eq!(body_node.kind(), SyntaxNodeKind::Block);
-    assert_eq!(body_node.children().len(), 1);
+    assert_eq!(body_node.child_count(), 1);
 
-    let statement = body_node.children()[0];
+    let statement = body_node.first_child().unwrap();
     let statement_node = syntax.node(statement).unwrap();
 
     assert_eq!(statement_node.kind(), SyntaxNodeKind::ReturnStatement);
@@ -121,23 +121,23 @@ fn parse_function_parameters() {
     let root = syntax.root().unwrap();
     let root_node = syntax.node(root).unwrap();
 
-    let function = root_node.children()[0];
+    let function = root_node.first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let parameters = function_node.children()[1];
+    let parameters = function_node.child(1).unwrap();
     let parameters_node = syntax.node(parameters).unwrap();
 
     assert_eq!(parameters_node.kind(), SyntaxNodeKind::ParameterList);
-    assert_eq!(parameters_node.children().len(), 2);
+    assert_eq!(parameters_node.child_count(), 2);
 
-    let first_parameter = parameters_node.children()[0];
+    let first_parameter = parameters_node.first_child().unwrap();
     let first_parameter_node = syntax.node(first_parameter).unwrap();
 
     assert_eq!(first_parameter_node.kind(), SyntaxNodeKind::Parameter);
     assert_eq!(source.slice(first_parameter_node.span()), Some("a: int32"));
 
-    let first_name = first_parameter_node.children()[0];
-    let first_type = first_parameter_node.children()[1];
+    let first_name = first_parameter_node.first_child().unwrap();
+    let first_type = first_parameter_node.child(1).unwrap();
 
     assert_eq!(
         source.slice(syntax.node(first_name).unwrap().span()),
@@ -152,7 +152,7 @@ fn parse_function_parameters() {
         Some("int32")
     );
 
-    let second_parameter = parameters_node.children()[1];
+    let second_parameter = parameters_node.child(1).unwrap();
     let second_parameter_node = syntax.node(second_parameter).unwrap();
 
     assert_eq!(source.slice(second_parameter_node.span()), Some("b: int32"));
@@ -169,10 +169,10 @@ fn parse_empty_parameter_list_still_works() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let parameters = function_node.children()[1];
+    let parameters = function_node.child(1).unwrap();
     let parameters_node = syntax.node(parameters).unwrap();
 
     assert_eq!(parameters_node.kind(), SyntaxNodeKind::ParameterList);
@@ -190,14 +190,14 @@ fn parse_parameter_list_accepts_trailing_comma() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let parameters = function_node.children()[1];
+    let parameters = function_node.child(1).unwrap();
     let parameters_node = syntax.node(parameters).unwrap();
 
     assert_eq!(parameters_node.kind(), SyntaxNodeKind::ParameterList);
-    assert_eq!(parameters_node.children().len(), 2);
+    assert_eq!(parameters_node.child_count(), 2);
 }
 
 #[test]
@@ -211,12 +211,12 @@ fn parse_parameter_list_accepts_multiline_trailing_comma() {
     let syntax = result.graph().syntax();
 
     let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().children()[0];
+    let function = syntax.node(root).unwrap().first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
-    let parameters = function_node.children()[1];
+    let parameters = function_node.child(1).unwrap();
     let parameters_node = syntax.node(parameters).unwrap();
 
     assert_eq!(parameters_node.kind(), SyntaxNodeKind::ParameterList);
-    assert_eq!(parameters_node.children().len(), 2);
+    assert_eq!(parameters_node.child_count(), 2);
 }

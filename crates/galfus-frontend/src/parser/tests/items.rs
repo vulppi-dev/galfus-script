@@ -12,9 +12,9 @@ fn parse_top_level_const_item() {
     let root = syntax.root().unwrap();
     let root_node = syntax.node(root).unwrap();
 
-    assert_eq!(root_node.children().len(), 1);
+    assert_eq!(root_node.child_count(), 1);
 
-    let item = root_node.children()[0];
+    let item = root_node.first_child().unwrap();
     let item_node = syntax.node(item).unwrap();
 
     assert_eq!(item_node.kind(), SyntaxNodeKind::ConstItem);
@@ -33,9 +33,9 @@ fn parse_top_level_var_item() {
     let root = syntax.root().unwrap();
     let root_node = syntax.node(root).unwrap();
 
-    assert_eq!(root_node.children().len(), 1);
+    assert_eq!(root_node.child_count(), 1);
 
-    let item = root_node.children()[0];
+    let item = root_node.first_child().unwrap();
     let item_node = syntax.node(item).unwrap();
 
     assert_eq!(item_node.kind(), SyntaxNodeKind::VarItem);
@@ -57,9 +57,9 @@ fn parse_export_const_item() {
     let root = syntax.root().unwrap();
     let root_node = syntax.node(root).unwrap();
 
-    assert_eq!(root_node.children().len(), 1);
+    assert_eq!(root_node.child_count(), 1);
 
-    let export = root_node.children()[0];
+    let export = root_node.first_child().unwrap();
     let export_node = syntax.node(export).unwrap();
 
     assert_eq!(export_node.kind(), SyntaxNodeKind::ExportItem);
@@ -67,9 +67,9 @@ fn parse_export_const_item() {
         source.slice(export_node.span()),
         Some("export const version = 1")
     );
-    assert_eq!(export_node.children().len(), 1);
+    assert_eq!(export_node.child_count(), 1);
 
-    let inner = export_node.children()[0];
+    let inner = export_node.first_child().unwrap();
     let inner_node = syntax.node(inner).unwrap();
 
     assert_eq!(inner_node.kind(), SyntaxNodeKind::ConstItem);
@@ -88,9 +88,9 @@ fn parse_export_var_item() {
     let root = syntax.root().unwrap();
     let root_node = syntax.node(root).unwrap();
 
-    assert_eq!(root_node.children().len(), 1);
+    assert_eq!(root_node.child_count(), 1);
 
-    let export = root_node.children()[0];
+    let export = root_node.first_child().unwrap();
     let export_node = syntax.node(export).unwrap();
 
     assert_eq!(export_node.kind(), SyntaxNodeKind::ExportItem);
@@ -98,9 +98,9 @@ fn parse_export_var_item() {
         source.slice(export_node.span()),
         Some("export var counter: int32 = 0")
     );
-    assert_eq!(export_node.children().len(), 1);
+    assert_eq!(export_node.child_count(), 1);
 
-    let inner = export_node.children()[0];
+    let inner = export_node.first_child().unwrap();
     let inner_node = syntax.node(inner).unwrap();
 
     assert_eq!(inner_node.kind(), SyntaxNodeKind::VarItem);
@@ -128,7 +128,7 @@ fn parse_block_var_and_const_as_statements() {
     let root = syntax.root().unwrap();
     let root_node = syntax.node(root).unwrap();
 
-    let function = root_node.children()[0];
+    let function = root_node.first_child().unwrap();
     let function_node = syntax.node(function).unwrap();
 
     let body = function_node
@@ -140,10 +140,10 @@ fn parse_block_var_and_const_as_statements() {
 
     let body_node = syntax.node(body).unwrap();
 
-    assert_eq!(body_node.children().len(), 3);
+    assert_eq!(body_node.child_count(), 3);
 
-    let const_statement = body_node.children()[0];
-    let var_statement = body_node.children()[1];
+    let const_statement = body_node.first_child().unwrap();
+    let var_statement = body_node.child(1).unwrap();
 
     assert_eq!(
         syntax.node(const_statement).unwrap().kind(),
@@ -191,7 +191,7 @@ fn parse_var_item_allows_missing_initializer() {
     let root = syntax.root().unwrap();
     let root_node = syntax.node(root).unwrap();
 
-    let item = root_node.children()[0];
+    let item = root_node.first_child().unwrap();
     let item_node = syntax.node(item).unwrap();
 
     assert_eq!(item_node.kind(), SyntaxNodeKind::VarItem);
