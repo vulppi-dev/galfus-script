@@ -1,3 +1,5 @@
+use crate::AssignmentOperatorKind;
+
 use super::*;
 
 #[test]
@@ -134,6 +136,44 @@ fn parse_all_compound_assignment_operators() {
             Some(operator)
         );
     }
+}
+
+#[test]
+fn parse_compound_assignment_operator_keeps_operator_kind() {
+    let source = source(
+        "fn main(): null {
+            value += 1
+            return
+        }",
+    );
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+    let root = syntax.root().unwrap();
+
+    let function = syntax.first_child(root).unwrap();
+    let body = syntax
+        .first_child_of_kind(function, SyntaxNodeKind::Block)
+        .unwrap();
+
+    let assignment = syntax.first_child(body).unwrap();
+    let assignment_node = syntax.node(assignment).unwrap();
+
+    assert_eq!(assignment_node.kind(), SyntaxNodeKind::AssignmentStatement);
+
+    let operator = syntax
+        .first_child_of_kind(assignment, SyntaxNodeKind::AssignmentOperator)
+        .unwrap();
+
+    let operator_node = syntax.node(operator).unwrap();
+
+    assert_eq!(
+        operator_node.assignment_operator(),
+        Some(AssignmentOperatorKind::AddAssign)
+    );
 }
 
 #[test]
