@@ -52,7 +52,7 @@ impl Parser {
         }
 
         if self.at(&TokenKind::Identifier) {
-            let base_type = self.parse_type_name_or_path()?;
+            let base_type = self.parse_named_type_or_path()?;
 
             if self.at(&TokenKind::Less) {
                 return self.parse_generic_type(base_type);
@@ -502,71 +502,67 @@ impl Parser {
         Some(self.add_node(SyntaxNodeKind::GroupedType, span, vec![inner]))
     }
 
-    pub(super) fn make_type_name_from_identifier(&mut self, identifier: NodeId) -> NodeId {
+    pub(super) fn make_named_type_from_identifier(&mut self, identifier: NodeId) -> NodeId {
         let span = self.node_span(identifier);
-
-        self.add_node(SyntaxNodeKind::TypeName, span, vec![identifier])
+        self.add_node(SyntaxNodeKind::NamedType, span, vec![identifier])
     }
 
-    pub(super) fn parse_type_name_or_path(&mut self) -> Option<NodeId> {
+    pub(super) fn parse_named_type_or_path(&mut self) -> Option<NodeId> {
         let first_identifier = self.parse_identifier()?;
-        let first_type_name = self.make_type_name_from_identifier(first_identifier);
 
-        let mut segments = vec![first_type_name];
-        let mut end_span = self.node_span(first_type_name);
+        let mut identifiers = vec![first_identifier];
+        let mut end_span = self.node_span(first_identifier);
 
         while self.at(&TokenKind::ColonColon) {
             self.bump();
 
             let identifier = self.parse_identifier()?;
-            let segment = self.make_type_name_from_identifier(identifier);
-
-            end_span = self.node_span(segment);
-            segments.push(segment);
+            end_span = self.node_span(identifier);
+            identifiers.push(identifier);
         }
 
-        if segments.len() == 1 {
-            return Some(first_type_name);
+        if identifiers.len() == 1 {
+            return Some(self.make_named_type_from_identifier(first_identifier));
         }
 
-        let span = Span::cover(self.node_span(first_type_name), end_span)
-            .unwrap_or_else(|| self.node_span(first_type_name));
+        let span = Span::cover(self.node_span(first_identifier), end_span)
+            .unwrap_or_else(|| self.node_span(first_identifier));
 
-        Some(self.add_node(SyntaxNodeKind::TypePath, span, segments))
+        Some(self.add_node(SyntaxNodeKind::Path, span, identifiers))
     }
 
-    pub(super) fn parse_type_path_until(&mut self, stop_position: usize) -> Option<NodeId> {
+    pub(super) fn parse_named_type_or_path_until(
+        &mut self,
+        stop_position: usize,
+    ) -> Option<NodeId> {
         let first_identifier = self.parse_identifier()?;
-        let first_type_name = self.make_type_name_from_identifier(first_identifier);
 
-        let mut segments = vec![first_type_name];
-        let mut end_span = self.node_span(first_type_name);
+        let mut identifiers = vec![first_identifier];
+        let mut end_span = self.node_span(first_identifier);
 
         while self.position < stop_position && self.at(&TokenKind::ColonColon) {
             self.bump();
 
             let identifier = self.parse_identifier()?;
-            let segment = self.make_type_name_from_identifier(identifier);
-
-            end_span = self.node_span(segment);
-            segments.push(segment);
+            end_span = self.node_span(identifier);
+            identifiers.push(identifier);
         }
 
-        if segments.len() == 1 {
-            return Some(first_type_name);
+        if identifiers.len() == 1 {
+            return Some(self.make_named_type_from_identifier(first_identifier));
         }
 
-        let span = Span::cover(self.node_span(first_type_name), end_span)
-            .unwrap_or_else(|| self.node_span(first_type_name));
+        let span = Span::cover(self.node_span(first_identifier), end_span)
+            .unwrap_or_else(|| self.node_span(first_identifier));
 
-        Some(self.add_node(SyntaxNodeKind::TypePath, span, segments))
+        Some(self.add_node(SyntaxNodeKind::Path, span, identifiers))
     }
 
     pub(super) fn parse_function_anchor_until(
         &mut self,
         separator_position: usize,
     ) -> Option<NodeId> {
-        let mut anchor_type = self.parse_type_path_until(separator_position)?;
+        let mut anchor_type = self.parse_named_type_or_path_until(separator_position)?;
 
         if self.at(&TokenKind::Less) {
             anchor_type = self.parse_generic_type(anchor_type)?;

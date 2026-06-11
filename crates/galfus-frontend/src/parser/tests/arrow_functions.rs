@@ -49,7 +49,7 @@ fn parse_arrow_function_expression_body() {
 
     assert_eq!(
         syntax.node(return_type).unwrap().kind(),
-        SyntaxNodeKind::TypeName
+        SyntaxNodeKind::NamedType
     );
 
     assert_eq!(

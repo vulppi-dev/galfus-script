@@ -35,7 +35,7 @@ fn parse_choice_variant_constructor_with_payload() {
     let target = expression_node.children()[0];
     let target_node = syntax.node(target).unwrap();
 
-    assert_eq!(target_node.kind(), SyntaxNodeKind::AnchorExpression);
+    assert_eq!(target_node.kind(), SyntaxNodeKind::PathExpression);
     assert_eq!(source.slice(target_node.span()), Some("Result::Ok"));
 
     let arguments = expression_node.children()[1];
@@ -71,7 +71,7 @@ fn parse_unit_variant_reference() {
     let expression = initializer_node.children()[0];
     let expression_node = syntax.node(expression).unwrap();
 
-    assert_eq!(expression_node.kind(), SyntaxNodeKind::AnchorExpression);
+    assert_eq!(expression_node.kind(), SyntaxNodeKind::PathExpression);
     assert_eq!(source.slice(expression_node.span()), Some("Option::None"));
 
     let target = expression_node.children()[0];
@@ -119,7 +119,7 @@ fn parse_enum_variant_reference_in_return() {
     let expression = return_node.children()[0];
     let expression_node = syntax.node(expression).unwrap();
 
-    assert_eq!(expression_node.kind(), SyntaxNodeKind::AnchorExpression);
+    assert_eq!(expression_node.kind(), SyntaxNodeKind::PathExpression);
     assert_eq!(source.slice(expression_node.span()), Some("Color::Red"));
 }
 

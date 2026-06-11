@@ -103,7 +103,7 @@ impl Parser {
             }
 
             if self.at(&TokenKind::ColonColon) {
-                expression = self.parse_anchor_expression(expression)?;
+                expression = self.parse_path_expression(expression)?;
                 continue;
             }
 
@@ -154,7 +154,7 @@ impl Parser {
         Some(self.add_node(SyntaxNodeKind::MemberExpression, span, vec![target, member]))
     }
 
-    pub(super) fn parse_anchor_expression(&mut self, target: NodeId) -> Option<NodeId> {
+    pub(super) fn parse_path_expression(&mut self, target: NodeId) -> Option<NodeId> {
         self.expect(TokenKind::ColonColon)?;
 
         self.skip_newlines();
@@ -164,7 +164,7 @@ impl Parser {
         let span = Span::cover(self.node_span(target), self.node_span(anchor))
             .unwrap_or_else(|| self.node_span(target));
 
-        Some(self.add_node(SyntaxNodeKind::AnchorExpression, span, vec![target, anchor]))
+        Some(self.add_node(SyntaxNodeKind::PathExpression, span, vec![target, anchor]))
     }
 
     fn parse_binary_expression(

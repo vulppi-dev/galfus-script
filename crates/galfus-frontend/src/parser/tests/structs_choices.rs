@@ -50,7 +50,7 @@ fn parse_struct_item() {
 
     assert_eq!(
         syntax.node(first_field_type).unwrap().kind(),
-        SyntaxNodeKind::TypeName
+        SyntaxNodeKind::NamedType
     );
 
     assert_eq!(
@@ -229,7 +229,7 @@ fn parse_choice_item_with_payload_variants() {
 
     assert_eq!(
         syntax.node(payload_type).unwrap().kind(),
-        SyntaxNodeKind::TypeName
+        SyntaxNodeKind::NamedType
     );
 
     assert_eq!(

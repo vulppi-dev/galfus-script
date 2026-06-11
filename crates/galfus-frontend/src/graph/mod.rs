@@ -168,49 +168,61 @@ impl SyntaxNode {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SyntaxNodeKind {
+    // Root
     SourceFile,
 
+    // Items
+    ImportItem,
+    ExportItem,
     FunctionItem,
     TypeAliasItem,
-    ExportItem,
-    ImportItem,
     StructItem,
     EnumItem,
     ChoiceItem,
     ConstraintItem,
+    VarItem,
+    ConstItem,
 
+    // Imports
     NamespaceImport,
     NamedImportList,
     NamedImport,
     ImportAlias,
+    ImportSource,
 
+    // Paths / names
+    Identifier,
+    Path,
+
+    // Declarations
+    FunctionAnchor,
     StructFieldList,
     StructField,
-    StructFieldDefault,
     WeakStructField,
-
+    StructFieldDefault,
     EnumVariantList,
     EnumVariant,
-
     ChoiceVariantList,
     ChoiceVariant,
     ChoicePayload,
 
-    FunctionAnchor,
+    // Parameters
     ParameterList,
     Parameter,
     RestParameter,
     ParameterDefault,
+
+    // Generics / constraints
     GenericParameterList,
     GenericParameter,
     GenericParameterConstraint,
     BasicConstraint,
-
     ConstraintMemberList,
     ConstraintField,
     ConstraintFunctionSignature,
     SatisfiesClause,
 
+    // Statements
     Block,
     ReturnStatement,
     BreakStatement,
@@ -231,19 +243,23 @@ pub enum SyntaxNodeKind {
     InstanceofStatement,
     InstanceofArmList,
     InstanceofArm,
+
+    // Patterns
+    BindingPattern,
     TypePattern,
     TypePatternBinding,
-
-    BindingPattern,
     VariantPattern,
     VariantPatternPayload,
     LiteralPattern,
     RegexPattern,
 
-    Initializer,
+    // Binding helpers
     TypeAnnotation,
+    Initializer,
+
+    // Types
     TypeNull,
-    TypeName,
+    NamedType,
     GenericType,
     TypeArgumentList,
     ArrayType,
@@ -253,18 +269,17 @@ pub enum SyntaxNodeKind {
     FunctionType,
     FunctionTypeParameterList,
     GroupedType,
-    TypePath,
 
-    ImportSource,
-    Identifier,
-
+    // Arguments
     Argument,
     ArgumentList,
+    SpreadArgument,
 
+    // Expressions
     CallExpression,
+    PathExpression,
     NameExpression,
     MemberExpression,
-    AnchorExpression,
     IndexExpression,
     GroupedExpression,
     CopyExpression,
@@ -274,20 +289,20 @@ pub enum SyntaxNodeKind {
     GenericExpression,
     GenericArgumentList,
 
+    // Operators
     UnaryOperator,
     BinaryOperator,
     AssignmentOperator,
 
+    // Literals
     ArrayLiteral,
     ArrayElement,
+    SpreadArrayElement,
     StructLiteral,
     StructLiteralFieldList,
     StructLiteralField,
     StructLiteralFieldShorthand,
     InferredStructLiteral,
-    SpreadArgument,
-    SpreadArrayElement,
-
     IntegerLiteral,
     FloatLiteral,
     BoolLiteral,

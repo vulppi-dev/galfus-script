@@ -137,7 +137,7 @@ fn parse_generic_function_declaration() {
 
     assert_eq!(
         syntax.node(return_type).unwrap().kind(),
-        SyntaxNodeKind::TypeName
+        SyntaxNodeKind::NamedType
     );
 
     assert_eq!(syntax.node(body).unwrap().kind(), SyntaxNodeKind::Block);

@@ -39,7 +39,7 @@ fn parse_generic_anchor_call_expression() {
 
     assert_eq!(
         syntax.node(generic_target).unwrap().kind(),
-        SyntaxNodeKind::AnchorExpression
+        SyntaxNodeKind::PathExpression
     );
 
     assert_eq!(

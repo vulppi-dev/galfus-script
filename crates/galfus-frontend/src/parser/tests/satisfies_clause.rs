@@ -41,7 +41,7 @@ fn parse_struct_satisfies_single_constraint() {
 
     assert_eq!(
         syntax.node(constraint).unwrap().kind(),
-        SyntaxNodeKind::TypeName
+        SyntaxNodeKind::NamedType
     );
 
     assert_eq!(

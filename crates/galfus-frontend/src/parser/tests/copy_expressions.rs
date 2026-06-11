@@ -251,7 +251,7 @@ fn parse_regular_struct_field_still_uses_struct_field() {
 
     assert_eq!(
         syntax.node(field_type).unwrap().kind(),
-        SyntaxNodeKind::TypeName
+        SyntaxNodeKind::NamedType
     );
 
     assert_eq!(

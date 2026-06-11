@@ -47,7 +47,7 @@ fn parse_constraint_with_field() {
 
     assert_eq!(
         syntax.node(field_type).unwrap().kind(),
-        SyntaxNodeKind::TypeName
+        SyntaxNodeKind::NamedType
     );
 }
 
@@ -99,7 +99,7 @@ fn parse_constraint_with_function_signature() {
 
     assert_eq!(
         syntax.node(return_type).unwrap().kind(),
-        SyntaxNodeKind::TypeName
+        SyntaxNodeKind::NamedType
     );
 }
 

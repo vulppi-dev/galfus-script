@@ -145,7 +145,7 @@ fn parse_function_parameters() {
     );
     assert_eq!(
         syntax.node(first_type).unwrap().kind(),
-        SyntaxNodeKind::TypeName
+        SyntaxNodeKind::NamedType
     );
     assert_eq!(
         source.slice(syntax.node(first_type).unwrap().span()),

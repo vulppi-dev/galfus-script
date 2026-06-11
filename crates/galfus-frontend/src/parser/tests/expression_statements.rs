@@ -66,7 +66,7 @@ fn parse_anchor_call_expression_statement() {
     let target = expression_node.children()[0];
     let target_node = syntax.node(target).unwrap();
 
-    assert_eq!(target_node.kind(), SyntaxNodeKind::AnchorExpression);
+    assert_eq!(target_node.kind(), SyntaxNodeKind::PathExpression);
 }
 
 #[test]

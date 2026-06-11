@@ -351,7 +351,7 @@ fn parse_allows_newline_before_anchor_access() {
     let target = expression_node.children()[0];
     let target_node = syntax.node(target).unwrap();
 
-    assert_eq!(target_node.kind(), SyntaxNodeKind::AnchorExpression);
+    assert_eq!(target_node.kind(), SyntaxNodeKind::PathExpression);
     assert_eq!(source.slice(target_node.span()), Some("user\n  ::rename"));
 }
 

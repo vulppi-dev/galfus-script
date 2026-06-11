@@ -17,7 +17,7 @@ fn parse_type_alias_type_path() {
     let alias_type = alias_node.children()[1];
     let alias_type_node = syntax.node(alias_type).unwrap();
 
-    assert_eq!(alias_type_node.kind(), SyntaxNodeKind::TypePath);
+    assert_eq!(alias_type_node.kind(), SyntaxNodeKind::Path);
     assert_eq!(source.slice(alias_type_node.span()), Some("game::Texture"));
 
     assert_eq!(alias_type_node.children().len(), 2);
@@ -48,7 +48,7 @@ fn parse_type_alias_generic_type_path() {
 
     let base = alias_type_node.children()[0];
 
-    assert_eq!(syntax.node(base).unwrap().kind(), SyntaxNodeKind::TypePath);
+    assert_eq!(syntax.node(base).unwrap().kind(), SyntaxNodeKind::Path);
 
     assert_eq!(
         source.slice(syntax.node(base).unwrap().span()),
@@ -77,7 +77,7 @@ fn parse_struct_field_type_path() {
     let field_type = field_node.children()[1];
     let field_type_node = syntax.node(field_type).unwrap();
 
-    assert_eq!(field_type_node.kind(), SyntaxNodeKind::TypePath);
+    assert_eq!(field_type_node.kind(), SyntaxNodeKind::Path);
     assert_eq!(source.slice(field_type_node.span()), Some("game::Texture"));
 }
 
@@ -140,7 +140,7 @@ fn parse_type_path_anchored_function() {
 
     assert_eq!(
         syntax.node(anchor_type).unwrap().kind(),
-        SyntaxNodeKind::TypePath
+        SyntaxNodeKind::Path
     );
 
     assert_eq!(
@@ -180,6 +180,6 @@ fn parse_generic_type_path_anchored_function() {
 
     assert_eq!(
         syntax.node(generic_base).unwrap().kind(),
-        SyntaxNodeKind::TypePath
+        SyntaxNodeKind::Path
     );
 }

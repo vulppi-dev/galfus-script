@@ -39,7 +39,7 @@ fn parse_generic_parameter_constraint_identifier() {
 
     assert_eq!(
         syntax.node(constraint_type).unwrap().kind(),
-        SyntaxNodeKind::TypeName
+        SyntaxNodeKind::NamedType
     );
 
     assert_eq!(
@@ -163,7 +163,7 @@ fn parse_generic_parameter_constraint_direct_type() {
 
     assert_eq!(
         syntax.node(constraint_type).unwrap().kind(),
-        SyntaxNodeKind::TypeName
+        SyntaxNodeKind::NamedType
     );
 
     assert_eq!(

@@ -27,7 +27,7 @@ fn parse_generic_type() {
     let base = field_type_node.children()[0];
     let arguments = field_type_node.children()[1];
 
-    assert_eq!(syntax.node(base).unwrap().kind(), SyntaxNodeKind::TypeName);
+    assert_eq!(syntax.node(base).unwrap().kind(), SyntaxNodeKind::NamedType);
     assert_eq!(
         source.slice(syntax.node(base).unwrap().span()),
         Some("WeakVec")

@@ -36,7 +36,7 @@ fn parse_type_alias_item() {
 
     assert_eq!(
         syntax.node(aliased_type).unwrap().kind(),
-        SyntaxNodeKind::TypeName
+        SyntaxNodeKind::NamedType
     );
     assert_eq!(
         source.slice(syntax.node(aliased_type).unwrap().span()),
