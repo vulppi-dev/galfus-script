@@ -398,4 +398,52 @@ impl Parser {
 
         separator
     }
+
+    pub(super) fn parse_var_binding_after_keyword(&mut self) -> Option<(Vec<NodeId>, Span)> {
+        self.skip_newlines();
+
+        let name = self.parse_identifier()?;
+        let mut children = vec![name];
+        let mut end_span = self.node_span(name);
+
+        self.skip_newlines();
+
+        if self.at(&TokenKind::Colon) {
+            let annotation = self.parse_type_annotation()?;
+            end_span = self.node_span(annotation);
+            children.push(annotation);
+        }
+
+        self.skip_newlines();
+
+        if self.at(&TokenKind::Equal) {
+            let initializer = self.parse_initializer()?;
+            end_span = self.node_span(initializer);
+            children.push(initializer);
+        }
+
+        Some((children, end_span))
+    }
+
+    pub(super) fn parse_const_binding_after_keyword(&mut self) -> Option<(Vec<NodeId>, Span)> {
+        self.skip_newlines();
+
+        let name = self.parse_identifier()?;
+        let mut children = vec![name];
+
+        self.skip_newlines();
+
+        if self.at(&TokenKind::Colon) {
+            let annotation = self.parse_type_annotation()?;
+            children.push(annotation);
+        }
+
+        self.skip_newlines();
+
+        let initializer = self.parse_initializer()?;
+        let end_span = self.node_span(initializer);
+        children.push(initializer);
+
+        Some((children, end_span))
+    }
 }

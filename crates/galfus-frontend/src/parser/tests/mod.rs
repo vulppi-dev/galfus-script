@@ -28,6 +28,7 @@ mod imports_exports;
 mod index_expressions;
 mod inferred_struct_literals;
 mod instanceof_statement;
+mod items;
 mod loop_statements;
 mod match_statements;
 mod regex_literals;

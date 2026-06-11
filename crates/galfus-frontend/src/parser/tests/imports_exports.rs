@@ -265,3 +265,51 @@ fn parse_named_import_alias() {
     assert_eq!(source.slice(second_import_node.span()), Some("cos"));
     assert_eq!(second_import_node.children().len(), 1);
 }
+
+#[test]
+fn parse_export_constraint_item() {
+    let source = source(
+        "export constraint Stringable::T {
+            fn T::toString(self: T): String
+        }",
+    );
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+    let root = syntax.root().unwrap();
+    let root_node = syntax.node(root).unwrap();
+
+    assert_eq!(root_node.children().len(), 1);
+
+    let export = root_node.children()[0];
+    let export_node = syntax.node(export).unwrap();
+
+    assert_eq!(export_node.kind(), SyntaxNodeKind::ExportItem);
+    assert_eq!(export_node.children().len(), 1);
+
+    let inner = export_node.children()[0];
+    let inner_node = syntax.node(inner).unwrap();
+
+    assert_eq!(inner_node.kind(), SyntaxNodeKind::ConstraintItem);
+}
+
+#[test]
+fn parse_export_rejects_non_item() {
+    let source = source("export return");
+
+    let result = parse(&source);
+
+    assert!(result.has_errors());
+}
+
+#[test]
+fn parse_export_rejects_expression() {
+    let source = source("export 123");
+
+    let result = parse(&source);
+
+    assert!(result.has_errors());
+}

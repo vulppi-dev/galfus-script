@@ -82,22 +82,7 @@ impl Parser {
 
     pub(super) fn parse_var_statement(&mut self) -> Option<NodeId> {
         let var_token = self.expect(TokenKind::Var)?;
-        let name = self.parse_identifier()?;
-
-        let mut children = vec![name];
-        let mut end_span = self.node_span(name);
-
-        if self.at(&TokenKind::Colon) {
-            let annotation = self.parse_type_annotation()?;
-            end_span = self.node_span(annotation);
-            children.push(annotation);
-        }
-
-        if self.at(&TokenKind::Equal) {
-            let initializer = self.parse_initializer()?;
-            end_span = self.node_span(initializer);
-            children.push(initializer);
-        }
+        let (children, end_span) = self.parse_var_binding_after_keyword()?;
 
         self.expect_statement_end();
 
@@ -108,18 +93,7 @@ impl Parser {
 
     pub(super) fn parse_const_statement(&mut self) -> Option<NodeId> {
         let const_token = self.expect(TokenKind::Const)?;
-        let name = self.parse_identifier()?;
-
-        let mut children = vec![name];
-
-        if self.at(&TokenKind::Colon) {
-            let annotation = self.parse_type_annotation()?;
-            children.push(annotation);
-        }
-
-        let initializer = self.parse_initializer()?;
-        let end_span = self.node_span(initializer);
-        children.push(initializer);
+        let (children, end_span) = self.parse_const_binding_after_keyword()?;
 
         self.expect_statement_end();
 

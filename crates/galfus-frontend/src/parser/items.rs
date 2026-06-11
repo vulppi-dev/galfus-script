@@ -6,6 +6,18 @@ impl Parser {
             return self.parse_import_item();
         }
 
+        if self.at(&TokenKind::Export) {
+            return self.parse_export_item();
+        }
+
+        if self.at(&TokenKind::Var) {
+            return self.parse_var_item();
+        }
+
+        if self.at(&TokenKind::Const) {
+            return self.parse_const_item();
+        }
+
         if self.at(&TokenKind::Fn) {
             return self.parse_function_item();
         }
@@ -30,10 +42,6 @@ impl Parser {
             return self.parse_constraint_item();
         }
 
-        if self.at(&TokenKind::Export) {
-            return self.parse_export_item();
-        }
-
         let found = self.bump();
 
         self.graph.push_diagnostic(Diagnostic::error_with_message(
@@ -44,11 +52,16 @@ impl Parser {
 
         None
     }
-
     pub(super) fn parse_export_item(&mut self) -> Option<NodeId> {
         let export_token = self.expect(TokenKind::Export)?;
 
-        let item = if self.at(&TokenKind::Fn) {
+        self.skip_newlines();
+
+        let item = if self.at(&TokenKind::Var) {
+            self.parse_var_item()?
+        } else if self.at(&TokenKind::Const) {
+            self.parse_const_item()?
+        } else if self.at(&TokenKind::Fn) {
             self.parse_function_item()?
         } else if self.at(&TokenKind::Type) {
             self.parse_type_alias_item()?
@@ -58,6 +71,8 @@ impl Parser {
             self.parse_enum_item()?
         } else if self.at(&TokenKind::Choice) {
             self.parse_choice_item()?
+        } else if self.at(&TokenKind::Constraint) {
+            self.parse_constraint_item()?
         } else {
             let found = self.bump();
 
@@ -441,5 +456,27 @@ impl Parser {
         let span = Span::cover(satisfies_token.span(), end_span).unwrap_or(satisfies_token.span());
 
         Some(self.add_node(SyntaxNodeKind::SatisfiesClause, span, constraints))
+    }
+
+    pub(super) fn parse_var_item(&mut self) -> Option<NodeId> {
+        let var_token = self.expect(TokenKind::Var)?;
+        let (children, end_span) = self.parse_var_binding_after_keyword()?;
+
+        self.expect_statement_end();
+
+        let span = Span::cover(var_token.span(), end_span).unwrap_or(var_token.span());
+
+        Some(self.add_node(SyntaxNodeKind::VarItem, span, children))
+    }
+
+    pub(super) fn parse_const_item(&mut self) -> Option<NodeId> {
+        let const_token = self.expect(TokenKind::Const)?;
+        let (children, end_span) = self.parse_const_binding_after_keyword()?;
+
+        self.expect_statement_end();
+
+        let span = Span::cover(const_token.span(), end_span).unwrap_or(const_token.span());
+
+        Some(self.add_node(SyntaxNodeKind::ConstItem, span, children))
     }
 }
