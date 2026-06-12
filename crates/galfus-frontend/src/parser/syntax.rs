@@ -522,15 +522,36 @@ impl Parser {
 
         self.skip_newlines();
 
-        let inner = self.parse_type()?;
+        let first = self.parse_type()?;
+        let mut types = vec![first];
 
         self.skip_newlines();
+
+        let is_tuple = self.at(&TokenKind::Comma);
+
+        while self.at(&TokenKind::Comma) {
+            self.bump();
+            self.skip_newlines();
+
+            if self.at(&TokenKind::RightParen) {
+                break;
+            }
+
+            let next = self.parse_type()?;
+            types.push(next);
+
+            self.skip_newlines();
+        }
 
         let right = self.expect(TokenKind::RightParen)?;
 
         let span = Span::cover(left.span(), right.span()).unwrap_or(left.span());
 
-        Some(self.add_node(SyntaxNodeKind::GroupedType, span, vec![inner]))
+        if is_tuple {
+            return Some(self.add_node(SyntaxNodeKind::TupleType, span, types));
+        }
+
+        Some(self.add_node(SyntaxNodeKind::GroupedType, span, vec![first]))
     }
 
     pub(super) fn make_named_type_from_identifier(&mut self, identifier: NodeId) -> NodeId {

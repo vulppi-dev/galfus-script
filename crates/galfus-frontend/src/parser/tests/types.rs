@@ -443,3 +443,78 @@ fn parse_chained_path_expression() {
     assert_eq!(left_node.kind(), SyntaxNodeKind::PathExpression);
     assert_eq!(source.slice(left_node.span()), Some("collections::list"));
 }
+
+#[test]
+fn parse_grouped_type_still_works() {
+    let source = source("fn main(value: (int32)): null { return }");
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+    let root = syntax.root().unwrap();
+    let function = syntax.first_child(root).unwrap();
+
+    let parameters = syntax
+        .first_child_of_kind(function, SyntaxNodeKind::ParameterList)
+        .unwrap();
+
+    let parameter = syntax.first_child(parameters).unwrap();
+    let ty = syntax.child(parameter, 1).unwrap();
+
+    assert_eq!(syntax.node(ty).unwrap().kind(), SyntaxNodeKind::GroupedType);
+}
+
+#[test]
+fn parse_tuple_type() {
+    let source = source("fn main(value: (int32, String)): null { return }");
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+    let root = syntax.root().unwrap();
+    let function = syntax.first_child(root).unwrap();
+
+    let parameters = syntax
+        .first_child_of_kind(function, SyntaxNodeKind::ParameterList)
+        .unwrap();
+
+    let parameter = syntax.first_child(parameters).unwrap();
+    let ty = syntax.child(parameter, 1).unwrap();
+    let ty_node = syntax.node(ty).unwrap();
+
+    assert_eq!(ty_node.kind(), SyntaxNodeKind::TupleType);
+    assert_eq!(ty_node.child_count(), 2);
+
+    let first = syntax.child(ty, 0).unwrap();
+    let second = syntax.child(ty, 1).unwrap();
+
+    assert!(syntax.node(first).unwrap().kind().is_type());
+    assert!(syntax.node(second).unwrap().kind().is_type());
+}
+
+#[test]
+fn parse_tuple_type_with_trailing_comma() {
+    let source = source("fn main(value: (int32, String,)): null { return }");
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+    let root = syntax.root().unwrap();
+    let function = syntax.first_child(root).unwrap();
+
+    let parameters = syntax
+        .first_child_of_kind(function, SyntaxNodeKind::ParameterList)
+        .unwrap();
+
+    let parameter = syntax.first_child(parameters).unwrap();
+    let ty = syntax.child(parameter, 1).unwrap();
+
+    assert_eq!(syntax.node(ty).unwrap().kind(), SyntaxNodeKind::TupleType);
+    assert_eq!(syntax.node(ty).unwrap().child_count(), 2);
+}

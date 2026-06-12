@@ -568,6 +568,7 @@ pub enum SyntaxNodeKind {
     FunctionType,
     FunctionTypeParameterList,
     GroupedType,
+    TupleType,
 
     // Arguments
     Argument,
@@ -581,6 +582,7 @@ pub enum SyntaxNodeKind {
     MemberExpression,
     IndexExpression,
     GroupedExpression,
+    TupleExpression,
     CopyExpression,
     CastExpression,
     UnaryExpression,
@@ -658,6 +660,7 @@ impl SyntaxNodeKind {
                 | SyntaxNodeKind::MemberExpression
                 | SyntaxNodeKind::IndexExpression
                 | SyntaxNodeKind::GroupedExpression
+                | SyntaxNodeKind::TupleExpression
                 | SyntaxNodeKind::CopyExpression
                 | SyntaxNodeKind::CastExpression
                 | SyntaxNodeKind::UnaryExpression
@@ -688,6 +691,7 @@ impl SyntaxNodeKind {
                 | SyntaxNodeKind::UnionType
                 | SyntaxNodeKind::FunctionType
                 | SyntaxNodeKind::GroupedType
+                | SyntaxNodeKind::TupleType
         )
     }
 

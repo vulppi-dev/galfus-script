@@ -240,15 +240,36 @@ impl Parser {
             return None;
         }
 
-        let expression = self.parse_expression()?;
+        let first = self.parse_expression()?;
+        let mut expressions = vec![first];
 
         self.skip_newlines();
+
+        let is_tuple = self.at(&TokenKind::Comma);
+
+        while self.at(&TokenKind::Comma) {
+            self.bump();
+            self.skip_newlines();
+
+            if self.at(&TokenKind::RightParen) {
+                break;
+            }
+
+            let next = self.parse_expression()?;
+            expressions.push(next);
+
+            self.skip_newlines();
+        }
 
         let right = self.expect(TokenKind::RightParen)?;
 
         let span = Span::cover(left.span(), right.span()).unwrap_or(left.span());
 
-        Some(self.add_node(SyntaxNodeKind::GroupedExpression, span, vec![expression]))
+        if is_tuple {
+            return Some(self.add_node(SyntaxNodeKind::TupleExpression, span, expressions));
+        }
+
+        Some(self.add_node(SyntaxNodeKind::GroupedExpression, span, vec![first]))
     }
 
     pub(super) fn parse_unary_expression(

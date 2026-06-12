@@ -20,6 +20,7 @@ mod statements;
 mod struct_and_choice_items;
 mod struct_fields;
 mod struct_satisfies_clauses;
+mod tuples;
 mod type_paths;
 mod types;
 mod variable_declarations;
