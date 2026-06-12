@@ -403,4 +403,73 @@ impl Parser {
 
         Some((children, end_span))
     }
+
+    pub(super) fn can_parse_cast_expression(&self) -> bool {
+        if !self.at(&TokenKind::Less) {
+            return false;
+        }
+
+        let mut depth = 0usize;
+        let mut position = self.position;
+
+        while position < self.tokens.len() {
+            let token = &self.tokens[position];
+
+            match token.kind() {
+                TokenKind::Less => {
+                    depth += 1;
+                }
+
+                TokenKind::Greater => {
+                    if depth == 0 {
+                        return false;
+                    }
+
+                    depth -= 1;
+
+                    if depth == 0 {
+                        let next = self.token_after_newlines(position + 1);
+
+                        return matches!(
+                            next.kind(),
+                            TokenKind::Identifier
+                                | TokenKind::Integer
+                                | TokenKind::Float
+                                | TokenKind::String
+                                | TokenKind::Regex
+                                | TokenKind::True
+                                | TokenKind::False
+                                | TokenKind::Null
+                                | TokenKind::LeftParen
+                                | TokenKind::LeftBracket
+                                | TokenKind::Struct
+                                | TokenKind::Copy
+                                | TokenKind::Minus
+                                | TokenKind::Bang
+                                | TokenKind::Tilde
+                                | TokenKind::Less
+                        );
+                    }
+                }
+
+                TokenKind::Eof => return false,
+
+                _ => {}
+            }
+
+            position += 1;
+        }
+
+        false
+    }
+
+    pub(super) fn token_after_newlines(&self, mut position: usize) -> &Token {
+        while position < self.tokens.len() && self.tokens[position].kind() == &TokenKind::Newline {
+            position += 1;
+        }
+
+        self.tokens
+            .get(position)
+            .unwrap_or_else(|| self.tokens.last().expect("parser has eof token"))
+    }
 }

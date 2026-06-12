@@ -582,6 +582,7 @@ pub enum SyntaxNodeKind {
     IndexExpression,
     GroupedExpression,
     CopyExpression,
+    CastExpression,
     UnaryExpression,
     BinaryExpression,
     ArrowFunctionExpression,
@@ -658,6 +659,7 @@ impl SyntaxNodeKind {
                 | SyntaxNodeKind::IndexExpression
                 | SyntaxNodeKind::GroupedExpression
                 | SyntaxNodeKind::CopyExpression
+                | SyntaxNodeKind::CastExpression
                 | SyntaxNodeKind::UnaryExpression
                 | SyntaxNodeKind::BinaryExpression
                 | SyntaxNodeKind::ArrowFunctionExpression

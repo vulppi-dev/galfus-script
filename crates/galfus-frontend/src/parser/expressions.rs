@@ -251,7 +251,14 @@ impl Parser {
         Some(self.add_node(SyntaxNodeKind::GroupedExpression, span, vec![expression]))
     }
 
-    fn parse_unary_expression(&mut self, boundary: ExpressionBoundary) -> Option<NodeId> {
+    pub(super) fn parse_unary_expression(
+        &mut self,
+        boundary: ExpressionBoundary,
+    ) -> Option<NodeId> {
+        if self.at(&TokenKind::Less) && self.can_parse_cast_expression() {
+            return self.parse_cast_expression(boundary);
+        }
+
         if self.at(&TokenKind::Copy) {
             return self.parse_copy_expression(boundary);
         }
@@ -420,5 +427,25 @@ impl Parser {
             span,
             vec![target, arguments],
         ))
+    }
+
+    pub(super) fn parse_cast_expression(&mut self, boundary: ExpressionBoundary) -> Option<NodeId> {
+        let left = self.expect(TokenKind::Less)?;
+
+        self.skip_newlines();
+
+        let ty = self.parse_type()?;
+
+        self.skip_newlines();
+
+        self.expect(TokenKind::Greater)?;
+
+        self.skip_newlines();
+
+        let value = self.parse_unary_expression(boundary)?;
+
+        let span = Span::cover(left.span(), self.node_span(value)).unwrap_or(left.span());
+
+        Some(self.add_node(SyntaxNodeKind::CastExpression, span, vec![ty, value]))
     }
 }
