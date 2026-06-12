@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod tests;
 
+mod decorators;
 mod expressions;
 mod helpers;
 mod items;

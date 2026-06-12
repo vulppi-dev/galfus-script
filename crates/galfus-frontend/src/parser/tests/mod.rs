@@ -4,6 +4,7 @@ use galfus_core::{SourceFile, SourceId};
 mod anchored_functions;
 mod binding_patterns;
 mod constraint_items;
+mod decorators;
 mod default_parameters;
 mod expressions;
 mod function_types;

@@ -530,7 +530,7 @@ pub enum SyntaxNodeKind {
     RestParameter,
     ParameterDefault,
 
-    // Generics / constraints
+    // Generics / constraints / decorators
     GenericParameterList,
     GenericParameter,
     GenericParameterConstraint,
@@ -539,6 +539,8 @@ pub enum SyntaxNodeKind {
     ConstraintField,
     ConstraintFunctionSignature,
     SatisfiesClause,
+    Decorator,
+    DecoratorList,
 
     // Statements
     Block,
@@ -764,6 +766,7 @@ impl SyntaxNodeKind {
                 | SyntaxNodeKind::ArgumentList
                 | SyntaxNodeKind::GenericArgumentList
                 | SyntaxNodeKind::StructLiteralFieldList
+                | SyntaxNodeKind::DecoratorList
         )
     }
 

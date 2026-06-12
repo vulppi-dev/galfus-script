@@ -97,6 +97,8 @@ impl Parser {
     }
 
     pub(super) fn parse_parameter(&mut self) -> Option<NodeId> {
+        let decorators = self.parse_optional_decorator_list()?;
+
         let name = self.parse_identifier()?;
         let name_span = self.node_span(name);
 
@@ -108,7 +110,14 @@ impl Parser {
 
         let parameter_type = self.parse_type()?;
 
-        let mut children = vec![name, parameter_type];
+        let mut children = Vec::new();
+        if let Some(decorators) = decorators {
+            children.push(decorators);
+        }
+
+        children.push(name);
+        children.push(parameter_type);
+
         let mut end_span = self.node_span(parameter_type);
 
         self.skip_newlines();
@@ -119,7 +128,10 @@ impl Parser {
             children.push(default);
         }
 
-        let span = Span::cover(name_span, end_span).unwrap_or(name_span);
+        let start_span = decorators
+            .map(|decorators| self.node_span(decorators))
+            .unwrap_or(name_span);
+        let span = Span::cover(start_span, end_span).unwrap_or(name_span);
 
         Some(self.add_node(SyntaxNodeKind::Parameter, span, children))
     }
@@ -266,6 +278,8 @@ impl Parser {
     }
 
     pub(super) fn parse_struct_field(&mut self) -> Option<NodeId> {
+        let decorators = self.parse_optional_decorator_list()?;
+
         if self.at(&TokenKind::Weak) {
             return self.parse_weak_struct_field();
         }
@@ -281,7 +295,15 @@ impl Parser {
 
         let field_type = self.parse_type()?;
 
-        let mut children = vec![name, field_type];
+        let mut children = Vec::new();
+
+        if let Some(decorators) = decorators {
+            children.push(decorators);
+        }
+
+        children.push(name);
+        children.push(field_type);
+
         let mut end_span = self.node_span(field_type);
 
         self.skip_newlines();
@@ -292,7 +314,10 @@ impl Parser {
             children.push(default);
         }
 
-        let span = Span::cover(name_span, end_span).unwrap_or(name_span);
+        let start_span = decorators
+            .map(|decorators| self.node_span(decorators))
+            .unwrap_or(name_span);
+        let span = Span::cover(start_span, end_span).unwrap_or(name_span);
 
         Some(self.add_node(SyntaxNodeKind::StructField, span, children))
     }

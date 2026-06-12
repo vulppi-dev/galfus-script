@@ -2,12 +2,34 @@ use super::*;
 
 impl Parser {
     pub(super) fn parse_item(&mut self) -> Option<NodeId> {
-        if self.at(&TokenKind::Import) {
-            return self.parse_import_item();
-        }
+        let decorators = self.parse_optional_decorator_list()?;
 
         if self.at(&TokenKind::Export) {
-            return self.parse_export_item();
+            return self.parse_export_item(decorators);
+        }
+
+        if self.at(&TokenKind::Fn) {
+            return self.parse_function_item(decorators);
+        }
+
+        if self.at(&TokenKind::Struct) {
+            return self.parse_struct_item(decorators);
+        }
+
+        if decorators.is_some() {
+            let found = self.current();
+
+            self.graph.push_diagnostic(Diagnostic::error_with_message(
+                ParserDiagnosticCode::ExpectedItem,
+                "decorators can only be used on functions and structs".to_string(),
+                found.span(),
+            ));
+
+            return None;
+        }
+
+        if self.at(&TokenKind::Import) {
+            return self.parse_import_item();
         }
 
         if self.at(&TokenKind::Var) {
@@ -18,24 +40,16 @@ impl Parser {
             return self.parse_const_item();
         }
 
-        if self.at(&TokenKind::Fn) {
-            return self.parse_function_item();
-        }
-
-        if self.at(&TokenKind::Type) {
-            return self.parse_type_alias_item();
-        }
-
-        if self.at(&TokenKind::Struct) {
-            return self.parse_struct_item();
-        }
-
         if self.at(&TokenKind::Enum) {
             return self.parse_enum_item();
         }
 
         if self.at(&TokenKind::Choice) {
             return self.parse_choice_item();
+        }
+
+        if self.at(&TokenKind::Type) {
+            return self.parse_type_alias_item();
         }
 
         if self.at(&TokenKind::Constraint) {
@@ -52,27 +66,39 @@ impl Parser {
 
         None
     }
-    pub(super) fn parse_export_item(&mut self) -> Option<NodeId> {
+    pub(super) fn parse_export_item(&mut self, decorators: Option<NodeId>) -> Option<NodeId> {
         let export_token = self.expect(TokenKind::Export)?;
 
         self.skip_newlines();
+
+        if decorators.is_some() && !(self.at(&TokenKind::Fn) || self.at(&TokenKind::Struct)) {
+            let found = self.current();
+
+            self.graph.push_diagnostic(Diagnostic::error_with_message(
+                ParserDiagnosticCode::ExpectedItem,
+                "decorators can only be used on functions and structs".to_string(),
+                found.span(),
+            ));
+
+            return None;
+        }
 
         let item = if self.at(&TokenKind::Var) {
             self.parse_var_item()?
         } else if self.at(&TokenKind::Const) {
             self.parse_const_item()?
         } else if self.at(&TokenKind::Fn) {
-            self.parse_function_item()?
-        } else if self.at(&TokenKind::Type) {
-            self.parse_type_alias_item()?
+            self.parse_function_item(decorators)?
         } else if self.at(&TokenKind::Struct) {
-            self.parse_struct_item()?
+            self.parse_struct_item(decorators)?
         } else if self.at(&TokenKind::Enum) {
             self.parse_enum_item()?
         } else if self.at(&TokenKind::Choice) {
             self.parse_choice_item()?
         } else if self.at(&TokenKind::Constraint) {
             self.parse_constraint_item()?
+        } else if self.at(&TokenKind::Type) {
+            self.parse_type_alias_item()?
         } else {
             let found = self.bump();
 
@@ -106,7 +132,7 @@ impl Parser {
         Some(self.add_node(SyntaxNodeKind::ImportItem, span, vec![clause, source]))
     }
 
-    pub(super) fn parse_function_item(&mut self) -> Option<NodeId> {
+    pub(super) fn parse_function_item(&mut self, decorators: Option<NodeId>) -> Option<NodeId> {
         let fn_token = self.expect(TokenKind::Fn)?;
 
         self.skip_newlines();
@@ -148,6 +174,10 @@ impl Parser {
 
         let mut children = Vec::new();
 
+        if let Some(decorators) = decorators {
+            children.push(decorators);
+        }
+
         if let Some(anchor) = anchor {
             children.push(anchor);
         }
@@ -162,7 +192,10 @@ impl Parser {
         children.push(return_type);
         children.push(body);
 
-        let span = Span::cover(fn_token.span(), self.node_span(body)).unwrap_or(fn_token.span());
+        let start_span = decorators
+            .map(|decorators| self.node_span(decorators))
+            .unwrap_or(fn_token.span());
+        let span = Span::cover(start_span, self.node_span(body)).unwrap_or(fn_token.span());
 
         Some(self.add_node(SyntaxNodeKind::FunctionItem, span, children))
     }
@@ -203,7 +236,7 @@ impl Parser {
         Some(self.add_node(SyntaxNodeKind::TypeAliasItem, span, children))
     }
 
-    pub(super) fn parse_struct_item(&mut self) -> Option<NodeId> {
+    pub(super) fn parse_struct_item(&mut self, decorators: Option<NodeId>) -> Option<NodeId> {
         let struct_token = self.expect(TokenKind::Struct)?;
 
         self.skip_newlines();
@@ -230,7 +263,13 @@ impl Parser {
 
         let fields = self.parse_struct_field_list()?;
 
-        let mut children = vec![name];
+        let mut children = Vec::new();
+
+        if let Some(decorators) = decorators {
+            children.push(decorators);
+        }
+
+        children.push(name);
 
         if let Some(generic_parameters) = generic_parameters {
             children.push(generic_parameters);
@@ -242,8 +281,10 @@ impl Parser {
 
         children.push(fields);
 
-        let span =
-            Span::cover(struct_token.span(), self.node_span(fields)).unwrap_or(struct_token.span());
+        let start_span = decorators
+            .map(|decorators| self.node_span(decorators))
+            .unwrap_or(struct_token.span());
+        let span = Span::cover(start_span, self.node_span(fields)).unwrap_or(struct_token.span());
 
         Some(self.add_node(SyntaxNodeKind::StructItem, span, children))
     }
