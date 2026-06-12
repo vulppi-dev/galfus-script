@@ -14,6 +14,7 @@ mod generic_types;
 mod grouped_types;
 mod module_items;
 mod parser_core;
+mod ranges;
 mod regex_literals;
 mod rest_parameters;
 mod statements;

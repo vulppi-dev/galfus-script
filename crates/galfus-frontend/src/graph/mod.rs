@@ -345,9 +345,19 @@ impl AssignmentOperatorKind {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum BinaryAssociativity {
-    Left,
-    Right,
+pub enum RangeOperatorKind {
+    Exclusive,
+    Quantity,
+}
+
+impl RangeOperatorKind {
+    pub fn from_token(kind: &TokenKind) -> Option<Self> {
+        match kind {
+            TokenKind::DotDot => Some(Self::Exclusive),
+            TokenKind::ColonColon => Some(Self::Quantity),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -355,6 +365,13 @@ pub enum OperatorKind {
     Unary(UnaryOperatorKind),
     Binary(BinaryOperatorKind),
     Assignment(AssignmentOperatorKind),
+    Range(RangeOperatorKind),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum BinaryAssociativity {
+    Left,
+    Right,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -437,6 +454,13 @@ impl SyntaxNode {
     pub fn assignment_operator(&self) -> Option<AssignmentOperatorKind> {
         match self.operator {
             Some(OperatorKind::Assignment(operator)) => Some(operator),
+            _ => None,
+        }
+    }
+
+    pub fn range_operator(&self) -> Option<RangeOperatorKind> {
+        match self.operator {
+            Some(OperatorKind::Range(operator)) => Some(operator),
             _ => None,
         }
     }
@@ -591,11 +615,14 @@ pub enum SyntaxNodeKind {
     GenericExpression,
     GenericArgumentList,
     EnumDiscriminant,
+    RangeExpression,
+    RangeStep,
 
     // Operators
     UnaryOperator,
     BinaryOperator,
     AssignmentOperator,
+    RangeOperator,
 
     // Literals
     ArrayLiteral,
@@ -676,6 +703,7 @@ impl SyntaxNodeKind {
                 | SyntaxNodeKind::NullLiteral
                 | SyntaxNodeKind::StringLiteral
                 | SyntaxNodeKind::RegexLiteral
+                | SyntaxNodeKind::RangeExpression
         )
     }
 
@@ -713,6 +741,7 @@ impl SyntaxNodeKind {
             SyntaxNodeKind::UnaryOperator
                 | SyntaxNodeKind::BinaryOperator
                 | SyntaxNodeKind::AssignmentOperator
+                | SyntaxNodeKind::RangeOperator
         )
     }
 

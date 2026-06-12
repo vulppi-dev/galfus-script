@@ -1,4 +1,6 @@
-use crate::{BinaryAssociativity, BinaryOperatorKind, OperatorKind, UnaryOperatorKind};
+use crate::{
+    BinaryAssociativity, BinaryOperatorKind, OperatorKind, RangeOperatorKind, UnaryOperatorKind,
+};
 
 use super::*;
 
@@ -104,7 +106,21 @@ impl Parser {
                 continue;
             }
 
+            if self.at(&TokenKind::DotDot) {
+                if self.can_start_range_from(expression) {
+                    expression = self.parse_range_expression(expression, boundary)?;
+                    continue;
+                }
+
+                break;
+            }
+
             if self.at(&TokenKind::ColonColon) {
+                if self.can_start_range_from(expression) {
+                    expression = self.parse_range_expression(expression, boundary)?;
+                    continue;
+                }
+
                 expression = self.parse_path_expression(expression)?;
                 continue;
             }
@@ -468,5 +484,55 @@ impl Parser {
         let span = Span::cover(left.span(), self.node_span(value)).unwrap_or(left.span());
 
         Some(self.add_node(SyntaxNodeKind::CastExpression, span, vec![ty, value]))
+    }
+
+    pub(super) fn parse_range_expression(
+        &mut self,
+        start: NodeId,
+        boundary: ExpressionBoundary,
+    ) -> Option<NodeId> {
+        let operator_token = self.bump();
+
+        let operator_kind = RangeOperatorKind::from_token(operator_token.kind())
+            .expect("parser accepted token as range operator");
+
+        let operator = self.add_operator_node(
+            SyntaxNodeKind::RangeOperator,
+            operator_token.span(),
+            OperatorKind::Range(operator_kind),
+        );
+
+        self.skip_newlines();
+
+        let end_or_count = self.parse_unary_expression(boundary)?;
+
+        let mut children = vec![start, operator, end_or_count];
+        let mut end_span = self.node_span(end_or_count);
+
+        self.skip_newlines();
+
+        if operator_kind == RangeOperatorKind::Quantity && self.at(&TokenKind::Percent) {
+            let step = self.parse_range_step(boundary)?;
+            end_span = self.node_span(step);
+            children.push(step);
+        }
+
+        let span =
+            Span::cover(self.node_span(start), end_span).unwrap_or_else(|| self.node_span(start));
+
+        Some(self.add_node(SyntaxNodeKind::RangeExpression, span, children))
+    }
+
+    pub(super) fn parse_range_step(&mut self, boundary: ExpressionBoundary) -> Option<NodeId> {
+        let percent = self.expect(TokenKind::Percent)?;
+
+        self.skip_newlines();
+
+        let expression = self.parse_unary_expression(boundary)?;
+
+        let span =
+            Span::cover(percent.span(), self.node_span(expression)).unwrap_or(percent.span());
+
+        Some(self.add_node(SyntaxNodeKind::RangeStep, span, vec![expression]))
     }
 }

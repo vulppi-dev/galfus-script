@@ -472,4 +472,15 @@ impl Parser {
             .get(position)
             .unwrap_or_else(|| self.tokens.last().expect("parser has eof token"))
     }
+
+    pub(super) fn can_start_range_from(&self, expression: NodeId) -> bool {
+        matches!(
+            self.node_kind(expression),
+            Some(SyntaxNodeKind::IntegerLiteral | SyntaxNodeKind::FloatLiteral)
+        )
+    }
+
+    pub(super) fn node_kind(&self, node: NodeId) -> Option<SyntaxNodeKind> {
+        self.graph.syntax().node(node).map(|node| node.kind())
+    }
 }
