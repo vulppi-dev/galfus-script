@@ -106,6 +106,11 @@ impl Parser {
                 continue;
             }
 
+            if self.at(&TokenKind::QuestionDot) {
+                expression = self.parse_null_safe_member_expression(expression)?;
+                continue;
+            }
+
             if self.at(&TokenKind::DotDot) {
                 if self.can_start_range_from(expression) {
                     expression = self.parse_range_expression(expression, boundary)?;
@@ -534,5 +539,21 @@ impl Parser {
             Span::cover(percent.span(), self.node_span(expression)).unwrap_or(percent.span());
 
         Some(self.add_node(SyntaxNodeKind::RangeStep, span, vec![expression]))
+    }
+
+    pub(super) fn parse_null_safe_member_expression(&mut self, target: NodeId) -> Option<NodeId> {
+        self.expect(TokenKind::QuestionDot)?;
+        self.skip_newlines();
+
+        let member = self.parse_identifier()?;
+
+        let span = Span::cover(self.node_span(target), self.node_span(member))
+            .unwrap_or_else(|| self.node_span(target));
+
+        Some(self.add_node(
+            SyntaxNodeKind::NullSafeMemberExpression,
+            span,
+            vec![target, member],
+        ))
     }
 }

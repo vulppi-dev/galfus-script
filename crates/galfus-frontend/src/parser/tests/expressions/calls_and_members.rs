@@ -388,3 +388,100 @@ fn parse_allows_newline_after_anchor_operator() {
         Some("user::\n  rename(\"Ana\")")
     );
 }
+
+#[test]
+fn parse_null_safe_member_expression() {
+    let source = source("var name = user?.name");
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+    let root = syntax.root().unwrap();
+
+    let var_item = syntax.first_child(root).unwrap();
+    let initializer = syntax
+        .first_child_of_kind(var_item, SyntaxNodeKind::Initializer)
+        .unwrap();
+
+    let expression = syntax.first_child(initializer).unwrap();
+    let expression_node = syntax.node(expression).unwrap();
+
+    assert_eq!(
+        expression_node.kind(),
+        SyntaxNodeKind::NullSafeMemberExpression
+    );
+
+    assert_eq!(expression_node.child_count(), 2);
+
+    let target = syntax.child(expression, 0).unwrap();
+    let member = syntax.child(expression, 1).unwrap();
+
+    assert_eq!(
+        syntax.node(target).unwrap().kind(),
+        SyntaxNodeKind::NameExpression
+    );
+    assert_eq!(
+        syntax.node(member).unwrap().kind(),
+        SyntaxNodeKind::Identifier
+    );
+}
+
+#[test]
+fn parse_mixed_member_and_null_safe_member_chain() {
+    let source = source("var name = user.parent?.name");
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+    let root = syntax.root().unwrap();
+
+    let var_item = syntax.first_child(root).unwrap();
+    let initializer = syntax
+        .first_child_of_kind(var_item, SyntaxNodeKind::Initializer)
+        .unwrap();
+
+    let expression = syntax.first_child(initializer).unwrap();
+    let expression_node = syntax.node(expression).unwrap();
+
+    assert_eq!(
+        expression_node.kind(),
+        SyntaxNodeKind::NullSafeMemberExpression
+    );
+
+    let target = syntax.child(expression, 0).unwrap();
+    let target_node = syntax.node(target).unwrap();
+
+    assert_eq!(target_node.kind(), SyntaxNodeKind::MemberExpression);
+    assert_eq!(source.slice(target_node.span()), Some("user.parent"));
+}
+
+#[test]
+fn parse_null_safe_member_call() {
+    let source = source("var name = user?.getName()");
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+    let root = syntax.root().unwrap();
+
+    let var_item = syntax.first_child(root).unwrap();
+    let initializer = syntax
+        .first_child_of_kind(var_item, SyntaxNodeKind::Initializer)
+        .unwrap();
+
+    let expression = syntax.first_child(initializer).unwrap();
+    let expression_node = syntax.node(expression).unwrap();
+
+    assert_eq!(expression_node.kind(), SyntaxNodeKind::CallExpression);
+
+    let callee = syntax.child(expression, 0).unwrap();
+    let callee_node = syntax.node(callee).unwrap();
+
+    assert_eq!(callee_node.kind(), SyntaxNodeKind::NullSafeMemberExpression);
+}

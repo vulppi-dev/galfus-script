@@ -617,6 +617,7 @@ pub enum SyntaxNodeKind {
     EnumDiscriminant,
     RangeExpression,
     RangeStep,
+    NullSafeMemberExpression,
 
     // Operators
     UnaryOperator,
@@ -704,6 +705,7 @@ impl SyntaxNodeKind {
                 | SyntaxNodeKind::StringLiteral
                 | SyntaxNodeKind::RegexLiteral
                 | SyntaxNodeKind::RangeExpression
+                | SyntaxNodeKind::NullSafeMemberExpression,
         )
     }
 
