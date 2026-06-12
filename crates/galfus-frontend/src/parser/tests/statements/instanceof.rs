@@ -1,4 +1,4 @@
-use super::*;
+use super::super::*;
 
 #[test]
 fn parse_instanceof_statement_with_type_patterns() {

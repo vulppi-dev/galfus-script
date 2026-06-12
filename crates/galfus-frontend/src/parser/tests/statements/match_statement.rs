@@ -1,4 +1,4 @@
-use super::*;
+use super::super::*;
 
 #[test]
 fn parse_match_statement_with_binding_pattern() {

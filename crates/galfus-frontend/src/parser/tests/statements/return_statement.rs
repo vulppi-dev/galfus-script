@@ -1,4 +1,4 @@
-use super::*;
+use super::super::*;
 
 #[test]
 fn parse_return_statement_with_integer_expression() {
