@@ -1,3 +1,5 @@
+use crate::BinaryOperatorKind;
+
 use super::*;
 
 #[test]
@@ -382,5 +384,91 @@ fn parse_enum_with_base_type() {
     assert_eq!(
         syntax.node(variants).unwrap().kind(),
         SyntaxNodeKind::EnumVariantList
+    );
+}
+
+#[test]
+fn parse_enum_variant_with_numeric_discriminant() {
+    let source = source(
+        "enum State {
+            Off(1),
+            On(2),
+        }",
+    );
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+    let root = syntax.root().unwrap();
+
+    let enum_item = syntax.first_child(root).unwrap();
+
+    let variants = syntax
+        .first_child_of_kind(enum_item, SyntaxNodeKind::EnumVariantList)
+        .unwrap();
+
+    let first_variant = syntax.child(variants, 0).unwrap();
+    let first_variant_node = syntax.node(first_variant).unwrap();
+
+    assert_eq!(first_variant_node.kind(), SyntaxNodeKind::EnumVariant);
+    assert_eq!(first_variant_node.child_count(), 2);
+
+    let discriminant = syntax.child(first_variant, 1).unwrap();
+    let discriminant_node = syntax.node(discriminant).unwrap();
+
+    assert_eq!(discriminant_node.kind(), SyntaxNodeKind::EnumDiscriminant);
+
+    let expression = syntax.first_child(discriminant).unwrap();
+
+    assert_eq!(
+        syntax.node(expression).unwrap().kind(),
+        SyntaxNodeKind::IntegerLiteral
+    );
+}
+
+#[test]
+fn parse_enum_variant_with_binary_discriminant_expression() {
+    let source = source(
+        "enum<int64> TextureType {
+            Float32(1 << 32),
+            Float64,
+        }",
+    );
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+    let root = syntax.root().unwrap();
+
+    let enum_item = syntax.first_child(root).unwrap();
+
+    let variants = syntax
+        .first_child_of_kind(enum_item, SyntaxNodeKind::EnumVariantList)
+        .unwrap();
+
+    let first_variant = syntax.child(variants, 0).unwrap();
+
+    let discriminant = syntax
+        .first_child_of_kind(first_variant, SyntaxNodeKind::EnumDiscriminant)
+        .unwrap();
+
+    let expression = syntax.first_child(discriminant).unwrap();
+    let expression_node = syntax.node(expression).unwrap();
+
+    assert_eq!(expression_node.kind(), SyntaxNodeKind::BinaryExpression);
+
+    let operator = syntax
+        .first_child_of_kind(expression, SyntaxNodeKind::BinaryOperator)
+        .unwrap();
+
+    let operator_node = syntax.node(operator).unwrap();
+
+    assert_eq!(
+        operator_node.binary_operator(),
+        Some(BinaryOperatorKind::ShiftLeft)
     );
 }

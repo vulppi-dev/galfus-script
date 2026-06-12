@@ -216,6 +216,13 @@ pub enum BinaryOperatorKind {
     Remainder,
     Power,
 
+    ShiftLeft,
+    ShiftRight,
+
+    BitwiseAnd,
+    BitwiseOr,
+    BitwiseXor,
+
     Equal,
     NotEqual,
     Less,
@@ -238,6 +245,13 @@ impl BinaryOperatorKind {
             TokenKind::Slash => Some(Self::Divide),
             TokenKind::Percent => Some(Self::Remainder),
             TokenKind::StarStar => Some(Self::Power),
+
+            TokenKind::ShiftLeft => Some(Self::ShiftLeft),
+            TokenKind::ShiftRight => Some(Self::ShiftRight),
+
+            TokenKind::Amp => Some(Self::BitwiseAnd),
+            TokenKind::Pipe => Some(Self::BitwiseOr),
+            TokenKind::Caret => Some(Self::BitwiseXor),
 
             TokenKind::EqualEqual => Some(Self::Equal),
             TokenKind::BangEqual => Some(Self::NotEqual),
@@ -262,6 +276,12 @@ impl BinaryOperatorKind {
             Self::Multiply | Self::Divide | Self::Remainder => 70,
 
             Self::Add | Self::Subtract => 60,
+
+            Self::ShiftLeft | Self::ShiftRight => 55,
+
+            Self::BitwiseAnd => 54,
+            Self::BitwiseXor => 53,
+            Self::BitwiseOr => 52,
 
             Self::Less | Self::LessEqual | Self::Greater | Self::GreaterEqual => 50,
 
@@ -567,6 +587,7 @@ pub enum SyntaxNodeKind {
     ArrowFunctionExpression,
     GenericExpression,
     GenericArgumentList,
+    EnumDiscriminant,
 
     // Operators
     UnaryOperator,

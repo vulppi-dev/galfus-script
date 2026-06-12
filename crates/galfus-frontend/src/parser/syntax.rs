@@ -298,10 +298,41 @@ impl Parser {
     }
 
     pub(super) fn parse_enum_variant(&mut self) -> Option<NodeId> {
-        let name = self.parse_identifier()?;
-        let span = self.node_span(name);
+        self.skip_newlines();
 
-        Some(self.add_node(SyntaxNodeKind::EnumVariant, span, vec![name]))
+        let name = self.parse_identifier()?;
+
+        let mut children = vec![name];
+        let mut end_span = self.node_span(name);
+
+        self.skip_newlines();
+
+        if self.at(&TokenKind::LeftParen) {
+            let discriminant = self.parse_enum_discriminant()?;
+            end_span = self.node_span(discriminant);
+            children.push(discriminant);
+        }
+
+        let span =
+            Span::cover(self.node_span(name), end_span).unwrap_or_else(|| self.node_span(name));
+
+        Some(self.add_node(SyntaxNodeKind::EnumVariant, span, children))
+    }
+
+    pub(super) fn parse_enum_discriminant(&mut self) -> Option<NodeId> {
+        let open = self.expect(TokenKind::LeftParen)?;
+
+        self.skip_newlines();
+
+        let expression = self.parse_expression()?;
+
+        self.skip_newlines();
+
+        let close = self.expect(TokenKind::RightParen)?;
+
+        let span = Span::cover(open.span(), close.span()).unwrap_or(open.span());
+
+        Some(self.add_node(SyntaxNodeKind::EnumDiscriminant, span, vec![expression]))
     }
 
     pub(super) fn parse_choice_payload(&mut self) -> Option<NodeId> {
