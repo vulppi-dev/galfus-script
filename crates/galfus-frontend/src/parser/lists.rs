@@ -7,11 +7,7 @@ impl Parser {
         let mut parameters = Vec::new();
 
         let mut seen_rest_parameter = false;
-        let mut seen_default_parameter = false;
-
         let mut reported_after_rest = false;
-        let mut reported_required_after_default = false;
-        let mut reported_rest_without_default_after_default = false;
 
         self.skip_newlines();
 
@@ -28,8 +24,6 @@ impl Parser {
             };
 
             if let Some(parameter) = parameter {
-                let has_default = self.parameter_has_default(parameter);
-
                 if starts_after_rest && !reported_after_rest {
                     self.graph.push_diagnostic(Diagnostic::error_with_message(
                         ParserDiagnosticCode::UnexpectedToken,
@@ -40,37 +34,7 @@ impl Parser {
                     reported_after_rest = true;
                 }
 
-                if is_rest_parameter {
-                    if seen_default_parameter
-                        && !has_default
-                        && !reported_rest_without_default_after_default
-                    {
-                        self.graph.push_diagnostic(Diagnostic::error_with_message(
-                            ParserDiagnosticCode::UnexpectedToken,
-                            "rest parameter after default parameter must also have default",
-                            self.node_span(parameter),
-                        ));
-
-                        reported_rest_without_default_after_default = true;
-                    }
-
-                    seen_rest_parameter = true;
-                } else {
-                    if seen_default_parameter && !has_default && !reported_required_after_default {
-                        self.graph.push_diagnostic(Diagnostic::error_with_message(
-                            ParserDiagnosticCode::UnexpectedToken,
-                            "required parameter cannot follow default parameter",
-                            self.node_span(parameter),
-                        ));
-
-                        reported_required_after_default = true;
-                    }
-                }
-
-                if has_default {
-                    seen_default_parameter = true;
-                }
-
+                seen_rest_parameter = is_rest_parameter;
                 parameters.push(parameter);
             }
 
@@ -313,6 +277,8 @@ impl Parser {
     pub(super) fn parse_argument_list(&mut self) -> Option<NodeId> {
         let left = self.expect(TokenKind::LeftParen)?;
 
+        self.skip_newlines();
+
         let mut arguments = Vec::new();
 
         while !self.is_eof() && !self.at(&TokenKind::RightParen) {
@@ -322,34 +288,35 @@ impl Parser {
                 break;
             }
 
-            let start_position = self.position;
-
-            if let Some(argument) = self.parse_argument() {
-                arguments.push(argument);
-            }
-
-            self.skip_newlines();
-
-            if self.at(&TokenKind::RightParen) {
-                break;
-            }
-
             if self.at(&TokenKind::Comma) {
-                self.bump();
+                let comma = self.bump();
+
+                let omitted =
+                    self.add_node(SyntaxNodeKind::OmittedArgument, comma.span(), Vec::new());
+
+                arguments.push(omitted);
+
+                self.skip_newlines();
                 continue;
             }
 
-            let found = self.current().clone();
+            let argument = self.parse_argument()?;
+            arguments.push(argument);
 
-            self.graph.push_diagnostic(Diagnostic::error_with_message(
-                ParserDiagnosticCode::ExpectedToken,
-                format!("expected `Comma`, found `{:?}`", found.kind()),
-                found.span(),
-            ));
+            self.skip_newlines();
 
-            if self.position == start_position {
+            if self.at(&TokenKind::Comma) {
                 self.bump();
+                self.skip_newlines();
+
+                if self.at(&TokenKind::RightParen) {
+                    break;
+                }
+
+                continue;
             }
+
+            break;
         }
 
         let right = self.expect(TokenKind::RightParen)?;

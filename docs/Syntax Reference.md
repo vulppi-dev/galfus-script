@@ -1,65 +1,144 @@
 # Galfus Script — Syntax Reference
 
+Updated after the SyntaxGraph/parser MVP work.
+
+This document describes the current MVP syntax surface for Galfus Script. It focuses on parsed syntax, not full semantic validation. Some rules are intentionally left to later compiler phases, especially resolver, type checker, constant evaluation, ownership validation, and decorator semantics.
+
 ## Table of Contents
 
-1. [Comments](#1-comments)
-2. [Imports](#2-imports)
-3. [Exports](#3-exports)
-4. [Variables](#4-variables)
-5. [Primitive types](#5-primitive-types)
-6. [Numeric literals](#6-numeric-literals)
-7. [Strings](#7-strings)
-8. [`null`](#8-null)
-9. [Cast](#9-cast)
-10. [Bool cast and truthiness](#10-bool-cast-and-truthiness)
-11. [Operators](#11-operators)
-12. [Type alias](#12-type-alias)
-13. [Union types](#13-union-types)
-14. [Struct](#14-struct)
-15. [Struct expansion](#15-struct-expansion)
-16. [Shallow copy and deep copy](#16-shallow-copy-and-deep-copy)
-17. [Enum](#17-enum)
-18. [Choice](#18-choice)
-19. [Match](#19-match)
-20. [Instanceof](#20-instanceof)
-21. [Functions](#21-functions)
-22. [Default parameters](#22-default-parameters)
-23. [Function argument spread](#23-function-argument-spread)
-24. [Variadic parameters](#24-variadic-parameters)
-25. [Arrow functions](#25-arrow-functions)
-26. [Anchor functions](#26-anchor-functions)
-27. [Modules and declared anchors](#27-modules-and-declared-anchors)
-28. [Generics](#28-generics)
-29. [Constraints](#29-constraints)
-30. [`satisfies`](#30-satisfies)
-31. [Decorators](#31-decorators)
-32. [Arrays](#32-arrays)
-33. [Runtime-sized arrays](#33-runtime-sized-arrays)
-34. [String indexing](#34-string-indexing)
-35. [Tuples](#35-tuples)
-36. [Destructuring](#36-destructuring)
-37. [Collections](#37-collections)
-38. [Ranges](#38-ranges)
-39. [`for`](#39-for)
-40. [`loop`, `break`, and `continue`](#40-loop-break-and-continue)
-41. [`if`](#41-if)
-42. [Weak](#42-weak)
-43. [`sizeof`](#43-sizeof)
-44. [Integer parts](#44-integer-parts)
-45. [Integrated example](#45-integrated-example)
+1. [Source files](#1-source-files)
+2. [Comments](#2-comments)
+3. [Names and paths](#3-names-and-paths)
+4. [Imports](#4-imports)
+5. [Exports](#5-exports)
+6. [Variables and constants](#6-variables-and-constants)
+7. [Primitive types](#7-primitive-types)
+8. [Literals](#8-literals)
+9. [`null`](#9-null)
+10. [Types](#10-types)
+11. [Casts](#11-casts)
+12. [Operators](#12-operators)
+13. [Structs](#13-structs)
+14. [Struct expansion and spread](#14-struct-expansion-and-spread)
+15. [Enums](#15-enums)
+16. [Choices](#16-choices)
+17. [Functions](#17-functions)
+18. [Parameters, defaults, rest, and argument spread](#18-parameters-defaults-rest-and-argument-spread)
+19. [Arrow functions](#19-arrow-functions)
+20. [Anchor functions](#20-anchor-functions)
+21. [Generics](#21-generics)
+22. [Constraints](#22-constraints)
+23. [`satisfies`](#23-satisfies)
+24. [Decorators](#24-decorators)
+25. [Arrays](#25-arrays)
+26. [Tuples](#26-tuples)
+27. [Destructuring](#27-destructuring)
+28. [Ranges](#28-ranges)
+29. [Control flow](#29-control-flow)
+30. [`match`](#30-match)
+31. [`instanceof`](#31-instanceof)
+32. [Collections and modules](#32-collections-and-modules)
+33. [Weak references](#33-weak-references)
+34. [Integrated example](#34-integrated-example)
+35. [Current MVP exclusions](#35-current-mvp-exclusions)
 
 ---
 
-## 1. Comments
+## 1. Source files
+
+A source file is a sequence of top-level items.
+
+Top-level item forms currently include:
 
 ```galfus
-// line comment
-/* block comment */
+import string from "string"
+
+export const version = 1
+
+var localCount = 0
+const maxCount = 100
+
+type UserId = int64
+
+struct User {
+  id: UserId,
+  name: String,
+}
+
+enum Status {
+  Off,
+  On,
+}
+
+choice Result<V, F> {
+  Ok(V),
+  Err(F),
+}
+
+constraint Stringable<T> {
+  fn toString(self: T): String
+}
+
+fn main(): null {
+  return
+}
+```
+
+`var` and `const` are valid both at the top level and inside blocks. At the top level they are items. Inside blocks they are statements.
+
+The parser keeps validation intentionally light. For example, some syntactically accepted forms may later be rejected by semantic analysis.
+
+---
+
+## 2. Comments
+
+Line comments:
+
+```galfus
+// comment
+```
+
+Block comments:
+
+```galfus
+/* comment */
 ```
 
 ---
 
-## 2. Imports
+## 3. Names and paths
+
+A simple name is an identifier:
+
+```galfus
+user
+User
+String
+```
+
+A path uses `::`:
+
+```galfus
+string::trim
+collections::list::push
+User::rename
+```
+
+The syntax layer does not decide whether a path is a module path, type path, namespace function, or anchor function. It parses the shape. The resolver decides meaning later.
+
+Examples:
+
+```galfus
+math::random()
+user::rename("Ana")
+String::from(value)
+```
+
+All of these are syntactically path expressions. Their meaning depends on name resolution and type information.
+
+---
+
+## 4. Imports
 
 Whole module import:
 
@@ -72,7 +151,7 @@ import collections from "collections"
 Named import:
 
 ```galfus
-import { startsWith, trim } from "string"
+import { trim, startsWith } from "string"
 import { List, Map, Set } from "collections"
 ```
 
@@ -88,43 +167,47 @@ Native, WASM, or host module import:
 ```galfus
 import physics from "./libphysics"
 import wasm_math from "./math.wasm"
-import image from "./image_component.wasm"
 import engine from "engine"
 ```
 
-Search file name for import:
+Search file forms are expected to include:
 
-- `*.gfs` - script
-- `*.gfb` - binary
-- `[lib]*.{dylib,so,dll}` - dynamic lib
-- `*.wasm` - Wasm module and component
-
-Submodules:
-
-```galfus
-collections::list::push(users, user)
-collections::set::add(ids, 10)
-collections::map::set(table, "id", user)
-```
-
-Submodule reexport:
-
-```galfus
-export list from "list"
-export map from "map"
-export set from "set"
-export buffer from "buffer"
+```text
+*.gfs                  Galfus source
+*.gfb                  Galfus binary/module artifact
+[lib]*.{dylib,so,dll}  dynamic library
+*.wasm                 WebAssembly module or component
 ```
 
 ---
 
-## 3. Exports
+## 5. Exports
+
+Supported exported items:
 
 ```galfus
+export var counter = 0
 export const version = 1
 
+export type UserId = int64
+
 export struct User {
+  id: UserId,
   name: String,
+}
+
+export enum Status {
+  Off,
+  On,
+}
+
+export choice Result<V, F> {
+  Ok(V),
+  Err(F),
+}
+
+export constraint Stringable<T> {
+  fn toString(self: T): String
 }
 
 export fn sum(a: int32, b: int32): int32 {
@@ -132,33 +215,55 @@ export fn sum(a: int32, b: int32): int32 {
 }
 ```
 
-Everything exported is public.
+Everything exported is public to importing modules. Everything not exported is private to the module.
 
-Everything not exported is private to the module.
+Decorator/export interaction is not part of the MVP. Decorators currently apply directly to supported non-export item forms.
 
 ---
 
-## 4. Variables
+## 6. Variables and constants
+
+Top-level:
 
 ```galfus
-var a = 10
-const b = 20
+var counter = 0
+const version = 1
+```
+
+Inside blocks:
+
+```galfus
+fn main(): null {
+  var count = 10
+  const limit = 100
+  return
+}
 ```
 
 With explicit type:
 
 ```galfus
-var a: int32 = 10
-const b: int64 = 20
+var count: int32 = 10
+const limit: int64 = 100
 ```
 
-`var` allows reassignment according to value rules.
+`var` creates a mutable binding according to later assignment and ownership rules.
 
-`const` fixes the binding.
+`const` creates an immutable binding.
+
+Bindings may use destructuring patterns:
+
+```galfus
+var { id, name } = user
+var (x, y) = point
+var [first, ...rest] = values
+```
 
 ---
 
-## 5. Primitive types
+## 7. Primitive types
+
+Integer types:
 
 ```galfus
 int8
@@ -170,16 +275,24 @@ uint8
 uint16
 uint32
 uint64
+```
 
+Float types:
+
+```galfus
 float16
 float32
 float64
+```
 
+Boolean and null:
+
+```galfus
 bool
 null
 ```
 
-Primitive types that do not exist:
+Primitive type names intentionally not included in the MVP:
 
 ```galfus
 any
@@ -193,131 +306,98 @@ long
 double
 ```
 
-For raw bytes:
+Use `uint8` for raw bytes.
 
-```galfus
-uint8
-```
-
-For manual UTF-16 representation:
-
-```galfus
-uint16
-```
+Use `uint16` for manual UTF-16 representation when needed.
 
 ---
 
-## 6. Numeric literals
+## 8. Literals
 
-Decimal:
+Integer literals:
 
 ```galfus
 0
 10
 123
-999
 ```
 
-Hexadecimal:
+Binary, octal, and hexadecimal numeric forms may be supported by the lexer/parser depending on current implementation:
 
 ```galfus
-0x0
-0xff
-0xFF
-0x10
-```
-
-Octal:
-
-```galfus
-0o0
-0o755
-```
-
-Binary:
-
-```galfus
-0b0
 0b1010
-0b1111_0000
+0o755
+0xff
 ```
 
-Digit separator `_`:
+Float literals:
 
 ```galfus
-1_000
-1_000_000
-0xff_ff
-0b1010_0101
-0_000_0_0
+0.0
+10.5
+6.24
 ```
 
-Valid:
+Boolean literals:
 
 ```galfus
-1_000
-0b1010_0101
-0xFF_EC_DE_5E
+true
+false
 ```
 
-Invalid:
+String literals:
 
 ```galfus
-_1000
-1000_
-1__000
-0x_FF
+"hello"
+"Renato"
+```
+
+Regex literals:
+
+```galfus
+/^[a-z]+$/
+```
+
+Array literals:
+
+```galfus
+[1, 2, 3]
+["a", "b", "c"]
+```
+
+Struct literals:
+
+```galfus
+User {
+  id: 1,
+  name: "Renato",
+}
+```
+
+Struct literal shorthand:
+
+```galfus
+var id = 1
+var name = "Renato"
+
+var user = User {
+  id,
+  name,
+}
+```
+
+Inferred struct literals are parser-supported when the target type is known later:
+
+```galfus
+struct {
+  id: 1,
+  name: "Renato",
+}
 ```
 
 ---
 
-## 7. Strings
-
-Double quotes and single quotes are valid:
-
-```galfus
-var a = "hello"
-var b = 'hello'
-var c = 'a'
-```
-
-`'a'` is `String`, not `char`.
-
-An empty string exists:
-
-```galfus
-var text = ""
-```
-
-Multiline string:
-
-```galfus
-var text = `
-line 1
-line 2
-line 3
-`
-```
-
-`String` is not primitive. It is an internally optimized `struct`.
-
-String operations come from the `string` module:
-
-```galfus
-import string from "string"
-
-var ok = string::startsWith(text, "h")
-```
-
-Declared anchors can also exist on `String`:
-
-```galfus
-var ok = text::startsWith("h")
-```
-
----
-
-## 8. `null`
+## 9. `null`
 
 `null` represents absence.
 
@@ -325,7 +405,7 @@ var ok = text::startsWith("h")
 var name: String | null = null
 ```
 
-A function with no useful return value returns `null`:
+A function with no useful result returns `null`:
 
 ```galfus
 fn log(message: String): null {
@@ -341,7 +421,7 @@ fn log(message: String): null {
 }
 ```
 
-Invalid:
+Invalid semantically:
 
 ```galfus
 fn sum(): int32 {
@@ -349,15 +429,96 @@ fn sum(): int32 {
 }
 ```
 
+The parser accepts `return`; the type checker rejects it when the function result type is not `null`.
+
 ---
 
-## 9. Cast
+## 10. Types
+
+Named type:
+
+```galfus
+String
+User
+int32
+```
+
+Path type:
+
+```galfus
+collections::List
+module::User
+```
+
+Generic type:
+
+```galfus
+List<User>
+Map<String, User>
+Result<Texture, LoadError>
+```
+
+Union type:
+
+```galfus
+String | null
+int32 | int64
+User | LoadError | null
+```
+
+Array type:
+
+```galfus
+[int32]
+[String]
+[User]
+```
+
+Fixed-size array type:
+
+```galfus
+[int32; 3]
+[float32; 16]
+```
+
+Function type:
+
+```galfus
+fn(int32, int32): int32
+fn(String): null
+```
+
+Grouped type:
+
+```galfus
+(int32)
+```
+
+Tuple type:
+
+```galfus
+(int32, String)
+(float32, float32, float32)
+```
+
+A trailing comma is syntactically accepted:
+
+```galfus
+(int32, String,)
+```
+
+A single-element tuple shape like `(int32,)` is syntax-valid. Whether it is semantically useful is left to later phases.
+
+---
+
+## 11. Casts
 
 Explicit cast:
 
 ```galfus
 var a = <int8> 6.24
 var b = <bool> value
+var c = <collections::Id> value
 ```
 
 Assignment cast:
@@ -374,19 +535,19 @@ var a: int8 = <int8> 6.24
 var b: bool = <bool> 10
 ```
 
-Numeric casts are total.
+Numeric casts are total at runtime, unless a checked conversion helper is explicitly used.
 
 Examples:
 
 ```galfus
-var a = <int8> 6.24     // 6
-var b = <int8> -6.24    // -6
-var c = <uint8> -1      // 255
-var d = <int8> 128      // -128
-var e = <uint8> 257     // 1
+var a = <int8> 6.24
+var b = <int8> -6.24
+var c = <uint8> -1
+var d = <int8> 128
+var e = <uint8> 257
 ```
 
-Explicit validation through modules:
+Checked/validated conversion should be expressed through library functions:
 
 ```galfus
 integer::checked<int8>(value)
@@ -396,50 +557,7 @@ integer::clamp<int8>(value)
 
 ---
 
-## 10. Bool cast and truthiness
-
-Every value can be cast to `bool`.
-
-Numbers:
-
-```galfus
-0      // false
-!= 0   // true
-NaN    // true
-+Inf   // true
--Inf   // true
-```
-
-Complex values:
-
-```galfus
-null    // false
-exists  // true
-```
-
-Examples:
-
-```galfus
-var a: bool = 0       // false
-var b: bool = 1       // true
-var c: bool = -10     // true
-var d: bool = 0.0     // false
-var e: bool = 0.01    // true
-var f: bool = ""      // true
-var g: bool = null    // false
-```
-
-Union uses the active type’s rule:
-
-```galfus
-var value: int32 | String | null = getValue()
-
-var ok: bool = value
-```
-
----
-
-## 11. Operators
+## 12. Operators
 
 ### Arithmetic
 
@@ -463,64 +581,25 @@ var e = 10 % 3
 var f = 2 ** 8
 ```
 
-No operator overloading in the MVP.
-
-Invalid:
-
-```galfus
-"hello" + "world"
-```
-
-Concatenation:
+String concatenation should use module functions or declared anchors:
 
 ```galfus
 string::concat("hello", "world")
-```
-
-Or through a declared anchor:
-
-```galfus
 text::concat(other)
 ```
 
----
+### No increment/decrement operators
 
-### Increment and decrement
+`++` and `--` are intentionally excluded.
 
-```galfus
-++
---
-```
-
-They are statement-only. They do not return a value.
-
-Allowed:
+Use explicit assignment instead:
 
 ```galfus
-i++
-i--
-++i
---i
+count += 1
+count -= 1
 ```
 
-Invalid:
-
-```galfus
-var x = i++
-var y = ++i
-foo(i++)
-```
-
-Equivalences:
-
-```galfus
-i++  // i += 1
-i--  // i -= 1
-++i  // i += 1
---i  // i -= 1
-```
-
----
+This avoids prefix/postfix return-value expectations and keeps mutation explicit.
 
 ### Comparison
 
@@ -533,44 +612,7 @@ i--  // i -= 1
 >=
 ```
 
-Equality rule:
-
-```galfus
-primitives  -> compare by value
-enum        -> compare by discriminant
-null        -> compare absence
-owner       -> compare owner identity
-union       -> use the active type’s rule
-```
-
-Owner example:
-
-```galfus
-var a = User { name: "Ana" }
-var b = a
-
-a == b // true
-```
-
-```galfus
-var a = User { name: "Ana" }
-var b = User { name: "Ana" }
-
-a == b // false
-```
-
-Structural/deep equality:
-
-```galfus
-reflect::equals(a, b)
-string::equals(a, b)
-collections::equals(a, b)
-collections::list::equals(a, b)
-collections::set::equals(a, b)
-collections::map::equals(a, b)
-```
-
----
+Equality semantics are type-specific and handled by later semantic/runtime rules.
 
 ### Boolean
 
@@ -580,26 +622,7 @@ collections::map::equals(a, b)
 ||
 ```
 
-Operands are cast to `bool`.
-
-The result is always `bool`.
-
 `&&` and `||` short-circuit.
-
-Examples:
-
-```galfus
-!0          // true
-!1          // false
-!""         // false
-!null       // true
-
-"hello" && 10   // true
-null && 10      // false
-0 || "hello"    // true
-```
-
----
 
 ### Null fallback
 
@@ -607,37 +630,24 @@ null && 10      // false
 ??
 ```
 
-Checks only `null`, not truthiness.
+Checks only for `null`, not truthiness:
 
 ```galfus
 var name: String | null = getName()
 var safeName = name ?? "Anonymous"
 ```
 
-Example:
-
-```galfus
-var value: int32 | null = 0
-var result = value ?? 10 // 0
-```
-
-Does not exist:
-
-```galfus
-??=
-```
-
----
+There is no `??=`.
 
 ### Bitwise
 
 ```galfus
-&   bitwise and
-|   bitwise or
-^   bitwise xor
-~   bitwise not
-<<  shift left
->>  shift right
+&
+|
+^
+~
+<<
+>>
 ```
 
 Examples:
@@ -645,24 +655,11 @@ Examples:
 ```galfus
 var a = 0b1010 & 0b1100
 var b = 0b1010 | 0b1100
-var c = 0b1010 ^ 0b1100
+var c = 0b1010 ^ 0b0101
 var d = ~0b1010
-
 var e = 1 << 3
 var f = 8 >> 1
 ```
-
-Bitwise assignments:
-
-```galfus
-flags |= 0b0010
-flags &= 0b1111
-flags ^= 0b0101
-flags <<= 1
-flags >>= 1
-```
-
----
 
 ### Assignment
 
@@ -681,7 +678,7 @@ flags >>= 1
 >>=
 ```
 
-Example:
+Examples:
 
 ```galfus
 count += 1
@@ -689,72 +686,34 @@ flags |= 0b0010
 mask &= 0b1111
 ```
 
----
-
 ### Access
 
 ```galfus
-.   // real field access
-?.  // null safety field access
-[]  // indexing
-::  // module, namespace, or anchor function
+.    field/member access
+?.   null-safe member access
+[]   indexing
+::   path, module function, namespace function, or anchor call
 ```
 
 Examples:
 
 ```galfus
 user.name
-text.length
 user.parent?.name
 nums[0]
-
-string::startsWith(text, "h")
-text::startsWith("h")
+string::trim(text)
+text::trim()
 ```
+
+`?.` is parsed as a `NullSafeMemberExpression`.
+
+`::` is parsed as a path expression unless it is recognized as a numeric quantity range literal, such as `1::4`.
 
 ---
 
-## 12. Type alias
+## 13. Structs
 
-Type aliases are only aliases.
-
-```galfus
-type SmallInt = int32 | int8
-type MaybeString = String | null
-type UserId = int64
-```
-
-Usage:
-
-```galfus
-var id: UserId = 10
-var value: SmallInt = 5
-var name: MaybeString = null
-```
-
----
-
-## 13. Union types
-
-```galfus
-var value: int32 | String | null = null
-```
-
-With alias:
-
-```galfus
-type Value = int32 | String | null
-
-var value: Value = null
-```
-
-Union does not create `any`.
-
-The set of possible types is always known.
-
----
-
-## 14. Struct
+Declaration:
 
 ```galfus
 struct User {
@@ -785,30 +744,32 @@ var user = User {
 
 A field without default is required.
 
-A field with default can be omitted.
+A field with default may be omitted.
 
-Invalid:
+A `const` field cannot be reassigned after initialization.
+
+```galfus
+user.id = 2 // semantically invalid when id is const
+```
+
+Invalid static-style access:
 
 ```galfus
 User.name
 User.getName()
 ```
 
-Valid:
+Valid value access:
 
 ```galfus
 user.name
 ```
 
-A `const` field cannot be changed:
-
-```galfus
-user.id = 2 // invalid
-```
-
 ---
 
-## 15. Struct expansion
+## 14. Struct expansion and spread
+
+Struct expansion copies field declarations from another struct blueprint.
 
 ```galfus
 struct User {
@@ -821,15 +782,9 @@ struct Person {
 }
 ```
 
-This copies fields from the blueprint.
+This is not inheritance. It is field expansion at the structural level.
 
-It does not create inheritance.
-
----
-
-## 16. Shallow copy and deep copy
-
-Shallow copy:
+Struct literal spread copies fields from an existing value:
 
 ```galfus
 var user2 = User {
@@ -837,7 +792,7 @@ var user2 = User {
 }
 ```
 
-Override:
+Spread with override:
 
 ```galfus
 var user2 = User {
@@ -846,13 +801,15 @@ var user2 = User {
 }
 ```
 
-Deep copy:
+The parser accepts spread shape. Semantic analysis decides whether the spread source is compatible with the target struct.
+
+Deep copy remains explicit:
 
 ```galfus
 var user2 = copy user
 ```
 
-By default, complex values share the owner:
+By default, complex value assignment may share the same owner depending on ownership semantics:
 
 ```galfus
 var a = User { name: "Ana" }
@@ -861,7 +818,7 @@ var b = a
 
 ---
 
-## 17. Enum
+## 15. Enums
 
 `enum` is discriminated and has no payload.
 
@@ -874,25 +831,36 @@ enum Direction {
 }
 ```
 
-Explicit discriminant:
+Explicit discriminants:
 
 ```galfus
-enum E {
-  Initial,      // 0
-  Changed(10), // 10
-  Another,     // 11
+enum State {
+  Off(1),
+  On(2),
 }
 ```
 
-`enum` is by default int32, but can another number.
+Discriminants may be constant expressions syntactically:
 
 ```galfus
 enum<int64> TextureType {
-  Float32(1<<32),
+  Float32(1 << 32),
   Float64,
-  // ...
 }
 ```
+
+The parser accepts the expression. Later constant evaluation validates that it is a valid enum discriminant.
+
+An enum may specify a numeric base type:
+
+```galfus
+enum<int64> BigKind {
+  A(1),
+  B(2),
+}
+```
+
+Without explicit base type, the default is intended to be `int32`.
 
 Usage:
 
@@ -902,9 +870,9 @@ var direction = Direction.North
 
 ---
 
-## 18. Choice
+## 16. Choices
 
-`choice` is for alternatives with optional payload.
+`choice` represents alternatives with optional payload.
 
 ```galfus
 choice Asset {
@@ -931,358 +899,93 @@ choice Result<V, F> {
 }
 ```
 
-```galfus
-choice Option<T> {
-  Some(T),
-  None,
-}
-```
+Choice payloads are parsed as types.
 
 ---
 
-## 19. Match
+## 17. Functions
+
+Function declaration:
 
 ```galfus
-match asset {
-  Texture(path) => {
-    return loadTexture(path)
-  }
-
-  Image(path, width, height) => {
-    return loadImage(path, width, height)
-  }
-
-  None => {
-    return fallback()
-  }
-
-  _ => {
-    return fallback()
-  }
-}
-```
-
-With enum:
-
-```galfus
-match direction {
-  North => {
-    return
-  }
-
-  South => {
-    return
-  }
-
-  _ => {
-    return
-  }
-}
-```
-
----
-
-## 20. Instanceof
-
-```galfus
-instanceof value {
-  int32(v) => {
-    return v ** 2
-  }
-
-  String(text) => {
-    return text.length
-  }
-
-  _ => {
-    return 0
-  }
-}
-```
-
----
-
-## 21. Functions
-
-```galfus
-fn square(v: int32): int32 {
-  return v ** 2
-}
-```
-
-```galfus
-fn createUser(name: String, age: int32): User {
-  return User {
-    id: 1,
-    name,
-    age,
-  }
-}
-```
-
-Function returning `null`:
-
-```galfus
-fn print(message: String): null {
-  return null
-}
-// or
-fn print(message: String): null {
-  return
-}
-// or
-fn print(message: String): null {}
-```
-
----
-
-## 22. Default parameters
-
-Only trailing parameters can have defaults.
-
-```galfus
-fn createUser(name: String, age: int32 = 0): User {
-  return User {
-    id: 1,
-    name,
-    age,
-  }
-}
-```
-
-Multiple trailing defaults:
-
-```galfus
-fn connect(
-  host: String,
-  port: int32 = 8080,
-  secure: bool = false,
-): Connection {
-  return Connection {
-    host,
-    port,
-    secure,
-  }
-}
-```
-
-Invalid:
-
-```galfus
-fn createUser(name: String = "Anonymous", age: int32): User {
-  return User {
-    id: 1,
-    name,
-    age,
-  }
-}
-```
-
----
-
-## 23. Function argument spread
-
-Spread expands an array or tuple into positional arguments.
-
-```galfus
-fn sum(a: int32, b: int32, c: int32): int32 {
-  return a + b + c
-}
-
-var args: [int32; 3] = [1, 2, 3]
-
-var result = sum(...args)
-```
-
-Tuple spread:
-
-```galfus
-var point = (10.0, 20.0)
-
-fn move(x: float32, y: float32): null {
-  return
-}
-
-move(...point)
-```
-
-Mixed arguments:
-
-```galfus
-fn createUser(name: String, age: int32, active: bool): User {
-  return User {
-    id: 1,
-    name,
-    age,
-  }
-}
-
-var rest = (30, true)
-
-var user = createUser("Renato", ...rest)
-```
-
-Spread must match the expected parameter count and types. If the array is more large then arguments length, the rest is discarded.
-
-For non-variadic functions, the arity must be exact.
-
-```galfus
-sum(...args) // valid if args has 3 or greater int32 items
-```
-
----
-
-## 24. Variadic parameters
-
-Functions can receive multiple trailing arguments with a spread parameter.
-
-```galfus
-fn summarize(...values: [int32]): int32 {
-  var total: int32 = 0
-
-  for value in values {
-    total += value
-  }
-
-  return total
-}
-```
-
-Call:
-
-```galfus
-var result = summarize(1, 2, 3, 4)
-```
-
-Inside the function:
-
-```galfus
-values: [int32] // conceptually [int32; n]
-```
-
-The parameter:
-
-```galfus
-...values: [int32]
-```
-
-means:
-
-```galfus
-collect all trailing arguments into an internal array
-```
-
----
-
-### Variadic with header
-
-```galfus
-fn log(prefix: String, ...messages: [String]): null {
-  for message in messages {
-    print(string::concat(prefix, message))
-  }
-
-  return
-}
-```
-
-Call:
-
-```galfus
-log("[info] ", "started", "running", "done")
-```
-
-The variadic parameter must be the last parameter.
-
-Invalid:
-
-```galfus
-fn invalid(...values: [int32], end: int32): int32 {
-  return end
-}
-```
-
----
-
-### Spread into variadic function
-
-```galfus
-var values: [int32; 3] = [1, 2, 3]
-
-var result = summarize(...values)
-```
-
-Tuple spread:
-
-```galfus
-var values = (1, 2, 3)
-
-var result = summarize(...values)
-```
-
-Mixed call:
-
-```galfus
-var more: [int32; 2] = [3, 4]
-
-var result = summarize(1, 2, ...more)
-```
-
----
-
-### Internal function array
-
-A variadic function receives trailing arguments through an internal array.
-
-```galfus
-fn summarize(...values: [int32]): int32 {
-  return values.length
-}
-```
-
-Conceptually:
-
-```galfus
-values: [int32]
-```
-
-The runtime stores:
-
-```galfus
-element type: int32
-length: n
-data: contiguous elements
-```
-
-This array is fixed after construction.
-
----
-
-## 25. Arrow functions
-
-```galfus
-var sum = (a: int32, b: int32): int32 => {
+fn sum(a: int32, b: int32): int32 {
   return a + b
 }
 ```
 
-Expression body:
+No useful return value:
 
 ```galfus
-var double = (v: int32): int32 => v * 2
+fn log(message: String): null {
+  return
+}
 ```
 
-No parameter:
+Function calls:
 
 ```galfus
-var getValue = (): int32 => 10
+sum(1, 2)
+log("hello")
 ```
 
-Variadic:
+Generic function:
 
 ```galfus
-var summarize = (...values: [int32]): int32 => {
-  var total: int32 = 0
+fn identity<T>(value: T): T {
+  return value
+}
+```
+
+Function declarations may be decorated in the MVP:
+
+```galfus
+@log
+fn save(user: User): bool {
+  return true
+}
+```
+
+Decorated exported functions are not part of the MVP syntax surface unless explicitly modeled later.
+
+---
+
+## 18. Parameters, defaults, rest, and argument spread
+
+Parameters:
+
+```galfus
+fn rename(user: User, name: String): User {
+  user.name = name
+  return user
+}
+```
+
+Default parameters are allowed only at the end of the parameter list:
+
+```galfus
+fn connect(host: String, port: int32 = 80): bool {
+  return true
+}
+```
+
+The parser captures defaults; the rule that only trailing parameters may have defaults belongs to semantic validation.
+
+Parameter decorators are allowed:
+
+```galfus
+fn createUser(
+  @string::trim name: String,
+  @min(0) age: int32,
+): User {
+  return User { name, age }
+}
+```
+
+Rest/variadic parameter:
+
+```galfus
+fn summarize(...values: [int32]): int32 {
+  var total = 0
 
   for value in values {
     total += value
@@ -1292,29 +995,72 @@ var summarize = (...values: [int32]): int32 => {
 }
 ```
 
-Variadic expression body:
+A rest parameter represents a runtime-sized list/array-like sequence supplied by arguments. Its syntax uses `...` before the parameter name.
+
+Function argument spread:
 
 ```galfus
-var count = (...values: [int32]): int32 => values.length
+var values = [1, 2, 3]
+var total = summarize(...values)
 ```
 
-Mixed:
+Trailing arguments are allowed:
 
 ```galfus
-var log = (prefix: String, ...messages: [String]): null => {
-  for message in messages {
-    print(string::concat(prefix, message))
+summarize(1, 2, 3,)
+```
+
+Argument spread works for normal functions and arrow functions:
+
+```galfus
+var add = (...values: [int32]): int32 => {
+  var total = 0
+
+  for value in values {
+    total += value
   }
 
-  return
+  return total
 }
-```
 
-Parentheses are always required.
+var total = add(...values)
+```
 
 ---
 
-## 26. Anchor functions
+## 19. Arrow functions
+
+Expression-style arrow:
+
+```galfus
+var double = (value: int32): int32 => value * 2
+```
+
+Block-style arrow:
+
+```galfus
+var double = (value: int32): int32 => {
+  return value * 2
+}
+```
+
+With rest parameter:
+
+```galfus
+var sum = (...values: [int32]): int32 => {
+  var total = 0
+
+  for value in values {
+    total += value
+  }
+
+  return total
+}
+```
+
+---
+
+## 20. Anchor functions
 
 Declaration:
 
@@ -1339,13 +1085,7 @@ var user = User {
 var renamed = user::rename("Ana")
 ```
 
-The anchor call passes the target as the first argument:
-
-```galfus
-var renamed = User::rename(user, "Ana")
-```
-
-There is no automatic write-back.
+The anchor call passes the target as the first logical argument. There is no automatic write-back.
 
 This:
 
@@ -1353,7 +1093,7 @@ This:
 user::rename("Ana")
 ```
 
-does not mean:
+is not equivalent to:
 
 ```galfus
 user = User::rename(user, "Ana")
@@ -1365,53 +1105,13 @@ To replace the value:
 user = user::rename("Ana")
 ```
 
----
-
-## 27. Modules and declared anchors
-
-Module function:
-
-```galfus
-string::startsWith(text, "h")
-```
-
-Anchor declared on the type:
-
-```galfus
-fn String::startsWith(self: String, prefix: String): bool {
-  return string::startsWith(self, prefix)
-}
-```
-
-Usage:
-
-```galfus
-var text = "hello"
-
-var a = string::startsWith(text, "h")
-var b = text::startsWith("h")
-```
-
-Anchors are not magical module resolution.
-
-The anchor must exist on the type.
-
-Invalid on direct literals:
-
-```galfus
-"hello"::startsWith("h")
-```
-
-Use a variable/binding:
-
-```galfus
-var text = "hello"
-var ok = text::startsWith("h")
-```
+`math::random()` and `user::rename("Ana")` are syntactically the same kind of path/call shape. The resolver decides whether it is a module function, namespace function, static-like function, or anchor call.
 
 ---
 
-## 28. Generics
+## 21. Generics
+
+Generic struct:
 
 ```galfus
 struct Box<T> {
@@ -1427,6 +1127,15 @@ fn identity<T>(value: T): T {
 }
 ```
 
+Generic choice:
+
+```galfus
+choice Result<V, F> {
+  Ok(V),
+  Err(F),
+}
+```
+
 Generic constraints:
 
 ```galfus
@@ -1435,7 +1144,7 @@ fn add<T: int>(a: T, b: T): T {
 }
 ```
 
-Basic constraints:
+Basic constraint names:
 
 ```galfus
 T: struct
@@ -1456,12 +1165,12 @@ T: Result<Texture, LoadError>
 
 ---
 
-## 29. Constraints
+## 22. Constraints
 
-Field constraint:
+Constraint declaration syntax:
 
 ```galfus
-constraint Identifiable::T {
+constraint Identifiable<T> {
   id: int64,
 }
 ```
@@ -1474,11 +1183,11 @@ fn getId<T: Identifiable>(value: T): int64 {
 }
 ```
 
-Function anchor constraint:
+Function requirement:
 
 ```galfus
-constraint Stringable::T {
-  fn T::toString(self: T): String
+constraint Stringable<T> {
+  fn toString(self: T): String
 }
 ```
 
@@ -1490,33 +1199,37 @@ fn stringify<T: Stringable>(value: T): String {
 }
 ```
 
-Iterator:
+Iterator-style constraint:
 
 ```galfus
-constraint Iterator::T<Item> {
-  fn T::next(self: T): Item | null
+constraint Iterator<T, Item> {
+  fn next(self: T): Item | null
 }
 ```
 
-Iterable:
+Iterable-style constraint:
 
 ```galfus
-constraint Iterable::T<Item, Iter> {
-  fn T::iter(self: T): Iter
+constraint Iterable<T, Item, Iter> {
+  fn iter(self: T): Iter
 }
 ```
+
+The older `constraint Name::T` form is not the current syntax.
 
 ---
 
-## 30. `satisfies`
+## 23. `satisfies`
+
+Structs can declare that they satisfy constraints:
 
 ```galfus
-constraint Identifiable::T {
+constraint Identifiable<T> {
   id: int64,
 }
 
-constraint Stringable::T {
-  fn T::toString(self: T): String
+constraint Stringable<T> {
+  fn toString(self: T): String
 }
 
 struct User satisfies Identifiable, Stringable {
@@ -1532,11 +1245,11 @@ fn User::toString(user: User): String {
 Generic satisfies:
 
 ```galfus
-constraint Iterable::T<Item, Iter> {
-  fn T::iter(self: T): Iter
+constraint Iterable<T, Item, Iter> {
+  fn iter(self: T): Iter
 }
 
-struct Range satisfies Iterable<int32, RangeIterator> {
+struct Range satisfies Iterable<Range, int32, RangeIterator> {
   start: int32,
   end: int32,
 }
@@ -1544,13 +1257,34 @@ struct Range satisfies Iterable<int32, RangeIterator> {
 
 ---
 
-## 31. Decorators
+## 24. Decorators
 
-Decorator function:
+Decorator target forms:
 
 ```galfus
-fn frozen<T: struct>(target: T): T {
-  return target
+@name
+@module::name
+@name(args)
+@module::name(args)
+```
+
+Decorators are syntax-level annotations. Their meaning is resolved later.
+
+Allowed MVP targets:
+
+```text
+function declarations
+function parameters, including rest parameters
+struct declarations
+struct fields, including weak fields
+```
+
+Function decorator:
+
+```galfus
+@log
+fn saveUser(user: User): bool {
+  return true
 }
 ```
 
@@ -1563,17 +1297,9 @@ struct User {
 }
 ```
 
-Field decorator:
+Struct field decorator:
 
 ```galfus
-fn min<T: int>(value: T, limit: T): T {
-  if value < limit {
-    return limit
-  }
-
-  return value
-}
-
 struct User {
   @min(0)
   age: int32,
@@ -1587,187 +1313,92 @@ fn createUser(
   @string::trim name: String,
   @min(0) age: int32,
 ): User {
-  return User {
-    id: 1,
-    name,
-    age,
-  }
+  return User { name, age }
 }
 ```
 
-Function decorator:
+Not part of the MVP:
 
 ```galfus
-fn log<T: fn>(target: T): T {
-  return target
-}
-
-@log
-fn saveUser(user: User): bool {
-  return true
-}
+@memo var value = 1
+@flags enum State { Off, On }
+@tracked choice Result<V, F> { Ok(V), Err(F) }
 ```
 
-Decorator order:
-
-```galfus
-@a
-@b
-fn run(): null {
-  return
-}
-```
-
-Equivalent to:
-
-```galfus
-run = a(b(run))
-```
+Decorator/export interaction is intentionally deferred.
 
 ---
 
-## 32. Arrays
+## 25. Arrays
 
-Compile-time-sized fixed array:
+Runtime-sized array-like type:
 
 ```galfus
-var nums: [int32; 3] = [10, 20, 30]
+[int32]
+[String]
+```
+
+Fixed-size array:
+
+```galfus
+[int32; 3]
+[float32; 16]
+```
+
+Array literal:
+
+```galfus
+var nums = [1, 2, 3]
+```
+
+Array spread element:
+
+```galfus
+var a = [1, 2]
+var b = [0, ...a, 3]
 ```
 
 Indexing:
 
 ```galfus
-var a = nums[0]
-var b = nums[-1]
+var first = nums[0]
 ```
 
-Dynamic index:
-
-```galfus
-var i: int32 = getIndex()
-var value = nums[i] // int32 | null
-```
-
-Invalid:
-
-```galfus
-nums[3]
-nums[-4]
-```
-
-Array destructuring:
-
-```galfus
-var [a, b, c] = nums
-```
-
-Partial:
-
-```galfus
-var [first, second] = nums
-
-var [first, ...rest] = nums
-```
-
-Empty arrays do not exist.
+String indexing is semantically distinct from array indexing and should be defined by string/runtime rules.
 
 ---
 
-## 33. Runtime-sized arrays
+## 26. Tuples
 
-Arrays are fixed after creation, but their size does not always need to be known at compile time. The minimal length is 1.
-
-Compile-time-sized array:
+Tuple type:
 
 ```galfus
-var a: [int32; 3] = [1, 2, 3]
+(float32, float32)
+(float32, float32, float32)
 ```
 
-Runtime-sized array:
+Tuple expression:
 
 ```galfus
-var size = 2
-
-var values = buffer::array<int32>(size)
-// type: [int32]
+var point = (10.0, 20.0)
 ```
 
-`[int32]` means:
+Grouped expression remains distinct:
 
 ```galfus
-array of int32 with fixed size known at runtime
+var value = (1 + 2)
 ```
 
-`[int32; 3]` means:
+Grouped type remains distinct:
 
 ```galfus
-array of int32 with fixed size known at compile time
-```
-
-Indexing into a runtime-sized array:
-
-```galfus
-var size = 2
-var values = buffer::array<int32>(size)
-
-values[0] = 10
-values[1] = 20
-```
-
-Because the compiler does not know `n`, even literal indexing returns nullable:
-
-```galfus
-var dynamic: [int32] = buffer::array<int32>(size)
-
-var a = dynamic[0] // int32 | null
-```
-
----
-
-## 34. String indexing
-
-```galfus
-var text = "abc"
-
-var a = text[0]
-var b = text[1]
-var c = text[-1]
-var d = text[99]
-```
-
-Return type:
-
-```galfus
-String | null
-```
-
-Indexing is by code point.
-
-For bytes:
-
-```galfus
-var bytes = string::bytes(text)
-```
-
-or through a declared anchor:
-
-```galfus
-var bytes = text::bytes()
-```
-
----
-
-## 35. Tuples
-
-```galfus
-var pos: (float32, float32, float32) = (10.0, 2.0, 5.0)
+var value: (int32) = 10
 ```
 
 Tuple destructuring:
 
 ```galfus
 var point = (10.0, 20.0)
-
 var (x, y) = point
 ```
 
@@ -1781,9 +1412,17 @@ fn getPosition(): (float32, float32) {
 var (x, y) = getPosition()
 ```
 
+Trailing comma is accepted:
+
+```galfus
+var point = (10.0, 20.0,)
+```
+
 ---
 
-## 36. Destructuring
+## 27. Destructuring
+
+Destructuring is valid in `var` and `const` bindings.
 
 Struct destructuring:
 
@@ -1809,16 +1448,10 @@ Alias:
 var { name: userName, age: userAge } = user
 ```
 
-Partial:
+Nested pattern:
 
 ```galfus
-var { name } = user
-```
-
-Invalid:
-
-```galfus
-var { email } = user
+var { address: { city } } = user
 ```
 
 Tuple destructuring:
@@ -1835,9 +1468,17 @@ var nums: [int32; 3] = [10, 20, 30]
 var [a, b, c] = nums
 ```
 
-Not allowed for:
+Array rest binding:
 
 ```galfus
+var [first, ...rest] = nums
+```
+
+The parser does not enforce rest-position validation. The semantic checker should reject invalid patterns such as rest not being the last element if that rule is desired.
+
+Not intended for semantic destructuring in MVP:
+
+```text
 List
 Map
 Set
@@ -1847,13 +1488,168 @@ String
 
 ---
 
-## 37. Collections
+## 28. Ranges
+
+Exclusive numeric range literal:
+
+```galfus
+1..9
+```
+
+Produces conceptually:
+
+```text
+1, 2, 3, 4, 5, 6, 7, 8
+```
+
+Quantity range literal:
+
+```galfus
+1::4
+```
+
+Produces conceptually:
+
+```text
+1, 2, 3, 4
+```
+
+Quantity range with step:
+
+```galfus
+1::4%3
+```
+
+Produces conceptually:
+
+```text
+1, 4, 7, 10
+```
+
+The short range literal syntax is intended for numeric literal-style ranges. Dynamic ranges should use library functions:
+
+```galfus
+math::range(start, end)
+math::qRange(start, count, step)
+```
+
+This keeps `::` unambiguous with path and anchor syntax:
+
+```galfus
+math::random()
+user::rename("Ana")
+```
+
+---
+
+## 29. Control flow
+
+### `if`
+
+```galfus
+if value > 10 {
+  return true
+} else {
+  return false
+}
+```
+
+Else-if:
+
+```galfus
+if value < 0 {
+  return -1
+} else if value > 0 {
+  return 1
+} else {
+  return 0
+}
+```
+
+### `for`
+
+```galfus
+for value in values {
+  log(value)
+}
+```
+
+The iterable semantics are defined by later resolver/type-checker rules.
+
+### `while`
+
+```galfus
+while count < 10 {
+  count += 1
+}
+```
+
+### `loop`, `break`, and `continue`
+
+```galfus
+loop {
+  if done {
+    break
+  }
+
+  continue
+}
+```
+
+`break` and `continue` are statements.
+
+---
+
+## 30. `match`
+
+Basic match:
+
+```galfus
+match value {
+  0 => "zero",
+  1 => "one",
+  _ => "many",
+}
+```
+
+Choice-style match:
+
+```galfus
+match result {
+  Result.Ok(value) => value,
+  Result.Err(error) => 0,
+}
+```
+
+Pattern syntax is parsed; exhaustiveness and type compatibility are semantic checks.
+
+---
+
+## 31. `instanceof`
+
+`instanceof` handles type refinement over union-like values.
+
+```galfus
+instanceof value {
+  String name => log(name),
+  int32 count => log(count),
+  null => log("missing"),
+}
+```
+
+The exact narrowing rules belong to semantic analysis.
+
+---
+
+## 32. Collections and modules
+
+Import collections:
 
 ```galfus
 import collections from "collections"
 ```
 
-Types:
+Common generic collection types:
 
 ```galfus
 List<T>
@@ -1865,7 +1661,7 @@ WeakMap<K, V>
 WeakSet<T>
 ```
 
-Instantiation:
+Instantiation syntax may be provided by collection constructors or literals depending on runtime/library design:
 
 ```galfus
 var users = List<User> {}
@@ -1873,7 +1669,7 @@ var ids = Set<int64> {}
 var table = Map<String, User> {}
 ```
 
-Submodules:
+Submodule functions:
 
 ```galfus
 collections::list::push(users, user)
@@ -1881,7 +1677,7 @@ collections::set::add(ids, 10)
 collections::map::set(table, "id", user)
 ```
 
-Declared anchors:
+Declared anchors can make usage shorter:
 
 ```galfus
 users::push(user)
@@ -1889,7 +1685,7 @@ ids::add(10)
 table::set("id", user)
 ```
 
-Equality:
+Equality helpers:
 
 ```galfus
 collections::equals(a, b)
@@ -1900,248 +1696,54 @@ collections::map::equals(a, b)
 
 ---
 
-## 38. Ranges
+## 33. Weak references
 
-Exclusive range:
+Weak fields are syntax-supported when using the chosen weak-field marker from the implementation.
 
-```galfus
-1..9
-```
-
-Produces:
+Example shape:
 
 ```galfus
-1, 2, 3, 4, 5, 6, 7, 8
-```
-
-Quantity range:
-
-```galfus
-1::4
-```
-
-Produces:
-
-```galfus
-1, 2, 3, 4
-```
-
-Quantity range with step:
-
-```galfus
-1::4%3
-```
-
-Produces:
-
-```galfus
-1, 4, 7, 10
-```
-
-Dynamic range:
-
-```galfus
-math::range(start, end)
-math::qRange(start, count, step)
-```
-
-Usage:
-
-```galfus
-for i in 1..9 {
-  print(i)
-}
-
-for i in 1::4%3 {
-  print(i)
-}
-
-for i in math::range(start, end) {
-  print(i)
+struct Node {
+  value: int32,
+  weak parent: Node | null,
 }
 ```
+
+Weak collections may be represented through library types:
+
+```galfus
+WeakVec<Node>
+WeakMap<String, Node>
+WeakSet<Node>
+```
+
+Weak semantics are runtime/type-checker concerns.
 
 ---
 
-## 39. `for`
-
-```galfus
-for item in source {
-  ...
-}
-```
-
-With index:
-
-```galfus
-for item, index in source {
-  ...
-}
-```
-
-Map iteration:
-
-```galfus
-for entry, index in table {
-  var key = entry[0]
-  var value = entry[1]
-}
-```
-
-Tuple destructuring:
-
-```galfus
-for (key, value), index in table {
-  ...
-}
-```
-
----
-
-## 40. `loop`, `break`, and `continue`
-
-```galfus
-loop {
-  ...
-}
-```
-
-Break:
-
-```galfus
-loop {
-  if done {
-    break
-  }
-}
-```
-
-Continue:
-
-```galfus
-loop {
-  if skip {
-    continue
-  }
-}
-```
-
----
-
-## 41. `if`
-
-```galfus
-if value {
-  return true
-}
-```
-
-```galfus
-if value {
-  return true
-} else {
-  return false
-}
-```
-
-Conditions accept any value castable to `bool`.
-
----
-
-## 42. Weak
-
-```galfus
-struct CacheEntry {
-  weak resource: Resource | null = null,
-}
-```
-
-Invalid:
-
-```galfus
-struct CacheEntry {
-  weak resource: Resource,
-}
-```
-
-Weak collections:
-
-```galfus
-var nodes = WeakVec<Node> {}
-var cache = WeakMap<String, Node> {}
-var selected = WeakSet<Node> {}
-```
-
----
-
-## 43. `sizeof`
-
-Native `sizeof` is shallow.
-
-```galfus
-sizeof(int32)
-sizeof(float16)
-sizeof([int32; 4])
-sizeof(User)
-sizeof(user)
-sizeof((int32, float32))
-```
-
-Internal/dynamic memory:
-
-```galfus
-string::sizeof(text)
-buffer::sizeof(bytes)
-collections::list::sizeof(items)
-collections::map::sizeof(table)
-collections::set::sizeof(values)
-```
-
-Declared anchors may exist:
-
-```galfus
-text::sizeof()
-items::sizeof()
-bytes::sizeof()
-```
-
----
-
-## 44. Integer parts
-
-```galfus
-enum Endian {
-  Little,
-  Big,
-  Native,
-}
-```
-
-```galfus
-var value: int64 = 9223372036854775807
-
-var a = integer::toParts<int64, int32>(value, Endian.Little)
-var b = integer::toParts<int64, int16>(value, Endian.Little)
-var c = integer::toParts<int32, uint8>(value, Endian.Big)
-```
-
-```galfus
-var value = integer::fromParts<int64, int32>(parts, Endian.Little)
-```
-
----
-
-## 45. Integrated example
+## 34. Integrated example
 
 ```galfus
 import string from "string"
-import collections from "collections"
+import math from "math"
 
-type UserName = String
-type MaybeUser = User | null
+@frozen
+export struct User {
+  const id: int64,
 
-constraint Stringable::T {
-  fn T::toString(self: T): String
+  @string::trim
+  name: String,
+
+  @min(0)
+  age: int32 = 0,
+}
+
+constraint Stringable<T> {
+  fn toString(self: T): String
+}
+
+fn User::toString(self: User): String {
+  return self.name
 }
 
 choice Result<V, F> {
@@ -2149,79 +1751,74 @@ choice Result<V, F> {
   Err(F),
 }
 
-enum Role {
-  Admin,
-  Member,
-  Guest,
-}
-
-struct User satisfies Stringable {
-  const id: int64,
-  name: UserName,
-  role: Role = Role.Member,
-  tags: Set<String> = Set<String> {},
-}
-
-fn User::toString(user: User): String {
-  return user.name
-}
-
-fn User::rename(user: User, name: String): User {
-  user.name = name
-  return user
+enum<int64> TextureType {
+  Float32(1 << 32),
+  Float64,
 }
 
 fn createUser(
+  id: int64,
   @string::trim name: String,
-  role: Role = Role.Member,
+  @min(0) age: int32 = 0,
 ): User {
   return User {
-    id: 1,
+    id,
     name,
-    role,
+    age,
   }
 }
 
-fn summarize(...values: [int32]): int32 {
-  var total: int32 = 0
-
-  for value in values {
-    total += value
-  }
-
-  return total
+fn getPosition(): (float32, float32) {
+  return (10.0, 20.0)
 }
 
-var user = createUser(' Renato ')
+fn main(): null {
+  var user = createUser(1, " Renato ", 30)
+  var label = user::toString()
 
+  var user2 = User {
+    ...user,
+    name: "Ana",
+  }
+
+  var { id, name } = user2
+  var (x, y) = getPosition()
+
+  for value in 1::4%3 {
+    log(value)
+  }
+
+  var parentName = user2.parent?.name ?? "none"
+
+  return
+}
+```
+
+Note: this integrated example shows intended surface syntax. If a specific line depends on semantic/runtime features not implemented yet, the parser may still accept the syntax while later phases decide validity.
+
+---
+
+## 35. Current MVP exclusions
+
+The following are intentionally not part of the current syntax MVP:
+
+```text
+++ and -- operators
+operator overloading
+??= assignment
+any / unknown / void primitive types
+decorators on var, const, enum, choice, constraint, type alias, statements, or expressions
+implicit write-back for anchor calls
+semantic validation inside the syntax parser beyond basic structure
+full parser recovery strategy
+```
+
+Recommended explicit forms:
+
+```galfus
+count += 1
+count -= 1
 user = user::rename("Ana")
-
-user.tags::add("active")
-
-var first = user.name[0]
-var safeFirst = first ?? ""
-
-if user.name::startsWith("A") {
-  print(user.name)
-}
-
-var total = summarize(1, 2, 3, 4)
-
-for i in 1::4%3 {
-  print(i)
-}
-
-match user.role {
-  Admin => {
-    print("admin")
-  }
-
-  Member => {
-    print("member")
-  }
-
-  _ => {
-    print("guest")
-  }
-}
+math::range(start, end)
+math::qRange(start, count, step)
 ```

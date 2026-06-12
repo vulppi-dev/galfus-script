@@ -169,63 +169,6 @@ fn parse_default_parameter_accepts_trailing_comma() {
 }
 
 #[test]
-fn parse_required_parameter_cannot_follow_default_parameter() {
-    let source = source("fn invalid(a: int32 = 1, b: int32): null {\n  return\n}");
-
-    let result = parse(&source);
-
-    assert!(result.has_errors());
-
-    let diagnostic = result
-        .diagnostics()
-        .iter()
-        .find(|diagnostic| {
-            diagnostic.message() == "required parameter cannot follow default parameter"
-        })
-        .expect("missing required-after-default diagnostic");
-
-    assert_eq!(diagnostic.code().as_str(), "P0006");
-}
-
-#[test]
-fn parse_rest_parameter_before_default_parameter_is_invalid() {
-    let source =
-        source("fn invalid(...values: [String], suffix: String = \"!\"): null {\n  return\n}");
-
-    let result = parse(&source);
-
-    assert!(result.has_errors());
-
-    let diagnostic = result
-        .diagnostics()
-        .iter()
-        .find(|diagnostic| diagnostic.message() == "rest parameter must be the last parameter")
-        .expect("missing rest-last diagnostic");
-
-    assert_eq!(diagnostic.code().as_str(), "P0006");
-}
-
-#[test]
-fn parse_rest_parameter_after_default_requires_default() {
-    let source =
-        source("fn invalid(prefix: String = \"\", ...values: [String]): null {\n  return\n}");
-
-    let result = parse(&source);
-
-    assert!(result.has_errors());
-
-    let diagnostic = result
-        .diagnostics()
-        .iter()
-        .find(|diagnostic| {
-            diagnostic.message() == "rest parameter after default parameter must also have default"
-        })
-        .expect("missing rest-after-default diagnostic");
-
-    assert_eq!(diagnostic.code().as_str(), "P0006");
-}
-
-#[test]
 fn parse_rest_parameter_after_default_with_default_is_valid() {
     let source = source(
         "fn log(prefix: String = \"\", ...values: [String] | null = null): null {\n  return\n}",
@@ -264,4 +207,159 @@ fn parse_rest_parameter_after_default_with_default_is_valid() {
         syntax.node(rest_default).unwrap().kind(),
         SyntaxNodeKind::ParameterDefault
     );
+}
+
+#[test]
+fn parse_parameter_default_before_required_parameter() {
+    let source = source(
+        "fn someFunction(name: String = '', age: uint32): null {
+            return
+        }",
+    );
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+    let root = syntax.root().unwrap();
+
+    let function = syntax.first_child(root).unwrap();
+    let parameters = syntax
+        .first_child_of_kind(function, SyntaxNodeKind::ParameterList)
+        .unwrap();
+
+    let first = syntax.child(parameters, 0).unwrap();
+    let second = syntax.child(parameters, 1).unwrap();
+
+    assert!(
+        syntax
+            .first_child_of_kind(first, SyntaxNodeKind::ParameterDefault)
+            .is_some()
+    );
+
+    assert!(
+        syntax
+            .first_child_of_kind(second, SyntaxNodeKind::ParameterDefault)
+            .is_none()
+    );
+}
+
+#[test]
+fn parse_initial_omitted_argument() {
+    let source = source(
+        "fn main(): null {
+            someFunction(, 32)
+            return
+        }",
+    );
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+    let root = syntax.root().unwrap();
+
+    let function = syntax.first_child(root).unwrap();
+
+    let block = syntax
+        .first_child_of_kind(function, SyntaxNodeKind::Block)
+        .unwrap();
+
+    let statement = syntax.first_child(block).unwrap();
+    let call = syntax.first_child(statement).unwrap();
+
+    let arguments = syntax
+        .first_child_of_kind(call, SyntaxNodeKind::ArgumentList)
+        .unwrap();
+
+    assert_eq!(syntax.node(arguments).unwrap().child_count(), 2);
+
+    let first = syntax.child(arguments, 0).unwrap();
+    let second = syntax.child(arguments, 1).unwrap();
+
+    assert_eq!(
+        syntax.node(first).unwrap().kind(),
+        SyntaxNodeKind::OmittedArgument
+    );
+
+    assert_eq!(
+        syntax.node(second).unwrap().kind(),
+        SyntaxNodeKind::Argument
+    );
+}
+#[test]
+fn parse_middle_omitted_argument() {
+    let source = source(
+        "fn main(): null {
+            someFunction(1, , 3)
+            return
+        }",
+    );
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+    let root = syntax.root().unwrap();
+
+    let function = syntax.first_child(root).unwrap();
+
+    let block = syntax
+        .first_child_of_kind(function, SyntaxNodeKind::Block)
+        .unwrap();
+
+    let statement = syntax.first_child(block).unwrap();
+    let call = syntax.first_child(statement).unwrap();
+
+    let arguments = syntax
+        .first_child_of_kind(call, SyntaxNodeKind::ArgumentList)
+        .unwrap();
+
+    assert_eq!(syntax.node(arguments).unwrap().child_count(), 3);
+
+    let middle = syntax.child(arguments, 1).unwrap();
+
+    assert_eq!(
+        syntax.node(middle).unwrap().kind(),
+        SyntaxNodeKind::OmittedArgument
+    );
+}
+
+#[test]
+fn parse_trailing_comma_does_not_create_omitted_argument() {
+    let source = source(
+        "fn main(): null {
+            someFunction(1,)
+            return
+        }",
+    );
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+    let root = syntax.root().unwrap();
+
+    let function = syntax.first_child(root).unwrap();
+
+    let block = syntax
+        .first_child_of_kind(function, SyntaxNodeKind::Block)
+        .unwrap();
+
+    let statement = syntax.first_child(block).unwrap();
+    let call = syntax.first_child(statement).unwrap();
+
+    let arguments = syntax
+        .first_child_of_kind(call, SyntaxNodeKind::ArgumentList)
+        .unwrap();
+
+    assert_eq!(syntax.node(arguments).unwrap().child_count(), 1);
+
+    let only = syntax.child(arguments, 0).unwrap();
+
+    assert_eq!(syntax.node(only).unwrap().kind(), SyntaxNodeKind::Argument);
 }

@@ -319,6 +319,7 @@ pub enum AssignmentOperatorKind {
     BitwiseXorAssign,
     ShiftLeftAssign,
     ShiftRightAssign,
+    NullFallbackAssign,
 }
 
 impl AssignmentOperatorKind {
@@ -338,6 +339,7 @@ impl AssignmentOperatorKind {
             TokenKind::CaretEqual => Some(Self::BitwiseXorAssign),
             TokenKind::ShiftLeftEqual => Some(Self::ShiftLeftAssign),
             TokenKind::ShiftRightEqual => Some(Self::ShiftRightAssign),
+            TokenKind::QuestionQuestionEqual => Some(Self::NullFallbackAssign),
 
             _ => None,
         }
@@ -598,6 +600,7 @@ pub enum SyntaxNodeKind {
 
     // Arguments
     Argument,
+    OmittedArgument,
     ArgumentList,
     SpreadArgument,
 

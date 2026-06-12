@@ -228,3 +228,39 @@ fn parse_invalid_compound_assignment_target_reports_error() {
 
     assert_eq!(diagnostic.code().as_str(), "P0005");
 }
+
+#[test]
+fn parse_null_fallback_assignment_statement() {
+    let source = source(
+        "fn main(): null {
+            name ??= \"Anon\"
+            return
+        }",
+    );
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+    let root = syntax.root().unwrap();
+
+    let function = syntax.first_child(root).unwrap();
+    let block = syntax
+        .first_child_of_kind(function, SyntaxNodeKind::Block)
+        .unwrap();
+
+    let statement = syntax.first_child(block).unwrap();
+
+    assert_eq!(
+        syntax.node(statement).unwrap().kind(),
+        SyntaxNodeKind::AssignmentStatement
+    );
+
+    let operator = syntax.child(statement, 1).unwrap();
+
+    assert_eq!(
+        syntax.node(operator).unwrap().assignment_operator(),
+        Some(AssignmentOperatorKind::NullFallbackAssign)
+    );
+}

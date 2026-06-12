@@ -125,8 +125,9 @@ pub enum TokenKind {
     PlusPlus,   // ++
     MinusMinus, // --
 
-    QuestionDot,      // ?.
-    QuestionQuestion, // ??
+    QuestionDot,           // ?.
+    QuestionQuestion,      // ??
+    QuestionQuestionEqual, // ??=
 
     ColonColon, // ::
     DotDot,     // ..

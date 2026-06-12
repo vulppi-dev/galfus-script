@@ -119,20 +119,6 @@ impl Parser {
         ));
     }
 
-    pub(super) fn parameter_has_default(&self, parameter: NodeId) -> bool {
-        let Some(parameter_node) = self.graph.syntax().node(parameter) else {
-            return false;
-        };
-
-        parameter_node
-            .children()
-            .iter()
-            .any(|child| match self.graph.syntax().node(*child) {
-                Some(node) => node.kind() == SyntaxNodeKind::ParameterDefault,
-                None => false,
-            })
-    }
-
     pub(super) fn is_arrow_function_start(&self) -> bool {
         if !self.at(&TokenKind::LeftParen) {
             return false;

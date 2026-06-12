@@ -65,10 +65,14 @@ impl Lexer<'_> {
             }
 
             '?' => {
-                if self.match_char('.') {
+                if self.match_char('?') {
+                    if self.match_char('=') {
+                        TokenKind::QuestionQuestionEqual
+                    } else {
+                        TokenKind::QuestionQuestion
+                    }
+                } else if self.match_char('.') {
                     TokenKind::QuestionDot
-                } else if self.match_char('?') {
-                    TokenKind::QuestionQuestion
                 } else {
                     TokenKind::Unknown
                 }
