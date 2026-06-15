@@ -77,6 +77,10 @@ impl<'a> Resolver<'a> {
         for item in root_node.children() {
             self.declare_top_level_item(*item, module_scope);
         }
+
+        for item in root_node.children() {
+            self.declare_import_item(*item, module_scope);
+        }
     }
 
     fn declare_top_level_item(&mut self, item: NodeId, scope: ScopeId) {
@@ -255,6 +259,84 @@ impl<'a> Resolver<'a> {
         };
 
         self.source.slice(node.span()).unwrap_or("").to_string()
+    }
+
+    fn declare_import_item(&mut self, item: NodeId, scope: ScopeId) {
+        let Some(node) = self.syntax.node(item) else {
+            return;
+        };
+
+        if node.kind() != SyntaxNodeKind::ImportItem {
+            return;
+        }
+
+        let Some(clause) = node.first_child() else {
+            return;
+        };
+
+        self.declare_import_clause(clause, scope);
+    }
+
+    fn declare_import_clause(&mut self, clause: NodeId, scope: ScopeId) {
+        let Some(node) = self.syntax.node(clause) else {
+            return;
+        };
+
+        match node.kind() {
+            SyntaxNodeKind::NamespaceImport => {
+                self.declare_namespace_import(clause, scope);
+            }
+
+            SyntaxNodeKind::NamedImportList => {
+                for import in node.children() {
+                    self.declare_named_import(*import, scope);
+                }
+            }
+
+            _ => {}
+        }
+    }
+
+    fn declare_namespace_import(&mut self, namespace_import: NodeId, scope: ScopeId) {
+        let Some(name) = self
+            .syntax
+            .first_child_of_kind(namespace_import, SyntaxNodeKind::Identifier)
+        else {
+            return;
+        };
+
+        let symbol_name = self.node_text(name);
+
+        self.declare_symbol(symbol_name, SymbolKind::ImportNamespace, name, scope);
+    }
+
+    fn declare_named_import(&mut self, named_import: NodeId, scope: ScopeId) {
+        let Some(node) = self.syntax.node(named_import) else {
+            return;
+        };
+
+        if node.kind() != SyntaxNodeKind::NamedImport {
+            return;
+        }
+
+        let declaration = if let Some(alias) = self
+            .syntax
+            .first_child_of_kind(named_import, SyntaxNodeKind::ImportAlias)
+        {
+            self.syntax
+                .first_child_of_kind(alias, SyntaxNodeKind::Identifier)
+        } else {
+            self.syntax
+                .first_child_of_kind(named_import, SyntaxNodeKind::Identifier)
+        };
+
+        let Some(declaration) = declaration else {
+            return;
+        };
+
+        let symbol_name = self.node_text(declaration);
+
+        self.declare_symbol(symbol_name, SymbolKind::ImportBinding, declaration, scope);
     }
 }
 

@@ -1,6 +1,7 @@
 use crate::{GraphPhase, ScopeKind, SymbolKind, SyntaxNodeKind, parse, resolve};
 use galfus_core::{SourceFile, SourceId};
 
+mod imports;
 mod resolution;
 mod scope;
 mod symbol;
