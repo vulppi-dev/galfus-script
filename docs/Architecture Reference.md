@@ -1,103 +1,229 @@
-# Galfus Script - Architecture Reference
+# Galfus Script - Base Architecture
 
 ## Table of Contents
 
 1. [Identity](#1-identity)
-2. [Architecture model](#2-architecture-model)
-3. [Execution model](#3-execution-model)
-4. [WorkspaceGraph](#4-workspacegraph)
-5. [ModuleGraph](#5-modulegraph)
-6. [SemanticGraph](#6-semanticgraph)
-7. [Graph layers](#7-graph-layers)
-8. [Graph phases](#8-graph-phases)
-9. [Stable identities](#9-stable-identities)
-10. [Export surface](#10-export-surface)
-11. [External references](#11-external-references)
-12. [Module resolution](#12-module-resolution)
-13. [Frontend pipeline](#13-frontend-pipeline)
-14. [Incremental compilation](#14-incremental-compilation)
-15. [Hot reload](#15-hot-reload)
-16. [Diagnostics](#16-diagnostics)
-17. [Lowering to MIR](#17-lowering-to-mir)
-18. [MIR](#18-mir)
-19. [Bytecode](#19-bytecode)
-20. [Galfus Module Image](#20-galfus-module-image)
-21. [`.gfb`](#21-gfb)
-22. [`.gfb.map`](#22-gfbmap)
-23. [VM core](#23-vm-core)
-24. [Runner manager](#24-runner-manager)
-25. [JIT policy](#25-jit-policy)
-26. [Function model](#26-function-model)
-27. [Synthetic functions](#27-synthetic-functions)
-28. [Struct initialization](#28-struct-initialization)
-29. [Module system](#29-module-system)
-30. [Import backends](#30-import-backends)
-31. [C-ABI integration](#31-c-abi-integration)
-32. [WASM integration](#32-wasm-integration)
-33. [Builtin modules](#33-builtin-modules)
-34. [Owner Graph Runtime](#34-owner-graph-runtime)
-35. [Root blocks](#35-root-blocks)
-36. [Affected Graph Release](#36-affected-graph-release)
-37. [Weak references](#37-weak-references)
-38. [Copy model](#38-copy-model)
-39. [Runtime arrays and variadics](#39-runtime-arrays-and-variadics)
-40. [Debug architecture](#40-debug-architecture)
-41. [Development mode](#41-development-mode)
-42. [Release mode](#42-release-mode)
-43. [Browser/WASM mode](#43-browserwasm-mode)
-44. [Architecture summary](#44-architecture-summary)
+2. [Architecture Scope](#2-architecture-scope)
+3. [Core Principles](#3-core-principles)
+4. [High-Level Architecture](#4-high-level-architecture)
+5. [Module Model](#5-module-model)
+6. [Frontend Model](#6-frontend-model)
+7. [Lowering Model](#7-lowering-model)
+8. [Execution Artifacts](#8-execution-artifacts)
+9. [`.gfb` - Galfus Binary](#9-gfb---galfus-binary)
+10. [`.gfm` - Galfus Map](#10-gfm---galfus-map)
+11. [Runtime Loader](#11-runtime-loader)
+12. [VM Core](#12-vm-core)
+13. [Runtime Slices](#13-runtime-slices)
+14. [Import Backends](#14-import-backends)
+15. [Bundle Model](#15-bundle-model)
+16. [Tree-Shaking](#16-tree-shaking)
+17. [Executable Bundle](#17-executable-bundle)
+18. [WASM Runtime + VM](#18-wasm-runtime--vm)
+19. [Debug and Release Modes](#19-debug-and-release-modes)
+20. [Integrity and Authenticity](#20-integrity-and-authenticity)
+21. [Flow A - `.gfs` to `.gfb + .gfm`](#21-flow-a---gfs-to-gfb--gfm)
+22. [Flow B - `.gfb` to Interpreted Execution](#22-flow-b---gfb-to-interpreted-execution)
+23. [Flow C - `.gfb` to VM-Bundled Executable](#23-flow-c---gfb-to-vm-bundled-executable)
+24. [Flow D - Runtime Linking](#24-flow-d---runtime-linking)
+25. [Flow E - Debug Reconstruction](#25-flow-e---debug-reconstruction)
+26. [Flow F - Tree-Shaking](#26-flow-f---tree-shaking)
+27. [Non-Goals](#27-non-goals)
+28. [Architecture Summary](#28-architecture-summary)
 
 ---
 
 ## 1. Identity
 
-Galfus Script is a typed VM scripting language with deterministic ownership and configurable aggressive JIT.
+Galfus Script is a typed VM-first scripting language with deterministic ownership, module-local semantic graphs, compact bytecode artifacts, multi-backend imports, and aggressive bundle-time tree-shaking.
 
 Short definition:
 
 ```txt
-Galfus is a typed VM scripting language
-with deterministic Owner Graph runtime,
-module-local semantic graphs,
-medium-level bytecode,
-multi-backend modules,
-and hybrid/eager JIT.
+Galfus Script is a typed VM-first language
+with module-local semantic graphs,
+compact Galfus binaries,
+separate debug maps,
+modular runtime slices,
+portable VM execution,
+and bundle-time tree-shaking.
 ```
 
-The language is not centered around native AOT compilation.
+Galfus is not centered around native AOT compilation.
 
-The core model is:
+The primary model is:
 
 ```txt
-source -> WorkspaceGraph -> ModuleGraph -> MIR -> Module Image -> VM -> execute
+.gfs source
+  -> WorkspaceGraph
+  -> ModuleGraph
+  -> MIR
+  -> bytecode
+  -> Galfus Module Image
+  -> .gfb
+  -> VM
+  -> execute
 ```
 
-The main design principles are:
+The release distribution model is:
 
 ```txt
-typed VM
-deterministic runtime
-module-local SemanticGraph
-incremental frontend
-stable export surfaces
-stable external references
-source-level debugging
-medium-level bytecode
-multi-backend imports
-hybrid JIT by default
-eager JIT in release
-WASM-capable VM
+.gfb + dependencies
+  -> BundleGraph
+  -> tree-shake
+  -> compact .gfb bundle
+  -> compact VM + runtime slices
+  -> executable or WASM-hosted runtime
 ```
 
 ---
 
-## 2. Architecture model
+## 2. Architecture Scope
 
-Galfus uses a graph-centered frontend.
+This document defines the base architecture of Galfus Script.
 
-There is no standalone frontend tree that must be copied into a separate high-level IR before semantic analysis.
+It covers:
 
-The frontend builds and updates graphs.
+```txt
+frontend architecture
+module isolation
+MIR and bytecode pipeline
+.gfb binary model
+.gfm debug map model
+runtime loader
+VM execution
+VM bundling
+tree-shaking
+WASM runtime + VM mode
+high-level execution flows
+```
+
+It does not define:
+
+```txt
+workspace configuration
+package manager format
+package registry
+project manifest syntax
+directory layout
+cache directory policy
+final command names
+final binary encoding
+final signature format
+```
+
+Those are intentionally left for later design phases.
+
+---
+
+## 3. Core Principles
+
+```txt
+typed VM-first execution
+module-local semantic graphs
+no global semantic graph
+modules connected by graph edges
+stable export surfaces
+stable external references
+compact runtime artifacts
+separate debug maps
+runtime-managed linking
+modular runtime slices
+aggressive tree-shaking
+portable execution
+WASM-hosted VM mode
+no mandatory native AOT backend
+```
+
+The main separation is:
+
+```txt
+compiler/tooling world:
+  WorkspaceGraph
+  ModuleGraph
+  SemanticGraph
+  MIR
+  debug metadata
+
+runtime world:
+  .gfb
+  .gfm, if available
+  runtime loader
+  VM core
+  runtime slices
+  adapter tables
+```
+
+The VM does not execute source code and does not need source syntax.
+
+---
+
+## 4. High-Level Architecture
+
+```txt
+.gfs source
+  -> lexer
+  -> parser
+  -> ModuleGraph syntax layer
+  -> import resolution
+  -> name resolution
+  -> type checking
+  -> semantic checking
+  -> ownership metadata preparation
+  -> export surface generation
+  -> external reference validation
+  -> lowering metadata preparation
+  -> MIR
+  -> bytecode
+  -> Galfus Module Image
+  -> .gfb
+  -> runtime loader
+  -> VM execution
+```
+
+For debug builds:
+
+```txt
+Galfus Module Image
+  -> .gfb
+  -> .gfm
+```
+
+For release builds:
+
+```txt
+Galfus Module Image
+  -> .gfb
+```
+
+For executable bundles:
+
+```txt
+.gfb + dependencies
+  -> BundleGraph
+  -> reachability analysis
+  -> tree-shaking
+  -> compact .gfb bundle
+  -> compact VM + selected runtime slices
+  -> executable
+```
+
+For WASM-hosted environments:
+
+```txt
+.gfb + optional .gfm
+  -> galfus_vm_runtime.wasm
+  -> browser / Bun / Node.js / other WASM host
+  -> execute bytecode through VM
+```
+
+---
+
+## 5. Module Model
+
+Modules are compilation units and namespaces.
+
+Each source module owns its own `ModuleGraph`.
 
 ```txt
 WorkspaceGraph
@@ -108,145 +234,70 @@ WorkspaceGraph
   `-- dependency edges
 ```
 
-Each `ModuleGraph` owns the complete semantic state for one module.
+A module sees itself directly.
 
-This includes:
+A module does not see the private internals of another module.
+
+Cross-module interaction happens through:
 
 ```txt
-parsed syntax nodes
-resolved names
-resolved imports
-resolved types
-function signatures
-struct fields
-choice variants
-enum discriminants
-anchor functions
-constraints
-satisfies declarations
-decorators
-default values
-null safety metadata
-ownership metadata
-source spans
-debug links
-export surface
+export surfaces
 external references
-lowering metadata
+import slots
+runtime resolution
 ```
 
-Conceptually, modules work like spreadsheet sheets.
-
-A module can use an exported symbol from another module without copying the other module's internal graph.
+Good cross-module reference:
 
 ```txt
-Sheet: main.gfs
-  uses user::create("Ana")
-
-Sheet: user.gfs
-  exports fn create(name: String): User
+main::CallExpr -> GlobalExportRef(user, export create)
 ```
 
-The `main` module stores a stable external reference to `user::create`.
+Bad cross-module reference:
 
-It does not point directly to arbitrary internal nodes of `user`.
+```txt
+main::CallExpr -> user::NodeId(182)
+```
+
+A module can import another module that eventually imports it back. Import loops are represented in the module graph.
+
+Example:
+
+```txt
+A imports B
+B imports C
+C imports A
+```
+
+The architecture supports this as graph structure, not as recursive textual inclusion.
+
+Loop handling happens conceptually by:
+
+```txt
+1. discover modules
+2. create module records
+3. create import edges
+4. detect cycles / strongly connected components
+5. resolve available export surfaces
+6. validate external references
+7. lower valid modules to MIR and bytecode
+```
+
+The exact workspace configuration and package rules are outside this document.
 
 ---
 
-## 3. Execution model
+## 6. Frontend Model
 
-Galfus source code is not executed directly.
+The frontend is graph-centered.
 
-It is compiled into a typed module image that the VM can execute.
+It builds and updates `ModuleGraph` instances.
 
-```txt
-.gfs source
-  -> lexer
-  -> parser
-  -> ModuleGraph syntax layer
-  -> resolver layers
-  -> type layer
-  -> semantic layers
-  -> MIR
-  -> bytecode
-  -> Galfus Module Image
-  -> VM
-  -> execution backend
-```
-
-The execution backend can be:
-
-```txt
-interpreter
-JIT compiled function
-builtin compiled function
-native C-ABI function
-WASM core function
-WASM component function
-```
-
-The VM does not know source syntax.
-
-It executes typed bytecode and runtime metadata from a module image.
-
----
-
-## 4. WorkspaceGraph
-
-`WorkspaceGraph` is the project-level graph.
-
-It owns the module dependency network.
-
-Responsibilities:
-
-```txt
-track source modules
-track binary modules
-track builtin modules
-track native modules
-track WASM modules
-resolve package/module paths
-own ModuleGraph instances
-track dependency edges
-track reverse dependency edges
-track invalidation state
-track graph versions
-track cache entries
-coordinate incremental compilation
-coordinate hot reload
-```
-
-Conceptual shape:
-
-```txt
-WorkspaceGraph {
-  modules: Arena<ModuleGraph>,
-  packages: PackageRegistry,
-  dependencies: DependencyGraph,
-  reverse_dependencies: ReverseDependencyGraph,
-  cache: WorkspaceCache,
-  invalidation_queue: InvalidationQueue,
-}
-```
-
-The workspace does not flatten all modules into one global semantic graph.
-
-Each module remains isolated behind its export surface.
-
----
-
-## 5. ModuleGraph
-
-`ModuleGraph` is the semantic graph of a single module.
-
-It is the frontend's main product.
-
-A module graph owns:
+A `ModuleGraph` owns the complete semantic state for one module:
 
 ```txt
 module identity
 source identity
-module version
 syntax nodes
 symbol table
 type table
@@ -263,515 +314,16 @@ export surface
 external references
 diagnostics
 debug/source mapping data
-lowering cache
+lowering metadata
 ```
 
-Conceptual shape:
-
-```txt
-ModuleGraph {
-  module_id: ModuleId,
-  source_id: SourceId,
-  version: ModuleVersion,
-
-  nodes: Arena<Node>,
-  symbols: Arena<Symbol>,
-  types: Arena<Type>,
-  functions: Arena<Function>,
-  structs: Arena<StructDef>,
-  enums: Arena<EnumDef>,
-  choices: Arena<ChoiceDef>,
-  constraints: Arena<ConstraintDef>,
-
-  syntax: SyntaxLayer,
-  names: NameLayer,
-  types_layer: TypeLayer,
-  semantics: SemanticLayer,
-  ownership: OwnershipLayer,
-  imports: ImportLayer,
-  exports: ExportSurface,
-  external_refs: ExternalRefTable,
-  lowering: LoweringLayer,
-  debug: DebugLayer,
-  diagnostics: DiagnosticSet,
-}
-```
+The frontend product is a lowerable `ModuleGraph`.
 
 The `ModuleGraph` is not a runtime object.
 
-It is a compiler/tooling object.
-
 The VM receives a `Galfus Module Image`, not a `ModuleGraph`.
 
----
-
-## 6. SemanticGraph
-
-`SemanticGraph` is the logical content of a `ModuleGraph`.
-
-It combines parsed syntax, resolved names, type information, semantic checks, and source-level metadata.
-
-The term `SemanticGraph` refers to the module-local graph after it has enough information to be lowered.
-
-A `SemanticGraph` contains source-level intent.
-
-Example source:
-
-```galfus
-var user = User {
-  name: "Renato",
-}
-```
-
-The semantic graph keeps this as a struct initialization concept:
-
-```txt
-StructInitNode {
-  struct: StructId(User),
-  fields: {
-    FieldId(name): StringLiteral("Renato"),
-    FieldId(age): DefaultMarker,
-  },
-  result_type: TypeId(User),
-  ownership: CreatesOwner,
-  source_span: Span(...),
-}
-```
-
-It does not immediately erase this into a low-level call.
-
-That happens during lowering to MIR.
-
----
-
-## 7. Graph layers
-
-A `ModuleGraph` is one graph with multiple layers.
-
-The layers prevent the graph from becoming an unstructured object with every possible field on every node.
-
-### Syntax layer
-
-Stores parsed source structure.
-
-```txt
-node kind
-children
-tokens
-source spans
-literal data
-operator data
-block structure
-```
-
-### Name layer
-
-Stores symbol resolution.
-
-```txt
-local bindings
-module bindings
-import bindings
-resolved symbols
-shadowing rules
-visibility rules
-anchor lookup results
-```
-
-### Type layer
-
-Stores type information.
-
-```txt
-expression types
-binding types
-function signatures
-generic substitutions
-coercions
-cast metadata
-union active possibilities
-nullability information
-```
-
-### Semantic layer
-
-Stores language-level meaning.
-
-```txt
-struct field mapping
-struct defaults
-choice payload mapping
-enum discriminants
-constraint satisfaction
-decorator application order
-parameter default metadata
-variadic collector metadata
-range metadata
-array metadata
-```
-
-### Ownership layer
-
-Stores ownership/runtime safety metadata.
-
-```txt
-creates owner
-shares owner handle
-requires local root
-requires temporary root
-creates strong edge
-removes strong edge
-creates weak edge
-may trigger release
-```
-
-### Import layer
-
-Stores imports and backend resolution.
-
-```txt
-source module import
-binary module import
-builtin module import
-native dynamic library import
-WASM core import
-WASM component import
-```
-
-### Export layer
-
-Stores the public surface of the module.
-
-```txt
-exported constants
-exported variables
-exported functions
-exported structs
-exported enums
-exported choices
-exported constraints
-exported type aliases
-exported submodules
-```
-
-### Lowering layer
-
-Stores data needed by MIR generation.
-
-```txt
-synthetic initializer refs
-synthetic constructor refs
-decorator wrapper refs
-copy thunk refs
-cast thunk refs
-variadic collector refs
-node-to-MIR links
-```
-
-### Debug layer
-
-Stores source-level mapping.
-
-```txt
-source spans
-original names
-scope metadata
-local variable metadata
-inferred type display
-diagnostic anchors
-breakpoint anchors
-watch expression anchors
-stack trace anchors
-```
-
----
-
-## 8. Graph phases
-
-A `ModuleGraph` evolves through phases.
-
-The phases are compiler invariants, not separate full copies of the graph.
-
-```txt
-ParsedGraph
-  -> ImportedGraph
-  -> ResolvedGraph
-  -> TypedGraph
-  -> CheckedGraph
-  -> LowerableGraph
-```
-
-### ParsedGraph
-
-The syntax layer is available.
-
-Names may still be unresolved.
-
-Types may still be unknown.
-
-### ImportedGraph
-
-Imports are known and linked to module candidates.
-
-External modules may still be loading or checking.
-
-### ResolvedGraph
-
-Names resolve to symbols.
-
-Imported symbols resolve to external references.
-
-Anchor calls resolve to function candidates.
-
-### TypedGraph
-
-Expressions, bindings, functions, fields, choices, and enums have type information.
-
-Generic substitutions and cast metadata are available.
-
-### CheckedGraph
-
-Semantic rules have been validated.
-
-This includes:
-
-```txt
-constraint rules
-satisfies rules
-decorator rules
-default parameter rules
-null safety rules
-weak reference rules
-ownership preparation rules
-visibility rules
-```
-
-### LowerableGraph
-
-The graph can be lowered to MIR.
-
-Synthetic functions and lowering metadata have been assigned.
-
----
-
-## 9. Stable identities
-
-Incremental compilation depends on stable identity.
-
-Internal nodes can change when the source changes.
-
-External modules must not depend on unstable internal node identifiers.
-
-Internal references use local ids:
-
-```txt
-NodeId
-SymbolId
-TypeId
-FunctionId
-StructId
-EnumId
-ChoiceId
-ConstraintId
-```
-
-Cross-module references use stable exported ids:
-
-```txt
-GlobalExportRef {
-  module_id: ModuleId,
-  export_id: ExportId,
-  export_kind: ExportKind,
-  surface_hash: Hash,
-}
-```
-
-Rules:
-
-```txt
-within a module, local ids are allowed
-between modules, ExportId is required
-external modules must not point to private NodeId values
-export identity must survive internal body edits when possible
-signature changes create a new export surface hash
-```
-
-Bad cross-module reference:
-
-```txt
-main::CallExpr -> user::NodeId(182)
-```
-
-Good cross-module reference:
-
-```txt
-main::CallExpr -> GlobalExportRef(user, export create)
-```
-
----
-
-## 10. Export surface
-
-The export surface is the stable public facade of a module.
-
-Other modules depend on the export surface, not on internal graph details.
-
-A module export surface contains:
-
-```txt
-exported symbol names
-export kinds
-function signatures
-type signatures
-struct public fields
-choice variants
-enum discriminants
-constraint signatures
-type alias expansions where needed
-anchor signatures
-ABI-facing metadata
-visibility metadata
-surface hashes
-```
-
-Example:
-
-```galfus
-export struct User {
-  id: int64,
-  name: String,
-}
-
-export fn create(name: String): User {
-  return User {
-    id: 1,
-    name,
-  }
-}
-```
-
-Export surface:
-
-```txt
-ModuleExports(user) {
-  struct User {
-    id: int64,
-    name: String,
-  }
-
-  fn create(String): User
-}
-```
-
-If only the body of `create` changes, the export surface may remain stable.
-
-If the signature of `create` changes, dependent modules must be invalidated.
-
----
-
-## 11. External references
-
-External references connect one module graph to another module's export surface.
-
-They also represent builtin, native, binary, and WASM imports.
-
-```txt
-ExternalRef {
-  source_module: ModuleId,
-  target_module: ModuleId,
-  export_id: ExportId,
-  export_kind: ExportKind,
-  backend_kind: BackendKind,
-  expected_signature_hash: Hash,
-  resolved_signature_hash: Hash,
-}
-```
-
-Backend kinds:
-
-```txt
-GalfusSource
-GalfusBinary
-Builtin
-NativeCAbi
-WasmCore
-WasmComponent
-```
-
-Example source:
-
-```galfus
-import user from "./user"
-
-var u = user::create("Ana")
-```
-
-External ref:
-
-```txt
-ExternalRef {
-  source_module: main,
-  target_module: user,
-  export: create,
-  export_kind: Function,
-  backend_kind: GalfusSource,
-  expected_signature: fn(String): User,
-}
-```
-
-External references are the basis for incremental invalidation.
-
----
-
-## 12. Module resolution
-
-Modules are namespaces and compilation units.
-
-The same import syntax can resolve to different backend kinds.
-
-```galfus
-import string from "string"
-import collections from "collections"
-import game from "./game"
-import physics from "./libphysics"
-import fast_math from "./fast_math.wasm"
-import image from "./image_component.wasm"
-import engine from "engine"
-```
-
-Search targets:
-
-```txt
-Galfus source module      .gfs
-Galfus binary module      .gfb
-builtin module
-native dynamic library    .dll / .so / .dylib
-WASM core module          .wasm
-WASM component            .wasm component
-```
-
-Resolution produces module records in the workspace graph.
-
-```txt
-ModuleRecord {
-  module_id,
-  module_name,
-  backend_kind,
-  source_location,
-  export_surface,
-  load_state,
-}
-```
-
-Source modules own a `ModuleGraph`.
-
-Binary, builtin, native, and WASM modules expose importable surfaces without requiring a source graph.
-
----
-
-## 13. Frontend pipeline
-
-The frontend builds and updates module graphs.
+Frontend pipeline:
 
 ```txt
 source text
@@ -788,185 +340,17 @@ source text
   -> lowering metadata preparation
 ```
 
-The frontend is responsible for:
-
-```txt
-lexing
-parsing
-module resolution
-import resolution
-name resolution
-type checking
-constraint checking
-satisfies checking
-decorator checking
-null safety checking
-weak reference checking
-ownership metadata preparation
-diagnostic generation
-export surface generation
-incremental invalidation
-```
-
-The frontend product is a lowerable `ModuleGraph`.
-
 ---
 
-## 14. Incremental compilation
+## 7. Lowering Model
 
-Incremental compilation operates on module graphs and export surfaces.
+Lowering converts source-level semantic meaning into execution-oriented MIR.
 
-Each module has hashes by layer.
-
-```txt
-SourceHash
-SyntaxHash
-ImportHash
-NameHash
-TypeHash
-SemanticHash
-OwnershipHash
-ExportSurfaceHash
-BodyHash
-LoweringHash
-MirHash
-BytecodeHash
-DebugMapHash
-```
-
-Invalidation rules:
-
-```txt
-source text changed
-  -> update syntax layer
-
-syntax changed but exports unchanged
-  -> recheck local module
-  -> rebuild affected MIR functions
-  -> patch module image
-
-export surface changed
-  -> invalidate dependent external refs
-  -> re-resolve affected dependents
-  -> re-typecheck affected dependents
-
-ABI surface changed
-  -> rebuild ABI adapters
-  -> invalidate native/WASM call sites if needed
-```
-
-The workspace tracks reverse dependencies.
-
-```txt
-user changed
-  -> find modules that import user
-  -> compare old export surface with new export surface
-  -> invalidate only affected dependents
-```
-
-The ideal case:
-
-```txt
-function body changed
-export surface unchanged
-  -> rebuild local MIR/bytecode only
-  -> keep dependents valid
-```
-
----
-
-## 15. Hot reload
-
-Hot reload patches running or reloadable module images when safe.
-
-Development mode uses the module graph to determine the smallest safe reload unit.
-
-Hot reload flow:
-
-```txt
-file changed
-  -> update ModuleGraph
-  -> rebuild changed functions
-  -> rebuild changed debug map ranges
-  -> compare export surface
-  -> patch module image
-  -> notify VM loader
-  -> update function entrypoints
-```
-
-Safe hot reload cases:
-
-```txt
-function body changed
-private helper changed
-private constant changed
-private synthetic lowering changed
-non-exported implementation detail changed
-```
-
-Potentially unsafe hot reload cases:
-
-```txt
-exported function signature changed
-exported struct layout changed
-exported choice payload changed
-exported enum discriminant changed
-ownership semantics changed
-ABI signature changed
-native/WASM boundary changed
-```
-
-Unsafe reload can fall back to full module reload or full program restart depending on runner policy.
-
-The VM must support replacing function records and invalidating stale JIT entrypoints.
-
----
-
-## 16. Diagnostics
-
-Diagnostics are graph anchored.
-
-A diagnostic points to a source span and a graph node.
-
-```txt
-Diagnostic {
-  code,
-  severity,
-  message,
-  primary_span,
-  related_spans,
-  node_id,
-  phase,
-}
-```
-
-Diagnostics can be produced by:
-
-```txt
-parser
-import resolver
-name resolver
-type checker
-constraint checker
-decorator checker
-null safety checker
-ownership checker
-lowering validator
-```
-
-Because graph nodes survive incremental updates when possible, diagnostics can be updated without recomputing the full workspace.
-
----
-
-## 17. Lowering to MIR
-
-Lowering reads a lowerable `ModuleGraph` and produces MIR.
-
-The graph preserves source-level intent.
+The semantic graph preserves source intent.
 
 MIR expresses VM-level operations.
 
-Example source:
+Example source concept:
 
 ```galfus
 var user = User {
@@ -974,7 +358,7 @@ var user = User {
 }
 ```
 
-Semantic graph node:
+Semantic concept:
 
 ```txt
 StructInitNode {
@@ -986,7 +370,7 @@ StructInitNode {
 }
 ```
 
-MIR conceptual form:
+MIR concept:
 
 ```txt
 r0 = const_string "Renato"
@@ -995,237 +379,255 @@ r2 = call User::__init(r0, r1)
 store_local user, r2
 ```
 
-Lowering is responsible for:
+Bytecode is the compact executable form derived from MIR.
+
+The bytecode can be treated as an executable serialization of finalized MIR, but the compiler MIR and VM bytecode remain conceptually separate layers.
 
 ```txt
-turning source concepts into explicit operations
-creating synthetic function calls
-creating temporary roots
-creating local root operations
-creating strong edge operations
-creating weak edge operations
-expanding default parameters
-expanding variadic collectors
-applying decorator wrappers
-lowering struct initialization
-lowering choice construction
-lowering enum discriminants
-lowering casts
-lowering ranges
-lowering arrays
-preserving debug links
+MIR:
+  rich internal compiler representation
+  useful for validation and lowering
+
+bytecode:
+  compact VM representation
+  useful for loading and execution
 ```
 
 ---
 
-## 18. MIR
+## 8. Execution Artifacts
 
-MIR means Medium-level Intermediate Representation.
-
-MIR is close to VM execution.
-
-It is the main input to bytecode generation.
-
-MIR makes these things explicit:
+Galfus has two main disk artifacts:
 
 ```txt
-local roots
-temporary roots
-field writes
-strong edges
-weak edges
-calls
-casts
-choice construction
-enum discriminants
-struct initialization
-decorator application
-range construction
-array construction
-variadic collection
-copy thunks
-cast thunks
+.gfb = Galfus Binary
+.gfm = Galfus Map
 ```
 
-MIR should not become the source-level semantic graph.
-
-The distinction is:
+Debug build:
 
 ```txt
-ModuleGraph = source meaning and tooling state
-MIR         = execution-oriented intermediate form
+app.gfb
+app.gfm
+```
+
+Release build:
+
+```txt
+app.gfb
+```
+
+Release with private crash-report mapping:
+
+```txt
+app.gfb
+app.gfm, emitted explicitly
+```
+
+Executable bundle:
+
+```txt
+app.exe / app
+  + compact VM
+  + bundle manifest
+  + compact .gfb bundle
+  + selected runtime slices
+  + selected builtin slices
+  + selected WASM/native adapters
+  + selected external payloads
 ```
 
 ---
 
-## 19. Bytecode
-
-Bytecode is the VM instruction stream generated from MIR.
-
-It is typed through module metadata.
-
-Bytecode contains low-level executable instructions such as:
-
-```txt
-load constant
-load local
-store local
-call function
-call external
-jump
-branch
-construct owner
-write field
-write strong edge
-write weak edge
-cast
-return
-leave root block
-```
-
-The bytecode is stored inside a `Galfus Module Image`.
-
-The VM executes bytecode through the interpreter or uses it as input/context for JIT compilation.
-
----
-
-## 20. Galfus Module Image
-
-A Galfus Module Image is the VM-loadable representation of a module.
-
-It can live:
-
-```txt
-in RAM
-in disk cache
-inside a package
-inside an executable
-inside a browser session
-downloaded from the network
-```
-
-It contains:
-
-```txt
-bytecode
-type table
-function table
-constant table
-module table
-import table
-export table
-struct layouts
-choice layouts
-enum discriminants
-ownership metadata
-debug links
-ABI metadata
-JIT metadata
-```
-
-The module image is the real execution unit.
-
-The VM loads module images, not source graphs.
-
----
-
-## 21. `.gfb`
+## 9. `.gfb` - Galfus Binary
 
 `.gfb` means Galfus Binary.
 
-It is the disk form of a Galfus Module Image.
+It is the compact executable binary artifact loaded by the Galfus VM.
+
+It is not native machine code.
+
+It is not meant to be human-friendly.
+
+It is not meant to contain source-level debug information.
+
+A `.gfb` contains what the VM needs to execute a module or compact bundle:
 
 ```txt
-main.gfb
-```
-
-A `.gfb` contains what the VM needs to execute:
-
-```txt
-header
-format version
-module name
-module identity
-export surface hash
-type table
-function table
-import table
-export table
-constant table
 bytecode
-struct layouts
-choice layouts
-enum discriminants
+compact constant pool
+compact function table
+compact type table
+compact layout table
+import slots
+export slots
 ownership metadata
-ABI metadata
-JIT metadata
-optional compact debug references
+module init data
+minimal runtime metadata
 ```
 
-A `.gfb` is not necessarily native machine code.
-
-It is a portable binary module for the Galfus VM.
-
----
-
-## 22. `.gfb.map`
-
-`.gfb.map` is the debug map for a `.gfb`.
+A `.gfb` should not preserve:
 
 ```txt
-main.gfb
-main.gfb.map
-```
-
-It contains:
-
-```txt
+private names
+source paths
 source spans
-node -> source mapping
-MIR -> source mapping
-bytecode -> source mapping
-synthetic function -> source mapping
-original names
-local variable metadata
-scope metadata
-inferred types
-breakpoint data
-watch data
-stack trace data
-external reference display data
+local variable names
+human-readable internal function names
+debug scopes
+watch expression metadata
+breakpoint metadata
 ```
 
-It allows the debugger to show source-level information instead of internal VM details.
-
-Example internal function:
+The `.gfb` header is intentionally small:
 
 ```txt
-User::__init
-```
-
-Can be shown to the user as:
-
-```galfus
-User {
-  name: "Renato",
+GfbHeader {
+  magic
+  format_version
+  body_hash
+  flags
 }
 ```
 
-The debug map can be generated from the `ModuleGraph` debug layer and MIR lowering links.
+The `body_hash` validates the body of the `.gfb`.
+
+It is calculated over the body, not over the full file including the hash field itself.
+
+A `.gfb` does not know the private internals of other modules.
+
+A `.gfb` only declares compact import requirements:
+
+```txt
+ImportSlot {
+  module_ref_hash
+  export_ref_hash
+  expected_kind
+  expected_signature_hash
+}
+```
+
+The final connection is done by the runtime loader or bundle loader.
 
 ---
 
-## 23. VM core
+## 10. `.gfm` - Galfus Map
+
+`.gfm` means Galfus Map.
+
+It replaces the earlier `.gfb.map` concept.
+
+The `.gfm` reconstructs the human/tooling view of a `.gfb`.
+
+It knows how to translate compact internal runtime ids back into source-level information.
+
+A `.gfm` contains:
+
+```txt
+target_gfb_hash
+gfm_hash
+source files
+source paths
+source spans
+original names
+local variable names
+scope metadata
+inferred type display
+source node -> source span
+MIR operation -> source span
+bytecode offset -> source span
+function id -> source function
+synthetic function -> source expression
+external ref -> import path/symbol
+stack trace metadata
+breakpoint metadata
+watch expression metadata
+profiling labels
+```
+
+The `.gfm` is optional at runtime.
+
+Without `.gfm`, an internal frame may look like:
+
+```txt
+fn#12
+local#2
+type#8
+offset@128
+call import#4
+```
+
+With `.gfm`, tooling can reconstruct:
+
+```txt
+src/user.gfs:12:5
+user::createUser(name: String): User
+local name
+User { name }
+```
+
+The `.gfm` knows the internal compact structure of the `.gfb`, but the `.gfb` does not depend on `.gfm` to execute.
+
+---
+
+## 11. Runtime Loader
+
+The runtime loader connects executable module artifacts.
+
+Its responsibilities are:
+
+```txt
+load .gfb module images
+validate format versions
+validate body hashes
+read compact import slots
+read compact export slots
+resolve Galfus module imports
+resolve builtin imports
+resolve WASM imports
+resolve native library imports when supported
+create adapter records
+patch function/import tables
+prepare module initialization
+start the VM entrypoint
+```
+
+The runtime loader is the real linker of the execution world.
+
+The `.gfb` declares requirements.
+
+The runtime loader resolves those requirements.
+
+Example mappings:
+
+```txt
+Galfus -> Galfus:
+  call import#4 -> module#B.function#17
+
+Galfus -> Builtin:
+  call import#5 -> builtin#string.trim
+
+Galfus -> WASM:
+  call import#8 -> wasm_adapter#3 -> wasm export
+
+Galfus -> native dynamic library:
+  call import#9 -> native_adapter#2 -> C-ABI symbol
+```
+
+Native C-ABI linking is available only in native runtime builds, not in WASM-hosted runtime builds.
+
+---
+
+## 12. VM Core
 
 The VM core executes Galfus Module Images.
 
-It is designed to be host-agnostic.
+It is host-agnostic.
 
-Responsibilities:
+Its responsibilities include:
 
 ```txt
-load module image
-link imports
+load module image data
 execute bytecode
 manage call frames
 manage locals
@@ -1235,321 +637,84 @@ perform casts
 call functions
 dispatch module calls
 run Owner Graph Runtime
-perform Affected Graph Release
-support debug hooks
-support JIT entrypoints
-support native/WASM calls
-support hot reload patch points
-invalidate stale JIT entrypoints
+support weak references
+support builtin calls
+support adapter calls
+support debug hooks when available
+support JIT hooks if compiled in
 ```
 
 The VM does not need to know source syntax.
 
-It executes typed bytecode and runtime metadata.
+It only needs compact executable metadata.
 
 ---
 
-## 24. Runner manager
+## 13. Runtime Slices
 
-The runner manager is the orchestration layer around the VM and frontend.
+The runtime is modular.
 
-It handles:
+Only required slices should be included in a bundle.
 
-```txt
-CLI
-watch mode
-REPL
-project loading
-package resolution
-module resolution
-source graph construction
-incremental graph updates
-.gfb cache
-.gfb.map cache
-lint/check server
-debug server
-hot reload coordination
-JIT policy selection
-VM loader
-host bridge
-```
-
-Conceptually:
+Possible runtime slices:
 
 ```txt
-galfus-run-manager
-  +-- workspace graph
-  +-- module resolver
-  +-- frontend graph builder
-  +-- incremental compiler
-  +-- cache manager
-  +-- lint/check server
-  +-- debug server
-  +-- VM loader
-  +-- hot reload manager
-  `-- host bridge
+vm_core
+owner_graph
+root_blocks
+strings
+arrays
+tuples
+choices
+closures
+collections
+weak_refs
+reflection
+errors_panic
+wasm_adapter
+native_adapter
+debug_hooks
+jit_hooks
 ```
 
-The VM core remains smaller and more portable.
-
----
-
-## 25. JIT policy
-
-Galfus supports configurable JIT modes.
-
-```txt
---jit=off
---jit=lazy
---jit=hybrid
---jit=eager
-```
-
-Default general mode:
-
-```txt
---jit=hybrid
-```
-
-Release mode:
-
-```txt
---release => --jit=eager
-```
-
-### `off`
-
-No native JIT.
-
-Useful for:
-
-```txt
-debug
-deterministic testing
-WASM/browser VM
-tooling
-fallback mode
-```
-
-### `lazy`
-
-Starts interpreted and compiles hot functions later.
-
-```txt
-interpret first
-count calls/loops
-detect hot paths
-JIT hot functions
-```
-
-### `hybrid`
-
-Default mode.
-
-```txt
-interpret cold functions
-JIT small/obvious functions early
-JIT hot paths lazily
-preserve good debug behavior
-preserve hot reload behavior
-```
-
-### `eager`
-
-Default in release.
-
-```txt
-load module
-compile eligible functions immediately
-execute through compiled entrypoints
-keep interpreter as fallback
-```
-
-Hot reload must invalidate or replace affected JIT entrypoints.
-
----
-
-## 26. Function model
-
-Every function has a VM-level function record.
-
-```txt
-GalfusFunction {
-  module_id
-  function_id
-  name
-  signature_id
-  backend_kind
-  bytecode_offset
-  jit_entrypoint
-  native_entrypoint
-  wasm_entrypoint
-  debug_ref
-  version
-}
-```
-
-Possible backend kinds:
-
-```txt
-InterpretedBytecode
-JitCompiled
-BuiltinCompiled
-NativeCAbi
-WasmCore
-WasmComponent
-```
-
-Function calls use the function table.
-
-The same source-level call syntax can reach different backends.
-
-Hot reload may replace the function body while keeping a stable function identity when the signature remains compatible.
-
----
-
-## 27. Synthetic functions
-
-Synthetic functions are internal compiler-generated functions.
-
-They are hidden from the user.
+Tree-shaking can remove unused runtime slices.
 
 Examples:
 
 ```txt
-struct initializers
-choice constructors
-decorator wrappers
-field default initializers
-module initializers
-copy thunks
-cast thunks
-variadic argument collectors
-ABI adapters
-WASM adapters
+No weak fields or weak collections:
+  remove weak_refs slice
+
+No List/Map/Set:
+  remove collections slice
+
+No WASM imports:
+  remove wasm_adapter slice
+
+No native dynamic library imports:
+  remove native_adapter slice
+
+Release without .gfm:
+  remove most debug_hooks
+
+Tiny bundle:
+  remove jit_hooks
 ```
-
-They do not appear in:
-
-```txt
-normal autocomplete
-normal documentation
-public exports
-ordinary reflection
-standard stack traces
-```
-
-Debug tools can reveal them in compiler-internal mode.
-
-The debug map maps synthetic functions back to source expressions.
 
 ---
 
-## 28. Struct initialization
+## 14. Import Backends
 
-Each `struct` has one internal synthetic initializer.
+The same Galfus import syntax can resolve to different backend kinds.
 
-Example source:
-
-```galfus
-struct User {
-  name: String,
-  age: int32 = 0,
-}
-
-var user = User {
-  name: "Renato",
-}
-```
-
-The semantic graph stores this as a struct initialization node with a default marker.
-
-Conceptual lowering:
-
-```txt
-User::__init(
-  name = "Renato",
-  age = default
-)
-```
-
-The `default` marker is internal.
-
-It is:
-
-```txt
-not null
-not public
-not constructible by users
-not part of normal type space
-```
-
-The synthetic initializer:
-
-```txt
-allocates the owner
-applies field defaults
-applies field decorators
-validates required fields
-registers strong edges
-returns the owner handle
-```
-
-In release mode, `User::__init` is a strong candidate for eager JIT.
-
----
-
-## 29. Module system
-
-Modules are namespaces and compilation units.
-
-A module can export:
-
-```txt
-const
-var
-fn
-struct
-enum
-choice
-constraint
-type alias
-submodule reexport
-```
-
-Example:
-
-```galfus
-export const version = 1
-
-export struct User {
-  name: String,
-}
-
-export fn createUser(name: String): User {
-  return User {
-    name,
-  }
-}
-```
-
-Imports are resolved by the runner manager and represented in the workspace graph.
-
-The same import syntax can load different backend kinds.
-
----
-
-## 30. Import backends
-
-An import may resolve to:
+Supported import backends:
 
 ```txt
 Galfus source module      .gfs
 Galfus binary module      .gfb
 builtin module
+WASM module               .wasm
 native dynamic library    .dll / .so / .dylib
-WASM core module          .wasm
-WASM component            .wasm component
 ```
 
 Examples:
@@ -1557,699 +722,797 @@ Examples:
 ```galfus
 import string from "string"
 import collections from "collections"
-import game from "./game"
+import user from "./user"
 import physics from "./libphysics"
 import fast_math from "./fast_math.wasm"
-import image from "./image_component.wasm"
-import engine from "engine"
 ```
 
-To user code, all of them look like modules.
+To user code, these all look like modules.
 
-```galfus
-string::trim(text)
-physics::step(world, dt)
-fast_math::add(a, b)
-engine::spawn(entity)
-```
+At runtime, they become different backend records and adapter paths.
 
-In the graph, each imported symbol is represented by an `ExternalRef`.
+Native dynamic libraries are not supported in WASM-hosted runtime mode.
 
 ---
 
-## 31. C-ABI integration
+## 15. Bundle Model
 
-Galfus can load native dynamic libraries.
+A Galfus Bundle is a compact execution package built from `.gfb` artifacts and reachable dependencies.
 
-```txt
-Windows -> .dll
-Linux   -> .so
-macOS   -> .dylib
-```
-
-Example:
-
-```galfus
-import physics from "./libphysics"
-```
-
-Execution path:
+A bundle may contain:
 
 ```txt
-Galfus call
-  -> ABI adapter
-  -> C-ABI
-  -> native dynamic library
+main .gfb
+Galfus dependency .gfb modules
+builtin slices used
+runtime slices used
+WASM modules used
+native library descriptors or payloads
+adapter descriptors
+bundle manifest
 ```
 
-User code does not manipulate raw pointers.
-
-Native bindings should map into safe Galfus-facing types:
+The bundle preserves logical module boundaries but can physically pack data into a compact artifact.
 
 ```txt
-int32
-float32
-bool
-String
-Buffer<uint8>
-ABI-safe struct
-opaque handle
-Result
+physical view:
+  one compact bundle
+
+logical view:
+  multiple modules
+  import slots
+  export slots
+  runtime bindings
 ```
 
-Native resources are represented as typed handles, not raw pointers.
+A bundle does not require frontend data.
 
-Native imports expose an export surface and ABI metadata to the workspace graph.
+It does not include `ModuleGraph`, parser, resolver, or type checker unless explicitly building a development tool bundle.
 
 ---
 
-## 32. WASM integration
+## 16. Tree-Shaking
 
-Galfus supports two WASM integration modes.
+Tree-shaking operates over the `BundleGraph`.
 
-### WASM core module
+It starts from the entrypoint and discovers reachable items.
 
-A WASM core module can be imported:
-
-```galfus
-import fast_math from "./fast_math.wasm"
-```
-
-Execution path:
+Reachability includes:
 
 ```txt
-Galfus VM
-  -> WASM runtime
-  -> WASM export
+reachable Galfus functions
+reachable Galfus types
+reachable constants
+reachable synthetic functions
+reachable imports
+reachable builtin exports
+reachable runtime slices
+reachable adapters
+reachable WASM/native payloads
 ```
 
-This supports modules compiled from:
+The final rule is:
 
 ```txt
-Rust
-C
-Zig
-AssemblyScript
-other WASM-producing languages
+exported does not mean included.
+included means reachable from the entrypoint or required by host/manifest policy.
 ```
 
-### WASM Component
-
-A WASM component can also be imported:
-
-```galfus
-import image from "./image_component.wasm"
-```
-
-WASM Component supports richer interface types:
+Tree-shaking can remove:
 
 ```txt
-records
-variants
-strings
-lists
-resources
-imports
-exports
+unreachable modules
+unreachable functions
+unreachable private constants
+unreachable structs/enums/choices
+unused builtin functions
+unused runtime slices
+unused adapters
+unused debug hooks
+.gfm in release by default
 ```
 
-This is useful for strongly typed integration with Rust and other component-capable toolchains.
-
-WASM imports expose an export surface to the workspace graph.
-
----
-
-## 33. Builtin modules
-
-Builtin modules are standard modules shipped with the runtime.
-
-Examples:
+Features that reduce tree-shaking precision:
 
 ```txt
-string
-integer
-float
-math
-reflect
-collections
-matrix
-colors
-serialize
-```
-
-Builtin modules may be compiled.
-
-Example:
-
-```galfus
-string::trim(text)
-math::sqrt(9.0)
-collections::list::push(users, user)
-```
-
-These calls may execute as:
-
-```txt
-builtin compiled function
-JIT intrinsic
-VM bytecode
-```
-
-Builtin compiled functions must still respect Galfus semantics:
-
-```txt
-type safety
-null safety
-owner graph
-strong edges
-weak edges
-root blocks
-```
-
-Builtin modules expose typed export surfaces to the workspace graph.
-
----
-
-## 34. Owner Graph Runtime
-
-Complex values are represented internally by owner handles.
-
-Complex values include:
-
-```txt
-String
-struct
-array
-tuple
-List
-Map
-Set
-Buffer
-function
-closure
-union
-choice with payload
-```
-
-Conceptual owner metadata:
-
-```txt
-OwnerMetaPointer {
-  id
-  generation
-  type_id
-  state: alive | releasing | released
-
-  root_count
-  strong_in_count
-
-  strong_edges
-  weak_edges
-
-  payload
-}
-```
-
-The Owner Graph Runtime is responsible for deterministic lifetime management.
-
-Users do not manually destroy values.
-
----
-
-## 35. Root blocks
-
-A root block is a runtime/language unit that tracks local roots.
-
-Example:
-
-```galfus
-{
-  var a = Node { name: "A" }
-  var b = Node { name: "B" }
-
-  a.next = b
-  b.next = a
-}
-```
-
-At block exit:
-
-```txt
-leave_root_block(block)
-```
-
-The runtime:
-
-```txt
-removes local roots from the block
-marks affected owners as candidates
-checks affected graph fragments
-destroys unreachable owner graphs
-```
-
-Roots can be:
-
-```txt
-local root
-temporary root
-module/global root
-closure root
-runner root
-debugger root
-```
-
-Anything that must not be destroyed must be reachable through a root.
-
----
-
-## 36. Affected Graph Release
-
-Galfus does not perform global periodic heap tracing.
-
-Instead, it uses Affected Graph Release.
-
-When roots or strong edges are removed, affected owners become candidates.
-
-The runtime analyzes only the affected graph fragments.
-
-High-level algorithm:
-
-```txt
-1. root or strong edge is removed
-2. affected owner is marked as candidate
-3. candidate graph fragment is expanded through strong edges
-4. nodes reachable from external roots are marked alive
-5. unmarked nodes are unreachable
-6. unreachable nodes are destroyed deterministically
-```
-
-This allows strong cycles to be collected without scanning the whole heap.
-
-Example cycle:
-
-```txt
-a -> b
-b -> a
-```
-
-If no external root reaches `a` or `b`, the whole cycle is released.
-
----
-
-## 37. Weak references
-
-`weak` references do not keep values alive.
-
-Example:
-
-```galfus
-struct CacheEntry {
-  weak resource: Resource | null = null,
-}
-```
-
-Weak references must be nullable.
-
-Invalid:
-
-```galfus
-weak resource: Resource
-```
-
-Weak load behavior:
-
-```txt
-target alive     -> T
-target releasing -> null
-target released  -> null
-```
-
-Weak collections:
-
-```txt
-WeakVec<T>
-WeakMap<K, V>
-WeakSet<T>
-```
-
-Weak handles can use owner id + generation internally.
-
----
-
-## 38. Copy model
-
-Complex assignment shares the owner handle.
-
-```galfus
-var a = User { name: "Ana" }
-var b = a
-```
-
-`a` and `b` point to the same owner.
-
-No implicit deep copy occurs.
-
-No implicit shallow copy occurs.
-
-Shallow copy:
-
-```galfus
-var b = User {
-  ...a,
-}
-```
-
-Deep copy:
-
-```galfus
-var c = copy a
-```
-
-Deep copy preserves:
-
-```txt
-cycles
-topology
-internal sharing
+broad reflection
+dynamic lookup by string
+plugin loading
+host-required public exports
+full debug mode
 ```
 
 ---
 
-## 39. Runtime arrays and variadics
+## 17. Executable Bundle
 
-Galfus has two array forms.
+The executable bundle model is Bun-like in distribution shape, but VM-first in execution.
 
-Compile-time-sized array:
+It does not compile Galfus bytecode to native machine code.
 
-```galfus
-var a: [int32; 3] = [1, 2, 3]
-```
+It embeds a compact Galfus VM and a compact Galfus bundle.
 
-Runtime-sized fixed array:
-
-```galfus
-var size = 2
-var a = buffer::array<int32>(size)
-// type: [int32]
-```
-
-`[T; N]` means:
+Conceptual executable:
 
 ```txt
-fixed array with compile-time-known length N
+app.exe / app
+  + galfus_vm_min
+  + bundle manifest
+  + compact .gfb bundle
+  + runtime slices used
+  + builtin slices used
+  + WASM modules used
+  + native library descriptors/payloads used
+  + adapters used
 ```
 
-`[T]` means:
+Build flow:
 
 ```txt
-fixed array with runtime-known length n
+entry .gfb
+  -> dependency discovery
+  -> BundleGraph
+  -> cycle/SCC analysis
+  -> reachability analysis
+  -> tree-shaking
+  -> compact bundle
+  -> selected VM core
+  -> selected runtime slices
+  -> executable
 ```
 
-Both are fixed after construction.
-
-They are not `List<T>`.
-
-A variadic function receives its arguments through a runtime-sized internal array:
-
-```galfus
-fn summarize(...values: [int32]): int32 {
-  return values.length
-}
-```
-
-Inside the function:
+Startup flow:
 
 ```txt
-values: [int32]
+run executable
+  -> load embedded manifest
+  -> validate authenticity
+  -> validate embedded artifact hashes
+  -> load compact VM
+  -> load compact .gfb bundle
+  -> resolve import slots
+  -> attach runtime slices
+  -> attach adapters
+  -> execute entrypoint
 ```
-
-The semantic graph represents the variadic parameter as a collector.
-
-Lowering creates the internal runtime-sized array.
 
 ---
 
-## 40. Debug architecture
+## 18. WASM Runtime + VM
 
-Debugging uses `.gfb.map` or an in-memory `GalfusDebugMap`.
+Galfus will provide a WASM build of the runtime + VM.
 
-The debug map translates internal execution details back to source-level concepts.
-
-It maps:
+Conceptual artifact:
 
 ```txt
-source node -> source span
-source node -> semantic entity
-semantic entity -> MIR operation
-MIR operation -> bytecode offset
-bytecode offset -> source span
-synthetic function -> source expression
-local slot -> variable name
-runtime type -> source type
-call frame -> source function
-external ref -> import path/symbol
+galfus_vm_runtime.wasm
 ```
 
-Example internal function:
+This artifact contains:
 
 ```txt
-User::__init
+Galfus VM core
+bytecode interpreter
+runtime loader
+selected portable runtime slices
+WASM-compatible Owner Graph Runtime
+WASM-compatible root blocks
+WASM-compatible builtin slices
+WASM module adapter support where host permits
+optional debug hooks
+optional REPL/sandbox interfaces
 ```
 
-Can be shown as:
-
-```galfus
-User {
-  name: "Renato",
-}
-```
-
-The debugger should hide synthetic details by default.
-
-Compiler-internal mode can reveal synthetic functions, MIR operations, and graph node ids.
-
----
-
-## 41. Development mode
-
-Default development command:
+It can run in:
 
 ```txt
-galfus run main.gfs
+browser
+Bun
+Node.js
+Deno
+edge runtimes
+other WASM hosts
 ```
 
-Default JIT policy:
-
-```txt
---jit=hybrid
-```
-
-Development mode prioritizes:
-
-```txt
-fast edit-run cycle
-good diagnostics
-hot reload
-module graph reuse
-export surface comparison
-source-level stack traces
-incremental checking
-in-memory debug maps
-hybrid JIT
-```
-
-Typical dev flow:
-
-```txt
-source in memory
-  -> ModuleGraph update
-  -> affected graph layers rechecked
-  -> changed functions lowered to MIR
-  -> module image patched in memory
-  -> debug map patched in memory
-  -> VM hot reload
-  -> hybrid execution
-```
-
-The `.gfb` file does not need to be written to disk.
-
----
-
-## 42. Release mode
-
-Release mode uses eager JIT by default.
-
-```txt
-galfus run --release main.gfs
-```
-
-Equivalent policy:
-
-```txt
---jit=eager
-```
-
-Release mode prioritizes:
-
-```txt
-lower runtime overhead
-compiled function entrypoints
-compiled synthetic initializers
-compiled builtin wrappers
-compact module images
-less debug overhead
-no hot reload requirement
-```
-
-Release flow:
-
-```txt
-source or .gfb
-  -> module graph if source is used
-  -> module image
-  -> eager JIT eligible functions
-  -> execute
-```
-
-The interpreter remains available as fallback.
-
----
-
-## 43. Browser/WASM mode
-
-The Galfus VM can be compiled to WASM and run in the browser.
-
-Use cases:
+Primary use cases:
 
 ```txt
 online playground
 interactive documentation
+real-time tutorials
+sandboxed execution
 browser demos
-online tests
-web apps without writing application logic in JavaScript
+REPL
+educational tools
+safe scripting environments
+CI validation in restricted environments
 ```
 
-Flow:
+WASM-hosted Galfus can execute:
 
 ```txt
-.gfs or .gfb
-  -> Galfus VM compiled to WASM
-  -> interpret Galfus bytecode in browser
+.gfb modules
+.gfb bundles
+builtin modules compiled into the WASM runtime
+Galfus bytecode
+portable runtime slices
+WASM imports, if supported by the embedding host
+```
+
+WASM-hosted Galfus cannot directly execute native C-ABI dynamic libraries:
+
+```txt
+unsupported in WASM-hosted mode:
+  .dll
+  .so
+  .dylib
+  native C-ABI adapter
+```
+
+Reason:
+
+```txt
+A WASM runtime running inside browser/Bun/Node does not have the same native dynamic loading model as a native process.
+```
+
+Instead, native capabilities must be provided through:
+
+```txt
+host APIs
+JavaScript/Bun/Node bridge functions
+WASM imports
+WASM components
+precompiled portable modules
+```
+
+WASM mode flow:
+
+```txt
+.gfb or .gfb bundle
+  -> load into galfus_vm_runtime.wasm
+  -> validate hashes if manifest exists
+  -> resolve portable imports
+  -> attach host/WASM adapters
+  -> execute bytecode
+```
+
+Browser tutorial example:
+
+```txt
+editor input
+  -> frontend WASM, if available, or server build
+  -> .gfb in memory
+  -> galfus_vm_runtime.wasm
   -> execute
+  -> show output
+  -> use .gfm for source-level diagnostics/debugging
 ```
 
-There may still be minimal JavaScript glue for loading WASM and connecting browser APIs.
-
-Application logic can be written in Galfus.
-
-Browser mode does not need native JIT.
-
-It can use:
+REPL example:
 
 ```txt
-interpreter
-quickening
-builtin WASM implementations
+user input
+  -> parse/check/lower in memory, if frontend is available
+  -> patch in-memory module image
+  -> execute through WASM VM
+  -> print result
 ```
 
-The frontend may also run in browser mode for playgrounds by building in-memory module graphs.
+The frontend may also be compiled to WASM for browser playgrounds and tutorials, but that is optional.
+
+Minimal WASM runtime mode can execute prebuilt `.gfb` without shipping the full frontend.
 
 ---
 
-## 44. Architecture summary
+## 19. Debug and Release Modes
+
+### Development run
 
 ```txt
-.gfs source
-  -> Lexer / Parser
-  -> ModuleGraph syntax layer
-  -> Import resolution
-  -> Name resolution
-  -> Type checking
-  -> Semantic checking
-  -> Ownership metadata preparation
-  -> Export surface generation
-  -> External reference validation
-  -> Lowering metadata
+galfus run app.gfs
+```
+
+Conceptual behavior:
+
+```txt
+source in memory
+  -> WorkspaceGraph
+  -> ModuleGraph updates
+  -> diagnostics
+  -> MIR/bytecode for affected functions
+  -> in-memory Module Image
+  -> in-memory Galfus Map
+  -> VM execution
+```
+
+Priorities:
+
+```txt
+fast edit-run cycle
+diagnostics
+source-level stack traces
+debuggability
+hot reload capability
+frontend reuse
+```
+
+### Debug build
+
+```txt
+galfus build --debug app.gfs
+```
+
+Output:
+
+```txt
+app.gfb
+app.gfm
+```
+
+Priorities:
+
+```txt
+source reconstruction
+breakpoints
+watch expressions
+stack traces
+profiling with names
+private debugging
+```
+
+### Release build
+
+```txt
+galfus build app.gfs
+```
+
+Output:
+
+```txt
+app.gfb
+```
+
+Priorities:
+
+```txt
+small artifact
+no private names
+no source paths
+no source spans
+minimal metadata
+aggressive tree-shaking
+```
+
+### Release with private map
+
+```txt
+galfus build --release --emit-map app.gfs
+```
+
+Output:
+
+```txt
+app.gfb
+app.gfm
+```
+
+Useful for:
+
+```txt
+private crash report symbolication
+private production debugging
+profiling builds
+```
+
+### Tiny executable
+
+```txt
+galfus build --exe --tiny app.gfs
+```
+
+Cuts:
+
+```txt
+frontend
+parser
+resolver
+type checker
+hot reload
+JIT hooks
+debug hooks
+unused runtime slices
+unused builtins
+unused adapters
+.gfm by default
+```
+
+---
+
+## 20. Integrity and Authenticity
+
+The `.gfb` contains a body hash.
+
+The `.gfm` contains:
+
+```txt
+target_gfb_hash
+gfm_hash
+```
+
+A bundle manifest contains hashes for embedded artifacts:
+
+```txt
+BundleManifest {
+  bundle_id
+  gfb_hashes
+  wasm_hashes
+  native_lib_hashes
+  runtime_slice_hashes
+  adapter_bindings
+  import_bindings
+  entrypoint
+  signature
+}
+```
+
+Integrity means:
+
+```txt
+runtime can detect accidental or unauthorized modification
+of loaded artifacts by comparing hashes
+```
+
+Authenticity means:
+
+```txt
+the executable or signed manifest proves the artifacts came
+from the expected producer
+```
+
+Hashing alone validates integrity but not authenticity.
+
+If both `.gfb` and `.gfm` are modified together and hashes are recalculated, hash validation alone cannot prove trust.
+
+Therefore authenticity belongs to:
+
+```txt
+signed executable
+signed embedded manifest
+trusted host policy
+```
+
+Runtime loading order:
+
+```txt
+1. read manifest, if present
+2. validate manifest authenticity, if signed
+3. validate embedded artifact hashes
+4. validate .gfb body hash
+5. load module images
+6. resolve imports
+7. execute
+```
+
+---
+
+## 21. Flow A - `.gfs` to `.gfb + .gfm`
+
+```mermaid
+flowchart TD
+  A[".gfs source files"] --> B["WorkspaceGraph"]
+  B --> C["Module discovery graph"]
+
+  C --> D["ModuleGraph(A)"]
+  C --> E["ModuleGraph(B)"]
+  C --> F["ModuleGraph(C)"]
+
+  D --> G["Frontend pipeline per module"]
+  E --> H["Frontend pipeline per module"]
+  F --> I["Frontend pipeline per module"]
+
+  G --> J["Lexer / Parser"]
+  H --> K["Lexer / Parser"]
+  I --> L["Lexer / Parser"]
+
+  J --> M["Syntax Layer"]
+  K --> N["Syntax Layer"]
+  L --> O["Syntax Layer"]
+
+  M --> P["Import Resolution"]
+  N --> Q["Import Resolution"]
+  O --> R["Import Resolution"]
+
+  P --> S["Name / Type / Semantic Checking"]
+  Q --> T["Name / Type / Semantic Checking"]
+  R --> U["Name / Type / Semantic Checking"]
+
+  S --> V["Export Surface"]
+  T --> W["Export Surface"]
+  U --> X["Export Surface"]
+
+  V --> Y["ExternalRef Validation"]
+  W --> Y
+  X --> Y
+
+  Y --> Z["Lowerable ModuleGraphs"]
+
+  Z --> AA["MIR"]
+  AA --> AB["Bytecode"]
+  AB --> AC["Galfus Module Image"]
+
+  AC --> AD["GFB Writer"]
+  AC --> AE["GFM Writer if debug/map enabled"]
+
+  AD --> AF["app.gfb"]
+  AE --> AG["app.gfm"]
+```
+
+---
+
+## 22. Flow B - `.gfb` to Interpreted Execution
+
+```mermaid
+flowchart TD
+  A["app.gfb"] --> B["Read GFB Header"]
+  B --> C["Validate format_version"]
+  C --> D["Validate body_hash"]
+
+  D --> E["Load Galfus Module Image"]
+  E --> F["Read compact import slots"]
+  F --> G["Runtime Loader"]
+
+  G --> H["Resolve module graph at runtime"]
+  H --> I{"Import backend"}
+
+  I --> J["Galfus .gfb module"]
+  I --> K["Builtin module"]
+  I --> L["WASM module"]
+  I --> M["Native dylib/so/dll"]
+
+  J --> N["Resolve export slot"]
+  K --> O["Resolve builtin export"]
+  L --> P["Create WASM adapter"]
+  M --> Q["Create C-ABI adapter"]
+
+  N --> R["Patch import/function table"]
+  O --> R
+  P --> R
+  Q --> R
+
+  R --> S["VM Core"]
+  S --> T["Bytecode Interpreter"]
+  T --> U["Call Frames"]
+  U --> V["Locals / Temporaries"]
+  V --> W["Root Blocks"]
+  W --> X["Owner Graph Runtime"]
+  X --> Y["Execute EntryPoint"]
+```
+
+---
+
+## 23. Flow C - `.gfb` to VM-Bundled Executable
+
+```mermaid
+flowchart TD
+  A["Entry app.gfb"] --> B["Read module import slots"]
+  B --> C["Dependency Discovery"]
+
+  C --> D["Collect Galfus .gfb deps"]
+  C --> E["Collect builtin deps"]
+  C --> F["Collect WASM deps"]
+  C --> G["Collect native lib descriptors"]
+
+  D --> H["BundleGraph"]
+  E --> H
+  F --> H
+  G --> H
+
+  H --> I["Detect cycles / SCCs"]
+  I --> J["Resolve reachable graph"]
+  J --> K["Reachability Analysis"]
+
+  K --> L["Tree-shake Galfus symbols"]
+  L --> M["Tree-shake builtin exports"]
+  M --> N["Tree-shake runtime slices"]
+  N --> O["Tree-shake adapters"]
+  O --> P["Tree-shake debug hooks"]
+
+  P --> Q["Compact GFB Bundle"]
+  P --> R["Selected VM Core"]
+  P --> S["Selected Runtime Slices"]
+  P --> T["Selected Builtin Slices"]
+  P --> U["Selected WASM / Native payloads"]
+  P --> V["Selected Adapters"]
+
+  Q --> W["Bundle Manifest"]
+  R --> W
+  S --> W
+  T --> W
+  U --> W
+  V --> W
+
+  W --> X["Hash entries"]
+  X --> Y["Embed signed/validated manifest"]
+  Y --> Z["Final executable"]
+```
+
+Executable startup:
+
+```mermaid
+flowchart TD
+  A["Run executable"] --> B["Load embedded manifest"]
+  B --> C["Validate manifest authenticity"]
+  C --> D["Validate GFB/WASM/native hashes"]
+
+  D --> E["Load compact VM"]
+  E --> F["Load compact GFB bundle"]
+  F --> G["Resolve import slots"]
+  G --> H["Attach runtime slices"]
+  H --> I["Attach builtin slices"]
+  I --> J["Attach WASM/native adapters if present"]
+  J --> K["Start bytecode interpreter"]
+  K --> L["Execute entrypoint"]
+```
+
+---
+
+## 24. Flow D - Runtime Linking
+
+```mermaid
+flowchart LR
+  A["Module A .gfb"] --> A1["ImportSlot #0"]
+  B["Module B .gfb"] --> B1["ExportSlot #3"]
+  C["Builtin string"] --> C1["Export string::trim"]
+  D["WASM module"] --> D1["WASM export"]
+  E["Native dylib"] --> E1["C symbol"]
+
+  A1 --> F["Runtime Loader"]
+  B1 --> F
+  C1 --> F
+  D1 --> F
+  E1 --> F
+
+  F --> G["Function Table"]
+  F --> H["Adapter Table"]
+  F --> I["Module Table"]
+
+  G --> J["VM call dispatch"]
+  H --> J
+  I --> J
+```
+
+---
+
+## 25. Flow E - Debug Reconstruction
+
+```mermaid
+flowchart TD
+  A["VM internal state"] --> B["function_id"]
+  A --> C["bytecode_offset"]
+  A --> D["local_slot"]
+  A --> E["type_id"]
+  A --> F["synthetic_function_id"]
+
+  B --> G[".gfm lookup"]
+  C --> G
+  D --> G
+  E --> G
+  F --> G
+
+  G --> H["source file"]
+  G --> I["source span"]
+  G --> J["original function name"]
+  G --> K["local variable name"]
+  G --> L["source type display"]
+  G --> M["synthetic source expression"]
+
+  H --> N["Human debug view"]
+  I --> N
+  J --> N
+  K --> N
+  L --> N
+  M --> N
+```
+
+---
+
+## 26. Flow F - Tree-Shaking
+
+```mermaid
+flowchart TD
+  A["Entrypoint"] --> B["Reachable Galfus functions"]
+  B --> C["Reachable Galfus types"]
+  C --> D["Reachable constants"]
+  D --> E["Reachable imports"]
+
+  E --> F["Reachable builtins"]
+  E --> G["Reachable WASM modules"]
+  E --> H["Reachable native libs"]
+  E --> I["Reachable adapters"]
+
+  F --> J["Runtime slices required"]
+  G --> J
+  H --> J
+  I --> J
+  C --> J
+
+  J --> K["Keep"]
+  A --> L["Everything not reachable"]
+  L --> M["Remove from bundle"]
+```
+
+---
+
+## 27. Non-Goals
+
+The base architecture does not require:
+
+```txt
+native AOT code generation
+LLVM backend
+Cranelift AOT backend
+machine object emission
+native linker pipeline
+source execution by VM
+monolithic runtime bundle
+global semantic graph
+copying module internals across module boundaries
+```
+
+JIT may exist as an optional runtime slice.
+
+Native AOT is outside the final base architecture.
+
+---
+
+## 28. Architecture Summary
+
+```txt
+Galfus is VM-first.
+
+Frontend:
+  WorkspaceGraph
+  ModuleGraph per module
+  each module sees itself
+  modules connect through export surfaces and external refs
+  import loops exist in the graph
+
+Lowering:
+  ModuleGraph
   -> MIR
-  -> Bytecode
+  -> bytecode
   -> Galfus Module Image
-     +-- bytecode
-     +-- metadata
-     +-- debug links
-  -> VM Loader
-  -> JIT Policy
-     +-- default: hybrid
-     `-- release: eager
-  -> Execution
-     +-- interpreted bytecode
-     +-- JIT compiled functions
-     +-- builtin compiled modules
-     +-- native C-ABI dylibs
-     +-- WASM core modules
-     `-- WASM components
-```
 
-Workspace architecture:
+Artifacts:
+  .gfb = compact executable binary for the VM
+  .gfm = debug/tooling map that reconstructs human source view
 
-```txt
-WorkspaceGraph
-  +-- ModuleGraph(main)
-  |     +-- syntax layer
-  |     +-- name layer
-  |     +-- type layer
-  |     +-- semantic layer
-  |     +-- ownership layer
-  |     +-- export surface
-  |     +-- external refs
-  |     `-- debug/lowering links
-  |
-  +-- ModuleGraph(user)
-  |     `-- export surface
-  |
-  +-- BuiltinModule(string)
-  |     `-- export surface
-  |
-  +-- NativeModule(physics)
-  |     `-- ABI export surface
-  |
-  `-- WasmModule(fast_math)
-        `-- WASM export surface
-```
+Runtime:
+  validates hashes
+  loads .gfb
+  resolves import slots
+  connects modules
+  attaches adapters
+  executes bytecode
 
-In memory:
+Bundle:
+  starts from .gfb
+  builds BundleGraph
+  tree-shakes aggressively
+  emits compact VM bundle executable
 
-```txt
-WorkspaceGraph
-ModuleGraph
-GalfusModuleImage
-GalfusDebugMap
-```
+WASM mode:
+  galfus_vm_runtime.wasm
+  runs in browser, Bun, Node.js, Deno, edge runtimes, and other WASM hosts
+  supports .gfb execution, tutorials, sandbox, and REPL
+  does not support native C-ABI dynamic libraries directly
 
-On disk:
+Release:
+  no .gfm by default
+  minimal .gfb
+  tree-shaken runtime slices
 
-```txt
-main.gfb
-main.gfb.map
-module graph cache, optional
-```
-
-Core principles:
-
-```txt
-typed VM
-module-local SemanticGraph
-no global frontend object
-stable export surfaces
-stable cross-module external refs
-incremental graph updates
-hot reload through module image patching
-MIR remains execution-oriented
-VM remains source-agnostic
-deterministic Owner Graph runtime
-affected graph release
-no global periodic heap tracing
-multi-backend imports
-hybrid JIT by default
-eager JIT in release
-WASM VM for browser execution
+Debug:
+  .gfb + .gfm
+  source-level reconstruction
 ```
