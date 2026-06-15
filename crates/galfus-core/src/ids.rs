@@ -153,3 +153,16 @@ impl ExportId {
         self.0
     }
 }
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ImportId(u32);
+
+impl ImportId {
+    pub fn new(id: u32) -> Self {
+        Self(id)
+    }
+
+    pub fn raw(&self) -> u32 {
+        self.0
+    }
+}

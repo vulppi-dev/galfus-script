@@ -1,8 +1,6 @@
-use galfus_core::{Diagnostic, NodeId, Span};
-
+use super::*;
 use crate::{ParserDiagnosticCode, SyntaxNodeKind, TokenKind};
-
-use super::Parser;
+use galfus_core::{Diagnostic, NodeId, Span};
 
 impl Parser {
     pub(super) fn parse_pattern(&mut self) -> Option<NodeId> {

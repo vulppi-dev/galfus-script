@@ -1,5 +1,5 @@
 use super::*;
-use galfus_core::{NodeId, ScopeId, SymbolId};
+use galfus_core::{ImportId, NodeId, ScopeId, SymbolId};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
@@ -7,10 +7,12 @@ pub struct ResolutionLayer {
     module_scope: ScopeId,
     scopes: Vec<Scope>,
     symbols: Vec<Symbol>,
+    imports: Vec<ImportRecord>,
 
     declarations: HashMap<NodeId, SymbolId>,
     references: HashMap<NodeId, SymbolId>,
     node_scopes: HashMap<NodeId, ScopeId>,
+    symbol_imports: HashMap<SymbolId, ImportId>,
 }
 
 impl ResolutionLayer {
@@ -21,9 +23,12 @@ impl ResolutionLayer {
             module_scope,
             scopes: Vec::new(),
             symbols: Vec::new(),
+            imports: Vec::new(),
+
             declarations: HashMap::new(),
             references: HashMap::new(),
             node_scopes: HashMap::new(),
+            symbol_imports: HashMap::new(),
         }
     }
 
@@ -61,6 +66,18 @@ impl ResolutionLayer {
 
     pub fn node_scope(&self, node: NodeId) -> Option<ScopeId> {
         self.node_scopes.get(&node).copied()
+    }
+
+    pub fn imports(&self) -> &[ImportRecord] {
+        self.imports.as_slice()
+    }
+
+    pub fn import(&self, id: ImportId) -> Option<&ImportRecord> {
+        self.imports.get(id.raw() as usize)
+    }
+
+    pub fn import_for_symbol(&self, symbol: SymbolId) -> Option<ImportId> {
+        self.symbol_imports.get(&symbol).copied()
     }
 
     pub(crate) fn add_scope(
@@ -107,6 +124,36 @@ impl ResolutionLayer {
 
     pub(crate) fn bind_scope(&mut self, node: NodeId, scope: ScopeId) {
         self.node_scopes.insert(node, scope);
+    }
+
+    pub(crate) fn add_import(
+        &mut self,
+        kind: ImportKind,
+        source: String,
+        source_node: NodeId,
+        import_node: NodeId,
+        declaration: NodeId,
+        local_name: String,
+        imported_name: Option<String>,
+        local_symbol: SymbolId,
+    ) -> ImportId {
+        let id = ImportId::new(self.imports.len() as u32);
+
+        self.imports.push(ImportRecord::new(
+            id,
+            kind,
+            source,
+            source_node,
+            import_node,
+            declaration,
+            local_name,
+            imported_name,
+            local_symbol,
+        ));
+
+        self.symbol_imports.insert(local_symbol, id);
+
+        id
     }
 }
 
