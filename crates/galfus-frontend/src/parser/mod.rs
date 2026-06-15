@@ -143,7 +143,7 @@ impl Parser {
         self.graph.syntax_mut().add_node(kind, span, children)
     }
 
-    pub(super) fn add_operator_node(
+    fn add_operator_node(
         &mut self,
         kind: SyntaxNodeKind,
         span: Span,

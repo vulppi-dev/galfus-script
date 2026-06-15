@@ -1,12 +1,13 @@
 #[cfg(test)]
 mod tests;
 
-use crate::{Token, TokenKind};
+use crate::{ResolutionLayer, Token, TokenKind};
 use galfus_core::{Diagnostic, DiagnosticBag, NodeId, SourceId, Span};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum GraphPhase {
     Parsed,
+    Resolved,
 }
 
 #[derive(Debug, Clone)]
@@ -15,6 +16,7 @@ pub struct ModuleGraph {
     phase: GraphPhase,
     syntax: SyntaxLayer,
     diagnostics: DiagnosticBag,
+    resolution: Option<ResolutionLayer>,
 }
 
 impl ModuleGraph {
@@ -24,6 +26,7 @@ impl ModuleGraph {
             phase: GraphPhase::Parsed,
             syntax: SyntaxLayer::new(),
             diagnostics: DiagnosticBag::new(),
+            resolution: None,
         }
     }
 
@@ -61,6 +64,15 @@ impl ModuleGraph {
 
     pub fn has_errors(&self) -> bool {
         self.diagnostics.has_errors()
+    }
+
+    pub fn resolution(&self) -> Option<&ResolutionLayer> {
+        self.resolution.as_ref()
+    }
+
+    pub fn set_resolution(&mut self, resolution: ResolutionLayer) {
+        self.resolution = Some(resolution);
+        self.phase = GraphPhase::Resolved;
     }
 }
 

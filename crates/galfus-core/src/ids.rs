@@ -51,6 +51,19 @@ impl SymbolId {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ScopeId(u32);
+
+impl ScopeId {
+    pub fn new(id: u32) -> Self {
+        Self(id)
+    }
+
+    pub fn raw(&self) -> u32 {
+        self.0
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TypeId(u32);
 
 impl TypeId {
