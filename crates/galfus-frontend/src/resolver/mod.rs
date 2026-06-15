@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod tests;
 
+mod export;
 mod import;
 mod resolution;
 mod scope;
@@ -8,6 +9,7 @@ mod symbol;
 
 use galfus_core::{Diagnostic, DiagnosticBag, NodeId, ScopeId, SourceFile, SymbolId};
 
+pub use export::*;
 pub use import::*;
 pub use resolution::*;
 pub use scope::*;
@@ -82,6 +84,10 @@ impl<'a> Resolver<'a> {
 
         for item in root_node.children() {
             self.declare_import_item(*item, module_scope);
+        }
+
+        for item in root_node.children() {
+            self.build_export_surface_item(*item);
         }
     }
 

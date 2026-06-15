@@ -1,5 +1,5 @@
 use super::*;
-use galfus_core::{ImportId, NodeId, ScopeId, SymbolId};
+use galfus_core::{ExportId, ImportId, NodeId, ScopeId, SymbolId};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
@@ -8,11 +8,14 @@ pub struct ResolutionLayer {
     scopes: Vec<Scope>,
     symbols: Vec<Symbol>,
     imports: Vec<ImportRecord>,
+    exports: Vec<ExportRecord>,
 
     declarations: HashMap<NodeId, SymbolId>,
     references: HashMap<NodeId, SymbolId>,
     node_scopes: HashMap<NodeId, ScopeId>,
     symbol_imports: HashMap<SymbolId, ImportId>,
+    exports_by_name: HashMap<String, ExportId>,
+    symbol_exports: HashMap<SymbolId, ExportId>,
 }
 
 impl ResolutionLayer {
@@ -24,11 +27,14 @@ impl ResolutionLayer {
             scopes: Vec::new(),
             symbols: Vec::new(),
             imports: Vec::new(),
+            exports: Vec::new(),
 
             declarations: HashMap::new(),
             references: HashMap::new(),
             node_scopes: HashMap::new(),
             symbol_imports: HashMap::new(),
+            exports_by_name: HashMap::new(),
+            symbol_exports: HashMap::new(),
         }
     }
 
@@ -78,6 +84,22 @@ impl ResolutionLayer {
 
     pub fn import_for_symbol(&self, symbol: SymbolId) -> Option<ImportId> {
         self.symbol_imports.get(&symbol).copied()
+    }
+
+    pub fn exports(&self) -> &[ExportRecord] {
+        self.exports.as_slice()
+    }
+
+    pub fn export_record(&self, id: ExportId) -> Option<&ExportRecord> {
+        self.exports.get(id.raw() as usize)
+    }
+
+    pub fn export_by_name(&self, name: &str) -> Option<ExportId> {
+        self.exports_by_name.get(name).copied()
+    }
+
+    pub fn export_for_symbol(&self, symbol: SymbolId) -> Option<ExportId> {
+        self.symbol_exports.get(&symbol).copied()
     }
 
     pub(crate) fn add_scope(
@@ -152,6 +174,41 @@ impl ResolutionLayer {
         ));
 
         self.symbol_imports.insert(local_symbol, id);
+
+        id
+    }
+
+    pub(crate) fn add_export(
+        &mut self,
+        name: String,
+        kind: SymbolKind,
+        export_node: NodeId,
+        item_node: NodeId,
+        declaration: NodeId,
+        symbol: SymbolId,
+    ) -> ExportId {
+        if let Some(existing) = self.symbol_exports.get(&symbol).copied() {
+            return existing;
+        }
+
+        if let Some(existing) = self.exports_by_name.get(name.as_str()).copied() {
+            return existing;
+        }
+
+        let id = ExportId::new(self.exports.len() as u32);
+
+        self.exports.push(ExportRecord::new(
+            id,
+            name.clone(),
+            kind,
+            export_node,
+            item_node,
+            declaration,
+            symbol,
+        ));
+
+        self.exports_by_name.insert(name, id);
+        self.symbol_exports.insert(symbol, id);
 
         id
     }
