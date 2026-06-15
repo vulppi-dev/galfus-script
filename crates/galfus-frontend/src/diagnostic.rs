@@ -70,3 +70,22 @@ impl DiagnosticCodeKind for ParserDiagnosticCode {
         }
     }
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ResolverDiagnosticCode {
+    DuplicateSymbol,
+}
+
+impl DiagnosticCodeKind for ResolverDiagnosticCode {
+    fn as_code(&self) -> &'static str {
+        match self {
+            Self::DuplicateSymbol => "R0001",
+        }
+    }
+
+    fn as_message(&self) -> &'static str {
+        match self {
+            Self::DuplicateSymbol => "duplicate symbol",
+        }
+    }
+}

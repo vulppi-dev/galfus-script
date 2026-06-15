@@ -1,6 +1,5 @@
-use std::collections::HashMap;
-
 use galfus_core::{NodeId, ScopeId, SymbolId};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ScopeKind {

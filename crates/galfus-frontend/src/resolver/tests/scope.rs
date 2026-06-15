@@ -1,5 +1,3 @@
-use crate::{GraphPhase, parse};
-
 use super::*;
 
 #[test]
@@ -22,6 +20,6 @@ fn resolve_creates_module_scope() {
     assert_eq!(resolution.scopes().len(), 1);
     assert_eq!(
         resolution.scope(module_scope).unwrap().kind(),
-        crate::ScopeKind::Module
+        ScopeKind::Module
     );
 }

@@ -1,8 +1,6 @@
-use std::collections::HashMap;
-
+use super::*;
 use galfus_core::{NodeId, ScopeId, SymbolId};
-
-use super::{Scope, ScopeKind, Symbol, SymbolKind};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
 pub struct ResolutionLayer {

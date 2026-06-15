@@ -88,6 +88,10 @@ impl SourceFile {
 
         self.text.get(span.start() as usize..span.end() as usize)
     }
+
+    pub fn span(&self) -> Span {
+        Span::new(self.id, 0, self.len())
+    }
 }
 
 #[cfg(test)]
