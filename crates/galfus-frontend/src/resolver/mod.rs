@@ -1,8 +1,9 @@
 #[cfg(test)]
 mod tests;
 
+mod block;
 mod export;
-mod functions;
+mod function;
 mod import;
 mod resolution;
 mod scope;
@@ -10,8 +11,9 @@ mod symbol;
 
 use galfus_core::{Diagnostic, DiagnosticBag, NodeId, ScopeId, SourceFile, SymbolId};
 
+pub use block::*;
 pub use export::*;
-pub use functions::*;
+pub use function::*;
 pub use import::*;
 pub use resolution::*;
 pub use scope::*;
@@ -95,6 +97,10 @@ impl<'a> Resolver<'a> {
         for item in root_node.children() {
             self.resolve_function_scope_item(*item, module_scope);
         }
+
+        for item in root_node.children() {
+            self.resolve_block_scope_item(*item, module_scope);
+        }
     }
 
     fn declare_top_level_item(&mut self, item: NodeId, scope: ScopeId) {
@@ -173,7 +179,12 @@ impl<'a> Resolver<'a> {
         self.declare_binding_pattern(binding, kind, scope);
     }
 
-    fn declare_binding_pattern(&mut self, pattern: NodeId, kind: SymbolKind, scope: ScopeId) {
+    pub(super) fn declare_binding_pattern(
+        &mut self,
+        pattern: NodeId,
+        kind: SymbolKind,
+        scope: ScopeId,
+    ) {
         let Some(node) = self.syntax.node(pattern) else {
             return;
         };
