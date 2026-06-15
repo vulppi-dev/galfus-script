@@ -17,9 +17,10 @@ fn resolve_creates_module_scope() {
     let resolution = graph.resolution().unwrap();
     let module_scope = resolution.module_scope();
 
-    assert_eq!(resolution.scopes().len(), 1);
     assert_eq!(
         resolution.scope(module_scope).unwrap().kind(),
         ScopeKind::Module
     );
+
+    assert!(resolution.scopes().len() >= 1);
 }

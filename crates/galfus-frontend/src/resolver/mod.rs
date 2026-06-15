@@ -2,6 +2,7 @@
 mod tests;
 
 mod export;
+mod functions;
 mod import;
 mod resolution;
 mod scope;
@@ -10,6 +11,7 @@ mod symbol;
 use galfus_core::{Diagnostic, DiagnosticBag, NodeId, ScopeId, SourceFile, SymbolId};
 
 pub use export::*;
+pub use functions::*;
 pub use import::*;
 pub use resolution::*;
 pub use scope::*;
@@ -88,6 +90,10 @@ impl<'a> Resolver<'a> {
 
         for item in root_node.children() {
             self.build_export_surface_item(*item);
+        }
+
+        for item in root_node.children() {
+            self.resolve_function_scope_item(*item, module_scope);
         }
     }
 
@@ -223,7 +229,7 @@ impl<'a> Resolver<'a> {
         }
     }
 
-    fn declare_symbol(
+    pub(super) fn declare_symbol(
         &mut self,
         name: String,
         kind: SymbolKind,
@@ -258,7 +264,7 @@ impl<'a> Resolver<'a> {
         Some(symbol)
     }
 
-    fn node_text(&self, node: NodeId) -> String {
+    pub(super) fn node_text(&self, node: NodeId) -> String {
         let Some(node) = self.syntax.node(node) else {
             return String::new();
         };
