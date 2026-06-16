@@ -102,6 +102,22 @@ impl ResolutionLayer {
         self.symbol_exports.get(&symbol).copied()
     }
 
+    pub fn lookup_symbol(&self, scope: ScopeId, name: &str) -> Option<SymbolId> {
+        let mut current = Some(scope);
+
+        while let Some(scope_id) = current {
+            let scope = self.scope(scope_id)?;
+
+            if let Some(symbol) = scope.symbol(name) {
+                return Some(symbol);
+            }
+
+            current = scope.parent();
+        }
+
+        None
+    }
+
     pub(crate) fn add_scope(
         &mut self,
         kind: ScopeKind,

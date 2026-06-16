@@ -5,15 +5,14 @@ mod block;
 mod export;
 mod function;
 mod import;
+mod reference;
 mod resolution;
 mod scope;
 mod symbol;
 
 use galfus_core::{Diagnostic, DiagnosticBag, NodeId, ScopeId, SourceFile, SymbolId};
 
-pub use block::*;
 pub use export::*;
-pub use function::*;
 pub use import::*;
 pub use resolution::*;
 pub use scope::*;
@@ -100,6 +99,10 @@ impl<'a> Resolver<'a> {
 
         for item in root_node.children() {
             self.resolve_block_scope_item(*item, module_scope);
+        }
+
+        for item in root_node.children() {
+            self.resolve_reference_item(*item, module_scope);
         }
     }
 

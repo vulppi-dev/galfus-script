@@ -5,7 +5,7 @@ mod block;
 mod export;
 mod function;
 mod import;
-mod resolution;
+mod reference;
 mod scope;
 mod symbol;
 
