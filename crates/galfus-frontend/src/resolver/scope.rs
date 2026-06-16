@@ -6,12 +6,12 @@ pub enum ScopeKind {
     Module,
     Function,
     Block,
+    TypeAlias,
     Struct,
     Enum,
     Choice,
     Constraint,
 }
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Scope {
     id: ScopeId,

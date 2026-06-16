@@ -4,11 +4,13 @@ mod tests;
 mod block;
 mod export;
 mod function;
+mod generic;
 mod import;
 mod reference;
 mod resolution;
 mod scope;
 mod symbol;
+mod type_reference;
 
 use galfus_core::{Diagnostic, DiagnosticBag, NodeId, ScopeId, SourceFile, SymbolId};
 
@@ -98,7 +100,15 @@ impl<'a> Resolver<'a> {
         }
 
         for item in root_node.children() {
+            self.resolve_generic_parameter_scope_item(*item, module_scope);
+        }
+
+        for item in root_node.children() {
             self.resolve_block_scope_item(*item, module_scope);
+        }
+
+        for item in root_node.children() {
+            self.resolve_type_reference_item(*item, module_scope);
         }
 
         for item in root_node.children() {

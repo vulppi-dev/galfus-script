@@ -12,6 +12,7 @@ pub struct ResolutionLayer {
 
     declarations: HashMap<NodeId, SymbolId>,
     references: HashMap<NodeId, SymbolId>,
+    type_references: HashMap<NodeId, SymbolId>,
     node_scopes: HashMap<NodeId, ScopeId>,
     symbol_imports: HashMap<SymbolId, ImportId>,
     exports_by_name: HashMap<String, ExportId>,
@@ -31,6 +32,7 @@ impl ResolutionLayer {
 
             declarations: HashMap::new(),
             references: HashMap::new(),
+            type_references: HashMap::new(),
             node_scopes: HashMap::new(),
             symbol_imports: HashMap::new(),
             exports_by_name: HashMap::new(),
@@ -116,6 +118,10 @@ impl ResolutionLayer {
         }
 
         None
+    }
+
+    pub fn type_reference_symbol(&self, node: NodeId) -> Option<SymbolId> {
+        self.type_references.get(&node).copied()
     }
 
     pub(crate) fn add_scope(
@@ -227,6 +233,10 @@ impl ResolutionLayer {
         self.symbol_exports.insert(symbol, id);
 
         id
+    }
+
+    pub(crate) fn bind_type_reference(&mut self, node: NodeId, symbol: SymbolId) {
+        self.type_references.insert(node, symbol);
     }
 }
 

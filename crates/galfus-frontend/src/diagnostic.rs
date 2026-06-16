@@ -74,18 +74,24 @@ impl DiagnosticCodeKind for ParserDiagnosticCode {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ResolverDiagnosticCode {
     DuplicateSymbol,
+    UnresolvedName,
+    UnresolvedType,
 }
 
 impl DiagnosticCodeKind for ResolverDiagnosticCode {
     fn as_code(&self) -> &'static str {
         match self {
             Self::DuplicateSymbol => "R0001",
+            Self::UnresolvedName => "R0002",
+            Self::UnresolvedType => "R0003",
         }
     }
 
     fn as_message(&self) -> &'static str {
         match self {
             Self::DuplicateSymbol => "duplicate symbol",
+            Self::UnresolvedName => "unresolved name",
+            Self::UnresolvedType => "unresolved type",
         }
     }
 }

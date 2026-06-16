@@ -85,12 +85,17 @@ fn resolve_declares_destructuring_bindings_in_block_scope() {
     let source = source(
         r#"
         fn main(): null {
+            var user = 0
+            var point = 0
+            var values = 0
+
             var { id, name: userName } = user
             var (x, y) = point
             var [first, ...rest] = values
+
             return
         }
-        "#,
+    "#,
     );
 
     let parse_result = parse(&source);

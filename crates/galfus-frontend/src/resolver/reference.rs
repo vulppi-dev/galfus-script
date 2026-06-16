@@ -75,10 +75,19 @@ impl<'a> Resolver<'a> {
 
         let symbol_name = self.node_text(name);
 
-        let Some(symbol) = self.resolution.lookup_symbol(scope, symbol_name.as_str()) else {
+        if let Some(symbol) = self.resolution.lookup_symbol(scope, symbol_name.as_str()) {
+            self.resolution.bind_reference(expression, symbol);
+            return;
+        }
+
+        let Some(name_node) = self.syntax.node(name) else {
             return;
         };
 
-        self.resolution.bind_reference(expression, symbol);
+        self.diagnostics.push(Diagnostic::error_with_message(
+            ResolverDiagnosticCode::UnresolvedName,
+            format!("unresolved name `{symbol_name}`"),
+            name_node.span(),
+        ));
     }
 }

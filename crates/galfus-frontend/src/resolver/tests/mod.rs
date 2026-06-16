@@ -8,6 +8,7 @@ mod import;
 mod reference;
 mod scope;
 mod symbol;
+mod type_reference;
 
 fn source(text: &str) -> SourceFile {
     SourceFile::new(SourceId::new(0), "main.gfs".to_string(), text.to_string())

@@ -2,22 +2,6 @@ use super::*;
 use crate::SyntaxLayer;
 use galfus_core::NodeId;
 
-fn find_first_of_kind(syntax: &SyntaxLayer, node: NodeId, kind: SyntaxNodeKind) -> Option<NodeId> {
-    let syntax_node = syntax.node(node)?;
-
-    if syntax_node.kind() == kind {
-        return Some(node);
-    }
-
-    for child in syntax_node.children() {
-        if let Some(found) = find_first_of_kind(syntax, *child, kind) {
-            return Some(found);
-        }
-    }
-
-    None
-}
-
 fn find_name_expression_by_text(
     syntax: &SyntaxLayer,
     source: &SourceFile,
@@ -235,7 +219,7 @@ fn resolve_binds_import_namespace_name_expression() {
 }
 
 #[test]
-fn resolve_leaves_unknown_name_expression_unbound_for_now() {
+fn resolve_reports_unknown_name_expression() {
     let source = source(
         r#"
         fn main(): null {
@@ -250,8 +234,7 @@ fn resolve_leaves_unknown_name_expression_unbound_for_now() {
 
     let resolve_result = resolve(&source, parse_result.into_graph());
 
-    // R7 does not emit unresolved-name diagnostics yet.
-    assert!(!resolve_result.has_errors());
+    assert!(resolve_result.has_errors());
 
     let graph = resolve_result.graph();
     let syntax = graph.syntax();
@@ -262,4 +245,11 @@ fn resolve_leaves_unknown_name_expression_unbound_for_now() {
     let expression = find_name_expression_by_text(syntax, &source, root, "missing").unwrap();
 
     assert!(resolution.reference_symbol(expression).is_none());
+
+    assert!(
+        graph
+            .diagnostics()
+            .iter()
+            .any(|diagnostic| diagnostic.message().contains("unresolved name `missing`"))
+    );
 }
