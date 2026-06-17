@@ -4,7 +4,9 @@ use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
 pub struct ResolutionLayer {
+    builtin_scope: Option<ScopeId>,
     module_scope: ScopeId,
+
     scopes: Vec<Scope>,
     symbols: Vec<Symbol>,
     imports: Vec<ImportRecord>,
@@ -24,6 +26,7 @@ impl ResolutionLayer {
         let module_scope = ScopeId::new(0);
 
         Self {
+            builtin_scope: None,
             module_scope,
             scopes: Vec::new(),
             symbols: Vec::new(),
@@ -38,6 +41,10 @@ impl ResolutionLayer {
             exports_by_name: HashMap::new(),
             symbol_exports: HashMap::new(),
         }
+    }
+
+    pub fn builtin_scope(&self) -> Option<ScopeId> {
+        self.builtin_scope
     }
 
     pub fn module_scope(&self) -> ScopeId {
@@ -124,6 +131,13 @@ impl ResolutionLayer {
         self.type_references.get(&node).copied()
     }
 
+    pub fn builtin_type_symbol(&self, name: &str) -> Option<SymbolId> {
+        let builtin_scope = self.builtin_scope?;
+        let scope = self.scope(builtin_scope)?;
+
+        scope.symbol(name)
+    }
+
     pub(crate) fn add_scope(
         &mut self,
         kind: ScopeKind,
@@ -132,8 +146,12 @@ impl ResolutionLayer {
     ) -> ScopeId {
         let id = ScopeId::new(self.scopes.len() as u32);
 
-        if self.scopes.is_empty() {
+        if kind == ScopeKind::Module {
             self.module_scope = id;
+        }
+
+        if kind == ScopeKind::Builtin {
+            self.builtin_scope = Some(id);
         }
 
         self.scopes.push(Scope::new(id, kind, parent, owner));

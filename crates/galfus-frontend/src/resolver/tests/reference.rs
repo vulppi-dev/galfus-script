@@ -253,3 +253,32 @@ fn resolve_reports_unknown_name_expression() {
             .any(|diagnostic| diagnostic.message().contains("unresolved name `missing`"))
     );
 }
+
+#[test]
+fn resolve_does_not_bind_builtin_type_as_value_name() {
+    let source = source(
+        r#"
+        fn main(): null {
+            var value = String
+            return
+        }
+        "#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+
+    assert!(resolve_result.has_errors());
+
+    let graph = resolve_result.graph();
+    let syntax = graph.syntax();
+    let resolution = graph.resolution().unwrap();
+
+    let root = syntax.root().unwrap();
+
+    let expression = find_name_expression_by_text(syntax, &source, root, "String").unwrap();
+
+    assert!(resolution.reference_symbol(expression).is_none());
+}

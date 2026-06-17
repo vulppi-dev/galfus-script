@@ -78,25 +78,26 @@ impl<'a> Resolver<'a> {
 
         let type_name = self.node_text(name);
 
-        if self.is_builtin_type_name(type_name.as_str()) {
-            return;
-        }
+        if let Some(symbol) = self.resolution.lookup_symbol(scope, type_name.as_str()) {
+            let Some(symbol_data) = self.resolution.symbol(symbol) else {
+                return;
+            };
 
-        let Some(symbol) = self.resolution.lookup_symbol(scope, type_name.as_str()) else {
-            self.report_unresolved_type(name, type_name);
-            return;
-        };
+            if self.is_type_symbol(symbol_data.kind()) {
+                self.resolution.bind_type_reference(named_type, symbol);
+                return;
+            }
 
-        let Some(symbol_data) = self.resolution.symbol(symbol) else {
-            return;
-        };
-
-        if !self.is_type_symbol(symbol_data.kind()) {
             self.report_unresolved_type(name, type_name);
             return;
         }
 
-        self.resolution.bind_type_reference(named_type, symbol);
+        if let Some(symbol) = self.resolution.builtin_type_symbol(type_name.as_str()) {
+            self.resolution.bind_type_reference(named_type, symbol);
+            return;
+        }
+
+        self.report_unresolved_type(name, type_name);
     }
 
     fn is_type_symbol(&self, kind: SymbolKind) -> bool {
@@ -110,29 +111,6 @@ impl<'a> Resolver<'a> {
                 | SymbolKind::GenericParameter
                 | SymbolKind::ImportBinding
                 | SymbolKind::BuiltinType
-        )
-    }
-
-    fn is_builtin_type_name(&self, name: &str) -> bool {
-        matches!(
-            name,
-            "null"
-                | "bool"
-                | "char"
-                | "String"
-                | "int"
-                | "int8"
-                | "int16"
-                | "int32"
-                | "int64"
-                | "uint"
-                | "uint8"
-                | "uint16"
-                | "uint32"
-                | "uint64"
-                | "float"
-                | "float32"
-                | "float64"
         )
     }
 

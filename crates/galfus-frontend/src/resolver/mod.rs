@@ -2,6 +2,7 @@
 mod tests;
 
 mod block;
+mod builtin;
 mod export;
 mod function;
 mod generic;
@@ -54,15 +55,21 @@ pub struct Resolver<'a> {
 
 impl<'a> Resolver<'a> {
     pub fn new(source: &'a SourceFile, syntax: &'a SyntaxLayer) -> Self {
-        let mut resolution = ResolutionLayer::new();
-        resolution.add_scope(ScopeKind::Module, None, syntax.root());
+        let resolution = ResolutionLayer::new();
 
-        Self {
+        let mut resolver = Self {
             source,
             syntax,
             diagnostics: DiagnosticBag::new(),
             resolution,
-        }
+        };
+
+        resolver.create_builtin_scope();
+        resolver
+            .resolution
+            .add_scope(ScopeKind::Module, None, syntax.root());
+
+        resolver
     }
 
     pub fn resolve(mut self) -> (ResolutionLayer, DiagnosticBag) {

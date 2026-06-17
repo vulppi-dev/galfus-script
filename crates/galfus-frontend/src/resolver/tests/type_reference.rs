@@ -137,7 +137,7 @@ fn resolve_binds_struct_field_named_type() {
 }
 
 #[test]
-fn resolve_ignores_builtin_named_types_for_now() {
+fn resolve_binds_builtin_named_types() {
     let source = source(
         r#"
         fn main(value: int32): String {
@@ -162,8 +162,19 @@ fn resolve_ignores_builtin_named_types_for_now() {
     let int_type = find_named_type_by_text(syntax, &source, root, "int32").unwrap();
     let string_type = find_named_type_by_text(syntax, &source, root, "String").unwrap();
 
-    assert!(resolution.type_reference_symbol(int_type).is_none());
-    assert!(resolution.type_reference_symbol(string_type).is_none());
+    let int_symbol = resolution
+        .symbol(resolution.type_reference_symbol(int_type).unwrap())
+        .unwrap();
+
+    let string_symbol = resolution
+        .symbol(resolution.type_reference_symbol(string_type).unwrap())
+        .unwrap();
+
+    assert_eq!(int_symbol.kind(), SymbolKind::BuiltinType);
+    assert_eq!(int_symbol.name(), "int32");
+
+    assert_eq!(string_symbol.kind(), SymbolKind::BuiltinType);
+    assert_eq!(string_symbol.name(), "String");
 }
 
 #[test]
