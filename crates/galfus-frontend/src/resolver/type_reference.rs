@@ -55,8 +55,8 @@ impl<'a> Resolver<'a> {
                 return;
             }
 
-            // Path type, external type, or module-qualified type comes later.
             SyntaxNodeKind::Path => {
+                self.resolve_type_path(node, scope);
                 return;
             }
 
@@ -100,6 +100,33 @@ impl<'a> Resolver<'a> {
         self.report_unresolved_type(name, type_name);
     }
 
+    fn resolve_type_path(&mut self, path: NodeId, scope: ScopeId) {
+        let Some(root) = self
+            .syntax
+            .first_child_of_kind(path, SyntaxNodeKind::Identifier)
+        else {
+            return;
+        };
+
+        let root_name = self.node_text(root);
+
+        let Some(symbol) = self.resolution.lookup_symbol(scope, root_name.as_str()) else {
+            self.report_unresolved_type(root, root_name);
+            return;
+        };
+
+        let Some(symbol_data) = self.resolution.symbol(symbol) else {
+            return;
+        };
+
+        if self.is_type_path_root_symbol(symbol_data.kind()) {
+            self.resolution.bind_type_reference(path, symbol);
+            return;
+        }
+
+        self.report_unresolved_type(root, root_name);
+    }
+
     fn is_type_symbol(&self, kind: SymbolKind) -> bool {
         matches!(
             kind,
@@ -112,6 +139,10 @@ impl<'a> Resolver<'a> {
                 | SymbolKind::ImportBinding
                 | SymbolKind::BuiltinType
         )
+    }
+
+    fn is_type_path_root_symbol(&self, kind: SymbolKind) -> bool {
+        self.is_type_symbol(kind) || matches!(kind, SymbolKind::ImportNamespace)
     }
 
     fn report_unresolved_type(&mut self, name: NodeId, type_name: String) {

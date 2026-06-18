@@ -31,6 +31,29 @@ fn find_named_type_by_text(
     None
 }
 
+fn find_path_type_by_text(
+    syntax: &SyntaxLayer,
+    source: &SourceFile,
+    node: NodeId,
+    text: &str,
+) -> Option<NodeId> {
+    let syntax_node = syntax.node(node)?;
+
+    if syntax_node.kind() == SyntaxNodeKind::Path
+        && source.slice(syntax_node.span()) == Some(text)
+    {
+        return Some(node);
+    }
+
+    for child in syntax_node.children() {
+        if let Some(found) = find_path_type_by_text(syntax, source, *child, text) {
+            return Some(found);
+        }
+    }
+
+    None
+}
+
 #[test]
 fn resolve_binds_function_parameter_named_type() {
     let source = source(
@@ -175,6 +198,124 @@ fn resolve_binds_builtin_named_types() {
 
     assert_eq!(int8_symbol.kind(), SymbolKind::BuiltinType);
     assert_eq!(int8_symbol.name(), "int8");
+}
+
+#[test]
+fn resolve_binds_import_namespace_type_path_root() {
+    let source = source(
+        r#"
+        import user from "./user"
+
+        type LocalUser = user::User
+        "#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.graph();
+    let syntax = graph.syntax();
+    let resolution = graph.resolution().unwrap();
+
+    let root = syntax.root().unwrap();
+
+    let path_type = find_path_type_by_text(syntax, &source, root, "user::User").unwrap();
+
+    let symbol = resolution.type_reference_symbol(path_type).unwrap();
+    let symbol = resolution.symbol(symbol).unwrap();
+
+    assert_eq!(symbol.name(), "user");
+    assert_eq!(symbol.kind(), SymbolKind::ImportNamespace);
+}
+
+#[test]
+fn resolve_binds_local_type_path_root() {
+    let source = source(
+        r#"
+        struct User {
+            id: int32,
+        }
+
+        type LocalUserId = User::Id
+        "#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.graph();
+    let syntax = graph.syntax();
+    let resolution = graph.resolution().unwrap();
+
+    let root = syntax.root().unwrap();
+
+    let path_type = find_path_type_by_text(syntax, &source, root, "User::Id").unwrap();
+
+    let symbol = resolution.type_reference_symbol(path_type).unwrap();
+    let symbol = resolution.symbol(symbol).unwrap();
+
+    assert_eq!(symbol.name(), "User");
+    assert_eq!(symbol.kind(), SymbolKind::Struct);
+}
+
+#[test]
+fn resolve_reports_unknown_type_path_root() {
+    let source = source(
+        r#"
+        type LocalUser = missing::User
+        "#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+
+    assert!(resolve_result.has_errors());
+
+    let graph = resolve_result.graph();
+    let syntax = graph.syntax();
+    let resolution = graph.resolution().unwrap();
+
+    let root = syntax.root().unwrap();
+
+    let path_type = find_path_type_by_text(syntax, &source, root, "missing::User").unwrap();
+
+    assert!(resolution.type_reference_symbol(path_type).is_none());
+}
+
+#[test]
+fn resolve_reports_value_symbol_as_invalid_type_path_root() {
+    let source = source(
+        r#"
+        const user = 0
+
+        type LocalUser = user::User
+        "#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+
+    assert!(resolve_result.has_errors());
+
+    let graph = resolve_result.graph();
+    let syntax = graph.syntax();
+    let resolution = graph.resolution().unwrap();
+
+    let root = syntax.root().unwrap();
+
+    let path_type = find_path_type_by_text(syntax, &source, root, "user::User").unwrap();
+
+    assert!(resolution.type_reference_symbol(path_type).is_none());
 }
 
 #[test]
