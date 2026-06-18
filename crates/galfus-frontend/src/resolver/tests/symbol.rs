@@ -23,7 +23,7 @@ fn resolve_declares_top_level_named_items() {
         }
 
         constraint Stringable<T> {
-            fn toString(self: T): String
+            fn toString(self: T): [int8]
         }
         ",
     );

@@ -5,7 +5,7 @@ fn parse_struct_decorator() {
     let source = source(
         "@frozen
         struct User {
-            name: String,
+            name: [int8],
         }",
     );
 
@@ -164,7 +164,7 @@ fn parse_struct_field_decorator() {
 fn parse_parameter_decorator() {
     let source = source(
         "fn createUser(
-            @string::trim name: String,
+            @string::trim name: [int8],
             @min(0) age: int32,
         ): User {
             return User {

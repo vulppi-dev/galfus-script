@@ -58,7 +58,7 @@ fn parse_struct_satisfies_single_constraint() {
 #[test]
 fn parse_struct_satisfies_multiple_constraints() {
     let source = source(
-        "struct User satisfies Identifiable, Stringable {\n  id: int64,\n  name: String,\n}",
+        "struct User satisfies Identifiable, Stringable {\n  id: int64,\n  name: [int8],\n}",
     );
 
     let result = parse(&source);
@@ -170,7 +170,7 @@ fn parse_generic_struct_with_satisfies_clause() {
 
 #[test]
 fn parse_struct_without_satisfies_shape_is_unchanged() {
-    let source = source("struct User {\n  name: String,\n}");
+    let source = source("struct User {\n  name: [int8],\n}");
 
     let result = parse(&source);
 

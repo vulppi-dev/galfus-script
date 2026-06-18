@@ -2,7 +2,7 @@ use super::*;
 
 #[test]
 fn parse_default_parameter() {
-    let source = source("fn greet(name: String, punctuation: String = \"!\"): null {\n  return\n}");
+    let source = source("fn greet(name: [int8], punctuation: [int8] = \"!\"): null {\n  return\n}");
 
     let result = parse(&source);
 
@@ -26,7 +26,7 @@ fn parse_default_parameter() {
     assert_eq!(parameter_node.kind(), SyntaxNodeKind::Parameter);
     assert_eq!(
         source.slice(parameter_node.span()),
-        Some("punctuation: String = \"!\"")
+        Some("punctuation: [int8] = \"!\"")
     );
 
     assert_eq!(parameter_node.child_count(), 3);
@@ -48,7 +48,7 @@ fn parse_default_parameter() {
 #[test]
 fn parse_multiple_default_parameters() {
     let source =
-        source("fn spawn(kind: String = \"enemy\", health: int32 = 100): null {\n  return\n}");
+        source("fn spawn(kind: [int8] = \"enemy\", health: int32 = 100): null {\n  return\n}");
 
     let result = parse(&source);
 
@@ -144,7 +144,7 @@ fn parse_default_parameter_with_struct_literal() {
 
 #[test]
 fn parse_default_parameter_accepts_trailing_comma() {
-    let source = source("fn greet(name: String = \"Ana\",): null {\n  return\n}");
+    let source = source("fn greet(name: [int8] = \"Ana\",): null {\n  return\n}");
 
     let result = parse(&source);
 
@@ -171,7 +171,7 @@ fn parse_default_parameter_accepts_trailing_comma() {
 #[test]
 fn parse_rest_parameter_after_default_with_default_is_valid() {
     let source = source(
-        "fn log(prefix: String = \"\", ...values: [String] | null = null): null {\n  return\n}",
+        "fn log(prefix: [int8] = \"\", ...values: [[int8]] | null = null): null {\n  return\n}",
     );
 
     let result = parse(&source);
@@ -212,7 +212,7 @@ fn parse_rest_parameter_after_default_with_default_is_valid() {
 #[test]
 fn parse_parameter_default_before_required_parameter() {
     let source = source(
-        "fn someFunction(name: String = '', age: uint32): null {
+        "fn someFunction(name: [int8] = '', age: uint32): null {
             return
         }",
     );

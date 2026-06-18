@@ -36,7 +36,7 @@ fn resolve_binds_function_parameter_named_type() {
     let source = source(
         r#"
         struct User {
-            name: String,
+            name: [int8],
         }
 
         fn greet(user: User): null {
@@ -71,7 +71,7 @@ fn resolve_binds_function_return_named_type() {
     let source = source(
         r#"
         struct User {
-            name: String,
+            name: [int8],
         }
 
         fn create(): User {
@@ -106,7 +106,7 @@ fn resolve_binds_struct_field_named_type() {
     let source = source(
         r#"
         struct Profile {
-            bio: String,
+            bio: [int8],
         }
 
         struct User {
@@ -140,7 +140,7 @@ fn resolve_binds_struct_field_named_type() {
 fn resolve_binds_builtin_named_types() {
     let source = source(
         r#"
-        fn main(value: int32): String {
+        fn main(value: int32): [int8] {
             return "ok"
         }
         "#,
@@ -160,21 +160,21 @@ fn resolve_binds_builtin_named_types() {
     let root = syntax.root().unwrap();
 
     let int_type = find_named_type_by_text(syntax, &source, root, "int32").unwrap();
-    let string_type = find_named_type_by_text(syntax, &source, root, "String").unwrap();
+    let int8_type = find_named_type_by_text(syntax, &source, root, "int8").unwrap();
 
     let int_symbol = resolution
         .symbol(resolution.type_reference_symbol(int_type).unwrap())
         .unwrap();
 
-    let string_symbol = resolution
-        .symbol(resolution.type_reference_symbol(string_type).unwrap())
+    let int8_symbol = resolution
+        .symbol(resolution.type_reference_symbol(int8_type).unwrap())
         .unwrap();
 
     assert_eq!(int_symbol.kind(), SymbolKind::BuiltinType);
     assert_eq!(int_symbol.name(), "int32");
 
-    assert_eq!(string_symbol.kind(), SymbolKind::BuiltinType);
-    assert_eq!(string_symbol.name(), "String");
+    assert_eq!(int8_symbol.kind(), SymbolKind::BuiltinType);
+    assert_eq!(int8_symbol.name(), "int8");
 }
 
 #[test]
@@ -251,7 +251,7 @@ fn resolve_binds_constraint_generic_parameter_type_references() {
     let source = source(
         r#"
         constraint Stringable<T> {
-            fn toString(self: T): String
+            fn toString(self: T): [int8]
         }
         "#,
     );

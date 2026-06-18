@@ -17,7 +17,7 @@ fn first_instanceof_expression(result: &ParseResult) -> NodeId {
 #[test]
 fn parse_instanceof_expression_with_type_patterns() {
     let source = source(
-        "fn main(): int32 {\n  instanceof value {\n    int32(v) => {\n      return v ** 2\n    }\n    String(text) => {\n      return text.length\n    }\n    _ => {\n      return 0\n    }\n  }\n}",
+        "fn main(): int32 {\n  instanceof value {\n    int32(v) => {\n      return v ** 2\n    }\n    [int8](text) => {\n      return text.length\n    }\n    _ => {\n      return 0\n    }\n  }\n}",
     );
 
     let result = parse(&source);

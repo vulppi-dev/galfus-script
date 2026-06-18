@@ -88,7 +88,7 @@ fn parse_grouped_expression_allows_internal_newlines() {
 
 #[test]
 fn parse_postfix_after_grouped_expression() {
-    let source = source("fn main(): String {\n  return (getUser()).name\n}");
+    let source = source("fn main(): [int8] {\n  return (getUser()).name\n}");
 
     let result = parse(&source);
 

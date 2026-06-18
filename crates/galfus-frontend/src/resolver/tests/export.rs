@@ -61,7 +61,7 @@ fn resolve_records_exported_type_items() {
         }
 
         export constraint Stringable<T> {
-            fn toString(self: T): String
+            fn toString(self: T): [int8]
         }
         "#,
     );
@@ -156,7 +156,7 @@ fn resolve_does_not_export_non_exported_symbols() {
         }
 
         struct PrivateUser {
-            name: String,
+            name: [int8],
         }
 
         const privateVersion = "0.1.0"

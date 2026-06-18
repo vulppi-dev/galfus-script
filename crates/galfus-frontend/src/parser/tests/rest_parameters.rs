@@ -47,7 +47,7 @@ fn parse_rest_parameter() {
 
 #[test]
 fn parse_normal_parameter_followed_by_rest_parameter() {
-    let source = source("fn log(prefix: String, ...values: [String]): null {\n  return\n}");
+    let source = source("fn log(prefix: [int8], ...values: [[int8]]): null {\n  return\n}");
 
     let result = parse(&source);
 
@@ -78,7 +78,7 @@ fn parse_normal_parameter_followed_by_rest_parameter() {
 
     assert_eq!(
         source.slice(syntax.node(second).unwrap().span()),
-        Some("...values: [String]")
+        Some("...values: [[int8]]")
     );
 }
 

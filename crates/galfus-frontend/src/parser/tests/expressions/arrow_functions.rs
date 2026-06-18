@@ -103,7 +103,7 @@ fn parse_arrow_function_without_return_type() {
 #[test]
 fn parse_arrow_function_block_body() {
     let source = source(
-        "fn main(): null {\n  const printer = (value: String): null => {\n    print(value)\n    return\n  }\n  return\n}",
+        "fn main(): null {\n  const printer = (value: [int8]): null => {\n    print(value)\n    return\n  }\n  return\n}",
     );
 
     let result = parse(&source);

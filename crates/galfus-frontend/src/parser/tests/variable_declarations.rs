@@ -154,7 +154,7 @@ fn parse_var_statement_with_type_and_initializer() {
 
 #[test]
 fn parse_const_statement_with_string_initializer() {
-    let source = source("fn main(): null { const name: String = \"Ana\"; return }");
+    let source = source("fn main(): null { const name: [int8] = \"Ana\"; return }");
 
     let result = parse(&source);
 
@@ -175,7 +175,7 @@ fn parse_const_statement_with_string_initializer() {
     assert_eq!(const_node.kind(), SyntaxNodeKind::ConstStatement);
     assert_eq!(
         source.slice(const_node.span()),
-        Some("const name: String = \"Ana\"")
+        Some("const name: [int8] = \"Ana\"")
     );
 
     let initializer = const_node.child(2).unwrap();

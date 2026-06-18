@@ -123,7 +123,7 @@ fn parse_chained_index_expression() {
 
 #[test]
 fn parse_member_after_index_expression() {
-    let source = source("fn main(): String {\n  return users[0].name\n}");
+    let source = source("fn main(): [int8] {\n  return users[0].name\n}");
 
     let result = parse(&source);
 

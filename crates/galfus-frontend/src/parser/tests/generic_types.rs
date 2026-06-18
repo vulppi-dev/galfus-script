@@ -41,7 +41,7 @@ fn parse_generic_type() {
 
 #[test]
 fn parse_generic_type_with_multiple_arguments() {
-    let source = source("struct Registry {\n  users: Map<String, User>,\n}");
+    let source = source("struct Registry {\n  users: Map<[int8], User>,\n}");
 
     let result = parse(&source);
 
@@ -63,7 +63,7 @@ fn parse_generic_type_with_multiple_arguments() {
     assert_eq!(field_type_node.kind(), SyntaxNodeKind::GenericType);
     assert_eq!(
         source.slice(field_type_node.span()),
-        Some("Map<String, User>")
+        Some("Map<[int8], User>")
     );
 
     let arguments = field_type_node.child(1).unwrap();
@@ -76,7 +76,7 @@ fn parse_generic_type_with_multiple_arguments() {
 
     assert_eq!(
         source.slice(syntax.node(first).unwrap().span()),
-        Some("String")
+        Some("[int8]")
     );
     assert_eq!(
         source.slice(syntax.node(second).unwrap().span()),
@@ -86,7 +86,7 @@ fn parse_generic_type_with_multiple_arguments() {
 
 #[test]
 fn parse_nested_generic_type() {
-    let source = source("struct Registry {\n  users: Map<String, WeakVec<User>>,\n}");
+    let source = source("struct Registry {\n  users: Map<[int8], WeakVec<User>>,\n}");
 
     let result = parse(&source);
 
@@ -108,7 +108,7 @@ fn parse_nested_generic_type() {
     assert_eq!(field_type_node.kind(), SyntaxNodeKind::GenericType);
     assert_eq!(
         source.slice(field_type_node.span()),
-        Some("Map<String, WeakVec<User>>")
+        Some("Map<[int8], WeakVec<User>>")
     );
 
     let arguments = field_type_node.child(1).unwrap();
@@ -198,7 +198,7 @@ fn parse_generic_type_with_array_argument() {
 
 #[test]
 fn parse_generic_type_with_trailing_comma() {
-    let source = source("struct Registry {\n  users: Map<String, User,>,\n}");
+    let source = source("struct Registry {\n  users: Map<[int8], User,>,\n}");
 
     let result = parse(&source);
 
@@ -225,7 +225,7 @@ fn parse_generic_type_with_trailing_comma() {
 
 #[test]
 fn parse_generic_type_with_newlines() {
-    let source = source("struct Registry {\n  users: Map<\n    String,\n    User,\n  >,\n}");
+    let source = source("struct Registry {\n  users: Map<\n    [int8],\n    User,\n  >,\n}");
 
     let result = parse(&source);
 

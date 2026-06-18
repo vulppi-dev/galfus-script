@@ -2,7 +2,7 @@ use super::*;
 
 #[test]
 fn parse_struct_field_default() {
-    let source = source("struct Person {\n  name: String = \"Anonymous\",\n  age: uint32 = 0,\n}");
+    let source = source("struct Person {\n  name: [int8] = \"Anonymous\",\n  age: uint32 = 0,\n}");
 
     let result = parse(&source);
 
@@ -27,7 +27,7 @@ fn parse_struct_field_default() {
     assert_eq!(first_field_node.kind(), SyntaxNodeKind::StructField);
     assert_eq!(
         source.slice(first_field_node.span()),
-        Some("name: String = \"Anonymous\"")
+        Some("name: [int8] = \"Anonymous\"")
     );
 
     assert_eq!(first_field_node.child_count(), 3);
@@ -41,7 +41,7 @@ fn parse_struct_field_default() {
 
 #[test]
 fn parse_struct_field_default_with_union_null() {
-    let source = source("struct Person {\n  email: String | null = null,\n}");
+    let source = source("struct Person {\n  email: [int8] | null = null,\n}");
 
     let result = parse(&source);
 
@@ -72,13 +72,13 @@ fn parse_struct_field_default_with_union_null() {
 
     assert_eq!(
         source.slice(field_node.span()),
-        Some("email: String | null = null")
+        Some("email: [int8] | null = null")
     );
 }
 
 #[test]
 fn parse_regular_struct_field_still_uses_struct_field() {
-    let source = source("struct User {\n  name: String = \"Anonymous\",\n}");
+    let source = source("struct User {\n  name: [int8] = \"Anonymous\",\n}");
 
     let result = parse(&source);
 
@@ -108,7 +108,7 @@ fn parse_regular_struct_field_still_uses_struct_field() {
 
     assert_eq!(
         syntax.node(field_type).unwrap().kind(),
-        SyntaxNodeKind::NamedType
+        SyntaxNodeKind::ArrayType
     );
 
     assert_eq!(

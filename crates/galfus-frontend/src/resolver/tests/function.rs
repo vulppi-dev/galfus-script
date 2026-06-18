@@ -73,7 +73,7 @@ fn resolve_declares_function_parameters() {
 fn resolve_declares_rest_parameter() {
     let source = source(
         r#"
-        fn log(...messages: [String]): null {
+        fn log(...messages: [[int8]]): null {
             return
         }
         "#,

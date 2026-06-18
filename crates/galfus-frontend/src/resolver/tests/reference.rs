@@ -259,7 +259,7 @@ fn resolve_does_not_bind_builtin_type_as_value_name() {
     let source = source(
         r#"
         fn main(): null {
-            var value = String
+            var value = int8
             return
         }
         "#,
@@ -278,7 +278,7 @@ fn resolve_does_not_bind_builtin_type_as_value_name() {
 
     let root = syntax.root().unwrap();
 
-    let expression = find_name_expression_by_text(syntax, &source, root, "String").unwrap();
+    let expression = find_name_expression_by_text(syntax, &source, root, "int8").unwrap();
 
     assert!(resolution.reference_symbol(expression).is_none());
 }

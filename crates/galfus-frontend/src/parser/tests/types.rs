@@ -468,7 +468,7 @@ fn parse_grouped_type_still_works() {
 
 #[test]
 fn parse_tuple_type() {
-    let source = source("fn main(value: (int32, String)): null { return }");
+    let source = source("fn main(value: (int32, [int8])): null { return }");
 
     let result = parse(&source);
 
@@ -498,7 +498,7 @@ fn parse_tuple_type() {
 
 #[test]
 fn parse_tuple_type_with_trailing_comma() {
-    let source = source("fn main(value: (int32, String,)): null { return }");
+    let source = source("fn main(value: (int32, [int8],)): null { return }");
 
     let result = parse(&source);
 

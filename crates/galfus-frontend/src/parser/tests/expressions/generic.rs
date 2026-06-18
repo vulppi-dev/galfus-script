@@ -50,7 +50,7 @@ fn parse_generic_anchor_call_expression() {
 
 #[test]
 fn parse_generic_member_call_expression() {
-    let source = source("fn main(): null {\n  registry.get<String>(\"name\")\n  return\n}");
+    let source = source("fn main(): null {\n  registry.get<[int8]>(\"name\")\n  return\n}");
 
     let result = parse(&source);
 
@@ -75,13 +75,13 @@ fn parse_generic_member_call_expression() {
     assert_eq!(target_node.kind(), SyntaxNodeKind::GenericExpression);
     assert_eq!(
         source.slice(target_node.span()),
-        Some("registry.get<String>")
+        Some("registry.get<[int8]>")
     );
 }
 
 #[test]
 fn parse_generic_call_with_multiple_arguments() {
-    let source = source("fn main(): null {\n  makePair<String, User>(name, user)\n  return\n}");
+    let source = source("fn main(): null {\n  makePair<[int8], User>(name, user)\n  return\n}");
 
     let result = parse(&source);
 
@@ -107,13 +107,13 @@ fn parse_generic_call_with_multiple_arguments() {
     assert_eq!(generic_args_node.child_count(), 2);
     assert_eq!(
         source.slice(generic_args_node.span()),
-        Some("<String, User>")
+        Some("<[int8], User>")
     );
 }
 
 #[test]
 fn parse_generic_call_with_nested_generic_argument() {
-    let source = source("fn main(): null {\n  makeBox<Map<String, User>>(value)\n  return\n}");
+    let source = source("fn main(): null {\n  makeBox<Map<[int8], User>>(value)\n  return\n}");
 
     let result = parse(&source);
 
@@ -133,7 +133,7 @@ fn parse_generic_call_with_nested_generic_argument() {
     assert_eq!(expression_node.kind(), SyntaxNodeKind::CallExpression);
     assert_eq!(
         source.slice(expression_node.span()),
-        Some("makeBox<Map<String, User>>(value)")
+        Some("makeBox<Map<[int8], User>>(value)")
     );
 
     let target = expression_node.first_child().unwrap();

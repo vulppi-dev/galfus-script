@@ -581,7 +581,6 @@ pub enum SyntaxNodeKind {
     VariantPattern,
     VariantPatternPayload,
     LiteralPattern,
-    RegexPattern,
     StructBindingPattern,
     StructBindingField,
     TupleBindingPattern,
@@ -659,7 +658,6 @@ pub enum SyntaxNodeKind {
     BoolLiteral,
     NullLiteral,
     StringLiteral,
-    RegexLiteral,
 }
 
 impl SyntaxNodeKind {
@@ -720,7 +718,6 @@ impl SyntaxNodeKind {
                 | SyntaxNodeKind::BoolLiteral
                 | SyntaxNodeKind::NullLiteral
                 | SyntaxNodeKind::StringLiteral
-                | SyntaxNodeKind::RegexLiteral
                 | SyntaxNodeKind::RangeExpression
                 | SyntaxNodeKind::NullSafeMemberExpression
                 | SyntaxNodeKind::MatchExpression
@@ -752,7 +749,6 @@ impl SyntaxNodeKind {
                 | SyntaxNodeKind::BoolLiteral
                 | SyntaxNodeKind::NullLiteral
                 | SyntaxNodeKind::StringLiteral
-                | SyntaxNodeKind::RegexLiteral
         )
     }
 
@@ -801,7 +797,6 @@ impl SyntaxNodeKind {
                 | SyntaxNodeKind::VariantPattern
                 | SyntaxNodeKind::VariantPatternPayload
                 | SyntaxNodeKind::LiteralPattern
-                | SyntaxNodeKind::RegexPattern
         )
     }
 }

@@ -4,7 +4,7 @@ use super::*;
 
 #[test]
 fn parse_struct_item() {
-    let source = source("struct User { name: String, age: int32 }");
+    let source = source("struct User { name: [int8], age: int32 }");
 
     let result = parse(&source);
 
@@ -40,7 +40,7 @@ fn parse_struct_item() {
     let first_field_node = syntax.node(first_field).unwrap();
 
     assert_eq!(first_field_node.kind(), SyntaxNodeKind::StructField);
-    assert_eq!(source.slice(first_field_node.span()), Some("name: String"));
+    assert_eq!(source.slice(first_field_node.span()), Some("name: [int8]"));
 
     let first_field_name = first_field_node.first_child().unwrap();
     let first_field_type = first_field_node.child(1).unwrap();
@@ -52,18 +52,18 @@ fn parse_struct_item() {
 
     assert_eq!(
         syntax.node(first_field_type).unwrap().kind(),
-        SyntaxNodeKind::NamedType
+        SyntaxNodeKind::ArrayType
     );
 
     assert_eq!(
         source.slice(syntax.node(first_field_type).unwrap().span()),
-        Some("String")
+        Some("[int8]")
     );
 }
 
 #[test]
 fn parse_struct_fields_with_commas() {
-    let source = source("struct User { name: String, age: int32, }");
+    let source = source("struct User { name: [int8], age: int32, }");
 
     let result = parse(&source);
 
@@ -91,7 +91,7 @@ fn parse_struct_fields_with_commas() {
 
 #[test]
 fn parse_struct_followed_by_function() {
-    let source = source("struct User { name: String }\nfn main(): null { return }");
+    let source = source("struct User { name: [int8] }\nfn main(): null { return }");
 
     let result = parse(&source);
 
@@ -120,7 +120,7 @@ fn parse_struct_followed_by_function() {
 
 #[test]
 fn parse_export_struct_item() {
-    let source = source("export struct User { name: String }");
+    let source = source("export struct User { name: [int8] }");
 
     let result = parse(&source);
 
@@ -139,7 +139,7 @@ fn parse_export_struct_item() {
     assert_eq!(export_node.kind(), SyntaxNodeKind::ExportItem);
     assert_eq!(
         source.slice(export_node.span()),
-        Some("export struct User { name: String }")
+        Some("export struct User { name: [int8] }")
     );
     assert_eq!(export_node.child_count(), 1);
 
@@ -158,7 +158,7 @@ fn parse_export_struct_item() {
 
 #[test]
 fn parse_struct_requires_commas_between_fields() {
-    let source = source("struct User { name: String age: int32 }");
+    let source = source("struct User { name: [int8] age: int32 }");
 
     let result = parse(&source);
 
@@ -186,7 +186,7 @@ fn parse_enum_requires_commas_between_variants() {
 
 #[test]
 fn parse_choice_item_with_payload_variants() {
-    let source = source("choice Result { Ok(User), SomeError(int32, String), }");
+    let source = source("choice Result { Ok(User), SomeError(int32, [int8]), }");
 
     let result = parse(&source);
 
@@ -248,7 +248,7 @@ fn parse_choice_item_with_payload_variants() {
 
 #[test]
 fn parse_choice_variant_with_multiple_payload_types() {
-    let source = source("choice Result { SomeError(int32, String), }");
+    let source = source("choice Result { SomeError(int32, [int8]), }");
 
     let result = parse(&source);
 
@@ -266,7 +266,7 @@ fn parse_choice_variant_with_multiple_payload_types() {
 
     assert_eq!(
         source.slice(variant_node.span()),
-        Some("SomeError(int32, String)")
+        Some("SomeError(int32, [int8])")
     );
 
     let payload = variant_node.child(1).unwrap();
@@ -297,7 +297,7 @@ fn parse_choice_variant_with_multiple_payload_types() {
 
     assert_eq!(
         source.slice(syntax.node(second_type).unwrap().span()),
-        Some("String")
+        Some("[int8]")
     );
 }
 
