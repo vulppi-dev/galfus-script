@@ -219,6 +219,102 @@ fn resolve_binds_import_namespace_name_expression() {
 }
 
 #[test]
+fn resolve_binds_top_level_initializer_name_expression() {
+    let source = source(
+        r#"
+        const first = 1
+        const second = first
+        "#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.graph();
+    let syntax = graph.syntax();
+    let resolution = graph.resolution().unwrap();
+
+    let root = syntax.root().unwrap();
+
+    let expression = find_name_expression_by_text(syntax, &source, root, "first").unwrap();
+
+    let symbol = resolution.reference_symbol(expression).unwrap();
+    let symbol = resolution.symbol(symbol).unwrap();
+
+    assert_eq!(symbol.name(), "first");
+    assert_eq!(symbol.kind(), SymbolKind::Const);
+}
+
+#[test]
+fn resolve_binds_parameter_default_name_expression() {
+    let source = source(
+        r#"
+        const fallback = 1
+
+        fn main(value: int32 = fallback): null {
+            return
+        }
+        "#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.graph();
+    let syntax = graph.syntax();
+    let resolution = graph.resolution().unwrap();
+
+    let root = syntax.root().unwrap();
+
+    let expression = find_name_expression_by_text(syntax, &source, root, "fallback").unwrap();
+
+    let symbol = resolution.reference_symbol(expression).unwrap();
+    let symbol = resolution.symbol(symbol).unwrap();
+
+    assert_eq!(symbol.name(), "fallback");
+    assert_eq!(symbol.kind(), SymbolKind::Const);
+}
+
+#[test]
+fn resolve_reports_unknown_top_level_initializer_name_expression() {
+    let source = source(
+        r#"
+        const value = missing
+        "#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+
+    assert!(resolve_result.has_errors());
+
+    let graph = resolve_result.graph();
+    let syntax = graph.syntax();
+    let resolution = graph.resolution().unwrap();
+
+    let root = syntax.root().unwrap();
+
+    let expression = find_name_expression_by_text(syntax, &source, root, "missing").unwrap();
+
+    assert!(resolution.reference_symbol(expression).is_none());
+
+    assert!(
+        graph
+            .diagnostics()
+            .iter()
+            .any(|diagnostic| diagnostic.message().contains("unresolved name `missing`"))
+    );
+}
+
+#[test]
 fn resolve_reports_unknown_name_expression() {
     let source = source(
         r#"

@@ -18,6 +18,10 @@ impl<'a> Resolver<'a> {
                 self.resolve_function_references(item);
             }
 
+            SyntaxNodeKind::VarItem | SyntaxNodeKind::ConstItem => {
+                self.resolve_node_references(item, parent_scope);
+            }
+
             _ => {}
         }
     }
@@ -26,6 +30,8 @@ impl<'a> Resolver<'a> {
         let Some(function_scope) = self.resolution.node_scope(function) else {
             return;
         };
+
+        self.resolve_function_parameter_defaults(function, function_scope);
 
         let Some(block) = self
             .syntax
@@ -37,6 +43,17 @@ impl<'a> Resolver<'a> {
         let block_scope = self.resolution.node_scope(block).unwrap_or(function_scope);
 
         self.resolve_node_references(block, block_scope);
+    }
+
+    fn resolve_function_parameter_defaults(&mut self, function: NodeId, function_scope: ScopeId) {
+        let Some(parameters) = self
+            .syntax
+            .first_child_of_kind(function, SyntaxNodeKind::ParameterList)
+        else {
+            return;
+        };
+
+        self.resolve_node_references(parameters, function_scope);
     }
 
     fn resolve_node_references(&mut self, node: NodeId, current_scope: ScopeId) {

@@ -126,6 +126,8 @@ fn resolve_records_exported_var_and_const() {
 fn resolve_records_exported_destructuring_bindings() {
     let source = source(
         r#"
+        const user = 0
+
         export var { id, name: userName } = user
         "#,
     );

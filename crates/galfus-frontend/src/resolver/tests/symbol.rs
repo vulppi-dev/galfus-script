@@ -94,6 +94,10 @@ fn resolve_declares_top_level_var_and_const() {
 fn resolve_declares_top_level_destructuring_bindings() {
     let source = source(
         "
+        var user = 0
+        var point = 0
+        var values = 0
+
         var { id, name: userName } = user
         var (x, y) = point
         var [first, ...rest] = values
