@@ -132,10 +132,4 @@ impl Parser {
 
         Some(self.add_node(SyntaxNodeKind::StructLiteral, span, vec![name, fields]))
     }
-
-    pub(super) fn parse_regex_literal(&mut self) -> Option<NodeId> {
-        let token = self.expect(TokenKind::Regex)?;
-
-        Some(self.add_node(SyntaxNodeKind::RegexLiteral, token.span(), Vec::new()))
-    }
 }

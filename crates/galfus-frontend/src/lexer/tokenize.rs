@@ -123,10 +123,6 @@ impl Lexer<'_> {
                     return self.next_token();
                 }
 
-                if self.can_start_regex_literal() {
-                    return self.lex_regex_literal(start);
-                }
-
                 if self.match_char('=') {
                     TokenKind::SlashEqual
                 } else {
@@ -240,65 +236,5 @@ impl Lexer<'_> {
         };
 
         self.make_token(kind, Span::new(self.source.id(), start, self.offset))
-    }
-
-    fn lex_regex_literal(&mut self, start: u32) -> Token {
-        self.bump(); // /
-
-        let mut escaped = false;
-        let mut in_class = false;
-
-        while let Some(ch) = self.peek() {
-            if ch == '\n' || ch == '\r' {
-                let span = Span::new(self.source.id(), start, self.offset);
-
-                self.diagnostics.push(Diagnostic::error(
-                    LexicalDiagnosticCode::UnterminatedRegexpLiteral,
-                    span,
-                ));
-
-                return self.make_token(TokenKind::Regex, span);
-            }
-
-            if escaped {
-                escaped = false;
-                self.bump();
-                continue;
-            }
-
-            match ch {
-                '\\' => {
-                    escaped = true;
-                    self.bump();
-                }
-                '[' => {
-                    in_class = true;
-                    self.bump();
-                }
-                ']' => {
-                    in_class = false;
-                    self.bump();
-                }
-                '/' if !in_class => {
-                    self.bump();
-                    break;
-                }
-                _ => {
-                    self.bump();
-                }
-            }
-        }
-
-        while let Some(ch) = self.peek() {
-            if ch.is_ascii_alphabetic() {
-                self.bump();
-            } else {
-                break;
-            }
-        }
-
-        let span = Span::new(self.source.id(), start, self.offset);
-
-        self.make_token(TokenKind::Regex, span)
     }
 }

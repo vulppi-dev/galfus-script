@@ -32,7 +32,6 @@ pub enum TokenKind {
     Integer,
     Float,
     String,
-    Regex,
 
     // Keywords
     Import,
@@ -64,6 +63,7 @@ pub enum TokenKind {
     True,
     False,
     Copy,
+    Stamp,
 
     // Delimiters
     LeftParen,    // (

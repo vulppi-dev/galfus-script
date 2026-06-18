@@ -92,24 +92,6 @@ impl<'a> Lexer<'a> {
         )
     }
 
-    fn can_start_regex_literal(&self) -> bool {
-        match self.previous_significant_kind.as_ref() {
-            None => true,
-
-            Some(TokenKind::LeftParen)
-            | Some(TokenKind::LeftBracket)
-            | Some(TokenKind::LeftBrace)
-            | Some(TokenKind::Comma)
-            | Some(TokenKind::Colon)
-            | Some(TokenKind::Equal)
-            | Some(TokenKind::Arrow)
-            | Some(TokenKind::Return)
-            | Some(TokenKind::Match)
-            | Some(TokenKind::Instanceof) => true,
-
-            _ => false,
-        }
-    }
 }
 
 pub fn lex(source: &SourceFile) -> LexResult {

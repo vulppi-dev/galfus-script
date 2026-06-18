@@ -87,3 +87,38 @@ fn lexer_does_not_split_keyword_prefixes() {
         ]
     );
 }
+
+#[test]
+fn lex_stamp_keyword() {
+    let tokens = kinds("stamp fn max() {}");
+
+    assert_eq!(
+        tokens,
+        vec![
+            TokenKind::Stamp,
+            TokenKind::Fn,
+            TokenKind::Identifier,
+            TokenKind::LeftParen,
+            TokenKind::RightParen,
+            TokenKind::LeftBrace,
+            TokenKind::RightBrace,
+            TokenKind::Eof,
+        ]
+    );
+}
+
+#[test]
+fn lex_string_type_name_as_identifier() {
+    let tokens = kinds("String [uint8]");
+
+    assert_eq!(
+        tokens,
+        vec![
+            TokenKind::Identifier,
+            TokenKind::LeftBracket,
+            TokenKind::Identifier,
+            TokenKind::RightBracket,
+            TokenKind::Eof,
+        ]
+    );
+}

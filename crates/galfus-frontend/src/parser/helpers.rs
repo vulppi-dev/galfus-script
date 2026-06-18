@@ -10,7 +10,6 @@ impl Parser {
                 | TokenKind::Integer
                 | TokenKind::Float
                 | TokenKind::String
-                | TokenKind::Regex
                 | TokenKind::True
                 | TokenKind::False
                 | TokenKind::Null
@@ -422,7 +421,6 @@ impl Parser {
                                 | TokenKind::Integer
                                 | TokenKind::Float
                                 | TokenKind::String
-                                | TokenKind::Regex
                                 | TokenKind::True
                                 | TokenKind::False
                                 | TokenKind::Null

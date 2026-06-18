@@ -32,6 +32,7 @@ impl Lexer<'_> {
             "true" => TokenKind::True,
             "false" => TokenKind::False,
             "copy" => TokenKind::Copy,
+            "stamp" => TokenKind::Stamp,
             _ => return None,
         };
 
