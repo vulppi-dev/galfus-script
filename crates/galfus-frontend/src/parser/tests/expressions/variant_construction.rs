@@ -2,7 +2,7 @@ use super::super::*;
 
 #[test]
 fn parse_choice_variant_constructor_with_payload() {
-    let source = source("fn main(): null {\n  const result = Result::Ok(user)\n  return\n}");
+    let source = source("fn main(): null {\n  const result = Result.Ok(user)\n  return\n}");
 
     let result = parse(&source);
 
@@ -29,14 +29,14 @@ fn parse_choice_variant_constructor_with_payload() {
     assert_eq!(expression_node.kind(), SyntaxNodeKind::CallExpression);
     assert_eq!(
         source.slice(expression_node.span()),
-        Some("Result::Ok(user)")
+        Some("Result.Ok(user)")
     );
 
     let target = expression_node.first_child().unwrap();
     let target_node = syntax.node(target).unwrap();
 
-    assert_eq!(target_node.kind(), SyntaxNodeKind::PathExpression);
-    assert_eq!(source.slice(target_node.span()), Some("Result::Ok"));
+    assert_eq!(target_node.kind(), SyntaxNodeKind::MemberExpression);
+    assert_eq!(source.slice(target_node.span()), Some("Result.Ok"));
 
     let arguments = expression_node.child(1).unwrap();
     let arguments_node = syntax.node(arguments).unwrap();
@@ -47,7 +47,7 @@ fn parse_choice_variant_constructor_with_payload() {
 
 #[test]
 fn parse_unit_variant_reference() {
-    let source = source("fn main(): null {\n  const none = Option::None\n  return\n}");
+    let source = source("fn main(): null {\n  const none = Option.None\n  return\n}");
 
     let result = parse(&source);
 
@@ -71,8 +71,8 @@ fn parse_unit_variant_reference() {
     let expression = initializer_node.first_child().unwrap();
     let expression_node = syntax.node(expression).unwrap();
 
-    assert_eq!(expression_node.kind(), SyntaxNodeKind::PathExpression);
-    assert_eq!(source.slice(expression_node.span()), Some("Option::None"));
+    assert_eq!(expression_node.kind(), SyntaxNodeKind::MemberExpression);
+    assert_eq!(source.slice(expression_node.span()), Some("Option.None"));
 
     let target = expression_node.first_child().unwrap();
     let variant = expression_node.child(1).unwrap();
@@ -98,7 +98,7 @@ fn parse_unit_variant_reference() {
 
 #[test]
 fn parse_enum_variant_reference_in_return() {
-    let source = source("fn color(): Color {\n  return Color::Red\n}");
+    let source = source("fn color(): Color {\n  return Color.Red\n}");
 
     let result = parse(&source);
 
@@ -119,14 +119,14 @@ fn parse_enum_variant_reference_in_return() {
     let expression = return_node.first_child().unwrap();
     let expression_node = syntax.node(expression).unwrap();
 
-    assert_eq!(expression_node.kind(), SyntaxNodeKind::PathExpression);
-    assert_eq!(source.slice(expression_node.span()), Some("Color::Red"));
+    assert_eq!(expression_node.kind(), SyntaxNodeKind::MemberExpression);
+    assert_eq!(source.slice(expression_node.span()), Some("Color.Red"));
 }
 
 #[test]
 fn parse_variant_constructor_with_struct_literal_argument() {
     let source =
-        source("fn main(): null {\n  const result = Result::Ok(User { name })\n  return\n}");
+        source("fn main(): null {\n  const result = Result.Ok(User { name })\n  return\n}");
 
     let result = parse(&source);
 
@@ -153,7 +153,7 @@ fn parse_variant_constructor_with_struct_literal_argument() {
     assert_eq!(expression_node.kind(), SyntaxNodeKind::CallExpression);
     assert_eq!(
         source.slice(expression_node.span()),
-        Some("Result::Ok(User { name })")
+        Some("Result.Ok(User { name })")
     );
 
     let arguments = expression_node.child(1).unwrap();
@@ -168,8 +168,8 @@ fn parse_variant_constructor_with_struct_literal_argument() {
 }
 
 #[test]
-fn parse_variant_constructor_allows_newline_before_colon_colon() {
-    let source = source("fn main(): null {\n  const result = Result\n  ::Ok(user)\n  return\n}");
+fn parse_variant_constructor_allows_newline_before_dot() {
+    let source = source("fn main(): null {\n  const result = Result\n  .Ok(user)\n  return\n}");
 
     let result = parse(&source);
 
@@ -196,6 +196,6 @@ fn parse_variant_constructor_allows_newline_before_colon_colon() {
     assert_eq!(expression_node.kind(), SyntaxNodeKind::CallExpression);
     assert_eq!(
         source.slice(expression_node.span()),
-        Some("Result\n  ::Ok(user)")
+        Some("Result\n  .Ok(user)")
     );
 }

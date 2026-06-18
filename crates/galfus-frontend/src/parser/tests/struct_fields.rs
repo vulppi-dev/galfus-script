@@ -77,6 +77,41 @@ fn parse_struct_field_default_with_union_null() {
 }
 
 #[test]
+fn parse_const_struct_field() {
+    let source = source("struct User {\n  const id: int64,\n  name: [uint8],\n}");
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+    let root = syntax.root().unwrap();
+    let struct_item = syntax.node(root).unwrap().first_child().unwrap();
+    let struct_node = syntax.node(struct_item).unwrap();
+    let fields = struct_node.child(1).unwrap();
+    let field = syntax.node(fields).unwrap().first_child().unwrap();
+    let field_node = syntax.node(field).unwrap();
+
+    assert_eq!(field_node.kind(), SyntaxNodeKind::StructField);
+    assert_eq!(source.slice(field_node.span()), Some("const id: int64"));
+    assert_eq!(field_node.child_count(), 3);
+
+    let marker = field_node.first_child().unwrap();
+    let name = field_node.child(1).unwrap();
+    let field_type = field_node.child(2).unwrap();
+
+    assert_eq!(
+        syntax.node(marker).unwrap().kind(),
+        SyntaxNodeKind::StructFieldConst
+    );
+    assert_eq!(source.slice(syntax.node(name).unwrap().span()), Some("id"));
+    assert_eq!(
+        syntax.node(field_type).unwrap().kind(),
+        SyntaxNodeKind::NamedType
+    );
+}
+
+#[test]
 fn parse_regular_struct_field_still_uses_struct_field() {
     let source = source("struct User {\n  name: [int8] = \"Anonymous\",\n}");
 

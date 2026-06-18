@@ -50,6 +50,14 @@ impl Parser {
             return self.parse_inferred_struct_literal();
         }
 
+        if self.at(&TokenKind::Match) {
+            return self.parse_match_expression();
+        }
+
+        if self.at(&TokenKind::Instanceof) {
+            return self.parse_instanceof_expression();
+        }
+
         if self.at(&TokenKind::Integer) {
             return self.parse_integer_literal();
         }

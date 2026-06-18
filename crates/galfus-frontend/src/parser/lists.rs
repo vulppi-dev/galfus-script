@@ -396,6 +396,17 @@ impl Parser {
 
             self.skip_newlines();
 
+            if self.at(&TokenKind::Comma) {
+                self.bump();
+                self.skip_newlines();
+
+                if self.at(&TokenKind::RightBrace) {
+                    break;
+                }
+
+                continue;
+            }
+
             if self.position == start_position {
                 self.bump();
             }
@@ -423,6 +434,17 @@ impl Parser {
             }
 
             self.skip_newlines();
+
+            if self.at(&TokenKind::Comma) {
+                self.bump();
+                self.skip_newlines();
+
+                if self.at(&TokenKind::RightBrace) {
+                    break;
+                }
+
+                continue;
+            }
 
             if self.position == start_position {
                 self.bump();

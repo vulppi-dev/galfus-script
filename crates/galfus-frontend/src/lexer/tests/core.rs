@@ -155,7 +155,7 @@ fn lexer_reports_unknown_character() {
 #[test]
 fn lexer_reads_two_char_operators() {
     assert_eq!(
-        kinds("== != <= >= && || :: .. => += -= *= /= %= &= |= ^= << >> ++ -- ?. ?? ** ..."),
+        kinds("== != <= >= && || :: .. => += -= *= /= %= &= |= ^= << >> ?. ?? ** ..."),
         vec![
             TokenKind::EqualEqual,
             TokenKind::BangEqual,
@@ -176,12 +176,24 @@ fn lexer_reads_two_char_operators() {
             TokenKind::CaretEqual,
             TokenKind::ShiftLeft,
             TokenKind::ShiftRight,
-            TokenKind::PlusPlus,
-            TokenKind::MinusMinus,
             TokenKind::QuestionDot,
             TokenKind::QuestionQuestion,
             TokenKind::StarStar,
             TokenKind::DotDotDot,
+            TokenKind::Eof,
+        ]
+    );
+}
+
+#[test]
+fn lexer_does_not_create_increment_or_decrement_tokens() {
+    assert_eq!(
+        kinds("++ --"),
+        vec![
+            TokenKind::Plus,
+            TokenKind::Plus,
+            TokenKind::Minus,
+            TokenKind::Minus,
             TokenKind::Eof,
         ]
     );

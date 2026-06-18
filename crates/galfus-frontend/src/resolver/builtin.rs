@@ -2,8 +2,8 @@ use super::*;
 use galfus_core::ScopeId;
 
 const BUILTIN_TYPES: &[&str] = &[
-    "null", "bool", "char", "String", "int", "int8", "int16", "int32", "int64", "uint", "uint8",
-    "uint16", "uint32", "uint64", "float", "float32", "float64",
+    "null", "bool", "int8", "int16", "int32", "int64", "uint8", "uint16", "uint32", "uint64",
+    "float16", "float32", "float64",
 ];
 
 impl<'a> Resolver<'a> {

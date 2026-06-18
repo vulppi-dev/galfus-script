@@ -70,7 +70,7 @@ fn parse_match_expression_with_binding_pattern() {
 #[test]
 fn parse_match_expression_with_variant_patterns() {
     let source = source(
-        "fn main(): null {\n  match result {\n    Result::Ok(user) => {\n      print(user.name)\n    }\n    Result::Error(message) => {\n      print(message)\n    }\n  }\n  return\n}",
+        "fn main(): null {\n  match result {\n    Result.Ok(user) => {\n      print(user.name)\n    }\n    Result.Error(message) => {\n      print(message)\n    }\n  }\n  return\n}",
     );
 
     let result = parse(&source);
@@ -97,7 +97,7 @@ fn parse_match_expression_with_variant_patterns() {
 
     assert_eq!(
         source.slice(first_pattern_node.span()),
-        Some("Result::Ok(user)")
+        Some("Result.Ok(user)")
     );
 
     assert_eq!(first_pattern_node.child_count(), 3);
@@ -120,7 +120,7 @@ fn parse_match_expression_with_variant_patterns() {
 #[test]
 fn parse_match_expression_with_unit_variant_pattern() {
     let source = source(
-        "fn main(): null {\n  match color {\n    Color::Red => {\n      print(\"red\")\n    }\n  }\n  return\n}",
+        "fn main(): null {\n  match color {\n    Color.Red => {\n      print(\"red\")\n    }\n  }\n  return\n}",
     );
 
     let result = parse(&source);
@@ -140,7 +140,7 @@ fn parse_match_expression_with_unit_variant_pattern() {
     let pattern_node = syntax.node(pattern).unwrap();
 
     assert_eq!(pattern_node.kind(), SyntaxNodeKind::VariantPattern);
-    assert_eq!(source.slice(pattern_node.span()), Some("Color::Red"));
+    assert_eq!(source.slice(pattern_node.span()), Some("Color.Red"));
     assert_eq!(pattern_node.child_count(), 2);
 }
 
@@ -265,4 +265,54 @@ fn parse_match_expression_with_underscore_binding_pattern() {
         source.slice(syntax.node(identifier).unwrap().span()),
         Some("_")
     );
+}
+
+#[test]
+fn parse_match_expression_with_expression_arms() {
+    let source = source(
+        "fn describe(value: int32): [int8] {\n  return match value {\n    0 => \"zero\",\n    1 => \"one\",\n    _ => \"many\",\n  }\n}",
+    );
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+    let root = syntax.root().unwrap();
+    let match_expression =
+        find_first_of_kind(syntax, root, SyntaxNodeKind::MatchExpression).unwrap();
+    let match_node = syntax.node(match_expression).unwrap();
+    let arms = match_node.child(1).unwrap();
+    let arms_node = syntax.node(arms).unwrap();
+
+    assert_eq!(arms_node.child_count(), 3);
+
+    let first_arm = arms_node.first_child().unwrap();
+    let first_arm_node = syntax.node(first_arm).unwrap();
+    let body = first_arm_node.child(1).unwrap();
+
+    assert_eq!(
+        syntax.node(body).unwrap().kind(),
+        SyntaxNodeKind::StringLiteral
+    );
+    assert_eq!(
+        source.slice(syntax.node(body).unwrap().span()),
+        Some("\"zero\"")
+    );
+}
+
+#[test]
+fn parse_match_expression_in_binding_initializer() {
+    let source = source(
+        "fn main(value: int32): null {\n  var label = match value {\n    0 => \"zero\",\n    _ => \"many\",\n  }\n  return\n}",
+    );
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+    let root = syntax.root().unwrap();
+
+    assert!(find_first_of_kind(syntax, root, SyntaxNodeKind::MatchExpression).is_some());
 }

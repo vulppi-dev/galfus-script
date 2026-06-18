@@ -79,9 +79,7 @@ impl Lexer<'_> {
             }
 
             '+' => {
-                if self.match_char('+') {
-                    TokenKind::PlusPlus
-                } else if self.match_char('=') {
+                if self.match_char('=') {
                     TokenKind::PlusEqual
                 } else {
                     TokenKind::Plus
@@ -89,9 +87,7 @@ impl Lexer<'_> {
             }
 
             '-' => {
-                if self.match_char('-') {
-                    TokenKind::MinusMinus
-                } else if self.match_char('=') {
+                if self.match_char('=') {
                     TokenKind::MinusEqual
                 } else {
                     TokenKind::Minus

@@ -122,9 +122,6 @@ pub enum TokenKind {
     ShiftLeftEqual,  // <<=
     ShiftRightEqual, // >>=
 
-    PlusPlus,   // ++
-    MinusMinus, // --
-
     QuestionDot,           // ?.
     QuestionQuestion,      // ??
     QuestionQuestionEqual, // ??=

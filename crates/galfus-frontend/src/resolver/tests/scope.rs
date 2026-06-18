@@ -43,4 +43,7 @@ fn resolve_creates_builtin_scope() {
     assert_eq!(builtin_scope.kind(), ScopeKind::Builtin);
     assert!(builtin_scope.symbol("int8").is_some());
     assert!(builtin_scope.symbol("int32").is_some());
+    assert!(builtin_scope.symbol("float16").is_some());
+    assert!(builtin_scope.symbol("String").is_none());
+    assert!(builtin_scope.symbol("char").is_none());
 }

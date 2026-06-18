@@ -82,7 +82,9 @@ impl Parser {
         };
 
         match node.kind() {
-            SyntaxNodeKind::CallExpression => true,
+            SyntaxNodeKind::CallExpression
+            | SyntaxNodeKind::MatchExpression
+            | SyntaxNodeKind::InstanceofExpression => true,
 
             SyntaxNodeKind::GroupedExpression => node
                 .children()

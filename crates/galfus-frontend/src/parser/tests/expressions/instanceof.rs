@@ -17,16 +17,18 @@ fn first_instanceof_expression(result: &ParseResult) -> NodeId {
 #[test]
 fn parse_instanceof_expression_with_type_patterns() {
     let source = source(
-        "fn main(): int32 {\n  instanceof value {\n    int32(v) => {\n      return v ** 2\n    }\n    [int8](text) => {\n      return text.length\n    }\n    _ => {\n      return 0\n    }\n  }\n}",
+        "fn main(): int32 {\n  return instanceof value {\n    int32 v => v ** 2,\n    [int8] text => text.length,\n    _ => 0,\n  }\n}",
     );
 
     let result = parse(&source);
 
-    assert!(!result.has_errors());
+    assert!(!result.has_errors(), "{:?}", result.diagnostics());
 
     let syntax = result.graph().syntax();
 
-    let expression = first_instanceof_expression(&result);
+    let root = syntax.root().unwrap();
+    let expression =
+        find_first_of_kind(syntax, root, SyntaxNodeKind::InstanceofExpression).unwrap();
     let expression_node = syntax.node(expression).unwrap();
 
     assert_eq!(expression_node.kind(), SyntaxNodeKind::InstanceofExpression);
@@ -52,7 +54,13 @@ fn parse_instanceof_expression_with_type_patterns() {
     let first_pattern_node = syntax.node(first_pattern).unwrap();
 
     assert_eq!(first_pattern_node.kind(), SyntaxNodeKind::TypePattern);
-    assert_eq!(source.slice(first_pattern_node.span()), Some("int32(v)"));
+    assert_eq!(source.slice(first_pattern_node.span()), Some("int32 v"));
+
+    let body = first_arm_node.child(1).unwrap();
+    assert_eq!(
+        syntax.node(body).unwrap().kind(),
+        SyntaxNodeKind::BinaryExpression
+    );
 }
 
 #[test]
@@ -63,7 +71,7 @@ fn parse_instanceof_fallback_as_binding_pattern() {
 
     let result = parse(&source);
 
-    assert!(!result.has_errors());
+    assert!(!result.has_errors(), "{:?}", result.diagnostics());
 
     let syntax = result.graph().syntax();
 
@@ -84,7 +92,7 @@ fn parse_instanceof_fallback_as_binding_pattern() {
 #[test]
 fn parse_instanceof_expression_with_array_type_pattern() {
     let source = source(
-        "fn main(value: [uint8] | null): null {\n  instanceof value {\n    [uint8](name) => {\n      return\n    }\n    _ => {\n      return\n    }\n  }\n}",
+        "fn main(value: [uint8] | null): null {\n  instanceof value {\n    [uint8] name => {\n      return\n    }\n    _ => {\n      return\n    }\n  }\n}",
     );
 
     let result = parse(&source);
@@ -96,4 +104,43 @@ fn parse_instanceof_expression_with_array_type_pattern() {
     let root = syntax.root().unwrap();
 
     assert!(find_first_of_kind(syntax, root, SyntaxNodeKind::InstanceofExpression).is_some());
+}
+
+#[test]
+fn parse_instanceof_expression_with_null_pattern_and_expression_arms() {
+    let source = source(
+        "fn main(value: [uint8] | int32 | null): null {\n  instanceof value {\n    [uint8] name => log(name),\n    int32 count => log(count),\n    null => log(\"missing\"),\n  }\n}",
+    );
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+    let root = syntax.root().unwrap();
+    let expression =
+        find_first_of_kind(syntax, root, SyntaxNodeKind::InstanceofExpression).unwrap();
+    let expression_node = syntax.node(expression).unwrap();
+    let arms = expression_node.child(1).unwrap();
+    let arms_node = syntax.node(arms).unwrap();
+
+    assert_eq!(arms_node.child_count(), 3);
+
+    let last_arm = arms_node.child(2).unwrap();
+    let last_arm_node = syntax.node(last_arm).unwrap();
+    let pattern = last_arm_node.first_child().unwrap();
+    let body = last_arm_node.child(1).unwrap();
+
+    assert_eq!(
+        syntax.node(pattern).unwrap().kind(),
+        SyntaxNodeKind::TypePattern
+    );
+    assert_eq!(
+        source.slice(syntax.node(pattern).unwrap().span()),
+        Some("null")
+    );
+    assert_eq!(
+        syntax.node(body).unwrap().kind(),
+        SyntaxNodeKind::CallExpression
+    );
 }

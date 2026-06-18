@@ -299,6 +299,19 @@ impl Parser {
             return self.parse_weak_struct_field();
         }
 
+        let field_const = if self.at(&TokenKind::Const) {
+            let const_token = self.bump();
+            self.skip_newlines();
+
+            Some(self.add_node(
+                SyntaxNodeKind::StructFieldConst,
+                const_token.span(),
+                Vec::new(),
+            ))
+        } else {
+            None
+        };
+
         let name = self.parse_identifier()?;
         let name_span = self.node_span(name);
 
@@ -316,6 +329,10 @@ impl Parser {
             children.push(decorators);
         }
 
+        if let Some(field_const) = field_const {
+            children.push(field_const);
+        }
+
         children.push(name);
         children.push(field_type);
 
@@ -331,6 +348,7 @@ impl Parser {
 
         let start_span = decorators
             .map(|decorators| self.node_span(decorators))
+            .or_else(|| field_const.map(|field_const| self.node_span(field_const)))
             .unwrap_or(name_span);
         let span = Span::cover(start_span, end_span).unwrap_or(name_span);
 

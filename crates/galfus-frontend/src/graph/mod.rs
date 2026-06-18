@@ -530,6 +530,7 @@ pub enum SyntaxNodeKind {
     FunctionAnchor,
     StructFieldList,
     StructField,
+    StructFieldConst,
     StructExpansion,
     WeakStructField,
     StructFieldDefault,

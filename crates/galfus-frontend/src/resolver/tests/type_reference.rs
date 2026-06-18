@@ -206,6 +206,24 @@ fn resolve_reports_unknown_named_type() {
 }
 
 #[test]
+fn resolve_reports_excluded_primitive_names_as_unknown_types() {
+    let source = source(
+        r#"
+        fn main(text: String, ch: char): null {
+            return
+        }
+        "#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+
+    assert!(resolve_result.has_errors());
+}
+
+#[test]
 fn resolve_binds_choice_generic_parameter_type_references() {
     let source = source(
         r#"

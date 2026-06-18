@@ -350,7 +350,7 @@ impl Parser {
 
         self.skip_newlines();
 
-        let body = self.parse_block()?;
+        let body = self.parse_match_arm_body()?;
 
         let span = Span::cover(self.node_span(pattern), self.node_span(body))
             .unwrap_or_else(|| self.node_span(pattern));
