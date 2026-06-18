@@ -526,6 +526,7 @@ pub enum SyntaxNodeKind {
     Path,
 
     // Declarations
+    FunctionStamp,
     FunctionAnchor,
     StructFieldList,
     StructField,
@@ -537,6 +538,7 @@ pub enum SyntaxNodeKind {
     ChoiceVariantList,
     ChoiceVariant,
     ChoicePayload,
+    ChoicePayloadItem,
 
     // Parameters
     ParameterList,
@@ -571,12 +573,6 @@ pub enum SyntaxNodeKind {
     WhileStatement,
     LoopStatement,
     AssignmentStatement,
-    MatchStatement,
-    MatchArmList,
-    MatchArm,
-    InstanceofStatement,
-    InstanceofArmList,
-    InstanceofArm,
 
     // Patterns
     BindingPattern,
@@ -635,6 +631,12 @@ pub enum SyntaxNodeKind {
     RangeExpression,
     RangeStep,
     NullSafeMemberExpression,
+    MatchExpression,
+    MatchArmList,
+    MatchArm,
+    InstanceofExpression,
+    InstanceofArmList,
+    InstanceofArm,
 
     // Operators
     UnaryOperator,
@@ -691,8 +693,6 @@ impl SyntaxNodeKind {
                 | SyntaxNodeKind::WhileStatement
                 | SyntaxNodeKind::LoopStatement
                 | SyntaxNodeKind::AssignmentStatement
-                | SyntaxNodeKind::MatchStatement
-                | SyntaxNodeKind::InstanceofStatement
         )
     }
 
@@ -722,7 +722,9 @@ impl SyntaxNodeKind {
                 | SyntaxNodeKind::StringLiteral
                 | SyntaxNodeKind::RegexLiteral
                 | SyntaxNodeKind::RangeExpression
-                | SyntaxNodeKind::NullSafeMemberExpression,
+                | SyntaxNodeKind::NullSafeMemberExpression
+                | SyntaxNodeKind::MatchExpression
+                | SyntaxNodeKind::InstanceofExpression
         )
     }
 

@@ -122,3 +122,32 @@ fn parse_tuple_expression_as_call_argument() {
         SyntaxNodeKind::TupleExpression
     );
 }
+
+#[test]
+fn parse_rejects_single_element_tuple_expression() {
+    let source = source(
+        r#"
+        fn main(): null {
+            var value = (1,)
+            return
+        }
+        "#,
+    );
+
+    let result = parse(&source);
+
+    assert!(result.has_errors());
+}
+
+#[test]
+fn parse_rejects_single_element_tuple_type() {
+    let source = source(
+        r#"
+        type Value = (int32,)
+        "#,
+    );
+
+    let result = parse(&source);
+
+    assert!(result.has_errors());
+}

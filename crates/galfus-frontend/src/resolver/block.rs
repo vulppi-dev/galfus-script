@@ -78,8 +78,7 @@ impl<'a> Resolver<'a> {
             | SyntaxNodeKind::ForStatement
             | SyntaxNodeKind::WhileStatement
             | SyntaxNodeKind::LoopStatement
-            | SyntaxNodeKind::MatchStatement
-            | SyntaxNodeKind::InstanceofStatement => {
+            | SyntaxNodeKind::ExpressionStatement => {
                 self.resolve_nested_blocks_in(statement, scope);
             }
 

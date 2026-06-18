@@ -1,7 +1,21 @@
 use super::super::*;
 
+fn first_instanceof_expression(result: &ParseResult) -> NodeId {
+    let syntax = result.graph().syntax();
+    let root = syntax.root().unwrap();
+    let function = syntax.node(root).unwrap().first_child().unwrap();
+    let function_node = syntax.node(function).unwrap();
+    let body = function_node.child(3).unwrap();
+    let statement = syntax.node(body).unwrap().first_child().unwrap();
+    let statement_node = syntax.node(statement).unwrap();
+
+    assert_eq!(statement_node.kind(), SyntaxNodeKind::ExpressionStatement);
+
+    statement_node.first_child().unwrap()
+}
+
 #[test]
-fn parse_instanceof_statement_with_type_patterns() {
+fn parse_instanceof_expression_with_type_patterns() {
     let source = source(
         "fn main(): int32 {\n  instanceof value {\n    int32(v) => {\n      return v ** 2\n    }\n    String(text) => {\n      return text.length\n    }\n    _ => {\n      return 0\n    }\n  }\n}",
     );
@@ -12,18 +26,13 @@ fn parse_instanceof_statement_with_type_patterns() {
 
     let syntax = result.graph().syntax();
 
-    let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().first_child().unwrap();
-    let function_node = syntax.node(function).unwrap();
+    let expression = first_instanceof_expression(&result);
+    let expression_node = syntax.node(expression).unwrap();
 
-    let body = function_node.child(3).unwrap();
-    let statement = syntax.node(body).unwrap().first_child().unwrap();
-    let statement_node = syntax.node(statement).unwrap();
+    assert_eq!(expression_node.kind(), SyntaxNodeKind::InstanceofExpression);
 
-    assert_eq!(statement_node.kind(), SyntaxNodeKind::InstanceofStatement);
-
-    let subject = statement_node.first_child().unwrap();
-    let arms = statement_node.child(1).unwrap();
+    let subject = expression_node.first_child().unwrap();
+    let arms = expression_node.child(1).unwrap();
 
     assert_eq!(
         syntax.node(subject).unwrap().kind(),
@@ -58,15 +67,10 @@ fn parse_instanceof_fallback_as_binding_pattern() {
 
     let syntax = result.graph().syntax();
 
-    let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().first_child().unwrap();
-    let function_node = syntax.node(function).unwrap();
+    let expression = first_instanceof_expression(&result);
+    let expression_node = syntax.node(expression).unwrap();
 
-    let body = function_node.child(3).unwrap();
-    let statement = syntax.node(body).unwrap().first_child().unwrap();
-    let statement_node = syntax.node(statement).unwrap();
-
-    let arms = statement_node.child(1).unwrap();
+    let arms = expression_node.child(1).unwrap();
     let arm = syntax.node(arms).unwrap().first_child().unwrap();
     let arm_node = syntax.node(arm).unwrap();
 
@@ -75,4 +79,21 @@ fn parse_instanceof_fallback_as_binding_pattern() {
 
     assert_eq!(pattern_node.kind(), SyntaxNodeKind::BindingPattern);
     assert_eq!(source.slice(pattern_node.span()), Some("_"));
+}
+
+#[test]
+fn parse_instanceof_expression_with_array_type_pattern() {
+    let source = source(
+        "fn main(value: [uint8] | null): null {\n  instanceof value {\n    [uint8](name) => {\n      return\n    }\n    _ => {\n      return\n    }\n  }\n}",
+    );
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let graph = result.graph();
+    let syntax = graph.syntax();
+    let root = syntax.root().unwrap();
+
+    assert!(find_first_of_kind(syntax, root, SyntaxNodeKind::InstanceofExpression).is_some());
 }

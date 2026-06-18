@@ -8,7 +8,7 @@ impl Parser {
             return self.parse_export_item(decorators);
         }
 
-        if self.at(&TokenKind::Fn) {
+        if self.at(&TokenKind::Fn) || self.at(&TokenKind::Stamp) {
             return self.parse_function_item(decorators);
         }
 
@@ -71,7 +71,11 @@ impl Parser {
 
         self.skip_newlines();
 
-        if decorators.is_some() && !(self.at(&TokenKind::Fn) || self.at(&TokenKind::Struct)) {
+        if decorators.is_some()
+            && !(self.at(&TokenKind::Fn)
+                || self.at(&TokenKind::Stamp)
+                || self.at(&TokenKind::Struct))
+        {
             let found = self.current();
 
             self.graph.push_diagnostic(Diagnostic::error_with_message(
@@ -87,7 +91,7 @@ impl Parser {
             self.parse_var_item()?
         } else if self.at(&TokenKind::Const) {
             self.parse_const_item()?
-        } else if self.at(&TokenKind::Fn) {
+        } else if self.at(&TokenKind::Fn) || self.at(&TokenKind::Stamp) {
             self.parse_function_item(decorators)?
         } else if self.at(&TokenKind::Struct) {
             self.parse_struct_item(decorators)?
@@ -133,15 +137,25 @@ impl Parser {
     }
 
     pub(super) fn parse_function_item(&mut self, decorators: Option<NodeId>) -> Option<NodeId> {
-        let fn_token = self.expect(TokenKind::Fn)?;
+        let stamp = if self.at(&TokenKind::Stamp) {
+            let stamp_token = self.bump();
+            self.skip_newlines();
 
+            Some(self.add_node(
+                SyntaxNodeKind::FunctionStamp,
+                stamp_token.span(),
+                Vec::new(),
+            ))
+        } else {
+            None
+        };
+
+        let fn_token = self.expect(TokenKind::Fn)?;
         self.skip_newlines();
 
         let anchor = if let Some(separator_position) = self.find_function_anchor_separator() {
             let anchor = self.parse_function_anchor_until(separator_position)?;
-
             self.expect(TokenKind::ColonColon)?;
-
             Some(anchor)
         } else {
             None
@@ -178,6 +192,10 @@ impl Parser {
             children.push(decorators);
         }
 
+        if let Some(stamp) = stamp {
+            children.push(stamp);
+        }
+
         if let Some(anchor) = anchor {
             children.push(anchor);
         }
@@ -194,7 +212,9 @@ impl Parser {
 
         let start_span = decorators
             .map(|decorators| self.node_span(decorators))
+            .or_else(|| stamp.map(|stamp| self.node_span(stamp)))
             .unwrap_or(fn_token.span());
+
         let span = Span::cover(start_span, self.node_span(body)).unwrap_or(fn_token.span());
 
         Some(self.add_node(SyntaxNodeKind::FunctionItem, span, children))
@@ -394,7 +414,11 @@ impl Parser {
     }
 
     pub(super) fn parse_basic_constraint(&mut self) -> Option<NodeId> {
-        if self.at(&TokenKind::Struct) || self.at(&TokenKind::Enum) || self.at(&TokenKind::Fn) {
+        if self.at(&TokenKind::Struct)
+            || self.at(&TokenKind::Enum)
+            || self.at(&TokenKind::Fn)
+            || self.at(&TokenKind::Stamp)
+        {
             let token = self.bump();
 
             return Some(self.add_node(SyntaxNodeKind::BasicConstraint, token.span(), Vec::new()));

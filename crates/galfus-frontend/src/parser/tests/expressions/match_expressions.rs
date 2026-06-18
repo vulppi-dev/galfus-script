@@ -1,7 +1,21 @@
 use super::super::*;
 
+fn first_match_expression(result: &ParseResult) -> NodeId {
+    let syntax = result.graph().syntax();
+    let root = syntax.root().unwrap();
+    let function = syntax.node(root).unwrap().first_child().unwrap();
+    let function_node = syntax.node(function).unwrap();
+    let body = function_node.child(3).unwrap();
+    let statement = syntax.node(body).unwrap().first_child().unwrap();
+    let statement_node = syntax.node(statement).unwrap();
+
+    assert_eq!(statement_node.kind(), SyntaxNodeKind::ExpressionStatement);
+
+    statement_node.first_child().unwrap()
+}
+
 #[test]
-fn parse_match_statement_with_binding_pattern() {
+fn parse_match_expression_with_binding_pattern() {
     let source = source(
         "fn main(): null {\n  match value {\n    other => {\n      print(other)\n    }\n  }\n  return\n}",
     );
@@ -12,17 +26,10 @@ fn parse_match_statement_with_binding_pattern() {
 
     let syntax = result.graph().syntax();
 
-    let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().first_child().unwrap();
-    let function_node = syntax.node(function).unwrap();
+    let match_expression = first_match_expression(&result);
+    let match_node = syntax.node(match_expression).unwrap();
 
-    let body = function_node.child(3).unwrap();
-    let body_node = syntax.node(body).unwrap();
-
-    let match_statement = body_node.first_child().unwrap();
-    let match_node = syntax.node(match_statement).unwrap();
-
-    assert_eq!(match_node.kind(), SyntaxNodeKind::MatchStatement);
+    assert_eq!(match_node.kind(), SyntaxNodeKind::MatchExpression);
     assert_eq!(match_node.child_count(), 2);
 
     let subject = match_node.first_child().unwrap();
@@ -61,7 +68,7 @@ fn parse_match_statement_with_binding_pattern() {
 }
 
 #[test]
-fn parse_match_statement_with_variant_patterns() {
+fn parse_match_expression_with_variant_patterns() {
     let source = source(
         "fn main(): null {\n  match result {\n    Result::Ok(user) => {\n      print(user.name)\n    }\n    Result::Error(message) => {\n      print(message)\n    }\n  }\n  return\n}",
     );
@@ -72,15 +79,8 @@ fn parse_match_statement_with_variant_patterns() {
 
     let syntax = result.graph().syntax();
 
-    let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().first_child().unwrap();
-    let function_node = syntax.node(function).unwrap();
-
-    let body = function_node.child(3).unwrap();
-    let body_node = syntax.node(body).unwrap();
-
-    let match_statement = body_node.first_child().unwrap();
-    let match_node = syntax.node(match_statement).unwrap();
+    let match_expression = first_match_expression(&result);
+    let match_node = syntax.node(match_expression).unwrap();
 
     let arms = match_node.child(1).unwrap();
     let arms_node = syntax.node(arms).unwrap();
@@ -118,7 +118,7 @@ fn parse_match_statement_with_variant_patterns() {
 }
 
 #[test]
-fn parse_match_statement_with_unit_variant_pattern() {
+fn parse_match_expression_with_unit_variant_pattern() {
     let source = source(
         "fn main(): null {\n  match color {\n    Color::Red => {\n      print(\"red\")\n    }\n  }\n  return\n}",
     );
@@ -129,15 +129,8 @@ fn parse_match_statement_with_unit_variant_pattern() {
 
     let syntax = result.graph().syntax();
 
-    let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().first_child().unwrap();
-    let function_node = syntax.node(function).unwrap();
-
-    let body = function_node.child(3).unwrap();
-    let body_node = syntax.node(body).unwrap();
-
-    let match_statement = body_node.first_child().unwrap();
-    let match_node = syntax.node(match_statement).unwrap();
+    let match_expression = first_match_expression(&result);
+    let match_node = syntax.node(match_expression).unwrap();
 
     let arms = match_node.child(1).unwrap();
     let arm = syntax.node(arms).unwrap().first_child().unwrap();
@@ -152,7 +145,7 @@ fn parse_match_statement_with_unit_variant_pattern() {
 }
 
 #[test]
-fn parse_match_statement_with_literal_patterns() {
+fn parse_match_expression_with_literal_patterns() {
     let source = source(
         "fn main(): null {\n  match code {\n    200 => {\n      print(\"ok\")\n    }\n    404 => {\n      print(\"not found\")\n    }\n  }\n  return\n}",
     );
@@ -163,15 +156,8 @@ fn parse_match_statement_with_literal_patterns() {
 
     let syntax = result.graph().syntax();
 
-    let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().first_child().unwrap();
-    let function_node = syntax.node(function).unwrap();
-
-    let body = function_node.child(3).unwrap();
-    let body_node = syntax.node(body).unwrap();
-
-    let match_statement = body_node.first_child().unwrap();
-    let match_node = syntax.node(match_statement).unwrap();
+    let match_expression = first_match_expression(&result);
+    let match_node = syntax.node(match_expression).unwrap();
 
     let arms = match_node.child(1).unwrap();
     let arms_node = syntax.node(arms).unwrap();
@@ -207,15 +193,8 @@ fn parse_match_subject_allows_struct_literal_inside_call_argument() {
 
     let syntax = result.graph().syntax();
 
-    let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().first_child().unwrap();
-    let function_node = syntax.node(function).unwrap();
-
-    let body = function_node.child(3).unwrap();
-    let body_node = syntax.node(body).unwrap();
-
-    let match_statement = body_node.first_child().unwrap();
-    let match_node = syntax.node(match_statement).unwrap();
+    let match_expression = first_match_expression(&result);
+    let match_node = syntax.node(match_expression).unwrap();
 
     let subject = match_node.first_child().unwrap();
     let subject_node = syntax.node(subject).unwrap();
@@ -239,15 +218,8 @@ fn parse_match_subject_identifier_does_not_become_struct_literal() {
 
     let syntax = result.graph().syntax();
 
-    let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().first_child().unwrap();
-    let function_node = syntax.node(function).unwrap();
-
-    let body = function_node.child(3).unwrap();
-    let body_node = syntax.node(body).unwrap();
-
-    let match_statement = body_node.first_child().unwrap();
-    let match_node = syntax.node(match_statement).unwrap();
+    let match_expression = first_match_expression(&result);
+    let match_node = syntax.node(match_expression).unwrap();
 
     let subject = match_node.first_child().unwrap();
 
@@ -263,7 +235,7 @@ fn parse_match_subject_identifier_does_not_become_struct_literal() {
 }
 
 #[test]
-fn parse_match_statement_with_underscore_binding_pattern() {
+fn parse_match_expression_with_underscore_binding_pattern() {
     let source = source(
         "fn main(): null {\n  match value {\n    _ => {\n      print(\"fallback\")\n    }\n  }\n  return\n}",
     );
@@ -274,15 +246,8 @@ fn parse_match_statement_with_underscore_binding_pattern() {
 
     let syntax = result.graph().syntax();
 
-    let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().first_child().unwrap();
-    let function_node = syntax.node(function).unwrap();
-
-    let body = function_node.child(3).unwrap();
-    let body_node = syntax.node(body).unwrap();
-
-    let match_statement = body_node.first_child().unwrap();
-    let match_node = syntax.node(match_statement).unwrap();
+    let match_expression = first_match_expression(&result);
+    let match_node = syntax.node(match_expression).unwrap();
 
     let arms = match_node.child(1).unwrap();
     let arm = syntax.node(arms).unwrap().first_child().unwrap();

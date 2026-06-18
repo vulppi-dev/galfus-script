@@ -14,23 +14,22 @@ impl Parser {
         while !self.is_eof() && !self.at(&TokenKind::RightParen) {
             let start_position = self.position;
 
-            let starts_after_rest = seen_rest_parameter;
-            let is_rest_parameter = self.at(&TokenKind::DotDotDot);
-
-            let parameter = if is_rest_parameter {
-                self.parse_rest_parameter()
-            } else {
-                self.parse_parameter()
-            };
+            let parameter = self.parse_parameter();
 
             if let Some(parameter) = parameter {
-                if starts_after_rest && !reported_after_rest {
+                let is_rest_parameter = self
+                    .graph
+                    .syntax()
+                    .node(parameter)
+                    .map(|node| node.kind() == SyntaxNodeKind::RestParameter)
+                    .unwrap_or(false);
+
+                if seen_rest_parameter && !reported_after_rest {
                     self.graph.push_diagnostic(Diagnostic::error_with_message(
                         ParserDiagnosticCode::UnexpectedToken,
-                        "rest parameter must be the last parameter",
+                        "rest parameter must be the last parameter".to_string(),
                         self.node_span(parameter),
                     ));
-
                     reported_after_rest = true;
                 }
 

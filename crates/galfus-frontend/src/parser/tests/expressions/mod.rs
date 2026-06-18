@@ -7,6 +7,8 @@ mod copy;
 mod generic;
 mod index;
 mod inferred_struct_literals;
+mod instanceof;
+mod match_expressions;
 mod spread;
 mod struct_literals;
 mod unary_and_grouped;

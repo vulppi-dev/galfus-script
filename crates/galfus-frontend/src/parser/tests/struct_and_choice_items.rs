@@ -227,7 +227,13 @@ fn parse_choice_item_with_payload_variants() {
     assert_eq!(payload_node.kind(), SyntaxNodeKind::ChoicePayload);
     assert_eq!(payload_node.child_count(), 1);
 
-    let payload_type = payload_node.first_child().unwrap();
+    let payload_item = payload_node.first_child().unwrap();
+    let payload_item_node = syntax.node(payload_item).unwrap();
+
+    assert_eq!(payload_item_node.kind(), SyntaxNodeKind::ChoicePayloadItem);
+    assert_eq!(payload_item_node.child_count(), 1);
+
+    let payload_type = payload_item_node.first_child().unwrap();
 
     assert_eq!(
         syntax.node(payload_type).unwrap().kind(),
@@ -269,8 +275,20 @@ fn parse_choice_variant_with_multiple_payload_types() {
     assert_eq!(payload_node.kind(), SyntaxNodeKind::ChoicePayload);
     assert_eq!(payload_node.child_count(), 2);
 
-    let first_type = payload_node.first_child().unwrap();
-    let second_type = payload_node.child(1).unwrap();
+    let first_item = payload_node.first_child().unwrap();
+    let second_item = payload_node.child(1).unwrap();
+
+    assert_eq!(
+        syntax.node(first_item).unwrap().kind(),
+        SyntaxNodeKind::ChoicePayloadItem
+    );
+    assert_eq!(
+        syntax.node(second_item).unwrap().kind(),
+        SyntaxNodeKind::ChoicePayloadItem
+    );
+
+    let first_type = syntax.node(first_item).unwrap().first_child().unwrap();
+    let second_type = syntax.node(second_item).unwrap().first_child().unwrap();
 
     assert_eq!(
         source.slice(syntax.node(first_type).unwrap().span()),
@@ -471,4 +489,42 @@ fn parse_enum_variant_with_binary_discriminant_expression() {
         operator_node.binary_operator(),
         Some(BinaryOperatorKind::ShiftLeft)
     );
+}
+
+#[test]
+fn parse_choice_payload_item_decorator() {
+    let source = source(
+        r#"
+        choice Asset {
+            Texture(@path [uint8]),
+            Image(@path [uint8], @min(1) int32, @min(1) int32),
+        }
+        "#,
+    );
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let graph = result.graph();
+    let syntax = graph.syntax();
+    let root = syntax.root().unwrap();
+
+    assert!(find_first_of_kind(syntax, root, SyntaxNodeKind::ChoicePayloadItem).is_some());
+}
+
+#[test]
+fn parse_choice_payload_single_item() {
+    let source = source(
+        r#"
+        choice Option<T> {
+            Some(T),
+            None,
+        }
+        "#,
+    );
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
 }

@@ -324,20 +324,21 @@ impl Parser {
     }
 
     pub(super) fn parse_match_statement(&mut self) -> Option<NodeId> {
-        let match_token = self.expect(TokenKind::Match)?;
+        let expression = self.parse_match_expression()?;
+        self.expect_statement_end();
 
-        self.skip_newlines();
+        let span = self.node_span(expression);
 
-        let subject = self.parse_expression_before_block()?;
+        Some(self.add_node(SyntaxNodeKind::ExpressionStatement, span, vec![expression]))
+    }
 
-        self.skip_newlines();
+    pub(super) fn parse_instanceof_statement(&mut self) -> Option<NodeId> {
+        let expression = self.parse_instanceof_expression()?;
+        self.expect_statement_end();
 
-        let arms = self.parse_match_arm_list()?;
+        let span = self.node_span(expression);
 
-        let span =
-            Span::cover(match_token.span(), self.node_span(arms)).unwrap_or(match_token.span());
-
-        Some(self.add_node(SyntaxNodeKind::MatchStatement, span, vec![subject, arms]))
+        Some(self.add_node(SyntaxNodeKind::ExpressionStatement, span, vec![expression]))
     }
 
     pub(super) fn parse_instanceof_arm(&mut self) -> Option<NodeId> {
@@ -355,26 +356,5 @@ impl Parser {
             .unwrap_or_else(|| self.node_span(pattern));
 
         Some(self.add_node(SyntaxNodeKind::InstanceofArm, span, vec![pattern, body]))
-    }
-
-    pub(super) fn parse_instanceof_statement(&mut self) -> Option<NodeId> {
-        let instanceof_token = self.expect(TokenKind::Instanceof)?;
-
-        self.skip_newlines();
-
-        let subject = self.parse_expression_before_block()?;
-
-        self.skip_newlines();
-
-        let arms = self.parse_instanceof_arm_list()?;
-
-        let span = Span::cover(instanceof_token.span(), self.node_span(arms))
-            .unwrap_or(instanceof_token.span());
-
-        Some(self.add_node(
-            SyntaxNodeKind::InstanceofStatement,
-            span,
-            vec![subject, arms],
-        ))
     }
 }

@@ -220,3 +220,70 @@ fn parse_parameter_list_accepts_multiline_trailing_comma() {
     assert_eq!(parameters_node.kind(), SyntaxNodeKind::ParameterList);
     assert_eq!(parameters_node.child_count(), 2);
 }
+
+#[test]
+fn parse_stamp_function_item() {
+    let source = source(
+        r#"
+        stamp fn max(a: int32, b: int32): int32 {
+            return a
+        }
+        "#,
+    );
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let graph = result.graph();
+    let syntax = graph.syntax();
+    let root = syntax.root().unwrap();
+
+    assert!(find_first_of_kind(syntax, root, SyntaxNodeKind::FunctionItem).is_some());
+    assert!(find_first_of_kind(syntax, root, SyntaxNodeKind::FunctionStamp).is_some());
+}
+
+#[test]
+fn parse_export_stamp_function_item() {
+    let source = source(
+        r#"
+        export stamp fn min(a: int32, b: int32): int32 {
+            return a
+        }
+        "#,
+    );
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+}
+
+#[test]
+fn parse_decorated_rest_parameter() {
+    let source = source(
+        r#"
+        fn summarize(@nonempty ...values: [int32]): int32 {
+            return 0
+        }
+        "#,
+    );
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+}
+
+#[test]
+fn parse_rejects_function_without_return_type() {
+    let source = source(
+        r#"
+        fn log(message: [uint8]) {
+            return
+        }
+        "#,
+    );
+
+    let result = parse(&source);
+
+    assert!(result.has_errors());
+}

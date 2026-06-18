@@ -99,6 +99,10 @@ impl Parser {
     pub(super) fn parse_parameter(&mut self) -> Option<NodeId> {
         let decorators = self.parse_optional_decorator_list()?;
 
+        if self.at(&TokenKind::DotDotDot) {
+            return self.parse_rest_parameter(decorators);
+        }
+
         let name = self.parse_identifier()?;
         let name_span = self.node_span(name);
 
@@ -136,7 +140,7 @@ impl Parser {
         Some(self.add_node(SyntaxNodeKind::Parameter, span, children))
     }
 
-    pub(super) fn parse_rest_parameter(&mut self) -> Option<NodeId> {
+    pub(super) fn parse_rest_parameter(&mut self, decorators: Option<NodeId>) -> Option<NodeId> {
         let spread_token = self.expect(TokenKind::DotDotDot)?;
 
         self.skip_newlines();
@@ -151,7 +155,14 @@ impl Parser {
 
         let parameter_type = self.parse_type()?;
 
-        let mut children = vec![name, parameter_type];
+        let mut children = Vec::new();
+
+        if let Some(decorators) = decorators {
+            children.push(decorators);
+        }
+        children.push(name);
+        children.push(parameter_type);
+
         let mut end_span = self.node_span(parameter_type);
 
         self.skip_newlines();
@@ -162,7 +173,11 @@ impl Parser {
             children.push(default);
         }
 
-        let span = Span::cover(spread_token.span(), end_span).unwrap_or(spread_token.span());
+        let start_span = decorators
+            .map(|decorators| self.node_span(decorators))
+            .unwrap_or(spread_token.span());
+
+        let span = Span::cover(start_span, end_span).unwrap_or(start_span);
 
         Some(self.add_node(SyntaxNodeKind::RestParameter, span, children))
     }
@@ -374,8 +389,8 @@ impl Parser {
 
             let start_position = self.position;
 
-            if let Some(payload_type) = self.parse_type() {
-                payload_types.push(payload_type);
+            if let Some(payload_item) = self.parse_choice_payload_item() {
+                payload_types.push(payload_item);
             }
 
             self.skip_newlines();
@@ -573,6 +588,16 @@ impl Parser {
         let span = Span::cover(left.span(), right.span()).unwrap_or(left.span());
 
         if is_tuple {
+            if types.len() < 2 {
+                self.graph.push_diagnostic(Diagnostic::error_with_message(
+                    ParserDiagnosticCode::ExpectedType,
+                    "tuple type requires at least two elements".to_string(),
+                    right.span(),
+                ));
+
+                return Some(self.add_node(SyntaxNodeKind::GroupedType, span, vec![first]));
+            }
+
             return Some(self.add_node(SyntaxNodeKind::TupleType, span, types));
         }
 
@@ -648,5 +673,27 @@ impl Parser {
         let span = self.node_span(anchor_type);
 
         Some(self.add_node(SyntaxNodeKind::FunctionAnchor, span, vec![anchor_type]))
+    }
+
+    pub(super) fn parse_choice_payload_item(&mut self) -> Option<NodeId> {
+        let decorators = self.parse_optional_decorator_list()?;
+
+        let payload_type = self.parse_type()?;
+
+        let mut children = Vec::new();
+
+        if let Some(decorators) = decorators {
+            children.push(decorators);
+        }
+
+        children.push(payload_type);
+
+        let start_span = decorators
+            .map(|decorators| self.node_span(decorators))
+            .unwrap_or_else(|| self.node_span(payload_type));
+
+        let span = Span::cover(start_span, self.node_span(payload_type)).unwrap_or(start_span);
+
+        Some(self.add_node(SyntaxNodeKind::ChoicePayloadItem, span, children))
     }
 }

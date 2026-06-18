@@ -1,3 +1,5 @@
+use crate::SyntaxLayer;
+
 use super::*;
 use galfus_core::{SourceFile, SourceId};
 
@@ -28,4 +30,20 @@ mod variable_declarations;
 
 fn source(text: &str) -> SourceFile {
     SourceFile::new(SourceId::new(0), "test.gfs".to_string(), text.to_string())
+}
+
+fn find_first_of_kind(syntax: &SyntaxLayer, node: NodeId, kind: SyntaxNodeKind) -> Option<NodeId> {
+    let syntax_node = syntax.node(node)?;
+
+    if syntax_node.kind() == kind {
+        return Some(node);
+    }
+
+    for child in syntax_node.children() {
+        if let Some(found) = find_first_of_kind(syntax, *child, kind) {
+            return Some(found);
+        }
+    }
+
+    None
 }

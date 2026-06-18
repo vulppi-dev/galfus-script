@@ -78,20 +78,19 @@ impl<'a> Lexer<'a> {
     }
 
     fn make_token(&mut self, kind: TokenKind, span: Span) -> Token {
-        if Self::is_significant_for_regex(&kind) {
+        if Self::is_significant_token(&kind) {
             self.previous_significant_kind = Some(kind.clone());
         }
 
         Token::new(kind, span)
     }
 
-    fn is_significant_for_regex(kind: &TokenKind) -> bool {
+    fn is_significant_token(kind: &TokenKind) -> bool {
         !matches!(
             kind,
             TokenKind::Newline | TokenKind::Unknown | TokenKind::Eof
         )
     }
-
 }
 
 pub fn lex(source: &SourceFile) -> LexResult {

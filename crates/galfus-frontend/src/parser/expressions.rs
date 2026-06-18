@@ -283,6 +283,16 @@ impl Parser {
         let span = Span::cover(left.span(), right.span()).unwrap_or(left.span());
 
         if is_tuple {
+            if expressions.len() < 2 {
+                self.graph.push_diagnostic(Diagnostic::error_with_message(
+                    ParserDiagnosticCode::UnexpectedToken,
+                    "tuple expression requires at least two elements".to_string(),
+                    right.span(),
+                ));
+
+                return Some(self.add_node(SyntaxNodeKind::GroupedExpression, span, vec![first]));
+            }
+
             return Some(self.add_node(SyntaxNodeKind::TupleExpression, span, expressions));
         }
 
@@ -550,6 +560,44 @@ impl Parser {
             SyntaxNodeKind::NullSafeMemberExpression,
             span,
             vec![target, member],
+        ))
+    }
+
+    pub(super) fn parse_match_expression(&mut self) -> Option<NodeId> {
+        let match_token = self.expect(TokenKind::Match)?;
+
+        self.skip_newlines();
+
+        let subject = self.parse_expression_before_block()?;
+
+        self.skip_newlines();
+
+        let arms = self.parse_match_arm_list()?;
+
+        let span =
+            Span::cover(match_token.span(), self.node_span(arms)).unwrap_or(match_token.span());
+
+        Some(self.add_node(SyntaxNodeKind::MatchExpression, span, vec![subject, arms]))
+    }
+
+    pub(super) fn parse_instanceof_expression(&mut self) -> Option<NodeId> {
+        let instanceof_token = self.expect(TokenKind::Instanceof)?;
+
+        self.skip_newlines();
+
+        let subject = self.parse_expression_before_block()?;
+
+        self.skip_newlines();
+
+        let arms = self.parse_instanceof_arm_list()?;
+
+        let span = Span::cover(instanceof_token.span(), self.node_span(arms))
+            .unwrap_or(instanceof_token.span());
+
+        Some(self.add_node(
+            SyntaxNodeKind::InstanceofExpression,
+            span,
+            vec![subject, arms],
         ))
     }
 }

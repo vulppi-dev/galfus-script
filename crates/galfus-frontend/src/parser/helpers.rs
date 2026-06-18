@@ -20,6 +20,8 @@ impl Parser {
                 | TokenKind::Minus
                 | TokenKind::Bang
                 | TokenKind::Tilde
+                | TokenKind::Match
+                | TokenKind::Instanceof
         )
     }
 
