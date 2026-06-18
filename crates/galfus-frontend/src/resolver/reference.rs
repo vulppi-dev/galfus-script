@@ -69,6 +69,11 @@ impl<'a> Resolver<'a> {
                 return;
             }
 
+            SyntaxNodeKind::PathExpression => {
+                self.resolve_path_expression(node, scope);
+                return;
+            }
+
             // Nested functions, if allowed later, should own their own pass.
             SyntaxNodeKind::FunctionItem => {
                 return;
@@ -106,5 +111,17 @@ impl<'a> Resolver<'a> {
             format!("unresolved name `{symbol_name}`"),
             name_node.span(),
         ));
+    }
+
+    fn resolve_path_expression(&mut self, expression: NodeId, scope: ScopeId) {
+        let Some(target) = self.syntax.first_child(expression) else {
+            return;
+        };
+
+        self.resolve_node_references(target, scope);
+
+        if let Some(symbol) = self.resolution.reference_symbol(target) {
+            self.resolution.bind_reference(expression, symbol);
+        }
     }
 }

@@ -27,6 +27,29 @@ fn find_name_expression_by_text(
     None
 }
 
+fn find_path_expression_by_text(
+    syntax: &SyntaxLayer,
+    source: &SourceFile,
+    node: NodeId,
+    text: &str,
+) -> Option<NodeId> {
+    let syntax_node = syntax.node(node)?;
+
+    if syntax_node.kind() == SyntaxNodeKind::PathExpression
+        && source.slice(syntax_node.span()) == Some(text)
+    {
+        return Some(node);
+    }
+
+    for child in syntax_node.children() {
+        if let Some(found) = find_path_expression_by_text(syntax, source, *child, text) {
+            return Some(found);
+        }
+    }
+
+    None
+}
+
 #[test]
 fn resolve_binds_parameter_name_expression() {
     let source = source(
@@ -216,6 +239,110 @@ fn resolve_binds_import_namespace_name_expression() {
 
     assert_eq!(symbol.name(), "user");
     assert_eq!(symbol.kind(), SymbolKind::ImportNamespace);
+}
+
+#[test]
+fn resolve_binds_import_namespace_path_expression_root() {
+    let source = source(
+        r#"
+        import user from "./user"
+
+        fn main(): null {
+            var created = user::create()
+            return
+        }
+        "#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.graph();
+    let syntax = graph.syntax();
+    let resolution = graph.resolution().unwrap();
+
+    let root = syntax.root().unwrap();
+
+    let expression = find_path_expression_by_text(syntax, &source, root, "user::create").unwrap();
+
+    let symbol = resolution.reference_symbol(expression).unwrap();
+    let symbol = resolution.symbol(symbol).unwrap();
+
+    assert_eq!(symbol.name(), "user");
+    assert_eq!(symbol.kind(), SymbolKind::ImportNamespace);
+}
+
+#[test]
+fn resolve_binds_local_path_expression_root() {
+    let source = source(
+        r#"
+        fn main(): null {
+            var local = 0
+            var current = local::member
+            return
+        }
+        "#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.graph();
+    let syntax = graph.syntax();
+    let resolution = graph.resolution().unwrap();
+
+    let root = syntax.root().unwrap();
+
+    let expression = find_path_expression_by_text(syntax, &source, root, "local::member").unwrap();
+
+    let symbol = resolution.reference_symbol(expression).unwrap();
+    let symbol = resolution.symbol(symbol).unwrap();
+
+    assert_eq!(symbol.name(), "local");
+    assert_eq!(symbol.kind(), SymbolKind::Var);
+}
+
+#[test]
+fn resolve_reports_unknown_path_expression_root() {
+    let source = source(
+        r#"
+        fn main(): null {
+            var created = missing::create()
+            return
+        }
+        "#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+
+    assert!(resolve_result.has_errors());
+
+    let graph = resolve_result.graph();
+    let syntax = graph.syntax();
+    let resolution = graph.resolution().unwrap();
+
+    let root = syntax.root().unwrap();
+
+    let expression = find_path_expression_by_text(syntax, &source, root, "missing::create")
+        .unwrap();
+
+    assert!(resolution.reference_symbol(expression).is_none());
+
+    assert!(
+        graph
+            .diagnostics()
+            .iter()
+            .any(|diagnostic| diagnostic.message().contains("unresolved name `missing`"))
+    );
 }
 
 #[test]
