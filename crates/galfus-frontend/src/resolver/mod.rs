@@ -11,6 +11,7 @@ mod reference;
 mod resolution;
 mod scope;
 mod symbol;
+mod type_member;
 mod type_reference;
 
 use galfus_core::{Diagnostic, DiagnosticBag, NodeId, ScopeId, SourceFile, SymbolId};
@@ -116,6 +117,10 @@ impl<'a> Resolver<'a> {
 
         for item in root_node.children() {
             self.resolve_type_reference_item(*item, module_scope);
+        }
+
+        for item in root_node.children() {
+            self.resolve_type_member_scope_item(*item, module_scope);
         }
 
         for item in root_node.children() {

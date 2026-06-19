@@ -8,6 +8,7 @@ mod import;
 mod reference;
 mod scope;
 mod symbol;
+mod type_member;
 mod type_reference;
 
 fn source(text: &str) -> SourceFile {
