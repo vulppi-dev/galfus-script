@@ -1,7 +1,7 @@
 use crate::*;
 use anyhow::Result;
-use galfus_core::{Diagnostic, DiagnosticBag, SourceFile, SourceId};
-use galfus_frontend::{ImportKind, ModuleGraph, parse, resolve};
+use galfus_core::{Diagnostic, DiagnosticBag, NodeId, SourceFile, SourceId};
+use galfus_frontend::{ImportKind, ModuleGraph, SyntaxNodeKind, parse, resolve};
 use std::{
     collections::{HashMap, HashSet},
     fs,
@@ -54,6 +54,27 @@ impl CheckResult {
             .find(|module| module.source().id() == source_id)
             .map(CheckedModule::source)
     }
+}
+
+#[derive(Debug, Clone)]
+struct ImportCheckRecord {
+    kind: ImportKind,
+    source: String,
+    source_node: NodeId,
+    local_name: String,
+    imported_name: Option<String>,
+    declaration: NodeId,
+}
+
+#[derive(Debug, Clone)]
+struct PathSegmentRecord {
+    name: String,
+    node: NodeId,
+}
+
+#[derive(Debug, Clone)]
+struct PathCheckRecord {
+    segments: Vec<PathSegmentRecord>,
 }
 
 #[derive(Debug, Default)]
@@ -227,6 +248,8 @@ impl ModuleLoader {
                 ));
             }
         }
+
+        self.validate_namespace_import_references();
     }
 
     fn module_imports(&self, module_index: usize) -> Vec<ImportCheckRecord> {
@@ -240,19 +263,232 @@ impl ModuleLoader {
             .map(|import| ImportCheckRecord {
                 kind: import.kind(),
                 source: import.source().to_string(),
+                source_node: import.source_node(),
+                local_name: import.local_name().to_string(),
                 imported_name: import.imported_name().map(str::to_string),
                 declaration: import.declaration(),
             })
             .collect()
     }
-}
 
-#[derive(Debug, Clone)]
-struct ImportCheckRecord {
-    kind: ImportKind,
-    source: String,
-    imported_name: Option<String>,
-    declaration: galfus_core::NodeId,
+    fn path_records(&self, module_index: usize) -> Vec<PathCheckRecord> {
+        let mut records = Vec::new();
+
+        let Some(root) = self.modules[module_index].graph().syntax().root() else {
+            return records;
+        };
+
+        self.collect_path_records(module_index, root, &mut records);
+
+        records
+    }
+
+    fn collect_path_records(
+        &self,
+        module_index: usize,
+        node: NodeId,
+        records: &mut Vec<PathCheckRecord>,
+    ) {
+        let syntax = self.modules[module_index].graph().syntax();
+
+        let Some(syntax_node) = syntax.node(node) else {
+            return;
+        };
+
+        match syntax_node.kind() {
+            SyntaxNodeKind::PathExpression => {
+                let segments = self.path_expression_segments(module_index, node);
+
+                if segments.len() >= 2 {
+                    records.push(PathCheckRecord { segments });
+                }
+
+                return;
+            }
+
+            SyntaxNodeKind::Path => {
+                let segments = self.type_path_segments(module_index, node);
+
+                if segments.len() >= 2 {
+                    records.push(PathCheckRecord { segments });
+                }
+
+                return;
+            }
+
+            _ => {}
+        }
+
+        for child in syntax_node.children() {
+            self.collect_path_records(module_index, *child, records);
+        }
+    }
+
+    fn path_expression_segments(
+        &self,
+        module_index: usize,
+        expression: NodeId,
+    ) -> Vec<PathSegmentRecord> {
+        let syntax = self.modules[module_index].graph().syntax();
+
+        let Some(expression_node) = syntax.node(expression) else {
+            return Vec::new();
+        };
+
+        match expression_node.kind() {
+            SyntaxNodeKind::NameExpression => {
+                let Some(identifier) =
+                    syntax.first_child_of_kind(expression, SyntaxNodeKind::Identifier)
+                else {
+                    return Vec::new();
+                };
+
+                vec![PathSegmentRecord {
+                    name: self.node_text(module_index, identifier),
+                    node: identifier,
+                }]
+            }
+
+            SyntaxNodeKind::PathExpression => {
+                let Some(target) = syntax.child(expression, 0) else {
+                    return Vec::new();
+                };
+
+                let Some(member) = syntax.child(expression, 1) else {
+                    return Vec::new();
+                };
+
+                let mut segments = self.path_expression_segments(module_index, target);
+
+                segments.push(PathSegmentRecord {
+                    name: self.node_text(module_index, member),
+                    node: member,
+                });
+
+                segments
+            }
+
+            _ => Vec::new(),
+        }
+    }
+
+    fn type_path_segments(&self, module_index: usize, path: NodeId) -> Vec<PathSegmentRecord> {
+        let syntax = self.modules[module_index].graph().syntax();
+
+        let Some(path_node) = syntax.node(path) else {
+            return Vec::new();
+        };
+
+        path_node
+            .children()
+            .iter()
+            .filter_map(|child| {
+                let child_node = syntax.node(*child)?;
+
+                if child_node.kind() != SyntaxNodeKind::Identifier {
+                    return None;
+                }
+
+                Some(PathSegmentRecord {
+                    name: self.node_text(module_index, *child),
+                    node: *child,
+                })
+            })
+            .collect()
+    }
+
+    fn node_text(&self, module_index: usize, node: NodeId) -> String {
+        let Some(syntax_node) = self.modules[module_index].graph().syntax().node(node) else {
+            return String::new();
+        };
+
+        self.modules[module_index]
+            .source()
+            .slice(syntax_node.span())
+            .unwrap_or("")
+            .to_string()
+    }
+
+    fn validate_namespace_import_references(&mut self) {
+        for module_index in 0..self.modules.len() {
+            let imports = self.module_imports(module_index);
+
+            let namespace_imports = imports
+                .iter()
+                .filter(|import| {
+                    import.kind == ImportKind::Namespace
+                        && is_relative_import(import.source.as_str())
+                })
+                .collect::<Vec<_>>();
+
+            if namespace_imports.is_empty() {
+                continue;
+            }
+
+            let paths = self.path_records(module_index);
+
+            for path in paths {
+                let Some(root_segment) = path.segments.first() else {
+                    continue;
+                };
+
+                let Some(import) = namespace_imports
+                    .iter()
+                    .find(|import| import.local_name == root_segment.name)
+                else {
+                    continue;
+                };
+
+                let target_path = resolve_relative_import(
+                    self.modules[module_index].path(),
+                    import.source.as_str(),
+                );
+
+                let Ok(target_path) = normalize_existing_path(target_path.as_path()) else {
+                    continue;
+                };
+
+                let Some(target_index) = self.module_by_path.get(target_path.as_path()).copied()
+                else {
+                    continue;
+                };
+
+                let Some(target_resolution) = self.modules[target_index].graph().resolution()
+                else {
+                    continue;
+                };
+
+                let exported_name = path.segments[1..]
+                    .iter()
+                    .map(|segment| segment.name.as_str())
+                    .collect::<Vec<_>>()
+                    .join("::");
+
+                if target_resolution
+                    .export_by_name(exported_name.as_str())
+                    .is_some()
+                {
+                    continue;
+                }
+
+                let span = self.modules[module_index]
+                    .graph()
+                    .syntax()
+                    .node(path.segments[1].node)
+                    .map(|node| node.span())
+                    .unwrap_or_else(|| self.modules[module_index].source().span());
+
+                self.diagnostics.push(Diagnostic::error_with_message(
+                    CheckDiagnosticCode::MissingExport,
+                    format!(
+                        "module `{}` does not export `{}`",
+                        import.source, exported_name
+                    ),
+                    span,
+                ));
+            }
+        }
+    }
 }
 
 pub(crate) fn check_path(path: impl AsRef<Path>) -> Result<CheckResult> {

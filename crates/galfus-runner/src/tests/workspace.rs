@@ -396,3 +396,53 @@ export fn create(): null {
     fs::remove_dir_all(root)?;
     Ok(())
 }
+
+#[test]
+fn check_workspace_reports_namespace_import_from_private_export() -> Result<()> {
+    let root = temp_workspace()?;
+
+    write_file(
+        root.as_path(),
+        "galfus.toml",
+        r#"
+[module]
+name = "my-app"
+target = "app"
+entry = "src/main.gfs"
+"#,
+    )?;
+
+    write_file(
+        root.as_path(),
+        "src/main.gfs",
+        r#"
+import user from "./user"
+
+fn main(): null {
+  user::create()
+  return
+}
+"#,
+    )?;
+
+    write_file(
+        root.as_path(),
+        "src/user.gfs",
+        r#"
+fn create(): null {
+  return
+}
+"#,
+    )?;
+
+    let result = check_workspace(root.as_path())?;
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == WorkspaceDiagnosticCode::ExportTargetMissing.as_code()
+            || diagnostic.message().contains("does not export `create`")
+    }));
+
+    fs::remove_dir_all(root)?;
+    Ok(())
+}

@@ -195,3 +195,151 @@ fn main(): null {
     fs::remove_dir_all(root)?;
     Ok(())
 }
+
+#[test]
+fn check_path_accepts_namespace_import_from_exported_function() -> Result<()> {
+    let root = temp_project()?;
+
+    let main = write_file(
+        root.as_path(),
+        "main.gfs",
+        r#"
+import user from "./user"
+
+fn main(): null {
+  user::create()
+  return
+}
+"#,
+    )?;
+
+    write_file(
+        root.as_path(),
+        "user.gfs",
+        r#"
+export fn create(): null {
+  return
+}
+"#,
+    )?;
+
+    let result = check_path(main.as_path())?;
+
+    assert!(!result.has_errors());
+    assert_eq!(result.modules().len(), 2);
+
+    fs::remove_dir_all(root)?;
+    Ok(())
+}
+
+#[test]
+fn check_path_reports_namespace_import_from_private_function() -> Result<()> {
+    let root = temp_project()?;
+
+    let main = write_file(
+        root.as_path(),
+        "main.gfs",
+        r#"
+import user from "./user"
+
+fn main(): null {
+  user::create()
+  return
+}
+"#,
+    )?;
+
+    write_file(
+        root.as_path(),
+        "user.gfs",
+        r#"
+fn create(): null {
+  return
+}
+"#,
+    )?;
+
+    let result = check_path(main.as_path())?;
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == CheckDiagnosticCode::MissingExport.as_code()
+            && diagnostic.message().contains("does not export `create`")
+    }));
+
+    fs::remove_dir_all(root)?;
+    Ok(())
+}
+
+#[test]
+fn check_path_accepts_namespace_import_from_exported_type() -> Result<()> {
+    let root = temp_project()?;
+
+    let main = write_file(
+        root.as_path(),
+        "main.gfs",
+        r#"
+import user from "./user"
+
+fn main(value: user::User): null {
+  return
+}
+"#,
+    )?;
+
+    write_file(
+        root.as_path(),
+        "user.gfs",
+        r#"
+export struct User {
+  id: int64,
+}
+"#,
+    )?;
+
+    let result = check_path(main.as_path())?;
+
+    assert!(!result.has_errors());
+    assert_eq!(result.modules().len(), 2);
+
+    fs::remove_dir_all(root)?;
+    Ok(())
+}
+
+#[test]
+fn check_path_reports_namespace_import_from_private_type() -> Result<()> {
+    let root = temp_project()?;
+
+    let main = write_file(
+        root.as_path(),
+        "main.gfs",
+        r#"
+import user from "./user"
+
+fn main(value: user::User): null {
+  return
+}
+"#,
+    )?;
+
+    write_file(
+        root.as_path(),
+        "user.gfs",
+        r#"
+struct User {
+  id: int64,
+}
+"#,
+    )?;
+
+    let result = check_path(main.as_path())?;
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == CheckDiagnosticCode::MissingExport.as_code()
+            && diagnostic.message().contains("does not export `User`")
+    }));
+
+    fs::remove_dir_all(root)?;
+    Ok(())
+}
