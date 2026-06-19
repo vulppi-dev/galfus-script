@@ -1,6 +1,4 @@
-use crate::{
-    CheckResult, ModuleLoader, WorkspaceDiagnosticCode, normalize_existing_path, print_check_result,
-};
+use crate::*;
 use anyhow::Result;
 use galfus_core::{Diagnostic, DiagnosticBag, SourceId, Span};
 use serde::Deserialize;
@@ -75,6 +73,38 @@ impl WorkspaceConfig {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct WorkspaceCheckResult {
+    check: CheckResult,
+    graph: WorkspaceGraph,
+}
+
+impl WorkspaceCheckResult {
+    pub fn new(check: CheckResult, graph: WorkspaceGraph) -> Self {
+        Self { check, graph }
+    }
+
+    pub fn check_result(&self) -> &CheckResult {
+        &self.check
+    }
+
+    pub fn graph(&self) -> &WorkspaceGraph {
+        &self.graph
+    }
+
+    pub fn modules(&self) -> &[crate::CheckedModule] {
+        self.check.modules()
+    }
+
+    pub fn diagnostics(&self) -> &galfus_core::DiagnosticBag {
+        self.check.diagnostics()
+    }
+
+    pub fn has_errors(&self) -> bool {
+        self.check.has_errors()
+    }
+}
+
 #[derive(Debug, Deserialize)]
 struct RawWorkspaceConfig {
     module: Option<RawModuleConfig>,
@@ -90,7 +120,7 @@ struct RawModuleConfig {
     entry: Option<String>,
 }
 
-fn check_workspace(root: impl AsRef<Path>) -> Result<CheckResult> {
+pub(crate) fn check_workspace(root: impl AsRef<Path>) -> Result<WorkspaceCheckResult> {
     let root = root.as_ref();
 
     let root = if root.is_file() {
@@ -111,27 +141,18 @@ fn check_workspace(root: impl AsRef<Path>) -> Result<CheckResult> {
             workspace_span(),
         ));
 
-        return Ok(CheckResult {
-            modules: Vec::new(),
-            diagnostics,
-        });
+        return Ok(empty_workspace_check_result(diagnostics));
     }
 
     let config_text = fs::read_to_string(config_path.as_path())?;
     let config = parse_workspace_config(root.as_path(), config_text.as_str(), &mut diagnostics);
 
     if diagnostics.has_errors() {
-        return Ok(CheckResult {
-            modules: Vec::new(),
-            diagnostics,
-        });
+        return Ok(empty_workspace_check_result(diagnostics));
     }
 
     let Some(config) = config else {
-        return Ok(CheckResult {
-            modules: Vec::new(),
-            diagnostics,
-        });
+        return Ok(empty_workspace_check_result(diagnostics));
     };
 
     let mut loader = ModuleLoader::default();
@@ -148,10 +169,14 @@ fn check_workspace(root: impl AsRef<Path>) -> Result<CheckResult> {
 
     loader.validate_imports();
 
-    Ok(CheckResult {
+    let graph = WorkspaceGraph::from_workspace_config(&config, loader.modules.as_slice())?;
+
+    let check = CheckResult {
         modules: loader.modules,
         diagnostics: loader.diagnostics,
-    })
+    };
+
+    Ok(WorkspaceCheckResult::new(check, graph))
 }
 
 fn parse_workspace_config(
@@ -316,262 +341,16 @@ fn workspace_span() -> Span {
 
 pub fn check_workspace_root(root: &str) -> Result<()> {
     let result = check_workspace(root)?;
-    print_check_result(&result);
+    print_check_result(result.check_result());
     Ok(())
 }
 
-#[cfg(test)]
-mod tests {
-    use galfus_core::DiagnosticCodeKind;
-
-    use super::*;
-    use std::time::{SystemTime, UNIX_EPOCH};
-
-    fn temp_workspace() -> Result<PathBuf> {
-        let unique = SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos();
-        let path = std::env::temp_dir().join(format!("galfus-workspace-test-{unique}"));
-        fs::create_dir_all(path.as_path())?;
-        Ok(path)
-    }
-
-    fn write_file(root: &Path, name: &str, text: &str) -> Result<PathBuf> {
-        let path = root.join(name);
-
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent)?;
-        }
-
-        fs::write(path.as_path(), text)?;
-        Ok(path)
-    }
-
-    #[test]
-    fn check_workspace_accepts_valid_app_entry() -> Result<()> {
-        let root = temp_workspace()?;
-
-        write_file(
-            root.as_path(),
-            "galfus.toml",
-            r#"
-[module]
-name = "my-app"
-target = "app"
-entry = "src/main.gfs"
-"#,
-        )?;
-
-        write_file(
-            root.as_path(),
-            "src/main.gfs",
-            r#"
-fn main(): null {
-  return
-}
-"#,
-        )?;
-
-        let result = check_workspace(root.as_path())?;
-
-        assert!(!result.has_errors());
-        assert_eq!(result.modules().len(), 1);
-
-        fs::remove_dir_all(root)?;
-        Ok(())
-    }
-
-    #[test]
-    fn check_workspace_reports_missing_galfus_toml() -> Result<()> {
-        let root = temp_workspace()?;
-
-        let result = check_workspace(root.as_path())?;
-
-        assert!(result.has_errors());
-        assert!(result.diagnostics().iter().any(|diagnostic| {
-            diagnostic.code().as_str() == WorkspaceDiagnosticCode::MissingConfig.as_code()
-        }));
-
-        fs::remove_dir_all(root)?;
-        Ok(())
-    }
-
-    #[test]
-    fn check_workspace_reports_app_without_entry() -> Result<()> {
-        let root = temp_workspace()?;
-
-        write_file(
-            root.as_path(),
-            "galfus.toml",
-            r#"
-[module]
-name = "my-app"
-target = "app"
-"#,
-        )?;
-
-        let result = check_workspace(root.as_path())?;
-
-        assert!(result.has_errors());
-        assert!(result.diagnostics().iter().any(|diagnostic| {
-            diagnostic.code().as_str() == WorkspaceDiagnosticCode::MissingAppEntry.as_code()
-        }));
-
-        fs::remove_dir_all(root)?;
-        Ok(())
-    }
-
-    #[test]
-    fn check_workspace_reports_lib_without_entry_or_exports() -> Result<()> {
-        let root = temp_workspace()?;
-
-        write_file(
-            root.as_path(),
-            "galfus.toml",
-            r#"
-[module]
-name = "my-lib"
-target = "lib"
-"#,
-        )?;
-
-        let result = check_workspace(root.as_path())?;
-
-        assert!(result.has_errors());
-        assert!(result.diagnostics().iter().any(|diagnostic| {
-            diagnostic.code().as_str() == WorkspaceDiagnosticCode::MissingLibrarySurface.as_code()
-        }));
-
-        fs::remove_dir_all(root)?;
-        Ok(())
-    }
-
-    #[test]
-    fn check_workspace_accepts_lib_with_exports() -> Result<()> {
-        let root = temp_workspace()?;
-
-        write_file(
-            root.as_path(),
-            "galfus.toml",
-            r#"
-[module]
-name = "my-lib"
-target = "lib"
-
-[exports]
-"user" = "src/user.gfs"
-"result" = "src/result.gfs"
-"#,
-        )?;
-
-        write_file(
-            root.as_path(),
-            "src/user.gfs",
-            r#"
-export struct User {
-  id: int64,
-}
-"#,
-        )?;
-
-        write_file(
-            root.as_path(),
-            "src/result.gfs",
-            r#"
-export choice Result<V, E> {
-  Ok(V),
-  Err(E),
-}
-"#,
-        )?;
-
-        let result = check_workspace(root.as_path())?;
-
-        assert!(!result.has_errors());
-        assert_eq!(result.modules().len(), 2);
-
-        fs::remove_dir_all(root)?;
-        Ok(())
-    }
-
-    #[test]
-    fn check_workspace_reports_missing_entry_target() -> Result<()> {
-        let root = temp_workspace()?;
-
-        write_file(
-            root.as_path(),
-            "galfus.toml",
-            r#"
-[module]
-name = "my-app"
-target = "app"
-entry = "src/missing.gfs"
-"#,
-        )?;
-
-        let result = check_workspace(root.as_path())?;
-
-        assert!(result.has_errors());
-        assert!(result.diagnostics().iter().any(|diagnostic| {
-            diagnostic.code().as_str() == WorkspaceDiagnosticCode::EntryTargetMissing.as_code()
-        }));
-
-        fs::remove_dir_all(root)?;
-        Ok(())
-    }
-
-    #[test]
-    fn check_workspace_reports_export_target_missing() -> Result<()> {
-        let root = temp_workspace()?;
-
-        write_file(
-            root.as_path(),
-            "galfus.toml",
-            r#"
-[module]
-name = "my-lib"
-target = "lib"
-
-[exports]
-"user" = "src/missing.gfs"
-"#,
-        )?;
-
-        let result = check_workspace(root.as_path())?;
-
-        assert!(result.has_errors());
-        assert!(result.diagnostics().iter().any(|diagnostic| {
-            diagnostic.code().as_str() == WorkspaceDiagnosticCode::ExportTargetMissing.as_code()
-        }));
-
-        fs::remove_dir_all(root)?;
-        Ok(())
-    }
-
-    #[test]
-    fn check_workspace_rejects_non_gfs_entry() -> Result<()> {
-        let root = temp_workspace()?;
-
-        write_file(
-            root.as_path(),
-            "galfus.toml",
-            r#"
-[module]
-name = "my-app"
-target = "app"
-entry = "src/main.toml"
-"#,
-        )?;
-
-        write_file(root.as_path(), "src/main.toml", "")?;
-
-        let result = check_workspace(root.as_path())?;
-
-        assert!(result.has_errors());
-        assert!(result.diagnostics().iter().any(|diagnostic| {
-            diagnostic.code().as_str()
-                == WorkspaceDiagnosticCode::UnsupportedWorkspaceTarget.as_code()
-        }));
-
-        fs::remove_dir_all(root)?;
-        Ok(())
-    }
+fn empty_workspace_check_result(diagnostics: DiagnosticBag) -> WorkspaceCheckResult {
+    WorkspaceCheckResult::new(
+        CheckResult {
+            modules: Vec::new(),
+            diagnostics,
+        },
+        WorkspaceGraph::default(),
+    )
 }

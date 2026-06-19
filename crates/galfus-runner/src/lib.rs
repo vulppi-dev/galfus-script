@@ -1,16 +1,21 @@
+#[cfg(test)]
+mod tests;
+
 mod check;
 mod diagnostic;
 mod local_graph;
 mod workspace;
-
-use anyhow::Result;
-use galfus_core::Diagnostic;
-use std::path::{Path, PathBuf};
+mod workspace_graph;
 
 pub use check::*;
 pub use diagnostic::*;
 pub use local_graph::*;
 pub use workspace::*;
+pub use workspace_graph::*;
+
+use anyhow::Result;
+use galfus_core::Diagnostic;
+use std::path::{Path, PathBuf};
 
 fn normalize_existing_path(path: &Path) -> Result<PathBuf> {
     Ok(path.canonicalize()?)
