@@ -140,6 +140,11 @@ pub enum TypeKind {
         symbol: SymbolId,
     },
 
+    Path {
+        root: SymbolId,
+        segments: Vec<String>,
+    },
+
     GenericParameter {
         symbol: SymbolId,
     },
@@ -288,6 +293,14 @@ impl TypeTable {
         })
     }
 
+    pub fn intern_path(&mut self, root: SymbolId, segments: Vec<String>) -> TypeId {
+        self.intern(TypeKind::Path { root, segments })
+    }
+
+    pub fn error(&mut self) -> TypeId {
+        self.intern(TypeKind::Error)
+    }
+
     pub fn describe(&self, id: TypeId) -> String {
         let Some(kind) = self.kind(id) else {
             return "<missing type>".to_string();
@@ -298,6 +311,11 @@ impl TypeTable {
 
             TypeKind::Named { symbol } => {
                 format!("symbol#{}", symbol.raw())
+            }
+
+            TypeKind::Path { root, segments } => {
+                let path = segments.join("::");
+                format!("symbol#{}::{path}", root.raw())
             }
 
             TypeKind::GenericParameter { symbol } => {
