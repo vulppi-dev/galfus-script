@@ -304,6 +304,46 @@ fn resolve_binds_local_type_path_member() {
 }
 
 #[test]
+fn resolve_binds_constraint_field_type_path_member() {
+    let source = source(
+        r#"
+        constraint Entity {
+            Id: int64,
+        }
+
+        type EntityId = Entity::Id
+        "#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.graph();
+    let syntax = graph.syntax();
+    let resolution = graph.resolution().unwrap();
+
+    let root = syntax.root().unwrap();
+
+    let path_type = find_path_type_by_text(syntax, &source, root, "Entity::Id").unwrap();
+
+    let root_symbol = resolution
+        .symbol(resolution.type_reference_symbol(path_type).unwrap())
+        .unwrap();
+    let member_symbol = resolution
+        .symbol(resolution.type_path_reference_symbol(path_type).unwrap())
+        .unwrap();
+
+    assert_eq!(root_symbol.name(), "Entity");
+    assert_eq!(root_symbol.kind(), SymbolKind::Constraint);
+
+    assert_eq!(member_symbol.name(), "Id");
+    assert_eq!(member_symbol.kind(), SymbolKind::ConstraintField);
+}
+
+#[test]
 fn resolve_reports_unknown_local_type_path_member() {
     let source = source(
         r#"

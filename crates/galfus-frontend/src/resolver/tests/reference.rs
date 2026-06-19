@@ -391,6 +391,50 @@ fn resolve_binds_choice_variant_path_expression_member() {
 }
 
 #[test]
+fn resolve_binds_constraint_function_path_expression_member() {
+    let source = source(
+        r#"
+        constraint Stringable<T> {
+            fn toString(self: T): [int8]
+        }
+
+        fn main(): null {
+            var method = Stringable::toString
+            return
+        }
+        "#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.graph();
+    let syntax = graph.syntax();
+    let resolution = graph.resolution().unwrap();
+
+    let root = syntax.root().unwrap();
+
+    let expression =
+        find_path_expression_by_text(syntax, &source, root, "Stringable::toString").unwrap();
+
+    let root_symbol = resolution
+        .symbol(resolution.reference_symbol(expression).unwrap())
+        .unwrap();
+    let member_symbol = resolution
+        .symbol(resolution.path_reference_symbol(expression).unwrap())
+        .unwrap();
+
+    assert_eq!(root_symbol.name(), "Stringable");
+    assert_eq!(root_symbol.kind(), SymbolKind::Constraint);
+
+    assert_eq!(member_symbol.name(), "toString");
+    assert_eq!(member_symbol.kind(), SymbolKind::ConstraintFunction);
+}
+
+#[test]
 fn resolve_reports_unknown_path_expression_member_on_local_type() {
     let source = source(
         r#"

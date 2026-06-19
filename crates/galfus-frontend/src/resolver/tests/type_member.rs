@@ -118,10 +118,76 @@ fn resolve_declares_choice_variant_symbols_in_choice_scope() {
 }
 
 #[test]
+fn resolve_declares_constraint_member_symbols_in_constraint_scope() {
+    let source = source(
+        r#"
+        constraint Entity<T> {
+            id: int64,
+            fn toString(self: T): [int8]
+        }
+        "#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.graph();
+    let syntax = graph.syntax();
+    let resolution = graph.resolution().unwrap();
+
+    let root = syntax.root().unwrap();
+    let constraint_item = syntax.first_child(root).unwrap();
+    let constraint_scope = resolution
+        .scope(resolution.node_scope(constraint_item).unwrap())
+        .unwrap();
+
+    let id = resolution
+        .symbol(constraint_scope.symbol("id").unwrap())
+        .unwrap();
+    let to_string = resolution
+        .symbol(constraint_scope.symbol("toString").unwrap())
+        .unwrap();
+
+    assert_eq!(id.kind(), SymbolKind::ConstraintField);
+    assert_eq!(to_string.kind(), SymbolKind::ConstraintFunction);
+}
+
+#[test]
 fn resolve_reports_duplicate_struct_field_symbol() {
     let source = source(
         r#"
         struct User {
+            id: int64,
+            id: int32,
+        }
+        "#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+
+    assert!(resolve_result.has_errors());
+
+    let graph = resolve_result.graph();
+
+    assert!(
+        graph
+            .diagnostics()
+            .iter()
+            .any(|diagnostic| diagnostic.message().contains("duplicate symbol `id`"))
+    );
+}
+
+#[test]
+fn resolve_reports_duplicate_constraint_member_symbol() {
+    let source = source(
+        r#"
+        constraint Entity {
             id: int64,
             id: int32,
         }

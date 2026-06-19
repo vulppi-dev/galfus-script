@@ -19,6 +19,8 @@ pub enum SymbolKind {
     StructField,
     EnumVariant,
     ChoiceVariant,
+    ConstraintField,
+    ConstraintFunction,
 
     ImportNamespace,
     ImportBinding,

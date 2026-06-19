@@ -41,6 +41,15 @@ impl<'a> Resolver<'a> {
                 self.declare_choice_members(item, scope);
             }
 
+            SyntaxNodeKind::ConstraintItem => {
+                let scope = self.resolution.node_scope(item).unwrap_or_else(|| {
+                    self.add_type_item_scope(item, ScopeKind::Constraint, module_scope)
+                });
+
+                self.bind_type_member_scope(item, scope);
+                self.declare_constraint_members(item, scope);
+            }
+
             _ => {}
         }
     }
@@ -126,6 +135,37 @@ impl<'a> Resolver<'a> {
 
         for variant in variants_node.children() {
             self.declare_type_member(*variant, SymbolKind::ChoiceVariant, scope);
+        }
+    }
+
+    fn declare_constraint_members(&mut self, item: NodeId, scope: ScopeId) {
+        let Some(members) = self
+            .syntax
+            .first_child_of_kind(item, SyntaxNodeKind::ConstraintMemberList)
+        else {
+            return;
+        };
+
+        let Some(members_node) = self.syntax.node(members) else {
+            return;
+        };
+
+        for member in members_node.children() {
+            let Some(member_node) = self.syntax.node(*member) else {
+                continue;
+            };
+
+            match member_node.kind() {
+                SyntaxNodeKind::ConstraintField => {
+                    self.declare_type_member(*member, SymbolKind::ConstraintField, scope);
+                }
+
+                SyntaxNodeKind::ConstraintFunctionSignature => {
+                    self.declare_type_member(*member, SymbolKind::ConstraintFunction, scope);
+                }
+
+                _ => {}
+            }
         }
     }
 
