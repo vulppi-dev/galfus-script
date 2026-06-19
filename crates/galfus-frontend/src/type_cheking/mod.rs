@@ -2,10 +2,10 @@
 mod tests;
 
 use crate::{
-    FunctionParameterType, ModuleGraph, PrimitiveType, SymbolKind, SyntaxNodeKind, TypeLayer,
-    lower_types,
+    FunctionParameterType, ModuleGraph, PrimitiveType, SymbolKind, SyntaxNodeKind,
+    TypeDiagnosticCode, TypeKind, TypeLayer, lower_types,
 };
-use galfus_core::{DiagnosticBag, NodeId, SourceFile, SymbolId, TypeId};
+use galfus_core::{Diagnostic, DiagnosticBag, NodeId, SourceFile, SymbolId, TypeId};
 
 #[derive(Debug, Clone)]
 pub struct TypeCheckResult {
@@ -35,19 +35,11 @@ impl TypeCheckResult {
     }
 }
 
-pub fn check_declaration_types(source: &SourceFile, graph: &ModuleGraph) -> TypeCheckResult {
-    let lowering = lower_types(source, graph);
-
-    let mut checker = DeclarationTypeChecker::new(source, graph, lowering.into_layer());
-    checker.check();
-
-    TypeCheckResult::new(checker.into_layer(), DiagnosticBag::new())
-}
-
 struct DeclarationTypeChecker<'a> {
     source: &'a SourceFile,
     graph: &'a ModuleGraph,
     layer: TypeLayer,
+    diagnostics: DiagnosticBag,
 }
 
 impl<'a> DeclarationTypeChecker<'a> {
@@ -56,11 +48,12 @@ impl<'a> DeclarationTypeChecker<'a> {
             source,
             graph,
             layer,
+            diagnostics: DiagnosticBag::new(),
         }
     }
 
-    fn into_layer(self) -> TypeLayer {
-        self.layer
+    fn into_result(self) -> TypeCheckResult {
+        TypeCheckResult::new(self.layer, self.diagnostics)
     }
 
     fn check(&mut self) {
@@ -72,6 +65,7 @@ impl<'a> DeclarationTypeChecker<'a> {
         };
 
         self.check_node(root);
+        self.check_initializer_types(root);
     }
 
     fn check_node(&mut self, node: NodeId) {
@@ -437,6 +431,184 @@ impl<'a> DeclarationTypeChecker<'a> {
                 | SyntaxNodeKind::FunctionType
         )
     }
+
+    fn check_initializer_types(&mut self, node: NodeId) {
+        let Some(syntax_node) = self.graph.syntax().node(node) else {
+            return;
+        };
+
+        match syntax_node.kind() {
+            SyntaxNodeKind::VarItem
+            | SyntaxNodeKind::ConstItem
+            | SyntaxNodeKind::VarStatement
+            | SyntaxNodeKind::ConstStatement => {
+                self.check_binding_initializer_type(node);
+            }
+
+            _ => {}
+        }
+
+        for child in syntax_node.children() {
+            self.check_initializer_types(*child);
+        }
+    }
+
+    fn check_binding_initializer_type(&mut self, node: NodeId) {
+        let Some(type_annotation) = self
+            .graph
+            .syntax()
+            .first_child_of_kind(node, SyntaxNodeKind::TypeAnnotation)
+        else {
+            return;
+        };
+
+        let Some(type_node) = self.first_type_child(type_annotation) else {
+            return;
+        };
+
+        let Some(expected) = self.layer.node_type(type_node) else {
+            return;
+        };
+
+        let Some(initializer) = self
+            .graph
+            .syntax()
+            .first_child_of_kind(node, SyntaxNodeKind::Initializer)
+        else {
+            return;
+        };
+
+        let Some(expression) = self.graph.syntax().child(initializer, 0) else {
+            return;
+        };
+
+        let Some(actual) = self.infer_expression_type(expression) else {
+            return;
+        };
+
+        if self.is_assignable(expected, actual) {
+            return;
+        }
+
+        self.report_type_mismatch(expression, expected, actual);
+    }
+
+    fn infer_expression_type(&mut self, node: NodeId) -> Option<TypeId> {
+        if let Some(existing) = self.layer.node_type(node) {
+            return Some(existing);
+        }
+
+        let syntax_node = self.graph.syntax().node(node)?;
+
+        let ty = match syntax_node.kind() {
+            SyntaxNodeKind::IntegerLiteral => {
+                Some(self.layer.table().primitive(PrimitiveType::Int32))
+            }
+
+            SyntaxNodeKind::FloatLiteral => {
+                Some(self.layer.table().primitive(PrimitiveType::Float64))
+            }
+
+            SyntaxNodeKind::BoolLiteral => Some(self.layer.table().primitive(PrimitiveType::Bool)),
+
+            SyntaxNodeKind::NullLiteral => Some(self.layer.table().primitive(PrimitiveType::Null)),
+
+            SyntaxNodeKind::GroupedExpression => {
+                let inner = self.graph.syntax().child(node, 0)?;
+                self.infer_expression_type(inner)
+            }
+
+            SyntaxNodeKind::NameExpression => self.infer_name_expression_type(node),
+
+            SyntaxNodeKind::TupleExpression => self.infer_tuple_expression_type(node),
+
+            SyntaxNodeKind::CastExpression => self.infer_cast_expression_type(node),
+
+            SyntaxNodeKind::CopyExpression => {
+                let value = self.graph.syntax().child(node, 0)?;
+                self.infer_expression_type(value)
+            }
+
+            _ => None,
+        }?;
+
+        self.layer.bind_node_type(node, ty);
+        Some(ty)
+    }
+
+    fn infer_name_expression_type(&self, node: NodeId) -> Option<TypeId> {
+        let resolution = self.graph.resolution()?;
+
+        let symbol = resolution.reference_symbol(node).or_else(|| {
+            let identifier = self
+                .graph
+                .syntax()
+                .first_child_of_kind(node, SyntaxNodeKind::Identifier)?;
+
+            resolution.reference_symbol(identifier)
+        })?;
+
+        self.layer.symbol_type(symbol)
+    }
+
+    fn infer_tuple_expression_type(&mut self, node: NodeId) -> Option<TypeId> {
+        let elements = self
+            .graph
+            .syntax()
+            .node(node)?
+            .children()
+            .to_vec()
+            .into_iter()
+            .map(|child| self.infer_expression_type(child))
+            .collect::<Option<Vec<_>>>()?;
+
+        Some(self.layer.table_mut().intern_tuple(elements))
+    }
+
+    fn infer_cast_expression_type(&mut self, node: NodeId) -> Option<TypeId> {
+        let type_node = self.first_type_child(node)?;
+        self.layer.node_type(type_node)
+    }
+
+    fn is_assignable(&self, expected: TypeId, actual: TypeId) -> bool {
+        if expected == actual {
+            return true;
+        }
+
+        let expected_kind = self.layer.table().kind(expected).cloned();
+        let actual_kind = self.layer.table().kind(actual).cloned();
+
+        if matches!(expected_kind, Some(TypeKind::Error)) {
+            return true;
+        }
+
+        if matches!(actual_kind, Some(TypeKind::Error)) {
+            return true;
+        }
+
+        match expected_kind {
+            Some(TypeKind::Union { members }) => members.contains(&actual),
+            _ => false,
+        }
+    }
+
+    fn report_type_mismatch(&mut self, expression: NodeId, expected: TypeId, actual: TypeId) {
+        let span = self
+            .graph
+            .syntax()
+            .node(expression)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        let expected = self.layer.table().describe(expected);
+        let actual = self.layer.table().describe(actual);
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+            TypeDiagnosticCode::TypeMismatch,
+            format!("expected `{expected}`, got `{actual}`"),
+            span,
+        ));
+    }
 }
 
 fn primitive_type_by_name(name: &str) -> Option<PrimitiveType> {
@@ -456,4 +628,12 @@ fn primitive_type_by_name(name: &str) -> Option<PrimitiveType> {
         "float64" => Some(PrimitiveType::Float64),
         _ => None,
     }
+}
+
+pub fn check_declaration_types(source: &SourceFile, graph: &ModuleGraph) -> TypeCheckResult {
+    let lowering = lower_types(source, graph);
+
+    let mut checker = DeclarationTypeChecker::new(source, graph, lowering.into_layer());
+    checker.check();
+    checker.into_result()
 }

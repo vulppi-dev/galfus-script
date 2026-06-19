@@ -95,3 +95,22 @@ impl DiagnosticCodeKind for ResolverDiagnosticCode {
         }
     }
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum TypeDiagnosticCode {
+    TypeMismatch,
+}
+
+impl DiagnosticCodeKind for TypeDiagnosticCode {
+    fn as_code(&self) -> &'static str {
+        match self {
+            Self::TypeMismatch => "T0001",
+        }
+    }
+
+    fn as_message(&self) -> &'static str {
+        match self {
+            Self::TypeMismatch => "type mismatch",
+        }
+    }
+}
