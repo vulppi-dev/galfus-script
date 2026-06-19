@@ -124,6 +124,10 @@ impl<'a> Resolver<'a> {
         }
 
         for item in root_node.children() {
+            self.resolve_type_path_member_item(*item, module_scope);
+        }
+
+        for item in root_node.children() {
             self.resolve_reference_item(*item, module_scope);
         }
     }

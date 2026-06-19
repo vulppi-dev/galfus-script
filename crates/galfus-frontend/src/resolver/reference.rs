@@ -122,6 +122,42 @@ impl<'a> Resolver<'a> {
 
         if let Some(symbol) = self.resolution.reference_symbol(target) {
             self.resolution.bind_reference(expression, symbol);
+            self.resolve_path_expression_member(expression, symbol);
         }
+    }
+
+    fn resolve_path_expression_member(&mut self, expression: NodeId, root_symbol: SymbolId) {
+        let Some(member) = self.syntax.child(expression, 1) else {
+            return;
+        };
+
+        let Some(member_scope) = self.resolution.member_scope(root_symbol) else {
+            return;
+        };
+
+        let member_name = self.node_text(member);
+
+        if let Some(symbol) = self
+            .resolution
+            .scope(member_scope)
+            .and_then(|scope| scope.symbol(member_name.as_str()))
+        {
+            self.resolution.bind_path_reference(expression, symbol);
+            return;
+        }
+
+        self.report_unresolved_path_member(member, member_name);
+    }
+
+    fn report_unresolved_path_member(&mut self, name: NodeId, member_name: String) {
+        let Some(name_node) = self.syntax.node(name) else {
+            return;
+        };
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+            ResolverDiagnosticCode::UnresolvedName,
+            format!("unresolved path member `{member_name}`"),
+            name_node.span(),
+        ));
     }
 }

@@ -235,7 +235,7 @@ fn resolve_binds_local_type_path_root() {
     let source = source(
         r#"
         struct User {
-            id: int32,
+            Id: int32,
         }
 
         type LocalUserId = User::Id
@@ -261,6 +261,83 @@ fn resolve_binds_local_type_path_root() {
 
     assert_eq!(symbol.name(), "User");
     assert_eq!(symbol.kind(), SymbolKind::Struct);
+}
+
+#[test]
+fn resolve_binds_local_type_path_member() {
+    let source = source(
+        r#"
+        struct User {
+            Id: int32,
+        }
+
+        type LocalUserId = User::Id
+        "#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.graph();
+    let syntax = graph.syntax();
+    let resolution = graph.resolution().unwrap();
+
+    let root = syntax.root().unwrap();
+
+    let path_type = find_path_type_by_text(syntax, &source, root, "User::Id").unwrap();
+
+    let root_symbol = resolution
+        .symbol(resolution.type_reference_symbol(path_type).unwrap())
+        .unwrap();
+    let member_symbol = resolution
+        .symbol(resolution.type_path_reference_symbol(path_type).unwrap())
+        .unwrap();
+
+    assert_eq!(root_symbol.name(), "User");
+    assert_eq!(root_symbol.kind(), SymbolKind::Struct);
+
+    assert_eq!(member_symbol.name(), "Id");
+    assert_eq!(member_symbol.kind(), SymbolKind::StructField);
+}
+
+#[test]
+fn resolve_reports_unknown_local_type_path_member() {
+    let source = source(
+        r#"
+        struct User {
+            Id: int32,
+        }
+
+        type LocalUserName = User::Name
+        "#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+
+    assert!(resolve_result.has_errors());
+
+    let graph = resolve_result.graph();
+    let syntax = graph.syntax();
+    let resolution = graph.resolution().unwrap();
+
+    let root = syntax.root().unwrap();
+
+    let path_type = find_path_type_by_text(syntax, &source, root, "User::Name").unwrap();
+
+    assert!(resolution.type_reference_symbol(path_type).is_some());
+    assert!(resolution.type_path_reference_symbol(path_type).is_none());
+
+    assert!(graph.diagnostics().iter().any(|diagnostic| {
+        diagnostic
+            .message()
+            .contains("unresolved type path member `Name`")
+    }));
 }
 
 #[test]

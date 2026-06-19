@@ -578,7 +578,7 @@ enum Direction {
 An enum value preserves the enum symbol through the enum type:
 
 ```galfus
-var v: Direction = Direction.Up
+var v: Direction = Direction::Up
 ```
 
 The value is semantically a `Direction`, not a raw `int32`.
@@ -588,7 +588,7 @@ The value is semantically a `Direction`, not a raw `int32`.
 An explicit cast converts an enum value to its base discriminant type:
 
 ```galfus
-var raw = <int32> Direction.Up
+var raw = <int32> Direction::Up
 ```
 
 ### Base type
@@ -624,7 +624,7 @@ choice Result<V, E> {
 A choice variant is constructed with its variant path:
 
 ```galfus
-var result = Result.Ok(10)
+var result = Result::Ok(10)
 ```
 
 ### Payload tuple semantics
@@ -663,8 +663,8 @@ choice Token {
 
 ```galfus
 match result {
-  Result.Ok(value) => value,
-  Result.Err(error) => 0,
+  Result::Ok(value) => value,
+  Result::Err(error) => 0,
 }
 ```
 
@@ -1129,8 +1129,8 @@ var text = match value {
 
 ```galfus
 match event {
-  Event.Start => start(),
-  Event.Stop => stop(),
+  Event::Start => start(),
+  Event::Stop => stop(),
   _ => null,
 }
 ```
@@ -1145,8 +1145,8 @@ If no branch matches and no default branch exists, the result is `null`.
 
 ```galfus
 match result {
-  Result.Ok(value) => value,
-  Result.Err(error) => 0,
+  Result::Ok(value) => value,
+  Result::Err(error) => 0,
 }
 ```
 

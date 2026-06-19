@@ -15,10 +15,7 @@ impl Parser {
         }
 
         if self.at(&TokenKind::Identifier) {
-            if matches!(
-                self.peek_after_newlines(1).kind(),
-                TokenKind::Dot | TokenKind::ColonColon
-            ) {
+            if matches!(self.peek_after_newlines(1).kind(), TokenKind::ColonColon) {
                 return self.parse_variant_pattern();
             }
 
@@ -138,11 +135,7 @@ impl Parser {
 
         self.skip_newlines();
 
-        if self.at(&TokenKind::Dot) || self.at(&TokenKind::ColonColon) {
-            self.bump();
-        } else {
-            self.expect(TokenKind::Dot)?;
-        }
+        self.expect(TokenKind::ColonColon)?;
 
         self.skip_newlines();
 

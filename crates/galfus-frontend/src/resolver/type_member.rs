@@ -19,6 +19,7 @@ impl<'a> Resolver<'a> {
                     self.add_type_item_scope(item, ScopeKind::Struct, module_scope)
                 });
 
+                self.bind_type_member_scope(item, scope);
                 self.declare_struct_members(item, scope);
             }
 
@@ -27,6 +28,7 @@ impl<'a> Resolver<'a> {
                     self.add_type_item_scope(item, ScopeKind::Enum, module_scope)
                 });
 
+                self.bind_type_member_scope(item, scope);
                 self.declare_enum_members(item, scope);
             }
 
@@ -35,6 +37,7 @@ impl<'a> Resolver<'a> {
                     self.add_type_item_scope(item, ScopeKind::Choice, module_scope)
                 });
 
+                self.bind_type_member_scope(item, scope);
                 self.declare_choice_members(item, scope);
             }
 
@@ -50,6 +53,19 @@ impl<'a> Resolver<'a> {
     ) -> ScopeId {
         self.resolution
             .add_scope(kind, Some(parent_scope), Some(item))
+    }
+
+    fn bind_type_member_scope(&mut self, item: NodeId, scope: ScopeId) {
+        let Some(name) = self
+            .syntax
+            .first_child_of_kind(item, SyntaxNodeKind::Identifier)
+        else {
+            return;
+        };
+
+        if let Some(symbol) = self.resolution.declaration_symbol(name) {
+            self.resolution.bind_member_scope(symbol, scope);
+        }
     }
 
     fn declare_struct_members(&mut self, item: NodeId, scope: ScopeId) {

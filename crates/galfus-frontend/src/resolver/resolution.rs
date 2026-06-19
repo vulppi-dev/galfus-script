@@ -14,8 +14,11 @@ pub struct ResolutionLayer {
 
     declarations: HashMap<NodeId, SymbolId>,
     references: HashMap<NodeId, SymbolId>,
+    path_references: HashMap<NodeId, SymbolId>,
     type_references: HashMap<NodeId, SymbolId>,
+    type_path_references: HashMap<NodeId, SymbolId>,
     node_scopes: HashMap<NodeId, ScopeId>,
+    member_scopes: HashMap<SymbolId, ScopeId>,
     symbol_imports: HashMap<SymbolId, ImportId>,
     exports_by_name: HashMap<String, ExportId>,
     symbol_exports: HashMap<SymbolId, ExportId>,
@@ -35,8 +38,11 @@ impl ResolutionLayer {
 
             declarations: HashMap::new(),
             references: HashMap::new(),
+            path_references: HashMap::new(),
             type_references: HashMap::new(),
+            type_path_references: HashMap::new(),
             node_scopes: HashMap::new(),
+            member_scopes: HashMap::new(),
             symbol_imports: HashMap::new(),
             exports_by_name: HashMap::new(),
             symbol_exports: HashMap::new(),
@@ -77,6 +83,10 @@ impl ResolutionLayer {
 
     pub fn reference_symbol(&self, node: NodeId) -> Option<SymbolId> {
         self.references.get(&node).copied()
+    }
+
+    pub fn path_reference_symbol(&self, node: NodeId) -> Option<SymbolId> {
+        self.path_references.get(&node).copied()
     }
 
     pub fn node_scope(&self, node: NodeId) -> Option<ScopeId> {
@@ -129,6 +139,14 @@ impl ResolutionLayer {
 
     pub fn type_reference_symbol(&self, node: NodeId) -> Option<SymbolId> {
         self.type_references.get(&node).copied()
+    }
+
+    pub fn type_path_reference_symbol(&self, node: NodeId) -> Option<SymbolId> {
+        self.type_path_references.get(&node).copied()
+    }
+
+    pub fn member_scope(&self, symbol: SymbolId) -> Option<ScopeId> {
+        self.member_scopes.get(&symbol).copied()
     }
 
     pub fn builtin_type_symbol(&self, name: &str) -> Option<SymbolId> {
@@ -184,8 +202,16 @@ impl ResolutionLayer {
         self.references.insert(node, symbol);
     }
 
+    pub(crate) fn bind_path_reference(&mut self, node: NodeId, symbol: SymbolId) {
+        self.path_references.insert(node, symbol);
+    }
+
     pub(crate) fn bind_scope(&mut self, node: NodeId, scope: ScopeId) {
         self.node_scopes.insert(node, scope);
+    }
+
+    pub(crate) fn bind_member_scope(&mut self, symbol: SymbolId, scope: ScopeId) {
+        self.member_scopes.insert(symbol, scope);
     }
 
     pub(crate) fn add_import(
@@ -255,6 +281,10 @@ impl ResolutionLayer {
 
     pub(crate) fn bind_type_reference(&mut self, node: NodeId, symbol: SymbolId) {
         self.type_references.insert(node, symbol);
+    }
+
+    pub(crate) fn bind_type_path_reference(&mut self, node: NodeId, symbol: SymbolId) {
+        self.type_path_references.insert(node, symbol);
     }
 }
 

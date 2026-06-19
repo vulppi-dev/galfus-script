@@ -127,6 +127,95 @@ impl<'a> Resolver<'a> {
         self.report_unresolved_type(root, root_name);
     }
 
+    pub(super) fn resolve_type_path_member_item(&mut self, item: NodeId, module_scope: ScopeId) {
+        let Some(node) = self.syntax.node(item) else {
+            return;
+        };
+
+        match node.kind() {
+            SyntaxNodeKind::ExportItem => {
+                if let Some(inner) = node.first_child() {
+                    self.resolve_type_path_member_item(inner, module_scope);
+                }
+            }
+
+            SyntaxNodeKind::FunctionItem => {
+                let scope = self.resolution.node_scope(item).unwrap_or(module_scope);
+
+                self.resolve_type_path_members_in_node(item, scope);
+            }
+
+            SyntaxNodeKind::TypeAliasItem
+            | SyntaxNodeKind::StructItem
+            | SyntaxNodeKind::EnumItem
+            | SyntaxNodeKind::ChoiceItem
+            | SyntaxNodeKind::ConstraintItem => {
+                let scope = self.resolution.node_scope(item).unwrap_or(module_scope);
+
+                self.resolve_type_path_members_in_node(item, scope);
+            }
+
+            SyntaxNodeKind::VarItem | SyntaxNodeKind::ConstItem => {
+                self.resolve_type_path_members_in_node(item, module_scope);
+            }
+
+            _ => {}
+        }
+    }
+
+    fn resolve_type_path_members_in_node(&mut self, node: NodeId, current_scope: ScopeId) {
+        let Some(syntax_node) = self.syntax.node(node) else {
+            return;
+        };
+
+        let scope = self.resolution.node_scope(node).unwrap_or(current_scope);
+
+        if syntax_node.kind() == SyntaxNodeKind::Path {
+            self.resolve_type_path_member(node);
+            return;
+        }
+
+        for child in syntax_node.children() {
+            self.resolve_type_path_members_in_node(*child, scope);
+        }
+    }
+
+    fn resolve_type_path_member(&mut self, path: NodeId) {
+        let Some(root_symbol) = self.resolution.type_reference_symbol(path) else {
+            return;
+        };
+
+        let Some(path_node) = self.syntax.node(path) else {
+            return;
+        };
+
+        let mut current_symbol = root_symbol;
+
+        for member in path_node.children().iter().skip(1) {
+            let member_name = self.node_text(*member);
+
+            let Some(member_scope) = self.resolution.member_scope(current_symbol) else {
+                return;
+            };
+
+            let Some(symbol) = self
+                .resolution
+                .scope(member_scope)
+                .and_then(|scope| scope.symbol(member_name.as_str()))
+            else {
+                self.report_unresolved_type_path_member(*member, member_name);
+                return;
+            };
+
+            current_symbol = symbol;
+        }
+
+        if current_symbol != root_symbol {
+            self.resolution
+                .bind_type_path_reference(path, current_symbol);
+        }
+    }
+
     fn is_type_symbol(&self, kind: SymbolKind) -> bool {
         matches!(
             kind,
@@ -153,6 +242,18 @@ impl<'a> Resolver<'a> {
         self.diagnostics.push(Diagnostic::error_with_message(
             ResolverDiagnosticCode::UnresolvedType,
             format!("unresolved type `{type_name}`"),
+            name_node.span(),
+        ));
+    }
+
+    fn report_unresolved_type_path_member(&mut self, name: NodeId, member_name: String) {
+        let Some(name_node) = self.syntax.node(name) else {
+            return;
+        };
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+            ResolverDiagnosticCode::UnresolvedType,
+            format!("unresolved type path member `{member_name}`"),
             name_node.span(),
         ));
     }

@@ -481,7 +481,7 @@ var b: bool = 10
 Enum cast:
 
 ```galfus
-var raw = <int32> Direction.North
+var raw = <int32> Direction::North
 ```
 
 ---
@@ -698,13 +698,13 @@ enum<int64> BigKind {
 Usage:
 
 ```galfus
-var direction = Direction.North
+var direction = Direction::North
 ```
 
 Casting an enum symbol to its numeric representation:
 
 ```galfus
-var raw = <int32> Direction.North
+var raw = <int32> Direction::North
 ```
 
 ---
@@ -726,7 +726,7 @@ choice Asset {
 Choice construction:
 
 ```galfus
-var asset = Asset.Texture("grass.png")
+var asset = Asset::Texture("grass.png")
 ```
 
 Generic choice:
@@ -1355,8 +1355,8 @@ Choice-style match:
 
 ```galfus
 match result {
-  Result.Ok(value) => value,
-  Result.Err(error) => 0,
+  Result::Ok(value) => value,
+  Result::Err(error) => 0,
 }
 ```
 
