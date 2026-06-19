@@ -332,8 +332,8 @@ fn resolve_reports_unknown_path_expression_root() {
 
     let root = syntax.root().unwrap();
 
-    let expression = find_path_expression_by_text(syntax, &source, root, "missing::create")
-        .unwrap();
+    let expression =
+        find_path_expression_by_text(syntax, &source, root, "missing::create").unwrap();
 
     assert!(resolution.reference_symbol(expression).is_none());
 

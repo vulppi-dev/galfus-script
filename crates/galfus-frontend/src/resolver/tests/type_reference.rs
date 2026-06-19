@@ -39,8 +39,7 @@ fn find_path_type_by_text(
 ) -> Option<NodeId> {
     let syntax_node = syntax.node(node)?;
 
-    if syntax_node.kind() == SyntaxNodeKind::Path
-        && source.slice(syntax_node.span()) == Some(text)
+    if syntax_node.kind() == SyntaxNodeKind::Path && source.slice(syntax_node.span()) == Some(text)
     {
         return Some(node);
     }
