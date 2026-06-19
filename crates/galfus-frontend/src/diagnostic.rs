@@ -73,6 +73,7 @@ pub enum ResolverDiagnosticCode {
     DuplicateSymbol,
     UnresolvedName,
     UnresolvedType,
+    InvalidFunctionAnchor,
 }
 
 impl DiagnosticCodeKind for ResolverDiagnosticCode {
@@ -81,6 +82,7 @@ impl DiagnosticCodeKind for ResolverDiagnosticCode {
             Self::DuplicateSymbol => "R0001",
             Self::UnresolvedName => "R0002",
             Self::UnresolvedType => "R0003",
+            Self::InvalidFunctionAnchor => "R0004",
         }
     }
 
@@ -89,6 +91,7 @@ impl DiagnosticCodeKind for ResolverDiagnosticCode {
             Self::DuplicateSymbol => "duplicate symbol",
             Self::UnresolvedName => "unresolved name",
             Self::UnresolvedType => "unresolved type",
+            Self::InvalidFunctionAnchor => "invalid function anchor",
         }
     }
 }

@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod tests;
 
+mod anchor;
 mod block;
 mod builtin;
 mod export;
@@ -125,6 +126,10 @@ impl<'a> Resolver<'a> {
 
         for item in root_node.children() {
             self.resolve_type_path_member_item(*item, module_scope);
+        }
+
+        for item in root_node.children() {
+            self.validate_function_anchor_item(*item);
         }
 
         for item in root_node.children() {

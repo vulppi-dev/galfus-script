@@ -53,6 +53,29 @@ fn find_path_type_by_text(
     None
 }
 
+fn find_function_anchor_by_text(
+    syntax: &SyntaxLayer,
+    source: &SourceFile,
+    node: NodeId,
+    text: &str,
+) -> Option<NodeId> {
+    let syntax_node = syntax.node(node)?;
+
+    if syntax_node.kind() == SyntaxNodeKind::FunctionAnchor
+        && source.slice(syntax_node.span()) == Some(text)
+    {
+        return Some(node);
+    }
+
+    for child in syntax_node.children() {
+        if let Some(found) = find_function_anchor_by_text(syntax, source, *child, text) {
+            return Some(found);
+        }
+    }
+
+    None
+}
+
 #[test]
 fn resolve_binds_function_parameter_named_type() {
     let source = source(
@@ -86,6 +109,74 @@ fn resolve_binds_function_parameter_named_type() {
 
     assert_eq!(symbol.name(), "User");
     assert_eq!(symbol.kind(), SymbolKind::Struct);
+}
+
+#[test]
+fn resolve_accepts_struct_function_anchor() {
+    let source = source(
+        r#"
+        struct User {
+            name: [int8],
+        }
+
+        fn User::rename(self: User, name: [int8]): User {
+            return self
+        }
+        "#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.graph();
+    let syntax = graph.syntax();
+    let resolution = graph.resolution().unwrap();
+
+    let root = syntax.root().unwrap();
+    let anchor = find_function_anchor_by_text(syntax, &source, root, "User").unwrap();
+    let anchor_type = syntax.first_child(anchor).unwrap();
+
+    let symbol = resolution
+        .symbol(resolution.type_reference_symbol(anchor_type).unwrap())
+        .unwrap();
+
+    assert_eq!(symbol.name(), "User");
+    assert_eq!(symbol.kind(), SymbolKind::Struct);
+}
+
+#[test]
+fn resolve_reports_non_struct_function_anchor() {
+    let source = source(
+        r#"
+        choice Result<V, F> {
+            Ok(V),
+            Err(F),
+        }
+
+        fn Result::map(self: Result<int32, [int8]>): Result<int32, [int8]> {
+            return self
+        }
+        "#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+
+    assert!(resolve_result.has_errors());
+
+    let graph = resolve_result.graph();
+
+    assert!(graph.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == "R0004"
+            && diagnostic
+                .message()
+                .contains("function anchor `Result` must be a struct")
+    }));
 }
 
 #[test]
