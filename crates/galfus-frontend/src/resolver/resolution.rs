@@ -89,6 +89,18 @@ impl ResolutionLayer {
         self.path_references.get(&node).copied()
     }
 
+    pub fn declarations(&self) -> &HashMap<NodeId, SymbolId> {
+        &self.declarations
+    }
+
+    pub fn references(&self) -> &HashMap<NodeId, SymbolId> {
+        &self.references
+    }
+
+    pub fn node_scopes(&self) -> &HashMap<NodeId, ScopeId> {
+        &self.node_scopes
+    }
+
     pub fn node_scope(&self, node: NodeId) -> Option<ScopeId> {
         self.node_scopes.get(&node).copied()
     }

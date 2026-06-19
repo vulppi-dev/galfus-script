@@ -1,3 +1,7 @@
+var value: int64 = 0
+
 fn main(): null {
+  var result = value + 10
+  
   return
 }
