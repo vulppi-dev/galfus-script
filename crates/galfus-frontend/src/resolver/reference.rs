@@ -145,22 +145,49 @@ impl<'a> Resolver<'a> {
             return;
         };
 
-        let Some(member_scope) = self.resolution.member_scope(root_symbol) else {
-            return;
-        };
-
         let member_name = self.node_text(member);
 
-        if let Some(symbol) = self
-            .resolution
-            .scope(member_scope)
-            .and_then(|scope| scope.symbol(member_name.as_str()))
+        if let Some(symbol) = self.resolve_local_path_member(root_symbol, member_name.as_str()) {
+            let kind = self.path_reference_kind_for_symbol(symbol);
+
+            self.resolution
+                .bind_path_reference_kind(expression, symbol, kind);
+
+            return;
+        }
+
+        if let Some(symbol) = self.resolve_anchor_function_member(root_symbol, member_name.as_str())
         {
-            self.resolution.bind_path_reference(expression, symbol);
+            self.resolution.bind_path_reference_kind(
+                expression,
+                symbol,
+                PathReferenceKind::AnchorFunction,
+            );
+
+            return;
+        }
+
+        if !self.should_report_unresolved_path_member(root_symbol) {
             return;
         }
 
         self.report_unresolved_path_member(member, member_name);
+    }
+
+    fn should_report_unresolved_path_member(&self, root_symbol: SymbolId) -> bool {
+        let Some(symbol_data) = self.resolution.symbol(root_symbol) else {
+            return false;
+        };
+
+        match symbol_data.kind() {
+            SymbolKind::Enum | SymbolKind::Choice | SymbolKind::Constraint | SymbolKind::Struct => {
+                true
+            }
+
+            SymbolKind::ImportNamespace => false,
+
+            _ => false,
+        }
     }
 
     fn resolve_for_statement_references(
@@ -276,5 +303,58 @@ impl<'a> Resolver<'a> {
             format!("unresolved path member `{member_name}`"),
             name_node.span(),
         ));
+    }
+
+    fn resolve_local_path_member(
+        &self,
+        root_symbol: SymbolId,
+        member_name: &str,
+    ) -> Option<SymbolId> {
+        let member_scope = self.resolution.member_scope(root_symbol)?;
+
+        self.resolution
+            .scope(member_scope)
+            .and_then(|scope| scope.symbol(member_name))
+    }
+
+    fn resolve_anchor_function_member(
+        &self,
+        root_symbol: SymbolId,
+        member_name: &str,
+    ) -> Option<SymbolId> {
+        let root_symbol_data = self.resolution.symbol(root_symbol)?;
+
+        if root_symbol_data.kind() != SymbolKind::Struct {
+            return None;
+        }
+
+        let anchored_name = format!("{}::{member_name}", root_symbol_data.name());
+
+        let symbol = self
+            .resolution
+            .lookup_symbol(self.resolution.module_scope(), anchored_name.as_str())?;
+
+        let symbol_data = self.resolution.symbol(symbol)?;
+
+        if symbol_data.kind() != SymbolKind::Function {
+            return None;
+        }
+
+        Some(symbol)
+    }
+
+    fn path_reference_kind_for_symbol(&self, symbol: SymbolId) -> PathReferenceKind {
+        let Some(symbol_data) = self.resolution.symbol(symbol) else {
+            return PathReferenceKind::LocalMember;
+        };
+
+        match symbol_data.kind() {
+            SymbolKind::EnumVariant => PathReferenceKind::EnumVariant,
+            SymbolKind::ChoiceVariant => PathReferenceKind::ChoiceVariant,
+            SymbolKind::ConstraintField | SymbolKind::ConstraintFunction => {
+                PathReferenceKind::ConstraintMember
+            }
+            _ => PathReferenceKind::LocalMember,
+        }
     }
 }

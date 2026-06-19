@@ -2,6 +2,15 @@ use super::*;
 use galfus_core::{ExportId, ImportId, NodeId, ScopeId, SymbolId};
 use std::collections::HashMap;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum PathReferenceKind {
+    LocalMember,
+    EnumVariant,
+    ChoiceVariant,
+    ConstraintMember,
+    AnchorFunction,
+}
+
 #[derive(Debug, Clone)]
 pub struct ResolutionLayer {
     builtin_scope: Option<ScopeId>,
@@ -15,6 +24,7 @@ pub struct ResolutionLayer {
     declarations: HashMap<NodeId, SymbolId>,
     references: HashMap<NodeId, SymbolId>,
     path_references: HashMap<NodeId, SymbolId>,
+    path_reference_kinds: HashMap<NodeId, PathReferenceKind>,
     type_references: HashMap<NodeId, SymbolId>,
     type_path_references: HashMap<NodeId, SymbolId>,
     node_scopes: HashMap<NodeId, ScopeId>,
@@ -39,6 +49,7 @@ impl ResolutionLayer {
             declarations: HashMap::new(),
             references: HashMap::new(),
             path_references: HashMap::new(),
+            path_reference_kinds: HashMap::new(),
             type_references: HashMap::new(),
             type_path_references: HashMap::new(),
             node_scopes: HashMap::new(),
@@ -87,6 +98,10 @@ impl ResolutionLayer {
 
     pub fn path_reference_symbol(&self, node: NodeId) -> Option<SymbolId> {
         self.path_references.get(&node).copied()
+    }
+
+    pub fn path_reference_kind(&self, node: NodeId) -> Option<PathReferenceKind> {
+        self.path_reference_kinds.get(&node).copied()
     }
 
     pub fn declarations(&self) -> &HashMap<NodeId, SymbolId> {
@@ -215,7 +230,17 @@ impl ResolutionLayer {
     }
 
     pub(crate) fn bind_path_reference(&mut self, node: NodeId, symbol: SymbolId) {
+        self.bind_path_reference_kind(node, symbol, PathReferenceKind::LocalMember);
+    }
+
+    pub(crate) fn bind_path_reference_kind(
+        &mut self,
+        node: NodeId,
+        symbol: SymbolId,
+        kind: PathReferenceKind,
+    ) {
         self.path_references.insert(node, symbol);
+        self.path_reference_kinds.insert(node, kind);
     }
 
     pub(crate) fn bind_scope(&mut self, node: NodeId, scope: ScopeId) {
