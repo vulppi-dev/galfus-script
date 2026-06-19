@@ -155,7 +155,7 @@ impl<'a> Resolver<'a> {
             }
 
             SyntaxNodeKind::FunctionItem => {
-                self.declare_named_item(item, SymbolKind::Function, scope);
+                self.declare_function_item(item, scope);
             }
 
             SyntaxNodeKind::TypeAliasItem => {
@@ -189,6 +189,17 @@ impl<'a> Resolver<'a> {
             _ => {}
         }
     }
+
+    fn declare_function_item(&mut self, item: NodeId, scope: ScopeId) {
+        let Some(name) = self.function_name(item) else {
+            return;
+        };
+
+        let symbol_name = self.function_symbol_name(item, name);
+
+        self.declare_symbol(symbol_name, SymbolKind::Function, name, scope);
+    }
+
     fn declare_named_item(&mut self, item: NodeId, kind: SymbolKind, scope: ScopeId) {
         let Some(name) = self
             .syntax
@@ -200,6 +211,22 @@ impl<'a> Resolver<'a> {
         let symbol_name = self.node_text(name);
 
         self.declare_symbol(symbol_name, kind, name, scope);
+    }
+
+    pub(super) fn function_name(&self, item: NodeId) -> Option<NodeId> {
+        self.syntax
+            .first_child_of_kind(item, SyntaxNodeKind::Identifier)
+    }
+
+    pub(super) fn function_symbol_name(&self, item: NodeId, name: NodeId) -> String {
+        let Some(anchor) = self
+            .syntax
+            .first_child_of_kind(item, SyntaxNodeKind::FunctionAnchor)
+        else {
+            return self.node_text(name);
+        };
+
+        format!("{}::{}", self.node_text(anchor), self.node_text(name))
     }
 
     fn declare_binding_item(&mut self, item: NodeId, kind: SymbolKind, scope: ScopeId) {

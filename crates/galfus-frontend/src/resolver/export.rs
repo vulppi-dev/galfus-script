@@ -88,8 +88,13 @@ impl<'a> Resolver<'a> {
         };
 
         match node.kind() {
-            SyntaxNodeKind::FunctionItem
-            | SyntaxNodeKind::TypeAliasItem
+            SyntaxNodeKind::FunctionItem => {
+                if let Some(name) = self.function_name(item) {
+                    self.export_function_declaration(export_node, item, name);
+                }
+            }
+
+            SyntaxNodeKind::TypeAliasItem
             | SyntaxNodeKind::StructItem
             | SyntaxNodeKind::EnumItem
             | SyntaxNodeKind::ChoiceItem
@@ -113,6 +118,30 @@ impl<'a> Resolver<'a> {
 
             _ => {}
         }
+    }
+
+    fn export_function_declaration(
+        &mut self,
+        export_node: NodeId,
+        item_node: NodeId,
+        declaration: NodeId,
+    ) {
+        let Some(symbol) = self.resolution.declaration_symbol(declaration) else {
+            return;
+        };
+
+        let Some(symbol_data) = self.resolution.symbol(symbol) else {
+            return;
+        };
+
+        self.resolution.add_export(
+            self.function_symbol_name(item_node, declaration),
+            symbol_data.kind(),
+            export_node,
+            item_node,
+            declaration,
+            symbol,
+        );
     }
 
     fn export_binding_pattern(&mut self, export_node: NodeId, item: NodeId, pattern: NodeId) {

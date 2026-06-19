@@ -41,6 +41,39 @@ fn resolve_records_exported_function() {
 }
 
 #[test]
+fn resolve_records_exported_anchored_function_by_qualified_name() {
+    let source = source(
+        r#"
+        struct User {
+            name: [int8],
+        }
+
+        export fn User::rename(self: User, name: [int8]): User {
+            return self
+        }
+        "#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.graph();
+    let resolution = graph.resolution().unwrap();
+
+    assert_eq!(resolution.exports().len(), 1);
+
+    let export = &resolution.exports()[0];
+
+    assert_eq!(export.name(), "User::rename");
+    assert_eq!(export.kind(), SymbolKind::Function);
+    assert!(resolution.export_by_name("User::rename").is_some());
+    assert!(resolution.export_by_name("rename").is_none());
+}
+
+#[test]
 fn resolve_records_exported_type_items() {
     let source = source(
         r#"

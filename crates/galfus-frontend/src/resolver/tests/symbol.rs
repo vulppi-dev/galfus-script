@@ -184,6 +184,76 @@ fn resolve_binds_declaration_identifier_to_symbol() {
 }
 
 #[test]
+fn resolve_declares_anchored_function_by_qualified_name() {
+    let source = source(
+        "
+        struct User {
+            name: [int8],
+        }
+
+        fn User::rename(self: User, name: [int8]): User {
+            return self
+        }
+        ",
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.graph();
+    let resolution = graph.resolution().unwrap();
+    let module_scope = resolution.scope(resolution.module_scope()).unwrap();
+
+    assert!(module_scope.symbol("rename").is_none());
+
+    let symbol = resolution
+        .symbol(module_scope.symbol("User::rename").unwrap())
+        .unwrap();
+
+    assert_eq!(symbol.name(), "User::rename");
+    assert_eq!(symbol.kind(), SymbolKind::Function);
+}
+
+#[test]
+fn resolve_allows_same_anchored_function_name_on_different_structs() {
+    let source = source(
+        "
+        struct User {
+            name: [int8],
+        }
+
+        struct Post {
+            title: [int8],
+        }
+
+        fn User::rename(self: User, name: [int8]): User {
+            return self
+        }
+
+        fn Post::rename(self: Post, title: [int8]): Post {
+            return self
+        }
+        ",
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.graph();
+    let resolution = graph.resolution().unwrap();
+    let module_scope = resolution.scope(resolution.module_scope()).unwrap();
+
+    assert!(module_scope.symbol("User::rename").is_some());
+    assert!(module_scope.symbol("Post::rename").is_some());
+}
+
+#[test]
 fn resolve_reports_duplicate_top_level_symbol() {
     let source = source(
         "
