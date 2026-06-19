@@ -15,6 +15,7 @@ pub enum SymbolKind {
     Parameter,
     RestParameter,
     GenericParameter,
+    PatternBinding,
 
     StructField,
     EnumVariant,

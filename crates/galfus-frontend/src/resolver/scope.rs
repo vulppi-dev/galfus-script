@@ -7,6 +7,7 @@ pub enum ScopeKind {
     Module,
     Function,
     Block,
+    MatchArm,
     TypeAlias,
     Struct,
     Enum,

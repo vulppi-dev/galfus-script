@@ -74,6 +74,10 @@ impl<'a> Resolver<'a> {
                 return;
             }
 
+            SyntaxNodeKind::VariantPattern => {
+                self.resolve_variant_pattern(node, scope);
+            }
+
             // Nested functions, if allowed later, should own their own pass.
             SyntaxNodeKind::FunctionItem => {
                 return;
@@ -147,6 +151,75 @@ impl<'a> Resolver<'a> {
         }
 
         self.report_unresolved_path_member(member, member_name);
+    }
+
+    fn resolve_variant_pattern(&mut self, pattern: NodeId, scope: ScopeId) {
+        let Some(root) = self.syntax.child(pattern, 0) else {
+            return;
+        };
+
+        let root_name = self.node_text(root);
+
+        let Some(root_symbol) = self.resolution.lookup_symbol(scope, root_name.as_str()) else {
+            self.report_unresolved_name(root, root_name);
+            return;
+        };
+
+        self.resolution.bind_reference(pattern, root_symbol);
+
+        let Some(variant) = self.syntax.child(pattern, 1) else {
+            return;
+        };
+
+        self.resolve_variant_pattern_member(pattern, root_symbol, variant);
+    }
+
+    fn resolve_variant_pattern_member(
+        &mut self,
+        pattern: NodeId,
+        root_symbol: SymbolId,
+        variant: NodeId,
+    ) {
+        let Some(member_scope) = self.resolution.member_scope(root_symbol) else {
+            return;
+        };
+
+        let variant_name = self.node_text(variant);
+
+        let Some(symbol) = self
+            .resolution
+            .scope(member_scope)
+            .and_then(|scope| scope.symbol(variant_name.as_str()))
+        else {
+            self.report_unresolved_path_member(variant, variant_name);
+            return;
+        };
+
+        let Some(symbol_data) = self.resolution.symbol(symbol) else {
+            return;
+        };
+
+        if matches!(
+            symbol_data.kind(),
+            SymbolKind::EnumVariant | SymbolKind::ChoiceVariant
+        ) {
+            self.resolution.bind_path_reference(pattern, symbol);
+            return;
+        }
+
+        self.report_unresolved_path_member(variant, variant_name);
+    }
+
+    fn report_unresolved_name(&mut self, name: NodeId, symbol_name: String) {
+        let Some(name_node) = self.syntax.node(name) else {
+            return;
+        };
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+            ResolverDiagnosticCode::UnresolvedName,
+            format!("unresolved name `{symbol_name}`"),
+            name_node.span(),
+        ));
     }
 
     fn report_unresolved_path_member(&mut self, name: NodeId, member_name: String) {

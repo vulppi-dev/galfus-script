@@ -17,6 +17,10 @@ impl<'a> Resolver<'a> {
                 self.resolve_function_body_block(item);
             }
 
+            SyntaxNodeKind::VarItem | SyntaxNodeKind::ConstItem => {
+                self.resolve_nested_blocks_in(item, parent_scope);
+            }
+
             _ => {}
         }
     }
@@ -64,10 +68,12 @@ impl<'a> Resolver<'a> {
         match node.kind() {
             SyntaxNodeKind::VarStatement => {
                 self.declare_statement_binding(statement, SymbolKind::Var, scope);
+                self.resolve_nested_blocks_in(statement, scope);
             }
 
             SyntaxNodeKind::ConstStatement => {
                 self.declare_statement_binding(statement, SymbolKind::Const, scope);
+                self.resolve_nested_blocks_in(statement, scope);
             }
 
             SyntaxNodeKind::Block => {
@@ -78,6 +84,7 @@ impl<'a> Resolver<'a> {
             | SyntaxNodeKind::ForStatement
             | SyntaxNodeKind::WhileStatement
             | SyntaxNodeKind::LoopStatement
+            | SyntaxNodeKind::ReturnStatement
             | SyntaxNodeKind::ExpressionStatement => {
                 self.resolve_nested_blocks_in(statement, scope);
             }
@@ -112,10 +119,132 @@ impl<'a> Resolver<'a> {
                     self.resolve_block(*child, parent_scope);
                 }
 
+                SyntaxNodeKind::MatchArm => {
+                    self.resolve_match_arm(*child, parent_scope);
+                }
+
                 _ => {
                     self.resolve_nested_blocks_in(*child, parent_scope);
                 }
             }
+        }
+    }
+
+    fn resolve_match_arm(&mut self, arm: NodeId, parent_scope: ScopeId) {
+        let arm_scope =
+            self.resolution
+                .add_scope(ScopeKind::MatchArm, Some(parent_scope), Some(arm));
+
+        if let Some(pattern) = self.syntax.first_child(arm) {
+            self.declare_pattern_bindings(pattern, arm_scope);
+        }
+
+        let Some(body) = self.syntax.child(arm, 1) else {
+            return;
+        };
+
+        let Some(body_node) = self.syntax.node(body) else {
+            return;
+        };
+
+        if body_node.kind() == SyntaxNodeKind::Block {
+            self.resolve_block(body, arm_scope);
+        } else {
+            self.resolve_nested_blocks_in(body, arm_scope);
+        }
+    }
+
+    fn declare_pattern_bindings(&mut self, pattern: NodeId, scope: ScopeId) {
+        let Some(node) = self.syntax.node(pattern) else {
+            return;
+        };
+
+        match node.kind() {
+            SyntaxNodeKind::BindingPattern => {
+                self.declare_match_binding_pattern(pattern, scope);
+            }
+
+            SyntaxNodeKind::VariantPatternPayload
+            | SyntaxNodeKind::TupleBindingPattern
+            | SyntaxNodeKind::ArrayBindingPattern => {
+                for child in node.children() {
+                    self.declare_pattern_bindings(*child, scope);
+                }
+            }
+
+            SyntaxNodeKind::VariantPattern => {
+                if let Some(payload) = self
+                    .syntax
+                    .first_child_of_kind(pattern, SyntaxNodeKind::VariantPatternPayload)
+                {
+                    self.declare_pattern_bindings(payload, scope);
+                }
+            }
+
+            _ => {}
+        }
+    }
+
+    fn declare_match_binding_pattern(&mut self, pattern: NodeId, scope: ScopeId) {
+        let Some(node) = self.syntax.node(pattern) else {
+            return;
+        };
+
+        match node.kind() {
+            SyntaxNodeKind::BindingPattern => {
+                if let Some(inner) = node.first_child() {
+                    self.declare_match_binding_pattern(inner, scope);
+                }
+            }
+
+            SyntaxNodeKind::Identifier => {
+                let symbol_name = self.node_text(pattern);
+
+                if symbol_name != "_" {
+                    self.declare_symbol(symbol_name, SymbolKind::PatternBinding, pattern, scope);
+                }
+            }
+
+            SyntaxNodeKind::StructBindingPattern
+            | SyntaxNodeKind::TupleBindingPattern
+            | SyntaxNodeKind::ArrayBindingPattern => {
+                for child in node.children() {
+                    self.declare_match_binding_pattern(*child, scope);
+                }
+            }
+
+            SyntaxNodeKind::StructBindingField => match node.child_count() {
+                0 => {}
+
+                1 => {
+                    if let Some(name) = node.first_child() {
+                        let symbol_name = self.node_text(name);
+
+                        if symbol_name != "_" {
+                            self.declare_symbol(
+                                symbol_name,
+                                SymbolKind::PatternBinding,
+                                name,
+                                scope,
+                            );
+                        }
+                    }
+                }
+
+                _ => {
+                    if let Some(alias_pattern) = node.child(1) {
+                        self.declare_match_binding_pattern(alias_pattern, scope);
+                    }
+                }
+            },
+
+            SyntaxNodeKind::RestBindingPattern => {
+                if let Some(inner) = node.first_child() {
+                    self.declare_match_binding_pattern(inner, scope);
+                }
+            }
+
+            _ => {}
         }
     }
 }

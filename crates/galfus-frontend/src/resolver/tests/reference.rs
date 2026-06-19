@@ -50,6 +50,28 @@ fn find_path_expression_by_text(
     None
 }
 
+fn find_node_by_kind_and_text(
+    syntax: &SyntaxLayer,
+    source: &SourceFile,
+    node: NodeId,
+    kind: SyntaxNodeKind,
+    text: &str,
+) -> Option<NodeId> {
+    let syntax_node = syntax.node(node)?;
+
+    if syntax_node.kind() == kind && source.slice(syntax_node.span()) == Some(text) {
+        return Some(node);
+    }
+
+    for child in syntax_node.children() {
+        if let Some(found) = find_node_by_kind_and_text(syntax, source, *child, kind, text) {
+            return Some(found);
+        }
+    }
+
+    None
+}
+
 #[test]
 fn resolve_binds_parameter_name_expression() {
     let source = source(
@@ -65,7 +87,11 @@ fn resolve_binds_parameter_name_expression() {
     assert!(!parse_result.has_errors());
 
     let resolve_result = resolve(&source, parse_result.into_graph());
-    assert!(!resolve_result.has_errors());
+    assert!(
+        !resolve_result.has_errors(),
+        "{:?}",
+        resolve_result.diagnostics()
+    );
 
     let graph = resolve_result.graph();
     let syntax = graph.syntax();
@@ -80,6 +106,204 @@ fn resolve_binds_parameter_name_expression() {
 
     assert_eq!(symbol.name(), "value");
     assert_eq!(symbol.kind(), SymbolKind::Parameter);
+}
+
+#[test]
+fn resolve_declares_match_binding_pattern_in_arm_scope() {
+    let source = source(
+        r#"
+        fn main(value: int32): int32 {
+            return match value {
+                other => other,
+            }
+        }
+        "#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(
+        !resolve_result.has_errors(),
+        "{:?}",
+        resolve_result.diagnostics()
+    );
+
+    let graph = resolve_result.graph();
+    let syntax = graph.syntax();
+    let resolution = graph.resolution().unwrap();
+
+    let root = syntax.root().unwrap();
+    let arm = find_node_by_kind_and_text(
+        syntax,
+        &source,
+        root,
+        SyntaxNodeKind::MatchArm,
+        "other => other",
+    )
+    .unwrap();
+
+    let arm_scope = resolution
+        .scope(resolution.node_scope(arm).unwrap())
+        .unwrap();
+    let binding_symbol = resolution
+        .symbol(arm_scope.symbol("other").unwrap())
+        .unwrap();
+
+    assert_eq!(binding_symbol.kind(), SymbolKind::PatternBinding);
+
+    let expression = find_name_expression_by_text(syntax, &source, root, "other").unwrap();
+    let reference_symbol = resolution
+        .symbol(resolution.reference_symbol(expression).unwrap())
+        .unwrap();
+
+    assert_eq!(reference_symbol.name(), "other");
+    assert_eq!(reference_symbol.kind(), SymbolKind::PatternBinding);
+}
+
+#[test]
+fn resolve_declares_choice_payload_binding_in_arm_scope() {
+    let source = source(
+        r#"
+        choice Result<V, F> {
+            Ok(V),
+            Err(F),
+        }
+
+        fn main(result: Result<int32, [int8]>): int32 {
+            return match result {
+                Result::Ok(value) => value,
+                Result::Err(error) => 0,
+            }
+        }
+        "#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(
+        !resolve_result.has_errors(),
+        "{:?}",
+        resolve_result.diagnostics()
+    );
+
+    let graph = resolve_result.graph();
+    let syntax = graph.syntax();
+    let resolution = graph.resolution().unwrap();
+
+    let root = syntax.root().unwrap();
+    let arm = find_node_by_kind_and_text(
+        syntax,
+        &source,
+        root,
+        SyntaxNodeKind::MatchArm,
+        "Result::Ok(value) => value",
+    )
+    .unwrap();
+
+    let arm_scope = resolution
+        .scope(resolution.node_scope(arm).unwrap())
+        .unwrap();
+    let binding_symbol = resolution
+        .symbol(arm_scope.symbol("value").unwrap())
+        .unwrap();
+
+    assert_eq!(binding_symbol.kind(), SymbolKind::PatternBinding);
+
+    let expression = find_name_expression_by_text(syntax, &source, root, "value").unwrap();
+    let reference_symbol = resolution
+        .symbol(resolution.reference_symbol(expression).unwrap())
+        .unwrap();
+
+    assert_eq!(reference_symbol.name(), "value");
+    assert_eq!(reference_symbol.kind(), SymbolKind::PatternBinding);
+}
+
+#[test]
+fn resolve_binds_variant_pattern_member() {
+    let source = source(
+        r#"
+        enum Color {
+            Red,
+            Blue,
+        }
+
+        fn main(color: Color): int32 {
+            return match color {
+                Color::Red => 1,
+                Color::Blue => 2,
+            }
+        }
+        "#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.graph();
+    let syntax = graph.syntax();
+    let resolution = graph.resolution().unwrap();
+
+    let root = syntax.root().unwrap();
+    let pattern = find_node_by_kind_and_text(
+        syntax,
+        &source,
+        root,
+        SyntaxNodeKind::VariantPattern,
+        "Color::Red",
+    )
+    .unwrap();
+
+    let root_symbol = resolution
+        .symbol(resolution.reference_symbol(pattern).unwrap())
+        .unwrap();
+    let member_symbol = resolution
+        .symbol(resolution.path_reference_symbol(pattern).unwrap())
+        .unwrap();
+
+    assert_eq!(root_symbol.name(), "Color");
+    assert_eq!(root_symbol.kind(), SymbolKind::Enum);
+
+    assert_eq!(member_symbol.name(), "Red");
+    assert_eq!(member_symbol.kind(), SymbolKind::EnumVariant);
+}
+
+#[test]
+fn resolve_reports_unknown_variant_pattern_member() {
+    let source = source(
+        r#"
+        enum Color {
+            Red,
+        }
+
+        fn main(color: Color): int32 {
+            return match color {
+                Color::Blue => 2,
+            }
+        }
+        "#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+
+    assert!(resolve_result.has_errors());
+
+    let graph = resolve_result.graph();
+
+    assert!(graph.diagnostics().iter().any(|diagnostic| {
+        diagnostic
+            .message()
+            .contains("unresolved path member `Blue`")
+    }));
 }
 
 #[test]
