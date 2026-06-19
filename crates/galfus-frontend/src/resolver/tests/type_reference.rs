@@ -31,6 +31,30 @@ fn find_named_type_by_text(
     None
 }
 
+fn collect_named_types_by_text(
+    syntax: &SyntaxLayer,
+    source: &SourceFile,
+    node: NodeId,
+    text: &str,
+    found: &mut Vec<NodeId>,
+) {
+    let Some(syntax_node) = syntax.node(node) else {
+        return;
+    };
+
+    if syntax_node.kind() == SyntaxNodeKind::NamedType {
+        if let Some(identifier) = syntax.first_child_of_kind(node, SyntaxNodeKind::Identifier) {
+            if source.slice(syntax.node(identifier).unwrap().span()) == Some(text) {
+                found.push(node);
+            }
+        }
+    }
+
+    for child in syntax_node.children() {
+        collect_named_types_by_text(syntax, source, *child, text, found);
+    }
+}
+
 fn find_path_type_by_text(
     syntax: &SyntaxLayer,
     source: &SourceFile,
@@ -212,6 +236,47 @@ fn resolve_binds_function_return_named_type() {
 
     assert_eq!(symbol.name(), "User");
     assert_eq!(symbol.kind(), SymbolKind::Struct);
+}
+
+#[test]
+fn resolve_binds_arrow_function_signature_named_types() {
+    let source = source(
+        r#"
+        struct User {
+            name: [int8],
+        }
+
+        fn main(): null {
+            const identity = (user: User): User => user
+            return
+        }
+        "#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.graph();
+    let syntax = graph.syntax();
+    let resolution = graph.resolution().unwrap();
+
+    let root = syntax.root().unwrap();
+    let mut user_types = Vec::new();
+    collect_named_types_by_text(syntax, &source, root, "User", &mut user_types);
+
+    assert_eq!(user_types.len(), 2);
+
+    for named_type in user_types {
+        let symbol = resolution
+            .symbol(resolution.type_reference_symbol(named_type).unwrap())
+            .unwrap();
+
+        assert_eq!(symbol.name(), "User");
+        assert_eq!(symbol.kind(), SymbolKind::Struct);
+    }
 }
 
 #[test]

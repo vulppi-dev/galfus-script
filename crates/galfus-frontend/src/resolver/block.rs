@@ -118,6 +118,10 @@ impl<'a> Resolver<'a> {
             };
 
             match child_node.kind() {
+                SyntaxNodeKind::ArrowFunctionExpression => {
+                    self.resolve_arrow_function_expression(*child, parent_scope);
+                }
+
                 SyntaxNodeKind::ForStatement => {
                     self.resolve_for_statement(*child, parent_scope);
                 }
@@ -138,6 +142,40 @@ impl<'a> Resolver<'a> {
                     self.resolve_nested_blocks_in(*child, parent_scope);
                 }
             }
+        }
+    }
+
+    fn resolve_arrow_function_expression(&mut self, expression: NodeId, parent_scope: ScopeId) {
+        let arrow_scope = self.resolution.add_scope(
+            ScopeKind::ArrowFunction,
+            Some(parent_scope),
+            Some(expression),
+        );
+
+        if let Some(parameters) = self
+            .syntax
+            .first_child_of_kind(expression, SyntaxNodeKind::ParameterList)
+        {
+            self.resolution.bind_scope(parameters, arrow_scope);
+            self.declare_parameter_list(parameters, arrow_scope);
+        }
+
+        let Some(body) = self
+            .syntax
+            .node(expression)
+            .and_then(|node| node.children().last())
+        else {
+            return;
+        };
+
+        let Some(body_node) = self.syntax.node(*body) else {
+            return;
+        };
+
+        if body_node.kind() == SyntaxNodeKind::Block {
+            self.resolve_block(*body, arrow_scope);
+        } else {
+            self.resolve_nested_blocks_in(*body, arrow_scope);
         }
     }
 

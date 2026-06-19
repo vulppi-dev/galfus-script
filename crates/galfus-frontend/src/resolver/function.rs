@@ -36,7 +36,7 @@ impl<'a> Resolver<'a> {
         }
     }
 
-    fn declare_parameter_list(&mut self, parameters: NodeId, scope: ScopeId) {
+    pub(super) fn declare_parameter_list(&mut self, parameters: NodeId, scope: ScopeId) {
         let Some(node) = self.syntax.node(parameters) else {
             return;
         };

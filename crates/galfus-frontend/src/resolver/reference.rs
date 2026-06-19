@@ -83,6 +83,11 @@ impl<'a> Resolver<'a> {
                 return;
             }
 
+            SyntaxNodeKind::ArrowFunctionExpression => {
+                self.resolve_arrow_function_references(node, scope);
+                return;
+            }
+
             // Nested functions, if allowed later, should own their own pass.
             SyntaxNodeKind::FunctionItem => {
                 return;
@@ -171,6 +176,25 @@ impl<'a> Resolver<'a> {
         if let Some(body) = self.syntax.child(statement, 2) {
             self.resolve_node_references(body, for_scope);
         }
+    }
+
+    fn resolve_arrow_function_references(&mut self, expression: NodeId, arrow_scope: ScopeId) {
+        if let Some(parameters) = self
+            .syntax
+            .first_child_of_kind(expression, SyntaxNodeKind::ParameterList)
+        {
+            self.resolve_node_references(parameters, arrow_scope);
+        }
+
+        let Some(body) = self
+            .syntax
+            .node(expression)
+            .and_then(|node| node.children().last())
+        else {
+            return;
+        };
+
+        self.resolve_node_references(*body, arrow_scope);
     }
 
     fn resolve_variant_pattern(&mut self, pattern: NodeId, scope: ScopeId) {

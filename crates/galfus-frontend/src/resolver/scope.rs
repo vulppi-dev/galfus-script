@@ -6,6 +6,7 @@ pub enum ScopeKind {
     Builtin,
     Module,
     Function,
+    ArrowFunction,
     Block,
     For,
     MatchArm,
