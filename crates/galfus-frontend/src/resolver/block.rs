@@ -80,8 +80,11 @@ impl<'a> Resolver<'a> {
                 self.resolve_block(statement, scope);
             }
 
+            SyntaxNodeKind::ForStatement => {
+                self.resolve_for_statement(statement, scope);
+            }
+
             SyntaxNodeKind::IfStatement
-            | SyntaxNodeKind::ForStatement
             | SyntaxNodeKind::WhileStatement
             | SyntaxNodeKind::LoopStatement
             | SyntaxNodeKind::ReturnStatement
@@ -115,6 +118,10 @@ impl<'a> Resolver<'a> {
             };
 
             match child_node.kind() {
+                SyntaxNodeKind::ForStatement => {
+                    self.resolve_for_statement(*child, parent_scope);
+                }
+
                 SyntaxNodeKind::Block => {
                     self.resolve_block(*child, parent_scope);
                 }
@@ -127,6 +134,24 @@ impl<'a> Resolver<'a> {
                     self.resolve_nested_blocks_in(*child, parent_scope);
                 }
             }
+        }
+    }
+
+    fn resolve_for_statement(&mut self, statement: NodeId, parent_scope: ScopeId) {
+        let for_scope =
+            self.resolution
+                .add_scope(ScopeKind::For, Some(parent_scope), Some(statement));
+
+        if let Some(binding) = self
+            .syntax
+            .first_child_of_kind(statement, SyntaxNodeKind::ForBinding)
+        {
+            let symbol_name = self.node_text(binding);
+            self.declare_symbol(symbol_name, SymbolKind::ForBinding, binding, for_scope);
+        }
+
+        if let Some(body) = self.syntax.child(statement, 2) {
+            self.resolve_block(body, for_scope);
         }
     }
 

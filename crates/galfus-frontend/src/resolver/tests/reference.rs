@@ -72,6 +72,22 @@ fn find_node_by_kind_and_text(
     None
 }
 
+fn find_node_by_kind(syntax: &SyntaxLayer, node: NodeId, kind: SyntaxNodeKind) -> Option<NodeId> {
+    let syntax_node = syntax.node(node)?;
+
+    if syntax_node.kind() == kind {
+        return Some(node);
+    }
+
+    for child in syntax_node.children() {
+        if let Some(found) = find_node_by_kind(syntax, *child, kind) {
+            return Some(found);
+        }
+    }
+
+    None
+}
+
 #[test]
 fn resolve_binds_parameter_name_expression() {
     let source = source(
@@ -106,6 +122,131 @@ fn resolve_binds_parameter_name_expression() {
 
     assert_eq!(symbol.name(), "value");
     assert_eq!(symbol.kind(), SymbolKind::Parameter);
+}
+
+#[test]
+fn resolve_declares_for_binding_in_for_scope() {
+    let source = source(
+        r#"
+        fn print(value: int32): null {
+            return
+        }
+
+        fn main(items: [int32]): null {
+            for item in items {
+                print(item)
+            }
+
+            return
+        }
+        "#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(
+        !resolve_result.has_errors(),
+        "{:?}",
+        resolve_result.diagnostics()
+    );
+
+    let graph = resolve_result.graph();
+    let syntax = graph.syntax();
+    let resolution = graph.resolution().unwrap();
+
+    let root = syntax.root().unwrap();
+    let for_statement = find_node_by_kind(syntax, root, SyntaxNodeKind::ForStatement).unwrap();
+    let for_scope = resolution
+        .scope(resolution.node_scope(for_statement).unwrap())
+        .unwrap();
+    let binding_symbol = resolution
+        .symbol(for_scope.symbol("item").unwrap())
+        .unwrap();
+
+    assert_eq!(for_scope.kind(), ScopeKind::For);
+    assert_eq!(binding_symbol.kind(), SymbolKind::ForBinding);
+
+    let expression = find_name_expression_by_text(syntax, &source, root, "item").unwrap();
+    let reference_symbol = resolution
+        .symbol(resolution.reference_symbol(expression).unwrap())
+        .unwrap();
+
+    assert_eq!(reference_symbol.name(), "item");
+    assert_eq!(reference_symbol.kind(), SymbolKind::ForBinding);
+}
+
+#[test]
+fn resolve_for_iterable_uses_parent_scope_before_for_binding_scope() {
+    let source = source(
+        r#"
+        fn print(value: int32): null {
+            return
+        }
+
+        fn main(items: [int32]): null {
+            for items in items {
+                print(items)
+            }
+
+            return
+        }
+        "#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(
+        !resolve_result.has_errors(),
+        "{:?}",
+        resolve_result.diagnostics()
+    );
+
+    let graph = resolve_result.graph();
+    let syntax = graph.syntax();
+    let resolution = graph.resolution().unwrap();
+
+    let root = syntax.root().unwrap();
+    let iterable = find_name_expression_by_text(syntax, &source, root, "items").unwrap();
+    let reference_symbol = resolution
+        .symbol(resolution.reference_symbol(iterable).unwrap())
+        .unwrap();
+
+    assert_eq!(reference_symbol.name(), "items");
+    assert_eq!(reference_symbol.kind(), SymbolKind::Parameter);
+}
+
+#[test]
+fn resolve_reports_unknown_for_iterable_name() {
+    let source = source(
+        r#"
+        fn main(): null {
+            for item in missing {
+            }
+
+            return
+        }
+        "#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+
+    assert!(resolve_result.has_errors());
+
+    let graph = resolve_result.graph();
+
+    assert!(
+        graph
+            .diagnostics()
+            .iter()
+            .any(|diagnostic| { diagnostic.message().contains("unresolved name `missing`") })
+    );
 }
 
 #[test]

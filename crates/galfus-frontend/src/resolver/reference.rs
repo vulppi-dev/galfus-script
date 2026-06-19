@@ -78,6 +78,11 @@ impl<'a> Resolver<'a> {
                 self.resolve_variant_pattern(node, scope);
             }
 
+            SyntaxNodeKind::ForStatement => {
+                self.resolve_for_statement_references(node, current_scope, scope);
+                return;
+            }
+
             // Nested functions, if allowed later, should own their own pass.
             SyntaxNodeKind::FunctionItem => {
                 return;
@@ -151,6 +156,21 @@ impl<'a> Resolver<'a> {
         }
 
         self.report_unresolved_path_member(member, member_name);
+    }
+
+    fn resolve_for_statement_references(
+        &mut self,
+        statement: NodeId,
+        parent_scope: ScopeId,
+        for_scope: ScopeId,
+    ) {
+        if let Some(iterable) = self.syntax.child(statement, 1) {
+            self.resolve_node_references(iterable, parent_scope);
+        }
+
+        if let Some(body) = self.syntax.child(statement, 2) {
+            self.resolve_node_references(body, for_scope);
+        }
     }
 
     fn resolve_variant_pattern(&mut self, pattern: NodeId, scope: ScopeId) {
