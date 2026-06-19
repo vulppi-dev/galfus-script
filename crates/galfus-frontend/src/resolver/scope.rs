@@ -9,6 +9,7 @@ pub enum ScopeKind {
     Block,
     For,
     MatchArm,
+    InstanceofArm,
     TypeAlias,
     Struct,
     Enum,

@@ -130,6 +130,10 @@ impl<'a> Resolver<'a> {
                     self.resolve_match_arm(*child, parent_scope);
                 }
 
+                SyntaxNodeKind::InstanceofArm => {
+                    self.resolve_instanceof_arm(*child, parent_scope);
+                }
+
                 _ => {
                     self.resolve_nested_blocks_in(*child, parent_scope);
                 }
@@ -179,6 +183,30 @@ impl<'a> Resolver<'a> {
         }
     }
 
+    fn resolve_instanceof_arm(&mut self, arm: NodeId, parent_scope: ScopeId) {
+        let arm_scope =
+            self.resolution
+                .add_scope(ScopeKind::InstanceofArm, Some(parent_scope), Some(arm));
+
+        if let Some(pattern) = self.syntax.first_child(arm) {
+            self.declare_instanceof_pattern_bindings(pattern, arm_scope);
+        }
+
+        let Some(body) = self.syntax.child(arm, 1) else {
+            return;
+        };
+
+        let Some(body_node) = self.syntax.node(body) else {
+            return;
+        };
+
+        if body_node.kind() == SyntaxNodeKind::Block {
+            self.resolve_block(body, arm_scope);
+        } else {
+            self.resolve_nested_blocks_in(body, arm_scope);
+        }
+    }
+
     fn declare_pattern_bindings(&mut self, pattern: NodeId, scope: ScopeId) {
         let Some(node) = self.syntax.node(pattern) else {
             return;
@@ -207,6 +235,44 @@ impl<'a> Resolver<'a> {
             }
 
             _ => {}
+        }
+    }
+
+    fn declare_instanceof_pattern_bindings(&mut self, pattern: NodeId, scope: ScopeId) {
+        let Some(node) = self.syntax.node(pattern) else {
+            return;
+        };
+
+        match node.kind() {
+            SyntaxNodeKind::BindingPattern => {
+                self.declare_match_binding_pattern(pattern, scope);
+            }
+
+            SyntaxNodeKind::TypePattern => {
+                if let Some(binding) = self
+                    .syntax
+                    .first_child_of_kind(pattern, SyntaxNodeKind::TypePatternBinding)
+                {
+                    self.declare_type_pattern_binding(binding, scope);
+                }
+            }
+
+            _ => {}
+        }
+    }
+
+    fn declare_type_pattern_binding(&mut self, binding: NodeId, scope: ScopeId) {
+        let Some(name) = self
+            .syntax
+            .first_child_of_kind(binding, SyntaxNodeKind::Identifier)
+        else {
+            return;
+        };
+
+        let symbol_name = self.node_text(name);
+
+        if symbol_name != "_" {
+            self.declare_symbol(symbol_name, SymbolKind::TypePatternBinding, name, scope);
         }
     }
 

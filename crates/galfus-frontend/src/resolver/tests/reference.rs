@@ -250,6 +250,157 @@ fn resolve_reports_unknown_for_iterable_name() {
 }
 
 #[test]
+fn resolve_declares_instanceof_type_pattern_binding_in_arm_scope() {
+    let source = source(
+        r#"
+        fn main(value: int32 | null): int32 {
+            return instanceof value {
+                int32 count => count,
+                _ => 0,
+            }
+        }
+        "#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(
+        !resolve_result.has_errors(),
+        "{:?}",
+        resolve_result.diagnostics()
+    );
+
+    let graph = resolve_result.graph();
+    let syntax = graph.syntax();
+    let resolution = graph.resolution().unwrap();
+
+    let root = syntax.root().unwrap();
+    let arm = find_node_by_kind_and_text(
+        syntax,
+        &source,
+        root,
+        SyntaxNodeKind::InstanceofArm,
+        "int32 count => count",
+    )
+    .unwrap();
+
+    let arm_scope = resolution
+        .scope(resolution.node_scope(arm).unwrap())
+        .unwrap();
+    let binding_symbol = resolution
+        .symbol(arm_scope.symbol("count").unwrap())
+        .unwrap();
+
+    assert_eq!(arm_scope.kind(), ScopeKind::InstanceofArm);
+    assert_eq!(binding_symbol.kind(), SymbolKind::TypePatternBinding);
+
+    let expression = find_name_expression_by_text(syntax, &source, root, "count").unwrap();
+    let reference_symbol = resolution
+        .symbol(resolution.reference_symbol(expression).unwrap())
+        .unwrap();
+
+    assert_eq!(reference_symbol.name(), "count");
+    assert_eq!(reference_symbol.kind(), SymbolKind::TypePatternBinding);
+}
+
+#[test]
+fn resolve_declares_instanceof_fallback_binding_in_arm_scope() {
+    let source = source(
+        r#"
+        fn main(value: int32): int32 {
+            return instanceof value {
+                other => other,
+            }
+        }
+        "#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(
+        !resolve_result.has_errors(),
+        "{:?}",
+        resolve_result.diagnostics()
+    );
+
+    let graph = resolve_result.graph();
+    let syntax = graph.syntax();
+    let resolution = graph.resolution().unwrap();
+
+    let root = syntax.root().unwrap();
+    let arm = find_node_by_kind_and_text(
+        syntax,
+        &source,
+        root,
+        SyntaxNodeKind::InstanceofArm,
+        "other => other",
+    )
+    .unwrap();
+
+    let arm_scope = resolution
+        .scope(resolution.node_scope(arm).unwrap())
+        .unwrap();
+    let binding_symbol = resolution
+        .symbol(arm_scope.symbol("other").unwrap())
+        .unwrap();
+
+    assert_eq!(binding_symbol.kind(), SymbolKind::PatternBinding);
+
+    let expression = find_name_expression_by_text(syntax, &source, root, "other").unwrap();
+    let reference_symbol = resolution
+        .symbol(resolution.reference_symbol(expression).unwrap())
+        .unwrap();
+
+    assert_eq!(reference_symbol.name(), "other");
+    assert_eq!(reference_symbol.kind(), SymbolKind::PatternBinding);
+}
+
+#[test]
+fn resolve_instanceof_type_pattern_binding_reaches_block_arm_body() {
+    let source = source(
+        r#"
+        fn main(value: int32 | null): int32 {
+            instanceof value {
+                int32 count => {
+                    return count
+                }
+                _ => {
+                    return 0
+                }
+            }
+        }
+        "#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(
+        !resolve_result.has_errors(),
+        "{:?}",
+        resolve_result.diagnostics()
+    );
+
+    let graph = resolve_result.graph();
+    let syntax = graph.syntax();
+    let resolution = graph.resolution().unwrap();
+
+    let root = syntax.root().unwrap();
+    let expression = find_name_expression_by_text(syntax, &source, root, "count").unwrap();
+    let reference_symbol = resolution
+        .symbol(resolution.reference_symbol(expression).unwrap())
+        .unwrap();
+
+    assert_eq!(reference_symbol.name(), "count");
+    assert_eq!(reference_symbol.kind(), SymbolKind::TypePatternBinding);
+}
+
+#[test]
 fn resolve_declares_match_binding_pattern_in_arm_scope() {
     let source = source(
         r#"
