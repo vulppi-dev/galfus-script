@@ -1,0 +1,4 @@
+[module]
+name = "my-app"
+target = "app"
+entry = "src/main.gfs"

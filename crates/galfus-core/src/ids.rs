@@ -2,11 +2,11 @@
 pub struct ModuleId(u32);
 
 impl ModuleId {
-    pub fn new(id: u32) -> Self {
+    pub const fn new(id: u32) -> Self {
         Self(id)
     }
 
-    pub fn raw(&self) -> u32 {
+    pub const fn raw(&self) -> u32 {
         self.0
     }
 }
@@ -15,11 +15,11 @@ impl ModuleId {
 pub struct SourceId(u32);
 
 impl SourceId {
-    pub fn new(id: u32) -> Self {
+    pub const fn new(id: u32) -> Self {
         Self(id)
     }
 
-    pub fn raw(&self) -> u32 {
+    pub const fn raw(&self) -> u32 {
         self.0
     }
 }
@@ -28,11 +28,11 @@ impl SourceId {
 pub struct NodeId(u32);
 
 impl NodeId {
-    pub fn new(id: u32) -> Self {
+    pub const fn new(id: u32) -> Self {
         Self(id)
     }
 
-    pub fn raw(&self) -> u32 {
+    pub const fn raw(&self) -> u32 {
         self.0
     }
 }
@@ -41,11 +41,11 @@ impl NodeId {
 pub struct SymbolId(u32);
 
 impl SymbolId {
-    pub fn new(id: u32) -> Self {
+    pub const fn new(id: u32) -> Self {
         Self(id)
     }
 
-    pub fn raw(&self) -> u32 {
+    pub const fn raw(&self) -> u32 {
         self.0
     }
 }
@@ -54,11 +54,11 @@ impl SymbolId {
 pub struct ScopeId(u32);
 
 impl ScopeId {
-    pub fn new(id: u32) -> Self {
+    pub const fn new(id: u32) -> Self {
         Self(id)
     }
 
-    pub fn raw(&self) -> u32 {
+    pub const fn raw(&self) -> u32 {
         self.0
     }
 }
@@ -67,11 +67,11 @@ impl ScopeId {
 pub struct TypeId(u32);
 
 impl TypeId {
-    pub fn new(id: u32) -> Self {
+    pub const fn new(id: u32) -> Self {
         Self(id)
     }
 
-    pub fn raw(&self) -> u32 {
+    pub const fn raw(&self) -> u32 {
         self.0
     }
 }
@@ -80,11 +80,11 @@ impl TypeId {
 pub struct FunctionId(u32);
 
 impl FunctionId {
-    pub fn new(id: u32) -> Self {
+    pub const fn new(id: u32) -> Self {
         Self(id)
     }
 
-    pub fn raw(&self) -> u32 {
+    pub const fn raw(&self) -> u32 {
         self.0
     }
 }
@@ -93,11 +93,11 @@ impl FunctionId {
 pub struct StructId(u32);
 
 impl StructId {
-    pub fn new(id: u32) -> Self {
+    pub const fn new(id: u32) -> Self {
         Self(id)
     }
 
-    pub fn raw(&self) -> u32 {
+    pub const fn raw(&self) -> u32 {
         self.0
     }
 }
@@ -106,11 +106,11 @@ impl StructId {
 pub struct EnumId(u32);
 
 impl EnumId {
-    pub fn new(id: u32) -> Self {
+    pub const fn new(id: u32) -> Self {
         Self(id)
     }
 
-    pub fn raw(&self) -> u32 {
+    pub const fn raw(&self) -> u32 {
         self.0
     }
 }
@@ -119,11 +119,11 @@ impl EnumId {
 pub struct ChoiceId(u32);
 
 impl ChoiceId {
-    pub fn new(id: u32) -> Self {
+    pub const fn new(id: u32) -> Self {
         Self(id)
     }
 
-    pub fn raw(&self) -> u32 {
+    pub const fn raw(&self) -> u32 {
         self.0
     }
 }
@@ -132,11 +132,11 @@ impl ChoiceId {
 pub struct ConstraintId(u32);
 
 impl ConstraintId {
-    pub fn new(id: u32) -> Self {
+    pub const fn new(id: u32) -> Self {
         Self(id)
     }
 
-    pub fn raw(&self) -> u32 {
+    pub const fn raw(&self) -> u32 {
         self.0
     }
 }
@@ -145,11 +145,11 @@ impl ConstraintId {
 pub struct ExportId(u32);
 
 impl ExportId {
-    pub fn new(id: u32) -> Self {
+    pub const fn new(id: u32) -> Self {
         Self(id)
     }
 
-    pub fn raw(&self) -> u32 {
+    pub const fn raw(&self) -> u32 {
         self.0
     }
 }
@@ -158,11 +158,11 @@ impl ExportId {
 pub struct ImportId(u32);
 
 impl ImportId {
-    pub fn new(id: u32) -> Self {
+    pub const fn new(id: u32) -> Self {
         Self(id)
     }
 
-    pub fn raw(&self) -> u32 {
+    pub const fn raw(&self) -> u32 {
         self.0
     }
 }

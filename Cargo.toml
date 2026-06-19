@@ -11,6 +11,7 @@ license = "MIT"
 [workspace.dependencies]
 # Serialization / binary data format
 serde = { version = "1.0", features = ["derive"] }
+toml = "0.8"
 postcard = { version = "1.1", default-features = false, features = ["use-std"] }
 
 # Deterministic / structural collections

@@ -1,34 +1,12 @@
+use crate::{CheckDiagnosticCode, normalize_existing_path, print_check_result};
+use anyhow::Result;
+use galfus_core::{Diagnostic, DiagnosticBag, SourceFile, SourceId};
+use galfus_frontend::{ImportKind, ModuleGraph, parse, resolve};
 use std::{
     collections::{HashMap, HashSet},
     fs,
     path::{Path, PathBuf},
 };
-
-use anyhow::Result;
-use galfus_core::{Diagnostic, DiagnosticBag, DiagnosticCodeKind, SourceFile, SourceId};
-use galfus_frontend::{ImportKind, ModuleGraph, parse, resolve};
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum CheckDiagnosticCode {
-    ImportModuleNotFound,
-    MissingExport,
-}
-
-impl DiagnosticCodeKind for CheckDiagnosticCode {
-    fn as_code(&self) -> &'static str {
-        match self {
-            Self::ImportModuleNotFound => "C0001",
-            Self::MissingExport => "C0002",
-        }
-    }
-
-    fn as_message(&self) -> &'static str {
-        match self {
-            Self::ImportModuleNotFound => "import module not found",
-            Self::MissingExport => "missing export",
-        }
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct CheckedModule {
@@ -53,8 +31,8 @@ impl CheckedModule {
 
 #[derive(Debug, Clone)]
 pub struct CheckResult {
-    modules: Vec<CheckedModule>,
-    diagnostics: DiagnosticBag,
+    pub modules: Vec<CheckedModule>,
+    pub diagnostics: DiagnosticBag,
 }
 
 impl CheckResult {
@@ -70,7 +48,7 @@ impl CheckResult {
         self.diagnostics.has_errors()
     }
 
-    fn source_for(&self, source_id: SourceId) -> Option<&SourceFile> {
+    pub fn source_for(&self, source_id: SourceId) -> Option<&SourceFile> {
         self.modules
             .iter()
             .find(|module| module.source().id() == source_id)
@@ -79,11 +57,11 @@ impl CheckResult {
 }
 
 #[derive(Debug, Default)]
-struct ModuleLoader {
-    modules: Vec<CheckedModule>,
+pub(crate) struct ModuleLoader {
+    pub(crate) modules: Vec<CheckedModule>,
     module_by_path: HashMap<PathBuf, usize>,
     loading: HashSet<PathBuf>,
-    diagnostics: DiagnosticBag,
+    pub(crate) diagnostics: DiagnosticBag,
 }
 
 impl ModuleLoader {
@@ -96,7 +74,7 @@ impl ModuleLoader {
         Ok(())
     }
 
-    fn load_module(&mut self, path: PathBuf) -> Result<usize> {
+    pub(crate) fn load_module(&mut self, path: PathBuf) -> Result<usize> {
         if let Some(module) = self.module_by_path.get(path.as_path()).copied() {
             return Ok(module);
         }
@@ -177,7 +155,7 @@ impl ModuleLoader {
             .collect()
     }
 
-    fn validate_imports(&mut self) {
+    pub(crate) fn validate_imports(&mut self) {
         for module_index in 0..self.modules.len() {
             let imports = self.module_imports(module_index);
 
@@ -260,7 +238,7 @@ struct ImportCheckRecord {
     declaration: galfus_core::NodeId,
 }
 
-pub fn check_path(path: impl AsRef<Path>) -> Result<CheckResult> {
+fn check_path(path: impl AsRef<Path>) -> Result<CheckResult> {
     let mut loader = ModuleLoader::default();
 
     loader.check_entry(path.as_ref())?;
@@ -273,58 +251,8 @@ pub fn check_path(path: impl AsRef<Path>) -> Result<CheckResult> {
 
 pub fn check_file(path: &str) -> Result<()> {
     let result = check_path(path)?;
-
-    println!("modules: {}", result.modules().len());
-
-    for module in result.modules() {
-        println!(
-            "  {:?}: {:?}, syntax nodes: {}",
-            module.path(),
-            module.graph().phase(),
-            module.graph().syntax().len()
-        );
-    }
-
-    if result.diagnostics().is_empty() {
-        println!("ok");
-        return Ok(());
-    }
-
-    println!("diagnostics:");
-
-    for diagnostic in result.diagnostics().iter() {
-        print_diagnostic(&result, diagnostic);
-    }
-
+    print_check_result(&result);
     Ok(())
-}
-
-fn print_diagnostic(result: &CheckResult, diagnostic: &Diagnostic) {
-    let source = result.source_for(diagnostic.span().source_id());
-
-    if let Some(source) = source {
-        let pos = source.row_col(diagnostic.span().start());
-
-        if let Some(pos) = pos {
-            println!(
-                "  {:?} {} at {}:{}:{}: {}",
-                diagnostic.severity(),
-                diagnostic.code().as_str(),
-                source.name(),
-                pos.row,
-                pos.column,
-                diagnostic.message()
-            );
-            return;
-        }
-    }
-
-    println!(
-        "  {:?} {}: {}",
-        diagnostic.severity(),
-        diagnostic.code().as_str(),
-        diagnostic.message()
-    );
 }
 
 fn is_relative_import(source: &str) -> bool {
@@ -342,12 +270,10 @@ fn resolve_relative_import(base_module: &Path, source: &str) -> PathBuf {
     path
 }
 
-fn normalize_existing_path(path: &Path) -> Result<PathBuf> {
-    Ok(path.canonicalize()?)
-}
-
 #[cfg(test)]
 mod tests {
+    use galfus_core::DiagnosticCodeKind;
+
     use super::*;
     use std::time::{SystemTime, UNIX_EPOCH};
 

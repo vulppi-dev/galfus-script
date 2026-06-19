@@ -13,6 +13,7 @@ struct Cli {
 enum Command {
     Run { file: String },
     Check { file: String },
+    CheckWorkspace { root: String },
     Graph { file: String },
     Repl,
 }
@@ -28,6 +29,9 @@ fn main() -> Result<()> {
         }
         Command::Check { file } => {
             galfus_runner::check_file(&file)?;
+        }
+        Command::CheckWorkspace { root } => {
+            galfus_runner::check_workspace_root(&root)?;
         }
         Command::Graph { file } => {
             galfus_runner::print_local_graph_file(&file)?;
