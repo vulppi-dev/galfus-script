@@ -4,6 +4,7 @@ mod lexer;
 mod parser;
 mod resolver;
 mod token;
+mod type_cheking;
 mod type_lowering;
 mod types;
 
@@ -13,5 +14,6 @@ pub use lexer::*;
 pub use parser::*;
 pub use resolver::*;
 pub use token::*;
+pub use type_cheking::*;
 pub use type_lowering::*;
 pub use types::*;

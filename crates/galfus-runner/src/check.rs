@@ -60,7 +60,6 @@ impl CheckResult {
 struct ImportCheckRecord {
     kind: ImportKind,
     source: String,
-    source_node: NodeId,
     local_name: String,
     imported_name: Option<String>,
     declaration: NodeId,
@@ -263,7 +262,6 @@ impl ModuleLoader {
             .map(|import| ImportCheckRecord {
                 kind: import.kind(),
                 source: import.source().to_string(),
-                source_node: import.source_node(),
                 local_name: import.local_name().to_string(),
                 imported_name: import.imported_name().map(str::to_string),
                 declaration: import.declaration(),

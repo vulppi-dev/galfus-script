@@ -3,7 +3,7 @@ mod tests;
 
 use crate::{
     ArraySize, FunctionParameterType, ModuleGraph, PrimitiveType, SymbolKind, SyntaxNodeKind,
-    TypeKind, TypeLayer,
+    TypeLayer,
 };
 use galfus_core::{NodeId, SourceFile, SymbolId, TypeId};
 
