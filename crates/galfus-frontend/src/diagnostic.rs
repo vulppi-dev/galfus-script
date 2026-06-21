@@ -101,6 +101,7 @@ pub enum TypeDiagnosticCode {
     TypeMismatch,
     NotCallable,
     ArgumentCountMismatch,
+    UnsupportedOperator,
 }
 
 impl DiagnosticCodeKind for TypeDiagnosticCode {
@@ -109,6 +110,7 @@ impl DiagnosticCodeKind for TypeDiagnosticCode {
             Self::TypeMismatch => "T0001",
             Self::NotCallable => "T0002",
             Self::ArgumentCountMismatch => "T0003",
+            Self::UnsupportedOperator => "T0004",
         }
     }
 
@@ -117,6 +119,7 @@ impl DiagnosticCodeKind for TypeDiagnosticCode {
             Self::TypeMismatch => "type mismatch",
             Self::NotCallable => "not callable",
             Self::ArgumentCountMismatch => "argument count mismatch",
+            Self::UnsupportedOperator => "unsupported operator",
         }
     }
 }
