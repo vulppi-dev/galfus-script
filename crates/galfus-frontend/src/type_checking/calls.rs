@@ -45,7 +45,10 @@ impl<'a> DeclarationTypeChecker<'a> {
         let syntax_node = self.graph.syntax().node(node)?;
 
         match syntax_node.kind() {
-            SyntaxNodeKind::SpreadArgument => self.graph.syntax().child(node, 0),
+            SyntaxNodeKind::Argument | SyntaxNodeKind::SpreadArgument => {
+                self.graph.syntax().child(node, 0)
+            }
+
             _ => Some(node),
         }
     }
@@ -132,11 +135,27 @@ impl<'a> DeclarationTypeChecker<'a> {
         let parameters = function.parameters();
 
         if let Some(parameter) = parameters.get(argument_index) {
+            if parameter.is_rest() {
+                return self.rest_parameter_element_type(parameter.ty());
+            }
+
             return Some(parameter.ty());
         }
 
         let rest = parameters.iter().find(|parameter| parameter.is_rest())?;
 
-        Some(rest.ty())
+        self.rest_parameter_element_type(rest.ty())
+    }
+
+    fn rest_parameter_element_type(&self, rest_type: TypeId) -> Option<TypeId> {
+        match self.layer.table().kind(rest_type) {
+            Some(TypeKind::Array { element }) => Some(*element),
+
+            Some(TypeKind::FixedArray { element, .. }) => Some(*element),
+
+            Some(TypeKind::Error) => Some(rest_type),
+
+            _ => Some(rest_type),
+        }
     }
 }
