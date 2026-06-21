@@ -1,3 +1,58 @@
+area:builtins:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'crates/galfus-builtins/**'
+
+area:cli:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'crates/galfus-cli/**'
+
+area:core:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'crates/galfus-core/**'
+
+area:frontend:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'crates/galfus-frontend/**'
+
+area:host:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'crates/galfus-host/**'
+
+area:ir:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'crates/galfus-ir/**'
+
+area:jit:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'crates/galfus-jit/**'
+
+area:runner:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'crates/galfus-runner/**'
+
+area:runtime:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'crates/galfus-runtime/**'
+
+area:tools:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'crates/galfus-tools/**'
+
+area:vm:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'crates/galfus-vm/**'
+
 area:docs:
   - changed-files:
       - any-glob-to-any-file:
