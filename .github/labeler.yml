@@ -1,0 +1,8 @@
+area:docs:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'README.md'
+          - 'CONTRIBUTING.md'
+          - 'AGENTS.md'
+          - 'docs/**'
+          - '.github/**/*.md'
