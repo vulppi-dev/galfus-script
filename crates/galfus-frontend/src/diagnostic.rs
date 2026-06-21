@@ -99,18 +99,24 @@ impl DiagnosticCodeKind for ResolverDiagnosticCode {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TypeDiagnosticCode {
     TypeMismatch,
+    NotCallable,
+    ArgumentCountMismatch,
 }
 
 impl DiagnosticCodeKind for TypeDiagnosticCode {
     fn as_code(&self) -> &'static str {
         match self {
             Self::TypeMismatch => "T0001",
+            Self::NotCallable => "T0002",
+            Self::ArgumentCountMismatch => "T0003",
         }
     }
 
     fn as_message(&self) -> &'static str {
         match self {
             Self::TypeMismatch => "type mismatch",
+            Self::NotCallable => "not callable",
+            Self::ArgumentCountMismatch => "argument count mismatch",
         }
     }
 }

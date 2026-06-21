@@ -44,6 +44,38 @@ fn symbol_by_name_and_kind(graph: &ModuleGraph, name: &str, kind: SymbolKind) ->
         .unwrap_or_else(|| panic!("missing symbol `{name}` of kind {kind:?}"))
 }
 
+fn find_node_by_kind_and_text(
+    source: &SourceFile,
+    graph: &ModuleGraph,
+    kind: SyntaxNodeKind,
+    text: &str,
+) -> Option<NodeId> {
+    let root = graph.syntax().root()?;
+    find_node_by_kind_and_text_from(source, graph, root, kind, text)
+}
+
+fn find_node_by_kind_and_text_from(
+    source: &SourceFile,
+    graph: &ModuleGraph,
+    node: NodeId,
+    kind: SyntaxNodeKind,
+    text: &str,
+) -> Option<NodeId> {
+    let syntax_node = graph.syntax().node(node)?;
+
+    if syntax_node.kind() == kind && source.slice(syntax_node.span()) == Some(text) {
+        return Some(node);
+    }
+
+    for child in syntax_node.children() {
+        if let Some(found) = find_node_by_kind_and_text_from(source, graph, *child, kind, text) {
+            return Some(found);
+        }
+    }
+
+    None
+}
+
 #[test]
 fn check_binds_function_symbol_type() {
     let (_source, graph, result) = check_source(
@@ -402,6 +434,198 @@ fn check_accepts_name_return_with_matching_type() {
 fn main(value: int32): int32 {
   return value
 }
+"#,
+    );
+
+    assert!(!result.has_errors());
+}
+
+#[test]
+fn check_accepts_call_with_matching_arguments() {
+    let (_source, _graph, result) = check_source(
+        r#"
+fn add(a: int32, b: int32): int32 {
+  return a
+}
+
+var value: int32 = add(1, 2)
+"#,
+    );
+
+    assert!(!result.has_errors());
+}
+
+#[test]
+fn check_binds_call_expression_return_type() {
+    let (_source, graph, result) = check_source(
+        r#"
+fn one(): int32 {
+  return 1
+}
+
+var value: int32 = one()
+"#,
+    );
+
+    let source = SourceFile::new(
+        galfus_core::SourceId::new(0),
+        "test.gfs".to_string(),
+        r#"
+fn one(): int32 {
+  return 1
+}
+
+var value: int32 = one()
+"#
+        .to_string(),
+    );
+
+    let call = find_node_by_kind_and_text(&source, &graph, SyntaxNodeKind::CallExpression, "one()")
+        .unwrap();
+
+    let ty = result.layer().node_type(call).unwrap();
+
+    assert_eq!(
+        result.layer().table().kind(ty),
+        Some(&TypeKind::Primitive(PrimitiveType::Int32))
+    );
+}
+
+#[test]
+fn check_reports_call_argument_type_mismatch() {
+    let source = source(
+        r#"
+fn add(a: int32, b: int32): int32 {
+  return a
+}
+
+var value: int32 = add(true, 2)
+"#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.into_graph();
+    let result = check_declaration_types(&source, &graph);
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::TypeMismatch.as_code()
+            && diagnostic
+                .message()
+                .contains("expected `int32`, got `bool`")
+    }));
+}
+
+#[test]
+fn check_reports_too_few_call_arguments() {
+    let source = source(
+        r#"
+fn add(a: int32, b: int32): int32 {
+  return a
+}
+
+var value: int32 = add(1)
+"#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.into_graph();
+    let result = check_declaration_types(&source, &graph);
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::ArgumentCountMismatch.as_code()
+            && diagnostic.message().contains("expected 2 arguments, got 1")
+    }));
+}
+
+#[test]
+fn check_reports_too_many_call_arguments() {
+    let source = source(
+        r#"
+fn add(a: int32, b: int32): int32 {
+  return a
+}
+
+var value: int32 = add(1, 2, 3)
+"#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.into_graph();
+    let result = check_declaration_types(&source, &graph);
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::ArgumentCountMismatch.as_code()
+            && diagnostic.message().contains("expected 2 arguments, got 3")
+    }));
+}
+
+#[test]
+fn check_reports_calling_non_function() {
+    let source = source(
+        r#"
+var age: int32 = 10
+var result: int32 = age()
+"#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.into_graph();
+    let result = check_declaration_types(&source, &graph);
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::NotCallable.as_code()
+            && diagnostic.message().contains("is not callable")
+    }));
+}
+
+#[test]
+fn check_accepts_default_parameter_argument_count() {
+    let (_source, _graph, result) = check_source(
+        r#"
+fn add(a: int32, b: int32 = 1): int32 {
+  return a
+}
+
+var value: int32 = add(1)
+"#,
+    );
+
+    assert!(!result.has_errors());
+}
+
+#[test]
+fn check_accepts_rest_parameter_argument_count() {
+    let (_source, _graph, result) = check_source(
+        r#"
+fn sum(...values: [int32]): int32 {
+  return 1
+}
+
+var value: int32 = sum(1, 2, 3)
 "#,
     );
 
