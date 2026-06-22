@@ -38,6 +38,8 @@ impl<'a> DeclarationTypeChecker<'a> {
 
             SyntaxNodeKind::NameExpression => self.infer_name_expression_type(node),
 
+            SyntaxNodeKind::PathExpression => self.infer_path_variant_expression_type(node),
+
             SyntaxNodeKind::CallExpression => self.infer_call_expression_type(node),
 
             SyntaxNodeKind::MemberExpression => self.infer_member_expression_type(node, false),

@@ -114,6 +114,8 @@ pub enum TypeDiagnosticCode {
     DuplicateStructField,
     MissingStructField,
     InvalidStructLiteralTarget,
+    ChoicePayloadRequired,
+    ChoicePayloadNotAllowed,
 }
 
 impl DiagnosticCodeKind for TypeDiagnosticCode {
@@ -135,6 +137,8 @@ impl DiagnosticCodeKind for TypeDiagnosticCode {
             Self::DuplicateStructField => "T0014",
             Self::MissingStructField => "T0015",
             Self::InvalidStructLiteralTarget => "T0016",
+            Self::ChoicePayloadRequired => "T0017",
+            Self::ChoicePayloadNotAllowed => "T0018",
         }
     }
 
@@ -156,6 +160,8 @@ impl DiagnosticCodeKind for TypeDiagnosticCode {
             Self::DuplicateStructField => "duplicate struct field",
             Self::MissingStructField => "missing struct field",
             Self::InvalidStructLiteralTarget => "invalid struct literal target",
+            Self::ChoicePayloadRequired => "choice payload required",
+            Self::ChoicePayloadNotAllowed => "choice payload not allowed",
         }
     }
 }

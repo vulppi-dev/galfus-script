@@ -7,8 +7,12 @@ use super::DeclarationTypeChecker;
 impl<'a> DeclarationTypeChecker<'a> {
     pub(super) fn infer_call_expression_type(&mut self, node: NodeId) -> Option<TypeId> {
         let target = self.graph.syntax().child(node, 0)?;
-        let arguments = self.graph.syntax().child(node, 1)?;
 
+        if self.is_choice_variant_call_target(target) {
+            return self.infer_choice_variant_call_type(node);
+        }
+
+        let arguments = self.graph.syntax().child(node, 1)?;
         let target_type = self.infer_expression_type(target)?;
 
         let function = match self.layer.table().kind(target_type).cloned() {
@@ -29,7 +33,7 @@ impl<'a> DeclarationTypeChecker<'a> {
         Some(function.return_type())
     }
 
-    fn call_argument_nodes(&self, arguments: NodeId) -> Vec<NodeId> {
+    pub(super) fn call_argument_nodes(&self, arguments: NodeId) -> Vec<NodeId> {
         let Some(arguments_node) = self.graph.syntax().node(arguments) else {
             return Vec::new();
         };
@@ -41,7 +45,7 @@ impl<'a> DeclarationTypeChecker<'a> {
             .collect()
     }
 
-    fn call_argument_expression(&self, node: NodeId) -> Option<NodeId> {
+    pub(super) fn call_argument_expression(&self, node: NodeId) -> Option<NodeId> {
         let syntax_node = self.graph.syntax().node(node)?;
 
         match syntax_node.kind() {

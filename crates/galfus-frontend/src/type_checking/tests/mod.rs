@@ -7,6 +7,7 @@ mod literals;
 mod operators;
 mod returns;
 mod structs;
+mod variants;
 
 use super::*;
 

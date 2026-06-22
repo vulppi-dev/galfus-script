@@ -14,6 +14,7 @@ mod operators;
 mod returns;
 mod structs;
 mod support;
+mod variants;
 
 use galfus_core::{DiagnosticBag, SourceFile};
 

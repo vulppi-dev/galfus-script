@@ -318,4 +318,54 @@ impl<'a> DeclarationTypeChecker<'a> {
             span,
         ));
     }
+
+    pub(super) fn report_choice_payload_required(&mut self, target: NodeId, variant_name: &str) {
+        let span = self
+            .graph
+            .syntax()
+            .node(target)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+            TypeDiagnosticCode::ChoicePayloadRequired,
+            format!("choice variant `{variant_name}` requires a payload"),
+            span,
+        ));
+    }
+
+    pub(super) fn report_choice_payload_not_allowed(&mut self, target: NodeId, variant_name: &str) {
+        let span = self
+            .graph
+            .syntax()
+            .node(target)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+            TypeDiagnosticCode::ChoicePayloadNotAllowed,
+            format!("choice variant `{variant_name}` does not accept a payload"),
+            span,
+        ));
+    }
+
+    pub(super) fn report_argument_count_mismatch(
+        &mut self,
+        call: NodeId,
+        expected: usize,
+        actual: usize,
+    ) {
+        let span = self
+            .graph
+            .syntax()
+            .node(call)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+            TypeDiagnosticCode::ArgumentCountMismatch,
+            format!("expected {expected} arguments, got {actual}"),
+            span,
+        ));
+    }
 }
