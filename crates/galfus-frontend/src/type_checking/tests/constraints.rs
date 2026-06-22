@@ -151,3 +151,122 @@ struct User satisfies Named {
 
     assert!(!result.has_errors());
 }
+
+#[test]
+fn check_accepts_struct_satisfies_constraint_function() {
+    let (_source, _graph, result) = check_source(
+        r#"
+constraint Named {
+  fn name(): [uint8],
+}
+
+struct User satisfies Named {
+  name: [uint8],
+}
+
+fn User::name(): [uint8] {
+  return "Ana"
+}
+"#,
+    );
+
+    assert!(!result.has_errors());
+}
+
+#[test]
+fn check_reports_missing_constraint_function() {
+    let source = source(
+        r#"
+constraint Named {
+  fn name(): [uint8],
+}
+
+struct User satisfies Named {
+  name: [uint8],
+}
+"#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.into_graph();
+    let result = check_declaration_types(&source, &graph);
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::MissingConstraintFunction.as_code()
+            && diagnostic.message().contains("missing function `name`")
+    }));
+}
+
+#[test]
+fn check_reports_constraint_function_return_type_mismatch() {
+    let source = source(
+        r#"
+constraint Named {
+  fn name(): [uint8],
+}
+
+struct User satisfies Named {
+  name: [uint8],
+}
+
+fn User::name(): int32 {
+  return 1
+}
+"#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.into_graph();
+    let result = check_declaration_types(&source, &graph);
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::ConstraintFunctionTypeMismatch.as_code()
+            && diagnostic.message().contains("function `name`")
+    }));
+}
+
+#[test]
+fn check_reports_constraint_function_parameter_type_mismatch() {
+    let source = source(
+        r#"
+constraint Setter {
+  fn set(value: [uint8]): null,
+}
+
+struct User satisfies Setter {
+  name: [uint8],
+}
+
+fn User::set(value: int32): null {
+  return
+}
+"#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.into_graph();
+    let result = check_declaration_types(&source, &graph);
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::ConstraintFunctionTypeMismatch.as_code()
+            && diagnostic.message().contains("function `set`")
+    }));
+}

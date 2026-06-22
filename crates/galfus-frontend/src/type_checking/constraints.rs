@@ -17,6 +17,19 @@ struct StructFieldInfo {
     ty: TypeId,
 }
 
+#[derive(Debug, Clone)]
+struct ConstraintFunctionInfo {
+    name: String,
+    ty: TypeId,
+}
+
+#[derive(Debug, Clone)]
+struct StructFunctionInfo {
+    node: NodeId,
+    name: String,
+    ty: TypeId,
+}
+
 impl<'a> DeclarationTypeChecker<'a> {
     pub(super) fn check_constraint_satisfies(&mut self, node: NodeId) {
         let Some(syntax_node) = self.graph.syntax().node(node) else {
@@ -49,6 +62,8 @@ impl<'a> DeclarationTypeChecker<'a> {
 
         let struct_fields = self.struct_satisfies_fields(struct_symbol);
 
+        let struct_functions = self.struct_satisfies_functions(struct_name.as_str());
+
         let constraints = self
             .graph
             .syntax()
@@ -62,6 +77,7 @@ impl<'a> DeclarationTypeChecker<'a> {
                 constraint_type,
                 struct_name.as_str(),
                 &struct_fields,
+                &struct_functions,
             );
         }
     }
@@ -72,6 +88,7 @@ impl<'a> DeclarationTypeChecker<'a> {
         constraint_type: NodeId,
         struct_name: &str,
         struct_fields: &[StructFieldInfo],
+        struct_functions: &[StructFunctionInfo],
     ) {
         let constraint_name = self.node_text(constraint_type);
 
@@ -111,6 +128,36 @@ impl<'a> DeclarationTypeChecker<'a> {
                 constraint_field.name.as_str(),
                 constraint_field.ty,
                 struct_field.ty,
+            );
+        }
+
+        let constraint_functions = self.constraint_functions(constraint_symbol);
+
+        for constraint_function in constraint_functions {
+            let Some(struct_function) = struct_functions
+                .iter()
+                .find(|function| function.name == constraint_function.name)
+            else {
+                self.report_missing_constraint_function(
+                    struct_item,
+                    struct_name,
+                    constraint_name.as_str(),
+                    constraint_function.name.as_str(),
+                );
+                continue;
+            };
+
+            if self.is_assignable(constraint_function.ty, struct_function.ty) {
+                continue;
+            }
+
+            self.report_constraint_function_type_mismatch(
+                struct_function.node,
+                struct_name,
+                constraint_name.as_str(),
+                constraint_function.name.as_str(),
+                constraint_function.ty,
+                struct_function.ty,
             );
         }
     }
@@ -226,5 +273,169 @@ impl<'a> DeclarationTypeChecker<'a> {
                 })
             })
             .collect()
+    }
+
+    fn constraint_functions(&self, constraint_symbol: SymbolId) -> Vec<ConstraintFunctionInfo> {
+        let Some(resolution) = self.graph.resolution() else {
+            return Vec::new();
+        };
+
+        let Some(member_scope) = resolution.member_scope(constraint_symbol) else {
+            return Vec::new();
+        };
+
+        let Some(scope) = resolution.scope(member_scope) else {
+            return Vec::new();
+        };
+
+        scope
+            .symbols()
+            .iter()
+            .filter_map(|(name, symbol)| {
+                let symbol_data = resolution.symbol(*symbol)?;
+
+                if symbol_data.kind() != SymbolKind::ConstraintFunction {
+                    return None;
+                }
+
+                let ty = self.layer.symbol_type(*symbol)?;
+
+                Some(ConstraintFunctionInfo {
+                    name: name.to_string(),
+                    ty,
+                })
+            })
+            .collect()
+    }
+
+    fn struct_satisfies_functions(&self, struct_name: &str) -> Vec<StructFunctionInfo> {
+        let Some(root) = self.graph.syntax().root() else {
+            return Vec::new();
+        };
+
+        let mut functions = Vec::new();
+        self.collect_anchored_function_items(root, struct_name, &mut functions);
+
+        functions
+            .into_iter()
+            .filter_map(|function| {
+                let (_, function_name) = self.function_anchor_and_name(function)?;
+                let symbol = self.function_item_symbol(function, function_name.as_str())?;
+                let ty = self.layer.symbol_type(symbol)?;
+
+                Some(StructFunctionInfo {
+                    node: function,
+                    name: function_name,
+                    ty,
+                })
+            })
+            .collect()
+    }
+
+    fn collect_anchored_function_items(
+        &self,
+        node: NodeId,
+        struct_name: &str,
+        functions: &mut Vec<NodeId>,
+    ) {
+        let Some(syntax_node) = self.graph.syntax().node(node) else {
+            return;
+        };
+
+        if syntax_node.kind() == SyntaxNodeKind::FunctionItem {
+            if let Some((anchor_name, _)) = self.function_anchor_and_name(node) {
+                if anchor_name == struct_name {
+                    functions.push(node);
+                }
+            }
+
+            return;
+        }
+
+        for child in syntax_node.children() {
+            self.collect_anchored_function_items(*child, struct_name, functions);
+        }
+    }
+
+    fn function_anchor_and_name(&self, function: NodeId) -> Option<(String, String)> {
+        let function_node = self.graph.syntax().node(function)?;
+        let children = function_node.children();
+
+        let anchor_index = children.iter().position(|child| {
+            self.graph
+                .syntax()
+                .node(*child)
+                .map(|node| node.kind() == SyntaxNodeKind::FunctionAnchor)
+                .unwrap_or(false)
+        })?;
+
+        let anchor = *children.get(anchor_index)?;
+
+        let name = children
+            .iter()
+            .skip(anchor_index + 1)
+            .copied()
+            .find(|child| {
+                self.graph
+                    .syntax()
+                    .node(*child)
+                    .map(|node| node.kind() == SyntaxNodeKind::Identifier)
+                    .unwrap_or(false)
+            })?;
+
+        Some((self.node_text(anchor), self.node_text(name)))
+    }
+
+    fn function_item_symbol(&self, function: NodeId, function_name: &str) -> Option<SymbolId> {
+        let resolution = self.graph.resolution()?;
+
+        if let Some(symbol) = resolution.declaration_symbol(function) {
+            let symbol_data = resolution.symbol(symbol)?;
+
+            if symbol_data.kind() == SymbolKind::Function {
+                return Some(symbol);
+            }
+        }
+
+        let function_node = self.graph.syntax().node(function)?;
+
+        for child in function_node.children() {
+            let Some(child_node) = self.graph.syntax().node(*child) else {
+                continue;
+            };
+
+            if child_node.kind() != SyntaxNodeKind::Identifier {
+                continue;
+            }
+
+            if self.node_text(*child) != function_name {
+                continue;
+            }
+
+            let Some(symbol) = resolution.declaration_symbol(*child) else {
+                continue;
+            };
+
+            let Some(symbol_data) = resolution.symbol(symbol) else {
+                continue;
+            };
+
+            if symbol_data.kind() == SymbolKind::Function {
+                return Some(symbol);
+            }
+        }
+
+        resolution
+            .symbols()
+            .iter()
+            .find(|symbol| {
+                symbol.kind() == SymbolKind::Function
+                    && (symbol.declaration() == function
+                        || symbol.name() == function_name
+                        || symbol
+                            .name()
+                            .ends_with(format!("::{function_name}").as_str()))
+            })
+            .map(|symbol| symbol.id())
     }
 }

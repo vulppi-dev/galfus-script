@@ -67,7 +67,40 @@ impl<'a> DeclarationTypeChecker<'a> {
                 expected_size == actual_size && self.is_assignable(expected_element, actual_element)
             }
 
+            (
+                Some(TypeKind::Function(expected_function)),
+                Some(TypeKind::Function(actual_function)),
+            ) => self.is_function_type_assignable(&expected_function, &actual_function),
+
             _ => false,
         }
+    }
+
+    fn is_function_type_assignable(
+        &self,
+        expected: &crate::FunctionType,
+        actual: &crate::FunctionType,
+    ) -> bool {
+        if expected.parameters().len() != actual.parameters().len() {
+            return false;
+        }
+
+        for (expected_parameter, actual_parameter) in
+            expected.parameters().iter().zip(actual.parameters().iter())
+        {
+            if expected_parameter.is_rest() != actual_parameter.is_rest() {
+                return false;
+            }
+
+            if expected_parameter.has_default() != actual_parameter.has_default() {
+                return false;
+            }
+
+            if !self.is_assignable(expected_parameter.ty(), actual_parameter.ty()) {
+                return false;
+            }
+        }
+
+        self.is_assignable(expected.return_type(), actual.return_type())
     }
 }

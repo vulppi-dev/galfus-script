@@ -590,4 +590,55 @@ impl<'a> DeclarationTypeChecker<'a> {
         span,
     ));
     }
+
+    pub(super) fn report_missing_constraint_function(
+        &mut self,
+        item: NodeId,
+        struct_name: &str,
+        constraint_name: &str,
+        function_name: &str,
+    ) {
+        let span = self
+            .graph
+            .syntax()
+            .node(item)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+        TypeDiagnosticCode::MissingConstraintFunction,
+        format!(
+            "struct `{struct_name}` does not satisfy `{constraint_name}`: missing function `{function_name}`"
+        ),
+        span,
+    ));
+    }
+
+    pub(super) fn report_constraint_function_type_mismatch(
+        &mut self,
+        function: NodeId,
+        struct_name: &str,
+        constraint_name: &str,
+        function_name: &str,
+        expected: TypeId,
+        actual: TypeId,
+    ) {
+        let span = self
+            .graph
+            .syntax()
+            .node(function)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        let expected = self.describe_type_for_diagnostic(expected);
+        let actual = self.describe_type_for_diagnostic(actual);
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+        TypeDiagnosticCode::ConstraintFunctionTypeMismatch,
+        format!(
+            "struct `{struct_name}` does not satisfy `{constraint_name}`: function `{function_name}` expected `{expected}`, got `{actual}`"
+        ),
+        span,
+    ));
+    }
 }

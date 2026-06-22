@@ -127,6 +127,8 @@ pub enum TypeDiagnosticCode {
     InvalidSatisfiesTarget,
     MissingConstraintField,
     ConstraintFieldTypeMismatch,
+    MissingConstraintFunction,
+    ConstraintFunctionTypeMismatch,
 }
 
 impl DiagnosticCodeKind for TypeDiagnosticCode {
@@ -161,6 +163,8 @@ impl DiagnosticCodeKind for TypeDiagnosticCode {
             Self::InvalidSatisfiesTarget => "T0027",
             Self::MissingConstraintField => "T0028",
             Self::ConstraintFieldTypeMismatch => "T0029",
+            Self::MissingConstraintFunction => "T0030",
+            Self::ConstraintFunctionTypeMismatch => "T0031",
         }
     }
 
@@ -195,6 +199,8 @@ impl DiagnosticCodeKind for TypeDiagnosticCode {
             Self::InvalidSatisfiesTarget => "invalid satisfies target",
             Self::MissingConstraintField => "missing constraint field",
             Self::ConstraintFieldTypeMismatch => "constraint field type mismatch",
+            Self::MissingConstraintFunction => "missing constraint function",
+            Self::ConstraintFunctionTypeMismatch => "constraint function type mismatch",
         }
     }
 }
