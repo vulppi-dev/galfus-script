@@ -12,6 +12,7 @@ mod initializers;
 mod literals;
 mod operators;
 mod returns;
+mod structs;
 mod support;
 
 use galfus_core::{DiagnosticBag, SourceFile};

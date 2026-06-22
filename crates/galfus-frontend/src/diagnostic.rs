@@ -110,6 +110,10 @@ pub enum TypeDiagnosticCode {
     CannotInferType,
     EmptyArrayLiteral,
     DynamicSpreadInArrayLiteral,
+    UnknownStructField,
+    DuplicateStructField,
+    MissingStructField,
+    InvalidStructLiteralTarget,
 }
 
 impl DiagnosticCodeKind for TypeDiagnosticCode {
@@ -127,6 +131,10 @@ impl DiagnosticCodeKind for TypeDiagnosticCode {
             Self::CannotInferType => "T0010",
             Self::EmptyArrayLiteral => "T0011",
             Self::DynamicSpreadInArrayLiteral => "T0012",
+            Self::UnknownStructField => "T0013",
+            Self::DuplicateStructField => "T0014",
+            Self::MissingStructField => "T0015",
+            Self::InvalidStructLiteralTarget => "T0016",
         }
     }
 
@@ -144,6 +152,10 @@ impl DiagnosticCodeKind for TypeDiagnosticCode {
             Self::CannotInferType => "cannot infer type",
             Self::EmptyArrayLiteral => "empty array literal is not allowed",
             Self::DynamicSpreadInArrayLiteral => "dynamic spread in array literal is not allowed",
+            Self::UnknownStructField => "unknown struct field",
+            Self::DuplicateStructField => "duplicate struct field",
+            Self::MissingStructField => "missing struct field",
+            Self::InvalidStructLiteralTarget => "invalid struct literal target",
         }
     }
 }

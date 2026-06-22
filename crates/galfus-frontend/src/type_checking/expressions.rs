@@ -25,6 +25,12 @@ impl<'a> DeclarationTypeChecker<'a> {
 
             SyntaxNodeKind::NullLiteral => Some(self.layer.table().primitive(PrimitiveType::Null)),
 
+            SyntaxNodeKind::StringLiteral => self.infer_string_literal_type(node),
+
+            SyntaxNodeKind::ArrayLiteral => self.infer_array_literal_type(node),
+
+            SyntaxNodeKind::StructLiteral => self.infer_struct_literal_type(node),
+
             SyntaxNodeKind::GroupedExpression => {
                 let inner = self.graph.syntax().child(node, 0)?;
                 self.infer_expression_type(inner)
@@ -39,10 +45,6 @@ impl<'a> DeclarationTypeChecker<'a> {
             SyntaxNodeKind::NullSafeMemberExpression => {
                 self.infer_member_expression_type(node, true)
             }
-
-            SyntaxNodeKind::StringLiteral => self.infer_string_literal_type(node),
-
-            SyntaxNodeKind::ArrayLiteral => self.infer_array_literal_type(node),
 
             SyntaxNodeKind::IndexExpression => self.infer_index_expression_type(node),
 

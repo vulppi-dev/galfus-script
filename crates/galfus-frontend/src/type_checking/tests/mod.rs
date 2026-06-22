@@ -6,6 +6,7 @@ mod initializers;
 mod literals;
 mod operators;
 mod returns;
+mod structs;
 
 use super::*;
 
@@ -78,6 +79,31 @@ fn find_node_by_kind_and_text_from(
 
     for child in syntax_node.children() {
         if let Some(found) = find_node_by_kind_and_text_from(source, graph, *child, kind, text) {
+            return Some(found);
+        }
+    }
+
+    None
+}
+
+fn find_node_by_kind(graph: &ModuleGraph, kind: SyntaxNodeKind) -> Option<NodeId> {
+    let root = graph.syntax().root()?;
+    find_node_by_kind_from(graph, root, kind)
+}
+
+fn find_node_by_kind_from(
+    graph: &ModuleGraph,
+    node: NodeId,
+    kind: SyntaxNodeKind,
+) -> Option<NodeId> {
+    let syntax_node = graph.syntax().node(node)?;
+
+    if syntax_node.kind() == kind {
+        return Some(node);
+    }
+
+    for child in syntax_node.children() {
+        if let Some(found) = find_node_by_kind_from(graph, *child, kind) {
             return Some(found);
         }
     }

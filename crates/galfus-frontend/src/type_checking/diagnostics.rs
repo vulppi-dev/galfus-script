@@ -244,4 +244,78 @@ impl<'a> DeclarationTypeChecker<'a> {
             span,
         ));
     }
+
+    pub(super) fn report_unknown_struct_field(
+        &mut self,
+        field: NodeId,
+        field_name: &str,
+        struct_name: &str,
+    ) {
+        let span = self
+            .graph
+            .syntax()
+            .node(field)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+            TypeDiagnosticCode::UnknownStructField,
+            format!("struct `{struct_name}` has no field `{field_name}`"),
+            span,
+        ));
+    }
+
+    pub(super) fn report_duplicate_struct_field(&mut self, field: NodeId, field_name: &str) {
+        let span = self
+            .graph
+            .syntax()
+            .node(field)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+            TypeDiagnosticCode::DuplicateStructField,
+            format!("duplicate field `{field_name}` in struct literal"),
+            span,
+        ));
+    }
+
+    pub(super) fn report_missing_struct_field(
+        &mut self,
+        literal: NodeId,
+        field_name: &str,
+        struct_name: &str,
+    ) {
+        let span = self
+            .graph
+            .syntax()
+            .node(literal)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+            TypeDiagnosticCode::MissingStructField,
+            format!("missing required field `{field_name}` for struct `{struct_name}`"),
+            span,
+        ));
+    }
+
+    pub(super) fn report_invalid_struct_literal_target(
+        &mut self,
+        target: NodeId,
+        target_name: &str,
+    ) {
+        let span = self
+            .graph
+            .syntax()
+            .node(target)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+            TypeDiagnosticCode::InvalidStructLiteralTarget,
+            format!("struct literal target `{target_name}` is not a struct"),
+            span,
+        ));
+    }
 }
