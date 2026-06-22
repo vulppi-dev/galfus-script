@@ -32,12 +32,12 @@ struct StructFunctionInfo {
     ty: TypeId,
 }
 
-type TypeSubstitution = HashMap<SymbolId, TypeId>;
+pub(super) type TypeSubstitution = HashMap<SymbolId, TypeId>;
 
 #[derive(Debug, Clone)]
-struct ConstraintApplication {
-    symbol: SymbolId,
-    substitution: TypeSubstitution,
+pub(super) struct ConstraintApplication {
+    pub(super) symbol: SymbolId,
+    pub(super) substitution: TypeSubstitution,
 }
 
 #[derive(Debug, Clone)]
@@ -225,7 +225,7 @@ impl<'a> DeclarationTypeChecker<'a> {
         Some((symbol, struct_name))
     }
 
-    fn symbol_name(&self, symbol: SymbolId) -> Option<String> {
+    pub(super) fn symbol_name(&self, symbol: SymbolId) -> Option<String> {
         let resolution = self.graph.resolution()?;
         let symbol_data = resolution.symbol(symbol)?;
 
@@ -594,7 +594,14 @@ impl<'a> DeclarationTypeChecker<'a> {
         None
     }
 
-    fn constraint_generic_parameters(&self, constraint_symbol: SymbolId) -> Vec<SymbolId> {
+    pub(super) fn constraint_generic_parameters(
+        &self,
+        constraint_symbol: SymbolId,
+    ) -> Vec<SymbolId> {
+        if let Some(parameters) = self.builtin_constraint_generic_parameters(constraint_symbol) {
+            return parameters;
+        }
+
         let Some(constraint_item) = self.constraint_item_for_symbol(constraint_symbol) else {
             return Vec::new();
         };
@@ -700,5 +707,61 @@ impl<'a> DeclarationTypeChecker<'a> {
 
             _ => ty,
         }
+    }
+
+    pub(super) fn satisfied_constraint_application(
+        &mut self,
+        ty: TypeId,
+        constraint_name: &str,
+    ) -> Option<ConstraintApplication> {
+        let ty = self.resolve_alias_type(ty);
+
+        let symbol = match self.layer.table().kind(ty).cloned()? {
+            TypeKind::Named { symbol } => symbol,
+            _ => return None,
+        };
+
+        let resolution = self.graph.resolution()?;
+        let symbol_data = resolution.symbol(symbol)?;
+
+        if symbol_data.kind() != SymbolKind::Struct {
+            return None;
+        }
+
+        let struct_item = self.type_item_for_symbol(symbol)?;
+        let satisfies = self
+            .graph
+            .syntax()
+            .first_child_of_kind(struct_item, SyntaxNodeKind::SatisfiesClause)?;
+
+        let constraints = self
+            .graph
+            .syntax()
+            .node(satisfies)
+            .map(|node| node.children().to_vec())
+            .unwrap_or_default();
+
+        for constraint_type in constraints {
+            let Ok(application) = self.constraint_application(constraint_type) else {
+                continue;
+            };
+
+            let Some(name) = self.symbol_name(application.symbol) else {
+                continue;
+            };
+
+            if name == constraint_name {
+                return Some(application);
+            }
+        }
+
+        None
+    }
+
+    fn type_item_for_symbol(&self, symbol: SymbolId) -> Option<NodeId> {
+        let resolution = self.graph.resolution()?;
+        let member_scope = resolution.member_scope(symbol)?;
+        let scope = resolution.scope(member_scope)?;
+        scope.owner()
     }
 }

@@ -4,6 +4,7 @@ mod tests;
 mod access;
 mod assignability;
 mod assignments;
+mod builtin_constraints;
 mod calls;
 mod constraints;
 mod control_flow;
@@ -75,6 +76,7 @@ impl<'a> DeclarationTypeChecker<'a> {
 
     fn check(&mut self) {
         self.bind_builtin_symbol_types();
+        self.bind_builtin_constraint_symbol_types();
         self.bind_named_type_definition_symbols();
 
         let Some(root) = self.graph.syntax().root() else {

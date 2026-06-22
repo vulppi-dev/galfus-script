@@ -428,7 +428,7 @@ impl<'a> DeclarationTypeChecker<'a> {
 
         self.diagnostics.push(Diagnostic::error_with_message(
             TypeDiagnosticCode::InvalidIterableType,
-            format!("for iterable must be an array, got `{actual}`"),
+            format!("for iterable must satisfy `Iterable`, got `{actual}`"),
             span,
         ));
     }

@@ -1,6 +1,6 @@
-use galfus_core::{NodeId, TypeId};
+use galfus_core::{NodeId, SymbolId, TypeId};
 
-use crate::{PrimitiveType, SyntaxNodeKind};
+use crate::{PrimitiveType, SymbolKind, SyntaxNodeKind};
 
 use super::DeclarationTypeChecker;
 
@@ -74,7 +74,7 @@ impl<'a> DeclarationTypeChecker<'a> {
         Some(ty)
     }
 
-    fn infer_name_expression_type(&self, node: NodeId) -> Option<TypeId> {
+    fn infer_name_expression_type(&mut self, node: NodeId) -> Option<TypeId> {
         let resolution = self.graph.resolution()?;
 
         let symbol = resolution.reference_symbol(node).or_else(|| {
@@ -86,7 +86,61 @@ impl<'a> DeclarationTypeChecker<'a> {
             resolution.reference_symbol(identifier)
         })?;
 
-        self.layer.symbol_type(symbol)
+        self.layer
+            .symbol_type(symbol)
+            .or_else(|| self.infer_unbound_symbol_type(symbol))
+    }
+
+    fn infer_unbound_symbol_type(&mut self, symbol: SymbolId) -> Option<TypeId> {
+        let root = self.graph.syntax().root()?;
+        let initializer = self.find_initializer_for_symbol(root, symbol)?;
+
+        let error = self.layer.table_mut().error();
+        self.layer.bind_symbol_type(symbol, error);
+
+        let ty = self.infer_expression_type(initializer)?;
+        self.layer.bind_symbol_type(symbol, ty);
+
+        Some(ty)
+    }
+
+    fn find_initializer_for_symbol(&self, node: NodeId, symbol: SymbolId) -> Option<NodeId> {
+        let syntax_node = self.graph.syntax().node(node)?;
+
+        if matches!(
+            syntax_node.kind(),
+            SyntaxNodeKind::VarItem
+                | SyntaxNodeKind::ConstItem
+                | SyntaxNodeKind::VarStatement
+                | SyntaxNodeKind::ConstStatement
+        ) {
+            let symbols = self.declaration_symbols_in_node(
+                node,
+                &[
+                    SymbolKind::Var,
+                    SymbolKind::Const,
+                    SymbolKind::PatternBinding,
+                    SymbolKind::TypePatternBinding,
+                ],
+            );
+
+            if symbols.contains(&symbol) {
+                let initializer = self
+                    .graph
+                    .syntax()
+                    .first_child_of_kind(node, SyntaxNodeKind::Initializer)?;
+
+                return self.graph.syntax().child(initializer, 0);
+            }
+        }
+
+        for child in syntax_node.children() {
+            if let Some(initializer) = self.find_initializer_for_symbol(*child, symbol) {
+                return Some(initializer);
+            }
+        }
+
+        None
     }
 
     fn infer_tuple_expression_type(&mut self, node: NodeId) -> Option<TypeId> {
