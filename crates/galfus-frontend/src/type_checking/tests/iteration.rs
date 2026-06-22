@@ -331,3 +331,129 @@ fn check_accepts_builtin_comparable_constraint() {
 
     assert!(!result.has_errors());
 }
+
+#[test]
+fn check_reports_iterable_iter_return_type_mismatch() {
+    let source = source(
+        r#"
+struct Iter {}
+
+struct Source satisfies Iterable<Source, int32, Iter> {}
+
+fn Source::iter(self: Source): bool {
+  return true
+}
+"#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.into_graph();
+    let result = check_declaration_types(&source, &graph);
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::ConstraintFunctionTypeMismatch.as_code()
+            && diagnostic.message().contains("function `iter` expected")
+    }));
+}
+
+#[test]
+fn check_reports_iterator_next_item_type_mismatch() {
+    let source = source(
+        r#"
+struct BadIterator satisfies Iterator<BadIterator, int32> {}
+
+fn BadIterator::next(self: BadIterator): bool | null {
+  return true
+}
+"#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.into_graph();
+    let result = check_declaration_types(&source, &graph);
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::ConstraintFunctionTypeMismatch.as_code()
+            && diagnostic.message().contains("function `next` expected")
+    }));
+}
+
+#[test]
+fn check_reports_builtin_comparable_return_type_mismatch() {
+    let source = source(
+        r#"
+struct Pattern satisfies Comparable<Pattern, [uint8]> {}
+
+fn Pattern::compare(self: Pattern, value: [uint8]): int32 {
+  return 0
+}
+"#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.into_graph();
+    let result = check_declaration_types(&source, &graph);
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::ConstraintFunctionTypeMismatch.as_code()
+            && diagnostic.message().contains("function `compare` expected")
+    }));
+}
+
+#[test]
+fn check_reports_for_over_iterator_without_iterable() {
+    let source = source(
+        r#"
+struct Counter satisfies Iterator<Counter, int32> {}
+
+fn Counter::next(self: Counter): int32 | null {
+  return 1
+}
+
+fn main(): null {
+  var counter = Counter {}
+
+  for value in counter {
+    var copied: int32 = value
+  }
+
+  return
+}
+"#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.into_graph();
+    let result = check_declaration_types(&source, &graph);
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::InvalidIterableType.as_code()
+            && diagnostic
+                .message()
+                .contains("for iterable must satisfy `Iterable`")
+    }));
+}
