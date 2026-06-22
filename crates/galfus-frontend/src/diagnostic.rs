@@ -102,6 +102,7 @@ pub enum TypeDiagnosticCode {
     NotCallable,
     ArgumentCountMismatch,
     UnsupportedOperator,
+    AssignmentToImmutable,
 }
 
 impl DiagnosticCodeKind for TypeDiagnosticCode {
@@ -111,6 +112,7 @@ impl DiagnosticCodeKind for TypeDiagnosticCode {
             Self::NotCallable => "T0002",
             Self::ArgumentCountMismatch => "T0003",
             Self::UnsupportedOperator => "T0004",
+            Self::AssignmentToImmutable => "T0005",
         }
     }
 
@@ -120,6 +122,7 @@ impl DiagnosticCodeKind for TypeDiagnosticCode {
             Self::NotCallable => "not callable",
             Self::ArgumentCountMismatch => "argument count mismatch",
             Self::UnsupportedOperator => "unsupported operator",
+            Self::AssignmentToImmutable => "assignment to immutable binding",
         }
     }
 }

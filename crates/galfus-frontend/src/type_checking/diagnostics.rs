@@ -105,4 +105,19 @@ impl<'a> DeclarationTypeChecker<'a> {
             span,
         ));
     }
+
+    pub(super) fn report_assignment_to_immutable(&mut self, target: NodeId, name: &str) {
+        let span = self
+            .graph
+            .syntax()
+            .node(target)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+            TypeDiagnosticCode::AssignmentToImmutable,
+            format!("cannot assign to immutable binding `{name}`"),
+            span,
+        ));
+    }
 }

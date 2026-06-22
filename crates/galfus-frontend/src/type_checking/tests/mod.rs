@@ -1,3 +1,4 @@
+mod assignments;
 mod calls;
 mod declarations;
 mod initializers;

@@ -191,15 +191,15 @@ impl<'a> DeclarationTypeChecker<'a> {
         Some(self.layer.table_mut().error())
     }
 
-    fn is_same_numeric_type(&self, left: TypeId, right: TypeId) -> bool {
+    pub(super) fn is_same_numeric_type(&self, left: TypeId, right: TypeId) -> bool {
         left == right && self.is_numeric_type(left)
     }
 
-    fn is_same_integer_type(&self, left: TypeId, right: TypeId) -> bool {
+    pub(super) fn is_same_integer_type(&self, left: TypeId, right: TypeId) -> bool {
         left == right && self.is_integer_type(left)
     }
 
-    fn is_numeric_type(&self, ty: TypeId) -> bool {
+    pub(super) fn is_numeric_type(&self, ty: TypeId) -> bool {
         match self.layer.table().kind(ty) {
             Some(TypeKind::Primitive(primitive)) => self.is_numeric_primitive(*primitive),
             Some(TypeKind::Error) => true,
@@ -207,7 +207,7 @@ impl<'a> DeclarationTypeChecker<'a> {
         }
     }
 
-    fn is_integer_type(&self, ty: TypeId) -> bool {
+    pub(super) fn is_integer_type(&self, ty: TypeId) -> bool {
         match self.layer.table().kind(ty) {
             Some(TypeKind::Primitive(primitive)) => self.is_integer_primitive(*primitive),
             Some(TypeKind::Error) => true,
