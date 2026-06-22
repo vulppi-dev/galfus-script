@@ -368,4 +368,51 @@ impl<'a> DeclarationTypeChecker<'a> {
             span,
         ));
     }
+
+    pub(super) fn report_invalid_condition_type(&mut self, condition: NodeId, actual: TypeId) {
+        let span = self
+            .graph
+            .syntax()
+            .node(condition)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        let actual = self.layer.table().describe(actual);
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+            TypeDiagnosticCode::InvalidConditionType,
+            format!("condition must be `bool`, got `{actual}`"),
+            span,
+        ));
+    }
+
+    pub(super) fn report_break_outside_loop(&mut self, node: NodeId) {
+        let span = self
+            .graph
+            .syntax()
+            .node(node)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+            TypeDiagnosticCode::BreakOutsideLoop,
+            "`break` can only be used inside a loop",
+            span,
+        ));
+    }
+
+    pub(super) fn report_continue_outside_loop(&mut self, node: NodeId) {
+        let span = self
+            .graph
+            .syntax()
+            .node(node)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+            TypeDiagnosticCode::ContinueOutsideLoop,
+            "`continue` can only be used inside a loop",
+            span,
+        ));
+    }
 }

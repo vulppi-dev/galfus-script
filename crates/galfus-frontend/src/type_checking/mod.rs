@@ -5,6 +5,7 @@ mod access;
 mod assignability;
 mod assignments;
 mod calls;
+mod control_flow;
 mod declarations;
 mod diagnostics;
 mod expressions;
@@ -81,6 +82,7 @@ impl<'a> DeclarationTypeChecker<'a> {
         self.check_initializer_types(root);
         self.check_return_types(root, None);
         self.check_assignment_types(root);
+        self.check_control_flow(root, 0);
     }
 }
 

@@ -116,6 +116,9 @@ pub enum TypeDiagnosticCode {
     InvalidStructLiteralTarget,
     ChoicePayloadRequired,
     ChoicePayloadNotAllowed,
+    InvalidConditionType,
+    BreakOutsideLoop,
+    ContinueOutsideLoop,
 }
 
 impl DiagnosticCodeKind for TypeDiagnosticCode {
@@ -139,6 +142,9 @@ impl DiagnosticCodeKind for TypeDiagnosticCode {
             Self::InvalidStructLiteralTarget => "T0016",
             Self::ChoicePayloadRequired => "T0017",
             Self::ChoicePayloadNotAllowed => "T0018",
+            Self::InvalidConditionType => "T0019",
+            Self::BreakOutsideLoop => "T0020",
+            Self::ContinueOutsideLoop => "T0021",
         }
     }
 
@@ -162,6 +168,9 @@ impl DiagnosticCodeKind for TypeDiagnosticCode {
             Self::InvalidStructLiteralTarget => "invalid struct literal target",
             Self::ChoicePayloadRequired => "choice payload required",
             Self::ChoicePayloadNotAllowed => "choice payload not allowed",
+            Self::InvalidConditionType => "invalid condition type",
+            Self::BreakOutsideLoop => "break outside loop",
+            Self::ContinueOutsideLoop => "continue outside loop",
         }
     }
 }
