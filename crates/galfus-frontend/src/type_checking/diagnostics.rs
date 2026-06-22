@@ -120,4 +120,60 @@ impl<'a> DeclarationTypeChecker<'a> {
             span,
         ));
     }
+
+    pub(super) fn report_unknown_member(
+        &mut self,
+        member: NodeId,
+        member_name: &str,
+        target_type: TypeId,
+    ) {
+        let span = self
+            .graph
+            .syntax()
+            .node(member)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        let target_type = self.layer.table().describe(target_type);
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+            TypeDiagnosticCode::UnknownMember,
+            format!("type `{target_type}` has no member `{member_name}`"),
+            span,
+        ));
+    }
+
+    pub(super) fn report_invalid_index_target(&mut self, target: NodeId, target_type: TypeId) {
+        let span = self
+            .graph
+            .syntax()
+            .node(target)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        let target_type = self.layer.table().describe(target_type);
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+            TypeDiagnosticCode::InvalidIndexTarget,
+            format!("type `{target_type}` cannot be indexed"),
+            span,
+        ));
+    }
+
+    pub(super) fn report_invalid_index_type(&mut self, index: NodeId, index_type: TypeId) {
+        let span = self
+            .graph
+            .syntax()
+            .node(index)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        let index_type = self.layer.table().describe(index_type);
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+            TypeDiagnosticCode::InvalidIndexType,
+            format!("index must be an integer, got `{index_type}`"),
+            span,
+        ));
+    }
 }

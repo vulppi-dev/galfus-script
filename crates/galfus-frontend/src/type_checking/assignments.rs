@@ -70,7 +70,12 @@ impl<'a> DeclarationTypeChecker<'a> {
     }
 
     fn assignment_target_type(&mut self, target: NodeId) -> Option<TypeId> {
-        self.infer_expression_type(target)
+        let target_node = self.graph.syntax().node(target)?;
+
+        match target_node.kind() {
+            SyntaxNodeKind::NameExpression => self.infer_expression_type(target),
+            _ => None,
+        }
     }
 
     fn assignment_target_symbol(&self, target: NodeId) -> Option<SymbolId> {

@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod tests;
 
+mod access;
 mod assignability;
 mod assignments;
 mod calls;

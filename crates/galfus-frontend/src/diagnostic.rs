@@ -103,6 +103,9 @@ pub enum TypeDiagnosticCode {
     ArgumentCountMismatch,
     UnsupportedOperator,
     AssignmentToImmutable,
+    UnknownMember,
+    InvalidIndexTarget,
+    InvalidIndexType,
 }
 
 impl DiagnosticCodeKind for TypeDiagnosticCode {
@@ -113,6 +116,9 @@ impl DiagnosticCodeKind for TypeDiagnosticCode {
             Self::ArgumentCountMismatch => "T0003",
             Self::UnsupportedOperator => "T0004",
             Self::AssignmentToImmutable => "T0005",
+            Self::UnknownMember => "T0006",
+            Self::InvalidIndexTarget => "T0007",
+            Self::InvalidIndexType => "T0008",
         }
     }
 
@@ -123,6 +129,9 @@ impl DiagnosticCodeKind for TypeDiagnosticCode {
             Self::ArgumentCountMismatch => "argument count mismatch",
             Self::UnsupportedOperator => "unsupported operator",
             Self::AssignmentToImmutable => "assignment to immutable binding",
+            Self::UnknownMember => "unknown member",
+            Self::InvalidIndexTarget => "invalid index target",
+            Self::InvalidIndexType => "invalid index type",
         }
     }
 }

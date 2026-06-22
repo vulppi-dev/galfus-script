@@ -1,0 +1,173 @@
+use galfus_core::{NodeId, SymbolId, TypeId};
+
+use crate::{PrimitiveType, SymbolKind, TypeKind};
+
+use super::DeclarationTypeChecker;
+
+impl<'a> DeclarationTypeChecker<'a> {
+    pub(super) fn infer_member_expression_type(
+        &mut self,
+        node: NodeId,
+        null_safe: bool,
+    ) -> Option<TypeId> {
+        let target = self.graph.syntax().child(node, 0)?;
+        let member = self.graph.syntax().child(node, 1)?;
+
+        let target_type = self.infer_expression_type(target)?;
+        let member_name = self.node_text(member);
+
+        let target_contains_null = self.type_contains_null(target_type);
+
+        if target_contains_null && !null_safe {
+            self.report_unknown_member(member, member_name.as_str(), target_type);
+            let error = self.layer.table_mut().error();
+            self.layer.bind_node_type(node, error);
+            return Some(error);
+        }
+
+        let target_types = self.non_null_member_target_types(target_type);
+
+        if target_types.is_empty() {
+            self.report_unknown_member(member, member_name.as_str(), target_type);
+            let error = self.layer.table_mut().error();
+            self.layer.bind_node_type(node, error);
+            return Some(error);
+        }
+
+        let mut member_types = Vec::new();
+
+        for target_type in target_types {
+            let Some(member_type) =
+                self.member_type_for_target_type(target_type, member_name.as_str())
+            else {
+                self.report_unknown_member(member, member_name.as_str(), target_type);
+                let error = self.layer.table_mut().error();
+                self.layer.bind_node_type(node, error);
+                return Some(error);
+            };
+
+            member_types.push(member_type);
+        }
+
+        if null_safe && target_contains_null {
+            member_types.push(self.layer.table().primitive(PrimitiveType::Null));
+        }
+
+        let ty = self.layer.table_mut().intern_union(member_types);
+
+        self.layer.bind_node_type(node, ty);
+        Some(ty)
+    }
+
+    pub(super) fn infer_index_expression_type(&mut self, node: NodeId) -> Option<TypeId> {
+        let target = self.graph.syntax().child(node, 0)?;
+        let index = self.graph.syntax().child(node, 1)?;
+
+        let target_type = self.infer_expression_type(target)?;
+        let index_type = self.infer_expression_type(index)?;
+
+        if !self.is_integer_type(index_type) {
+            self.report_invalid_index_type(index, index_type);
+            let error = self.layer.table_mut().error();
+            self.layer.bind_node_type(node, error);
+            return Some(error);
+        }
+
+        let Some(element_type) = self.index_element_type(target_type) else {
+            self.report_invalid_index_target(target, target_type);
+            let error = self.layer.table_mut().error();
+            self.layer.bind_node_type(node, error);
+            return Some(error);
+        };
+
+        let null_type = self.layer.table().primitive(PrimitiveType::Null);
+        let ty = self
+            .layer
+            .table_mut()
+            .intern_union([element_type, null_type]);
+
+        self.layer.bind_node_type(node, ty);
+        Some(ty)
+    }
+
+    fn member_type_for_target_type(
+        &self,
+        target_type: TypeId,
+        member_name: &str,
+    ) -> Option<TypeId> {
+        match self.layer.table().kind(target_type) {
+            Some(TypeKind::Named { symbol }) => self.member_type_for_symbol(*symbol, member_name),
+
+            Some(TypeKind::Error) => Some(target_type),
+
+            _ => None,
+        }
+    }
+
+    fn member_type_for_symbol(&self, symbol: SymbolId, member_name: &str) -> Option<TypeId> {
+        let resolution = self.graph.resolution()?;
+
+        let symbol_data = resolution.symbol(symbol)?;
+
+        if !matches!(
+            symbol_data.kind(),
+            SymbolKind::Struct | SymbolKind::Choice | SymbolKind::Enum
+        ) {
+            return None;
+        }
+
+        let member_scope = resolution.member_scope(symbol)?;
+
+        let member_symbol = resolution
+            .scope(member_scope)
+            .and_then(|scope| scope.symbol(member_name))?;
+
+        let member_symbol_data = resolution.symbol(member_symbol)?;
+
+        if member_symbol_data.kind() != SymbolKind::StructField {
+            return None;
+        }
+
+        self.layer.symbol_type(member_symbol)
+    }
+
+    fn non_null_member_target_types(&self, ty: TypeId) -> Vec<TypeId> {
+        let null_type = self.layer.table().primitive(PrimitiveType::Null);
+
+        match self.layer.table().kind(ty) {
+            Some(TypeKind::Union { members }) => members
+                .iter()
+                .copied()
+                .filter(|member| *member != null_type)
+                .collect(),
+
+            Some(TypeKind::Primitive(PrimitiveType::Null)) => Vec::new(),
+
+            Some(TypeKind::Error) => vec![ty],
+
+            _ => vec![ty],
+        }
+    }
+
+    fn type_contains_null(&self, ty: TypeId) -> bool {
+        let null_type = self.layer.table().primitive(PrimitiveType::Null);
+
+        match self.layer.table().kind(ty) {
+            Some(TypeKind::Union { members }) => members.contains(&null_type),
+            Some(TypeKind::Primitive(PrimitiveType::Null)) => true,
+            _ => false,
+        }
+    }
+
+    fn index_element_type(&self, target_type: TypeId) -> Option<TypeId> {
+        match self.layer.table().kind(target_type) {
+            Some(TypeKind::Array { element }) => Some(*element),
+
+            Some(TypeKind::FixedArray { element, .. }) => Some(*element),
+
+            Some(TypeKind::Error) => Some(target_type),
+
+            _ => None,
+        }
+    }
+}
