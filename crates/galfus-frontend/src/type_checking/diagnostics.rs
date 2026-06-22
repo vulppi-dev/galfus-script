@@ -641,4 +641,27 @@ impl<'a> DeclarationTypeChecker<'a> {
         span,
     ));
     }
+
+    pub(super) fn report_constraint_generic_argument_count_mismatch(
+        &mut self,
+        target: NodeId,
+        constraint_name: &str,
+        expected: usize,
+        actual: usize,
+    ) {
+        let span = self
+            .graph
+            .syntax()
+            .node(target)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+        TypeDiagnosticCode::ConstraintGenericArgumentCountMismatch,
+        format!(
+            "constraint `{constraint_name}` expects {expected} generic argument(s), got {actual}"
+        ),
+        span,
+    ));
+    }
 }

@@ -270,3 +270,142 @@ fn User::set(value: int32): null {
             && diagnostic.message().contains("function `set`")
     }));
 }
+
+#[test]
+fn check_accepts_generic_constraint_function_explicit_argument() {
+    let (_source, _graph, result) = check_source(
+        r#"
+constraint Stringable<T> {
+  fn toString(self: T): [uint8],
+}
+
+struct User satisfies Stringable<User> {
+  name: [uint8],
+}
+
+fn User::toString(self: User): [uint8] {
+  return self.name
+}
+"#,
+    );
+
+    assert!(!result.has_errors());
+}
+
+#[test]
+fn check_reports_generic_constraint_function_self_type_mismatch() {
+    let source = source(
+        r#"
+constraint Stringable<T> {
+  fn toString(self: T): [uint8],
+}
+
+struct User satisfies Stringable<User> {
+  name: [uint8],
+}
+
+fn User::toString(self: int32): [uint8] {
+  return "invalid"
+}
+"#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.into_graph();
+    let result = check_declaration_types(&source, &graph);
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::ConstraintFunctionTypeMismatch.as_code()
+            && diagnostic.message().contains("function `toString`")
+    }));
+}
+
+#[test]
+fn check_accepts_generic_constraint_field() {
+    let (_source, _graph, result) = check_source(
+        r#"
+constraint HasValue<T> {
+  value: T,
+}
+
+struct IntBox satisfies HasValue<int32> {
+  value: int32,
+}
+"#,
+    );
+
+    assert!(!result.has_errors());
+}
+
+#[test]
+fn check_reports_generic_constraint_field_type_mismatch() {
+    let source = source(
+        r#"
+constraint HasValue<T> {
+  value: T,
+}
+
+struct IntBox satisfies HasValue<int32> {
+  value: bool,
+}
+"#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.into_graph();
+    let result = check_declaration_types(&source, &graph);
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::ConstraintFieldTypeMismatch.as_code()
+            && diagnostic.message().contains("field `value`")
+    }));
+}
+
+#[test]
+fn check_reports_generic_constraint_missing_argument() {
+    let source = source(
+        r#"
+constraint Stringable<T> {
+  fn toString(self: T): [uint8],
+}
+
+struct User satisfies Stringable {
+  name: [uint8],
+}
+
+fn User::toString(self: User): [uint8] {
+  return self.name
+}
+"#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.into_graph();
+    let result = check_declaration_types(&source, &graph);
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str()
+            == TypeDiagnosticCode::ConstraintGenericArgumentCountMismatch.as_code()
+            && diagnostic
+                .message()
+                .contains("constraint `Stringable` expects 1 generic argument")
+    }));
+}

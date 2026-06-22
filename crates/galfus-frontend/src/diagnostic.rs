@@ -129,6 +129,7 @@ pub enum TypeDiagnosticCode {
     ConstraintFieldTypeMismatch,
     MissingConstraintFunction,
     ConstraintFunctionTypeMismatch,
+    ConstraintGenericArgumentCountMismatch,
 }
 
 impl DiagnosticCodeKind for TypeDiagnosticCode {
@@ -165,6 +166,7 @@ impl DiagnosticCodeKind for TypeDiagnosticCode {
             Self::ConstraintFieldTypeMismatch => "T0029",
             Self::MissingConstraintFunction => "T0030",
             Self::ConstraintFunctionTypeMismatch => "T0031",
+            Self::ConstraintGenericArgumentCountMismatch => "T0032",
         }
     }
 
@@ -201,6 +203,9 @@ impl DiagnosticCodeKind for TypeDiagnosticCode {
             Self::ConstraintFieldTypeMismatch => "constraint field type mismatch",
             Self::MissingConstraintFunction => "missing constraint function",
             Self::ConstraintFunctionTypeMismatch => "constraint function type mismatch",
+            Self::ConstraintGenericArgumentCountMismatch => {
+                "constraint generic argument count mismatch"
+            }
         }
     }
 }

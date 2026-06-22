@@ -1,6 +1,8 @@
+use std::collections::HashMap;
+
 use galfus_core::{NodeId, SymbolId, TypeId};
 
-use crate::{SymbolKind, SyntaxNodeKind};
+use crate::{FunctionParameterType, SymbolKind, SyntaxNodeKind, TypeKind};
 
 use super::DeclarationTypeChecker;
 
@@ -28,6 +30,24 @@ struct StructFunctionInfo {
     node: NodeId,
     name: String,
     ty: TypeId,
+}
+
+type TypeSubstitution = HashMap<SymbolId, TypeId>;
+
+#[derive(Debug, Clone)]
+struct ConstraintApplication {
+    symbol: SymbolId,
+    substitution: TypeSubstitution,
+}
+
+#[derive(Debug, Clone)]
+enum ConstraintApplicationError {
+    InvalidTarget,
+    GenericArgumentCountMismatch {
+        constraint_name: String,
+        expected: usize,
+        actual: usize,
+    },
 }
 
 impl<'a> DeclarationTypeChecker<'a> {
@@ -90,12 +110,33 @@ impl<'a> DeclarationTypeChecker<'a> {
         struct_fields: &[StructFieldInfo],
         struct_functions: &[StructFunctionInfo],
     ) {
-        let constraint_name = self.node_text(constraint_type);
+        let target_name = self.node_text(constraint_type);
 
-        let Some(constraint_symbol) = self.constraint_symbol_from_type_node(constraint_type) else {
-            self.report_invalid_satisfies_target(constraint_type, constraint_name.as_str());
-            return;
+        let application = match self.constraint_application(constraint_type) {
+            Ok(application) => application,
+
+            Err(ConstraintApplicationError::InvalidTarget) => {
+                self.report_invalid_satisfies_target(constraint_type, target_name.as_str());
+                return;
+            }
+
+            Err(ConstraintApplicationError::GenericArgumentCountMismatch {
+                constraint_name,
+                expected,
+                actual,
+            }) => {
+                self.report_constraint_generic_argument_count_mismatch(
+                    constraint_type,
+                    constraint_name.as_str(),
+                    expected,
+                    actual,
+                );
+                return;
+            }
         };
+
+        let constraint_symbol = application.symbol;
+        let substitution = application.substitution;
 
         let Some(constraint_name) = self.symbol_name(constraint_symbol) else {
             return;
@@ -117,7 +158,9 @@ impl<'a> DeclarationTypeChecker<'a> {
                 continue;
             };
 
-            if self.is_assignable(constraint_field.ty, struct_field.ty) {
+            let expected = self.substitute_type(constraint_field.ty, &substitution);
+
+            if self.is_assignable(expected, struct_field.ty) {
                 continue;
             }
 
@@ -126,7 +169,7 @@ impl<'a> DeclarationTypeChecker<'a> {
                 struct_name,
                 constraint_name.as_str(),
                 constraint_field.name.as_str(),
-                constraint_field.ty,
+                expected,
                 struct_field.ty,
             );
         }
@@ -147,7 +190,9 @@ impl<'a> DeclarationTypeChecker<'a> {
                 continue;
             };
 
-            if self.is_assignable(constraint_function.ty, struct_function.ty) {
+            let expected = self.substitute_type(constraint_function.ty, &substitution);
+
+            if self.is_assignable(expected, struct_function.ty) {
                 continue;
             }
 
@@ -156,7 +201,7 @@ impl<'a> DeclarationTypeChecker<'a> {
                 struct_name,
                 constraint_name.as_str(),
                 constraint_function.name.as_str(),
-                constraint_function.ty,
+                expected,
                 struct_function.ty,
             );
         }
@@ -169,7 +214,6 @@ impl<'a> DeclarationTypeChecker<'a> {
             .first_child_of_kind(struct_item, SyntaxNodeKind::Identifier)?;
 
         let struct_name = self.node_text(name_node);
-
         let resolution = self.graph.resolution()?;
 
         let symbol = resolution
@@ -179,26 +223,6 @@ impl<'a> DeclarationTypeChecker<'a> {
             .map(|symbol| symbol.id())?;
 
         Some((symbol, struct_name))
-    }
-
-    fn constraint_symbol_from_type_node(&self, type_node: NodeId) -> Option<SymbolId> {
-        let ty = self.layer.node_type(type_node)?;
-
-        let ty = self.resolve_alias_type(ty);
-
-        let symbol = match self.layer.table().kind(ty) {
-            Some(crate::TypeKind::Named { symbol }) => *symbol,
-            _ => return None,
-        };
-
-        let resolution = self.graph.resolution()?;
-        let symbol_data = resolution.symbol(symbol)?;
-
-        if symbol_data.kind() != SymbolKind::Constraint {
-            return None;
-        }
-
-        Some(symbol)
     }
 
     fn symbol_name(&self, symbol: SymbolId) -> Option<String> {
@@ -437,5 +461,244 @@ impl<'a> DeclarationTypeChecker<'a> {
                             .ends_with(format!("::{function_name}").as_str()))
             })
             .map(|symbol| symbol.id())
+    }
+
+    fn constraint_application(
+        &mut self,
+        type_node: NodeId,
+    ) -> Result<ConstraintApplication, ConstraintApplicationError> {
+        let Some(constraint_symbol) = self.constraint_application_base_symbol(type_node) else {
+            return Err(ConstraintApplicationError::InvalidTarget);
+        };
+
+        let Some(constraint_name) = self.symbol_name(constraint_symbol) else {
+            return Err(ConstraintApplicationError::InvalidTarget);
+        };
+
+        let generic_parameters = self.constraint_generic_parameters(constraint_symbol);
+        let explicit_arguments = self.constraint_application_argument_types(type_node);
+
+        if generic_parameters.len() != explicit_arguments.len() {
+            return Err(ConstraintApplicationError::GenericArgumentCountMismatch {
+                constraint_name,
+                expected: generic_parameters.len(),
+                actual: explicit_arguments.len(),
+            });
+        }
+
+        let substitution = generic_parameters
+            .into_iter()
+            .zip(explicit_arguments)
+            .collect::<TypeSubstitution>();
+
+        Ok(ConstraintApplication {
+            symbol: constraint_symbol,
+            substitution,
+        })
+    }
+
+    fn constraint_application_base_symbol(&self, type_node: NodeId) -> Option<SymbolId> {
+        let generic_type = self.find_generic_type_node(type_node);
+
+        let base = if let Some(generic_type) = generic_type {
+            let syntax = self.graph.syntax();
+            let node = syntax.node(generic_type)?;
+
+            node.children().iter().copied().find(|child| {
+                syntax
+                    .node(*child)
+                    .is_some_and(|child_node| child_node.kind() != SyntaxNodeKind::TypeArgumentList)
+            })?
+        } else {
+            type_node
+        };
+
+        self.constraint_symbol_from_base_node(base)
+    }
+
+    fn constraint_symbol_from_base_node(&self, base: NodeId) -> Option<SymbolId> {
+        let resolution = self.graph.resolution()?;
+
+        if let Some(symbol) = resolution.type_reference_symbol(base) {
+            return self.ensure_constraint_symbol(symbol);
+        }
+
+        if let Some(symbol) = resolution.type_path_reference_symbol(base) {
+            return self.ensure_constraint_symbol(symbol);
+        }
+
+        let base_name = self.constraint_base_name(base)?;
+
+        resolution
+            .symbols()
+            .iter()
+            .find(|symbol| symbol.name() == base_name && symbol.kind() == SymbolKind::Constraint)
+            .map(|symbol| symbol.id())
+    }
+
+    fn ensure_constraint_symbol(&self, symbol: SymbolId) -> Option<SymbolId> {
+        let resolution = self.graph.resolution()?;
+        let symbol_data = resolution.symbol(symbol)?;
+
+        if symbol_data.kind() != SymbolKind::Constraint {
+            return None;
+        }
+
+        Some(symbol)
+    }
+
+    fn constraint_base_name(&self, base: NodeId) -> Option<String> {
+        let syntax = self.graph.syntax();
+        let node = syntax.node(base)?;
+
+        match node.kind() {
+            SyntaxNodeKind::Identifier => Some(self.node_text(base)),
+
+            SyntaxNodeKind::NamedType | SyntaxNodeKind::Path => {
+                let identifier = syntax.first_child_of_kind(base, SyntaxNodeKind::Identifier)?;
+                Some(self.node_text(identifier))
+            }
+
+            _ => None,
+        }
+    }
+
+    fn constraint_application_argument_types(&self, type_node: NodeId) -> Vec<TypeId> {
+        let Some(generic_type) = self.find_generic_type_node(type_node) else {
+            return Vec::new();
+        };
+
+        let Some(ty) = self.layer.node_type(generic_type) else {
+            return Vec::new();
+        };
+
+        match self.layer.table().kind(ty) {
+            Some(TypeKind::GenericInstance { arguments, .. }) => arguments.clone(),
+            _ => Vec::new(),
+        }
+    }
+
+    fn find_generic_type_node(&self, node: NodeId) -> Option<NodeId> {
+        let syntax_node = self.graph.syntax().node(node)?;
+
+        if syntax_node.kind() == SyntaxNodeKind::GenericType {
+            return Some(node);
+        }
+
+        for child in syntax_node.children() {
+            if let Some(found) = self.find_generic_type_node(*child) {
+                return Some(found);
+            }
+        }
+
+        None
+    }
+
+    fn constraint_generic_parameters(&self, constraint_symbol: SymbolId) -> Vec<SymbolId> {
+        let Some(constraint_item) = self.constraint_item_for_symbol(constraint_symbol) else {
+            return Vec::new();
+        };
+
+        self.declaration_symbols_in_node(constraint_item, &[SymbolKind::GenericParameter])
+    }
+
+    fn constraint_item_for_symbol(&self, constraint_symbol: SymbolId) -> Option<NodeId> {
+        let constraint_name = self.symbol_name(constraint_symbol)?;
+        let root = self.graph.syntax().root()?;
+
+        self.find_constraint_item_by_name(root, constraint_name.as_str())
+    }
+
+    fn find_constraint_item_by_name(&self, node: NodeId, constraint_name: &str) -> Option<NodeId> {
+        let syntax_node = self.graph.syntax().node(node)?;
+
+        if syntax_node.kind() == SyntaxNodeKind::ConstraintItem {
+            let name = self
+                .graph
+                .syntax()
+                .first_child_of_kind(node, SyntaxNodeKind::Identifier)?;
+
+            if self.node_text(name) == constraint_name {
+                return Some(node);
+            }
+
+            return None;
+        }
+
+        for child in syntax_node.children() {
+            if let Some(found) = self.find_constraint_item_by_name(*child, constraint_name) {
+                return Some(found);
+            }
+        }
+
+        None
+    }
+
+    fn substitute_type(&mut self, ty: TypeId, substitution: &TypeSubstitution) -> TypeId {
+        let ty = self.resolve_alias_type(ty);
+
+        match self.layer.table().kind(ty).cloned() {
+            Some(TypeKind::GenericParameter { symbol }) => {
+                substitution.get(&symbol).copied().unwrap_or(ty)
+            }
+
+            Some(TypeKind::Array { element }) => {
+                let element = self.substitute_type(element, substitution);
+                self.layer.table_mut().intern_array(element)
+            }
+
+            Some(TypeKind::FixedArray { element, size }) => {
+                let element = self.substitute_type(element, substitution);
+                self.layer.table_mut().intern_fixed_array(element, size)
+            }
+
+            Some(TypeKind::Union { members }) => {
+                let members = members
+                    .into_iter()
+                    .map(|member| self.substitute_type(member, substitution))
+                    .collect::<Vec<_>>();
+
+                self.layer.table_mut().intern_union(members)
+            }
+
+            Some(TypeKind::Tuple { elements }) => {
+                let elements = elements
+                    .into_iter()
+                    .map(|element| self.substitute_type(element, substitution))
+                    .collect::<Vec<_>>();
+
+                self.layer.table_mut().intern_tuple(elements)
+            }
+
+            Some(TypeKind::Function(function)) => {
+                let parameters = function
+                    .parameters()
+                    .iter()
+                    .map(|parameter| {
+                        let ty = self.substitute_type(parameter.ty(), substitution);
+
+                        if parameter.is_rest() {
+                            return FunctionParameterType::rest(ty);
+                        }
+
+                        if parameter.has_default() {
+                            return FunctionParameterType::with_default(ty);
+                        }
+
+                        FunctionParameterType::new(ty)
+                    })
+                    .collect::<Vec<_>>();
+
+                let return_type = self.substitute_type(function.return_type(), substitution);
+
+                self.layer
+                    .table_mut()
+                    .intern_function(parameters, return_type)
+            }
+
+            Some(TypeKind::Error) => ty,
+
+            _ => ty,
+        }
     }
 }
