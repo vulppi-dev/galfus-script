@@ -131,7 +131,7 @@ impl<'a> DeclarationTypeChecker<'a> {
         })
     }
 
-    fn choice_variant_payload_types(
+    pub(super) fn choice_variant_payload_types(
         &self,
         owner_symbol: SymbolId,
         variant_symbol: SymbolId,

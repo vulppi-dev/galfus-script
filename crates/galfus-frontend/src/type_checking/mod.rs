@@ -11,6 +11,7 @@ mod diagnostics;
 mod expressions;
 mod initializers;
 mod literals;
+mod matches;
 mod operators;
 mod returns;
 mod structs;

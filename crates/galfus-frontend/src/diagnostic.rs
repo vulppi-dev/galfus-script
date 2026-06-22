@@ -120,6 +120,8 @@ pub enum TypeDiagnosticCode {
     BreakOutsideLoop,
     ContinueOutsideLoop,
     InvalidIterableType,
+    InvalidMatchPatternType,
+    IncompatibleMatchArmType,
 }
 
 impl DiagnosticCodeKind for TypeDiagnosticCode {
@@ -147,6 +149,8 @@ impl DiagnosticCodeKind for TypeDiagnosticCode {
             Self::BreakOutsideLoop => "T0020",
             Self::ContinueOutsideLoop => "T0021",
             Self::InvalidIterableType => "T0022",
+            Self::InvalidMatchPatternType => "T0023",
+            Self::IncompatibleMatchArmType => "T0024",
         }
     }
 
@@ -174,6 +178,8 @@ impl DiagnosticCodeKind for TypeDiagnosticCode {
             Self::BreakOutsideLoop => "break outside loop",
             Self::ContinueOutsideLoop => "continue outside loop",
             Self::InvalidIterableType => "invalid iterable type",
+            Self::InvalidMatchPatternType => "invalid match pattern type",
+            Self::IncompatibleMatchArmType => "incompatible match arm type",
         }
     }
 }
