@@ -44,6 +44,8 @@ impl<'a> DeclarationTypeChecker<'a> {
 
             SyntaxNodeKind::MatchExpression => self.infer_match_expression_type(node),
 
+            SyntaxNodeKind::InstanceofExpression => self.infer_instanceof_expression_type(node),
+
             SyntaxNodeKind::MemberExpression => self.infer_member_expression_type(node, false),
 
             SyntaxNodeKind::NullSafeMemberExpression => {

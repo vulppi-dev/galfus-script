@@ -10,6 +10,7 @@ mod declarations;
 mod diagnostics;
 mod expressions;
 mod initializers;
+mod instanceof;
 mod literals;
 mod matches;
 mod operators;

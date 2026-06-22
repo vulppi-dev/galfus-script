@@ -4,6 +4,7 @@ mod calls;
 mod control_flow;
 mod declarations;
 mod initializers;
+mod instanceof;
 mod iteration;
 mod literals;
 mod matches;

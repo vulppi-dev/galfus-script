@@ -112,6 +112,10 @@ impl<'a> DeclarationTypeChecker<'a> {
                 self.check_variant_match_pattern_type(pattern, expected);
             }
 
+            SyntaxNodeKind::WildcardPattern => {
+                self.layer.bind_node_type(pattern, expected);
+            }
+
             _ => {}
         }
     }

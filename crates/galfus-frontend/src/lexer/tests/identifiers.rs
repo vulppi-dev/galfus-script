@@ -122,3 +122,12 @@ fn lex_string_type_name_as_identifier() {
         ]
     );
 }
+
+#[test]
+fn lex_underscore_as_wildcard_token() {
+    let source = source("_");
+    let result = lex(&source);
+
+    assert!(!result.has_errors());
+    assert_eq!(result.tokens()[0].kind(), &TokenKind::Underscore);
+}

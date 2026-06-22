@@ -122,6 +122,8 @@ pub enum TypeDiagnosticCode {
     InvalidIterableType,
     InvalidMatchPatternType,
     IncompatibleMatchArmType,
+    InvalidInstanceofPatternType,
+    IncompatibleInstanceofArmType,
 }
 
 impl DiagnosticCodeKind for TypeDiagnosticCode {
@@ -151,6 +153,8 @@ impl DiagnosticCodeKind for TypeDiagnosticCode {
             Self::InvalidIterableType => "T0022",
             Self::InvalidMatchPatternType => "T0023",
             Self::IncompatibleMatchArmType => "T0024",
+            Self::InvalidInstanceofPatternType => "T0025",
+            Self::IncompatibleInstanceofArmType => "T0026",
         }
     }
 
@@ -180,6 +184,8 @@ impl DiagnosticCodeKind for TypeDiagnosticCode {
             Self::InvalidIterableType => "invalid iterable type",
             Self::InvalidMatchPatternType => "invalid match pattern type",
             Self::IncompatibleMatchArmType => "incompatible match arm type",
+            Self::InvalidInstanceofPatternType => "invalid instanceof pattern type",
+            Self::IncompatibleInstanceofArmType => "incompatible instanceof arm type",
         }
     }
 }

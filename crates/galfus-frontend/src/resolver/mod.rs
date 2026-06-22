@@ -143,6 +143,8 @@ impl<'a> Resolver<'a> {
         };
 
         match node.kind() {
+            SyntaxNodeKind::WildcardPattern => {}
+
             SyntaxNodeKind::ExportItem => {
                 if let Some(inner) = node.first_child() {
                     self.declare_top_level_item(inner, scope);
@@ -251,6 +253,8 @@ impl<'a> Resolver<'a> {
         };
 
         match node.kind() {
+            SyntaxNodeKind::WildcardPattern => {}
+
             SyntaxNodeKind::BindingPattern => {
                 if let Some(inner) = node.first_child() {
                     self.declare_binding_pattern(inner, kind, scope);
