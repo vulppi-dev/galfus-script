@@ -18,8 +18,8 @@ impl<'a> DeclarationTypeChecker<'a> {
             .map(|node| node.span())
             .unwrap_or_else(|| self.source.span());
 
-        let expected = self.layer.table().describe(expected);
-        let actual = self.layer.table().describe(actual);
+        let expected = self.describe_type_for_diagnostic(expected);
+        let actual = self.describe_type_for_diagnostic(actual);
 
         self.diagnostics.push(Diagnostic::error_with_message(
             TypeDiagnosticCode::TypeMismatch,

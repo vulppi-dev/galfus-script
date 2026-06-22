@@ -175,9 +175,17 @@ impl<'a> DeclarationTypeChecker<'a> {
     }
 
     fn union_contains_type(&self, union_type: TypeId, member_type: TypeId) -> bool {
+        let union_type = self.resolve_alias_type(union_type);
+        let member_type = self.resolve_alias_type(member_type);
+
         match self.layer.table().kind(union_type) {
-            Some(TypeKind::Union { members }) => members.contains(&member_type),
+            Some(TypeKind::Union { members }) => members
+                .iter()
+                .copied()
+                .any(|member| self.is_assignable(member, member_type)),
+
             Some(TypeKind::Error) => true,
+
             _ => false,
         }
     }

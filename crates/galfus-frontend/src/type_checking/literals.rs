@@ -142,7 +142,9 @@ impl<'a> DeclarationTypeChecker<'a> {
         expression: NodeId,
         spread_type: TypeId,
     ) -> Option<ArrayLiteralElementType> {
-        match self.layer.table().kind(spread_type).cloned() {
+        let resolved = self.resolve_alias_type(spread_type);
+
+        match self.layer.table().kind(resolved).cloned() {
             Some(TypeKind::FixedArray {
                 element,
                 size: ArraySize::Known(len),
@@ -168,7 +170,7 @@ impl<'a> DeclarationTypeChecker<'a> {
 
             Some(TypeKind::Error) => Some(ArrayLiteralElementType {
                 node: expression,
-                ty: spread_type,
+                ty: resolved,
                 len: 0,
                 has_error: true,
             }),

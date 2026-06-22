@@ -6,6 +6,9 @@ use super::DeclarationTypeChecker;
 
 impl<'a> DeclarationTypeChecker<'a> {
     pub(super) fn is_assignable(&self, expected: TypeId, actual: TypeId) -> bool {
+        let expected = self.resolve_alias_type(expected);
+        let actual = self.resolve_alias_type(actual);
+
         if expected == actual {
             return true;
         }
@@ -22,7 +25,15 @@ impl<'a> DeclarationTypeChecker<'a> {
         }
 
         match (expected_kind, actual_kind) {
-            (Some(TypeKind::Union { members }), _) => members.contains(&actual),
+            (Some(TypeKind::Union { members }), _) => members
+                .iter()
+                .copied()
+                .any(|member| self.is_assignable(member, actual)),
+
+            (_, Some(TypeKind::Union { members })) => members
+                .iter()
+                .copied()
+                .all(|member| self.is_assignable(expected, member)),
 
             (
                 Some(TypeKind::Array {

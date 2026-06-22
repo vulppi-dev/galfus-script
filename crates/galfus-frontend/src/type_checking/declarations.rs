@@ -230,11 +230,7 @@ impl<'a> DeclarationTypeChecker<'a> {
     }
 
     fn bind_type_alias_type(&mut self, node: NodeId) {
-        let Some(symbol) = self.direct_identifier_symbol(node, SymbolKind::TypeAlias) else {
-            return;
-        };
-
-        let Some(type_node) = self.last_direct_type_child(node) else {
+        let Some(type_node) = self.first_type_child(node) else {
             return;
         };
 
@@ -242,7 +238,11 @@ impl<'a> DeclarationTypeChecker<'a> {
             return;
         };
 
-        self.layer.bind_symbol_type(symbol, ty);
+        let symbols = self.declaration_symbols_in_node(node, &[SymbolKind::TypeAlias]);
+
+        for symbol in symbols {
+            self.layer.bind_symbol_type(symbol, ty);
+        }
     }
 
     fn bind_generic_parameter_type(&mut self, node: NodeId) {

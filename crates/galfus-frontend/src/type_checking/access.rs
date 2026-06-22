@@ -95,6 +95,8 @@ impl<'a> DeclarationTypeChecker<'a> {
         target_type: TypeId,
         member_name: &str,
     ) -> Option<TypeId> {
+        let target_type = self.resolve_alias_type(target_type);
+
         match self.layer.table().kind(target_type) {
             Some(TypeKind::Named { symbol }) => self.member_type_for_symbol(*symbol, member_name),
 
@@ -132,6 +134,7 @@ impl<'a> DeclarationTypeChecker<'a> {
     }
 
     fn non_null_member_target_types(&self, ty: TypeId) -> Vec<TypeId> {
+        let ty = self.resolve_alias_type(ty);
         let null_type = self.layer.table().primitive(PrimitiveType::Null);
 
         match self.layer.table().kind(ty) {
@@ -150,6 +153,7 @@ impl<'a> DeclarationTypeChecker<'a> {
     }
 
     fn type_contains_null(&self, ty: TypeId) -> bool {
+        let ty = self.resolve_alias_type(ty);
         let null_type = self.layer.table().primitive(PrimitiveType::Null);
 
         match self.layer.table().kind(ty) {
@@ -160,6 +164,8 @@ impl<'a> DeclarationTypeChecker<'a> {
     }
 
     fn index_element_type(&self, target_type: TypeId) -> Option<TypeId> {
+        let target_type = self.resolve_alias_type(target_type);
+
         match self.layer.table().kind(target_type) {
             Some(TypeKind::Array { element }) => Some(*element),
 

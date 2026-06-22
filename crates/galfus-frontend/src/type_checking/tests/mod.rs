@@ -11,6 +11,7 @@ mod matches;
 mod operators;
 mod returns;
 mod structs;
+mod type_aliases;
 mod variants;
 
 use super::*;

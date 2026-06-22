@@ -129,13 +129,14 @@ impl<'a> DeclarationTypeChecker<'a> {
 
     fn check_for_iterable_type(&mut self, iterable: NodeId) -> Option<TypeId> {
         let actual = self.infer_expression_type(iterable)?;
+        let resolved = self.resolve_alias_type(actual);
 
-        match self.layer.table().kind(actual) {
+        match self.layer.table().kind(resolved) {
             Some(TypeKind::Array { element }) => Some(*element),
 
             Some(TypeKind::FixedArray { element, .. }) => Some(*element),
 
-            Some(TypeKind::Error) => Some(actual),
+            Some(TypeKind::Error) => Some(resolved),
 
             _ => {
                 self.report_invalid_iterable_type(iterable, actual);

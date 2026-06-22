@@ -1,6 +1,6 @@
-use galfus_core::{NodeId, SymbolId};
+use galfus_core::{NodeId, SymbolId, TypeId};
 
-use crate::{SymbolKind, SyntaxNodeKind};
+use crate::{SymbolKind, SyntaxNodeKind, TypeKind};
 
 use super::DeclarationTypeChecker;
 
@@ -138,5 +138,45 @@ impl<'a> DeclarationTypeChecker<'a> {
         };
 
         self.source.slice(node.span()).unwrap_or("").to_string()
+    }
+
+    pub(super) fn resolve_alias_type(&self, ty: TypeId) -> TypeId {
+        let mut visited = Vec::new();
+
+        self.resolve_alias_type_with_visited(ty, &mut visited)
+    }
+
+    fn resolve_alias_type_with_visited(&self, ty: TypeId, visited: &mut Vec<SymbolId>) -> TypeId {
+        let Some(TypeKind::Named { symbol }) = self.layer.table().kind(ty).cloned() else {
+            return ty;
+        };
+
+        let Some(resolution) = self.graph.resolution() else {
+            return ty;
+        };
+
+        let Some(symbol_data) = resolution.symbol(symbol) else {
+            return ty;
+        };
+
+        if symbol_data.kind() != SymbolKind::TypeAlias {
+            return ty;
+        }
+
+        if visited.contains(&symbol) {
+            return ty;
+        }
+
+        visited.push(symbol);
+
+        let Some(target) = self.layer.symbol_type(symbol) else {
+            return ty;
+        };
+
+        if target == ty {
+            return ty;
+        }
+
+        self.resolve_alias_type_with_visited(target, visited)
     }
 }

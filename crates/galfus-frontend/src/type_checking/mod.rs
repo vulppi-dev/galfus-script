@@ -19,7 +19,7 @@ mod structs;
 mod support;
 mod variants;
 
-use galfus_core::{DiagnosticBag, SourceFile};
+use galfus_core::{DiagnosticBag, SourceFile, TypeId};
 
 use crate::{ModuleGraph, PrimitiveType, TypeLayer, lower_types};
 
@@ -85,6 +85,12 @@ impl<'a> DeclarationTypeChecker<'a> {
         self.check_initializer_types(root);
         self.check_return_types(root, None);
         self.check_assignment_types(root);
+    }
+
+    fn describe_type_for_diagnostic(&self, ty: TypeId) -> String {
+        let resolved = self.resolve_alias_type(ty);
+
+        self.layer.table().describe(resolved)
     }
 }
 
