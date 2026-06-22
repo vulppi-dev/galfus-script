@@ -524,4 +524,70 @@ impl<'a> DeclarationTypeChecker<'a> {
             span,
         ));
     }
+
+    pub(super) fn report_invalid_satisfies_target(&mut self, target: NodeId, target_name: &str) {
+        let span = self
+            .graph
+            .syntax()
+            .node(target)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+            TypeDiagnosticCode::InvalidSatisfiesTarget,
+            format!("satisfies target `{target_name}` is not a constraint"),
+            span,
+        ));
+    }
+
+    pub(super) fn report_missing_constraint_field(
+        &mut self,
+        item: NodeId,
+        struct_name: &str,
+        constraint_name: &str,
+        field_name: &str,
+    ) {
+        let span = self
+            .graph
+            .syntax()
+            .node(item)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+        TypeDiagnosticCode::MissingConstraintField,
+        format!(
+            "struct `{struct_name}` does not satisfy `{constraint_name}`: missing field `{field_name}`"
+        ),
+        span,
+    ));
+    }
+
+    pub(super) fn report_constraint_field_type_mismatch(
+        &mut self,
+        field: NodeId,
+        struct_name: &str,
+        constraint_name: &str,
+        field_name: &str,
+        expected: TypeId,
+        actual: TypeId,
+    ) {
+        let span = self
+            .graph
+            .syntax()
+            .node(field)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        let expected = self.describe_type_for_diagnostic(expected);
+        let actual = self.describe_type_for_diagnostic(actual);
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+        TypeDiagnosticCode::ConstraintFieldTypeMismatch,
+        format!(
+            "struct `{struct_name}` does not satisfy `{constraint_name}`: field `{field_name}` expected `{expected}`, got `{actual}`"
+        ),
+        span,
+    ));
+    }
 }

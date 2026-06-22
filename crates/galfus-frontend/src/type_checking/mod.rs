@@ -5,6 +5,7 @@ mod access;
 mod assignability;
 mod assignments;
 mod calls;
+mod constraints;
 mod control_flow;
 mod declarations;
 mod diagnostics;
@@ -85,6 +86,7 @@ impl<'a> DeclarationTypeChecker<'a> {
         self.check_initializer_types(root);
         self.check_return_types(root, None);
         self.check_assignment_types(root);
+        self.check_constraint_satisfies(root);
     }
 
     fn describe_type_for_diagnostic(&self, ty: TypeId) -> String {
