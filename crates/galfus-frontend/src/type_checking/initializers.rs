@@ -1,6 +1,6 @@
 use galfus_core::NodeId;
 
-use crate::SyntaxNodeKind;
+use crate::{SymbolKind, SyntaxNodeKind};
 
 use super::DeclarationTypeChecker;
 
@@ -27,22 +27,6 @@ impl<'a> DeclarationTypeChecker<'a> {
     }
 
     fn check_binding_initializer_type(&mut self, node: NodeId) {
-        let Some(type_annotation) = self
-            .graph
-            .syntax()
-            .first_child_of_kind(node, SyntaxNodeKind::TypeAnnotation)
-        else {
-            return;
-        };
-
-        let Some(type_node) = self.first_type_child(type_annotation) else {
-            return;
-        };
-
-        let Some(expected) = self.layer.node_type(type_node) else {
-            return;
-        };
-
         let Some(initializer) = self
             .graph
             .syntax()
@@ -55,6 +39,23 @@ impl<'a> DeclarationTypeChecker<'a> {
             return;
         };
 
+        let Some(type_annotation) = self
+            .graph
+            .syntax()
+            .first_child_of_kind(node, SyntaxNodeKind::TypeAnnotation)
+        else {
+            self.infer_unannotated_binding_type(node, expression);
+            return;
+        };
+
+        let Some(type_node) = self.first_type_child(type_annotation) else {
+            return;
+        };
+
+        let Some(expected) = self.layer.node_type(type_node) else {
+            return;
+        };
+
         let Some(actual) = self.infer_expression_type(expression) else {
             return;
         };
@@ -64,5 +65,25 @@ impl<'a> DeclarationTypeChecker<'a> {
         }
 
         self.report_type_mismatch(expression, expected, actual);
+    }
+
+    fn infer_unannotated_binding_type(&mut self, node: NodeId, expression: NodeId) {
+        let Some(ty) = self.infer_expression_type(expression) else {
+            return;
+        };
+
+        let symbols = self.declaration_symbols_in_node(
+            node,
+            &[
+                SymbolKind::Var,
+                SymbolKind::Const,
+                SymbolKind::PatternBinding,
+                SymbolKind::TypePatternBinding,
+            ],
+        );
+
+        for symbol in symbols {
+            self.layer.bind_symbol_type(symbol, ty);
+        }
     }
 }

@@ -176,4 +176,72 @@ impl<'a> DeclarationTypeChecker<'a> {
             span,
         ));
     }
+
+    pub(super) fn report_invalid_spread_target(&mut self, spread: NodeId, spread_type: TypeId) {
+        let span = self
+            .graph
+            .syntax()
+            .node(spread)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        let spread_type = self.layer.table().describe(spread_type);
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+            TypeDiagnosticCode::InvalidSpreadTarget,
+            format!("spread target must be an array, got `{spread_type}`"),
+            span,
+        ));
+    }
+
+    pub(super) fn report_cannot_infer_type(&mut self, node: NodeId, message: impl Into<String>) {
+        let span = self
+            .graph
+            .syntax()
+            .node(node)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+            TypeDiagnosticCode::CannotInferType,
+            message.into(),
+            span,
+        ));
+    }
+
+    pub(super) fn report_empty_array_literal(&mut self, array: NodeId) {
+        let span = self
+            .graph
+            .syntax()
+            .node(array)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+            TypeDiagnosticCode::EmptyArrayLiteral,
+            "empty array literal is not allowed",
+            span,
+        ));
+    }
+
+    pub(super) fn report_dynamic_spread_in_array_literal(
+        &mut self,
+        spread: NodeId,
+        spread_type: TypeId,
+    ) {
+        let span = self
+            .graph
+            .syntax()
+            .node(spread)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        let spread_type = self.layer.table().describe(spread_type);
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+            TypeDiagnosticCode::DynamicSpreadInArrayLiteral,
+            format!("array literal spread must have a known fixed size, got `{spread_type}`"),
+            span,
+        ));
+    }
 }

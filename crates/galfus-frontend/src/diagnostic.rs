@@ -106,6 +106,10 @@ pub enum TypeDiagnosticCode {
     UnknownMember,
     InvalidIndexTarget,
     InvalidIndexType,
+    InvalidSpreadTarget,
+    CannotInferType,
+    EmptyArrayLiteral,
+    DynamicSpreadInArrayLiteral,
 }
 
 impl DiagnosticCodeKind for TypeDiagnosticCode {
@@ -119,6 +123,10 @@ impl DiagnosticCodeKind for TypeDiagnosticCode {
             Self::UnknownMember => "T0006",
             Self::InvalidIndexTarget => "T0007",
             Self::InvalidIndexType => "T0008",
+            Self::InvalidSpreadTarget => "T0009",
+            Self::CannotInferType => "T0010",
+            Self::EmptyArrayLiteral => "T0011",
+            Self::DynamicSpreadInArrayLiteral => "T0012",
         }
     }
 
@@ -132,6 +140,10 @@ impl DiagnosticCodeKind for TypeDiagnosticCode {
             Self::UnknownMember => "unknown member",
             Self::InvalidIndexTarget => "invalid index target",
             Self::InvalidIndexType => "invalid index type",
+            Self::InvalidSpreadTarget => "invalid spread target",
+            Self::CannotInferType => "cannot infer type",
+            Self::EmptyArrayLiteral => "empty array literal is not allowed",
+            Self::DynamicSpreadInArrayLiteral => "dynamic spread in array literal is not allowed",
         }
     }
 }

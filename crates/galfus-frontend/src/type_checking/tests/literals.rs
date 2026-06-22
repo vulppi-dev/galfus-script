@@ -1,0 +1,254 @@
+use super::*;
+
+#[test]
+fn check_accepts_int_array_literal() {
+    let (_source, _graph, result) = check_source(
+        r#"
+var values: [int32] = [1, 2, 3]
+"#,
+    );
+
+    assert!(!result.has_errors());
+}
+
+#[test]
+fn check_binds_array_literal_type() {
+    let (source, graph, result) = check_source(
+        r#"
+var values: [int32] = [1, 2, 3]
+"#,
+    );
+
+    let array =
+        find_node_by_kind_and_text(&source, &graph, SyntaxNodeKind::ArrayLiteral, "[1, 2, 3]")
+            .unwrap();
+
+    let ty = result.layer().node_type(array).unwrap();
+
+    match result.layer().table().kind(ty) {
+        Some(TypeKind::FixedArray { element, size }) => {
+            assert_eq!(*size, ArraySize::Known(3));
+
+            assert_eq!(
+                result.layer().table().kind(*element),
+                Some(&TypeKind::Primitive(PrimitiveType::Int32))
+            );
+        }
+
+        other => panic!("expected fixed array type, got {other:?}"),
+    }
+}
+
+#[test]
+fn check_reports_mixed_array_literal_element_type() {
+    let source = source(
+        r#"
+var values: [int32] = [1, true]
+"#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.into_graph();
+    let result = check_declaration_types(&source, &graph);
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::TypeMismatch.as_code()
+            && diagnostic
+                .message()
+                .contains("expected `int32`, got `bool`")
+    }));
+}
+
+#[test]
+fn check_accepts_bool_array_literal() {
+    let (_source, _graph, result) = check_source(
+        r#"
+var values: [bool] = [true, false]
+"#,
+    );
+
+    assert!(!result.has_errors());
+}
+
+#[test]
+fn check_accepts_string_literal_as_uint8_array() {
+    let (_source, _graph, result) = check_source(
+        r#"
+var name: [uint8] = "Renato"
+"#,
+    );
+
+    assert!(!result.has_errors());
+}
+
+#[test]
+fn check_binds_string_literal_type_as_uint8_array() {
+    let (source, graph, result) = check_source(
+        r#"
+var name: [uint8] = "Renato"
+"#,
+    );
+
+    let string =
+        find_node_by_kind_and_text(&source, &graph, SyntaxNodeKind::StringLiteral, "\"Renato\"")
+            .unwrap();
+
+    let ty = result.layer().node_type(string).unwrap();
+
+    match result.layer().table().kind(ty) {
+        Some(TypeKind::Array { element }) => {
+            assert_eq!(
+                result.layer().table().kind(*element),
+                Some(&TypeKind::Primitive(PrimitiveType::Uint8))
+            );
+        }
+
+        other => panic!("expected [uint8], got {other:?}"),
+    }
+}
+
+#[test]
+fn check_accepts_tuple_literal() {
+    let (_source, _graph, result) = check_source(
+        r#"
+var point: (int32, bool) = (1, true)
+"#,
+    );
+
+    assert!(!result.has_errors());
+}
+
+#[test]
+fn check_accepts_array_literal_spread() {
+    let (_source, _graph, result) = check_source(
+        r#"
+var base: [int32; 2] = [1, 2]
+var values: [int32] = [0, ...base, 3]
+"#,
+    );
+
+    assert!(!result.has_errors());
+}
+
+#[test]
+fn check_reports_invalid_array_literal_spread_target() {
+    let source = source(
+        r#"
+var base: int32 = 1
+var values: [int32] = [0, ...base, 3]
+"#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.into_graph();
+    let result = check_declaration_types(&source, &graph);
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::InvalidSpreadTarget.as_code()
+            && diagnostic
+                .message()
+                .contains("spread target must be an array")
+    }));
+}
+
+#[test]
+fn check_reports_empty_array_literal() {
+    let source = source(
+        r#"
+var values = []
+"#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.into_graph();
+    let result = check_declaration_types(&source, &graph);
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::EmptyArrayLiteral.as_code()
+            && diagnostic
+                .message()
+                .contains("empty array literal is not allowed")
+    }));
+}
+
+#[test]
+fn check_accepts_empty_string_literal_as_dynamic_uint8_array() {
+    let (_source, _graph, result) = check_source(
+        r#"
+var value: [uint8] = ""
+"#,
+    );
+
+    assert!(!result.has_errors());
+}
+
+#[test]
+fn check_reports_dynamic_array_literal_spread() {
+    let source = source(
+        r#"
+var base: [int32] = [1, 2]
+var values: [int32] = [0, ...base, 3]
+"#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.into_graph();
+    let result = check_declaration_types(&source, &graph);
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::DynamicSpreadInArrayLiteral.as_code()
+            && diagnostic
+                .message()
+                .contains("array literal spread must have a known fixed size")
+    }));
+}
+
+#[test]
+fn check_reports_fixed_array_size_mismatch() {
+    let source = source(
+        r#"
+var values: [int32; 2] = [1, 2, 3]
+"#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.into_graph();
+    let result = check_declaration_types(&source, &graph);
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::TypeMismatch.as_code()
+            && diagnostic
+                .message()
+                .contains("expected `[int32; 2]`, got `[int32; 3]`")
+    }));
+}

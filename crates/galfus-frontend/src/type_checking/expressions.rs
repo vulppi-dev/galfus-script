@@ -40,6 +40,10 @@ impl<'a> DeclarationTypeChecker<'a> {
                 self.infer_member_expression_type(node, true)
             }
 
+            SyntaxNodeKind::StringLiteral => self.infer_string_literal_type(node),
+
+            SyntaxNodeKind::ArrayLiteral => self.infer_array_literal_type(node),
+
             SyntaxNodeKind::IndexExpression => self.infer_index_expression_type(node),
 
             SyntaxNodeKind::BinaryExpression => self.infer_binary_expression_type(node),
@@ -88,7 +92,10 @@ impl<'a> DeclarationTypeChecker<'a> {
             .map(|child| self.infer_expression_type(child))
             .collect::<Option<Vec<_>>>()?;
 
-        Some(self.layer.table_mut().intern_tuple(elements))
+        let ty = self.layer.table_mut().intern_tuple(elements);
+        self.layer.bind_node_type(node, ty);
+
+        Some(ty)
     }
 
     fn infer_cast_expression_type(&mut self, node: NodeId) -> Option<TypeId> {

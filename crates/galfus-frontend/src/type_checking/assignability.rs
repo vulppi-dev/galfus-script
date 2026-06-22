@@ -21,8 +21,41 @@ impl<'a> DeclarationTypeChecker<'a> {
             return true;
         }
 
-        match expected_kind {
-            Some(TypeKind::Union { members }) => members.contains(&actual),
+        match (expected_kind, actual_kind) {
+            (Some(TypeKind::Union { members }), _) => members.contains(&actual),
+
+            (
+                Some(TypeKind::Array {
+                    element: expected_element,
+                }),
+                Some(TypeKind::Array {
+                    element: actual_element,
+                }),
+            ) => self.is_assignable(expected_element, actual_element),
+
+            (
+                Some(TypeKind::Array {
+                    element: expected_element,
+                }),
+                Some(TypeKind::FixedArray {
+                    element: actual_element,
+                    ..
+                }),
+            ) => self.is_assignable(expected_element, actual_element),
+
+            (
+                Some(TypeKind::FixedArray {
+                    element: expected_element,
+                    size: expected_size,
+                }),
+                Some(TypeKind::FixedArray {
+                    element: actual_element,
+                    size: actual_size,
+                }),
+            ) => {
+                expected_size == actual_size && self.is_assignable(expected_element, actual_element)
+            }
+
             _ => false,
         }
     }

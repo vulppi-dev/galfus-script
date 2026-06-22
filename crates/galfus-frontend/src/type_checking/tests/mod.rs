@@ -3,6 +3,7 @@ mod assignments;
 mod calls;
 mod declarations;
 mod initializers;
+mod literals;
 mod operators;
 mod returns;
 
@@ -10,7 +11,7 @@ use super::*;
 
 use galfus_core::{DiagnosticCodeKind, NodeId, SourceId, SymbolId};
 
-use crate::{SymbolKind, SyntaxNodeKind, TypeDiagnosticCode, TypeKind, parse, resolve};
+use crate::{ArraySize, SymbolKind, SyntaxNodeKind, TypeDiagnosticCode, TypeKind, parse, resolve};
 
 fn source(text: &str) -> SourceFile {
     SourceFile::new(SourceId::new(0), "test.gfs".to_string(), text.to_string())
