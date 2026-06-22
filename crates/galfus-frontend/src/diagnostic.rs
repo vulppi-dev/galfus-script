@@ -119,6 +119,7 @@ pub enum TypeDiagnosticCode {
     InvalidConditionType,
     BreakOutsideLoop,
     ContinueOutsideLoop,
+    InvalidIterableType,
 }
 
 impl DiagnosticCodeKind for TypeDiagnosticCode {
@@ -145,6 +146,7 @@ impl DiagnosticCodeKind for TypeDiagnosticCode {
             Self::InvalidConditionType => "T0019",
             Self::BreakOutsideLoop => "T0020",
             Self::ContinueOutsideLoop => "T0021",
+            Self::InvalidIterableType => "T0022",
         }
     }
 
@@ -171,6 +173,7 @@ impl DiagnosticCodeKind for TypeDiagnosticCode {
             Self::InvalidConditionType => "invalid condition type",
             Self::BreakOutsideLoop => "break outside loop",
             Self::ContinueOutsideLoop => "continue outside loop",
+            Self::InvalidIterableType => "invalid iterable type",
         }
     }
 }

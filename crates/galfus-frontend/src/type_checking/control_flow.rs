@@ -1,6 +1,6 @@
-use galfus_core::NodeId;
+use galfus_core::{NodeId, TypeId};
 
-use crate::{PrimitiveType, SyntaxNodeKind, TypeKind};
+use crate::{PrimitiveType, SymbolKind, SyntaxNodeKind, TypeKind};
 
 use super::DeclarationTypeChecker;
 
@@ -87,20 +87,25 @@ impl<'a> DeclarationTypeChecker<'a> {
     }
 
     fn check_for_statement_control_flow(&mut self, node: NodeId, loop_depth: usize) {
-        let children = self
-            .graph
-            .syntax()
-            .node(node)
-            .map(|node| node.children().to_vec())
-            .unwrap_or_default();
+        let Some(binding) = self.graph.syntax().child(node, 0) else {
+            return;
+        };
 
-        if let Some(iterable) = children.get(1).copied() {
-            self.infer_expression_type(iterable);
-        }
+        let Some(iterable) = self.graph.syntax().child(node, 1) else {
+            return;
+        };
 
-        if let Some(body) = children.get(2).copied() {
+        let Some(body) = self.graph.syntax().child(node, 2) else {
+            return;
+        };
+
+        let Some(element_type) = self.check_for_iterable_type(iterable) else {
             self.check_control_flow(body, loop_depth + 1);
-        }
+            return;
+        };
+
+        self.bind_for_binding_type(binding, element_type);
+        self.check_control_flow(body, loop_depth + 1);
     }
 
     fn check_bool_condition(&mut self, condition: NodeId) {
@@ -120,5 +125,32 @@ impl<'a> DeclarationTypeChecker<'a> {
             self.layer.table().kind(ty),
             Some(TypeKind::Primitive(PrimitiveType::Bool)) | Some(TypeKind::Error)
         )
+    }
+
+    fn check_for_iterable_type(&mut self, iterable: NodeId) -> Option<TypeId> {
+        let actual = self.infer_expression_type(iterable)?;
+
+        match self.layer.table().kind(actual) {
+            Some(TypeKind::Array { element }) => Some(*element),
+
+            Some(TypeKind::FixedArray { element, .. }) => Some(*element),
+
+            Some(TypeKind::Error) => Some(actual),
+
+            _ => {
+                self.report_invalid_iterable_type(iterable, actual);
+                None
+            }
+        }
+    }
+
+    fn bind_for_binding_type(&mut self, binding: NodeId, element_type: TypeId) {
+        let symbols = self.declaration_symbols_in_node(binding, &[SymbolKind::ForBinding]);
+
+        for symbol in symbols {
+            self.layer.bind_symbol_type(symbol, element_type);
+        }
+
+        self.layer.bind_node_type(binding, element_type);
     }
 }

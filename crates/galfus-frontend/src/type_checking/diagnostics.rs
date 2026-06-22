@@ -415,4 +415,21 @@ impl<'a> DeclarationTypeChecker<'a> {
             span,
         ));
     }
+
+    pub(super) fn report_invalid_iterable_type(&mut self, iterable: NodeId, actual: TypeId) {
+        let span = self
+            .graph
+            .syntax()
+            .node(iterable)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        let actual = self.layer.table().describe(actual);
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+            TypeDiagnosticCode::InvalidIterableType,
+            format!("for iterable must be an array, got `{actual}`"),
+            span,
+        ));
+    }
 }
