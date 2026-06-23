@@ -17,7 +17,6 @@ impl<'a> DeclarationTypeChecker<'a> {
     pub(super) fn infer_struct_literal_type(&mut self, node: NodeId) -> Option<TypeId> {
         let target = self.graph.syntax().child(node, 0)?;
         let fields = self.graph.syntax().child(node, 1)?;
-
         let target_name = self.node_text(target);
 
         let Some((struct_symbol, target_type, struct_name)) = self.struct_literal_target(target)
@@ -30,6 +29,22 @@ impl<'a> DeclarationTypeChecker<'a> {
             return Some(error);
         };
 
+        let ty =
+            self.check_struct_literal_fields(node, fields, struct_symbol, target_type, struct_name);
+
+        self.layer.bind_node_type(node, ty);
+
+        Some(ty)
+    }
+
+    pub(super) fn check_struct_literal_fields(
+        &mut self,
+        literal: NodeId,
+        fields: NodeId,
+        struct_symbol: SymbolId,
+        target_type: TypeId,
+        struct_name: String,
+    ) -> TypeId {
         let expected_fields = self.struct_fields(struct_symbol);
         let mut provided = HashSet::new();
         let mut has_error = false;
@@ -85,7 +100,7 @@ impl<'a> DeclarationTypeChecker<'a> {
             }
 
             self.report_missing_struct_field(
-                node,
+                literal,
                 expected_field.name.as_str(),
                 struct_name.as_str(),
             );
@@ -93,14 +108,11 @@ impl<'a> DeclarationTypeChecker<'a> {
             has_error = true;
         }
 
-        let ty = if has_error {
+        if has_error {
             self.layer.table_mut().error()
         } else {
             target_type
-        };
-
-        self.layer.bind_node_type(node, ty);
-        Some(ty)
+        }
     }
 
     fn struct_literal_target(&mut self, target: NodeId) -> Option<(SymbolId, TypeId, String)> {

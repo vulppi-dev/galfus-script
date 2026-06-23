@@ -1,4 +1,4 @@
-use galfus_core::NodeId;
+use galfus_core::{NodeId, TypeId};
 
 use crate::{SymbolKind, SyntaxNodeKind};
 
@@ -56,7 +56,7 @@ impl<'a> DeclarationTypeChecker<'a> {
             return;
         };
 
-        let Some(actual) = self.infer_expression_type(expression) else {
+        let Some(actual) = self.infer_initializer_expression_type(expression, expected) else {
             return;
         };
 
@@ -65,6 +65,20 @@ impl<'a> DeclarationTypeChecker<'a> {
         }
 
         self.report_type_mismatch(expression, expected, actual);
+    }
+
+    fn infer_initializer_expression_type(
+        &mut self,
+        expression: NodeId,
+        expected: TypeId,
+    ) -> Option<TypeId> {
+        let expression_node = self.graph.syntax().node(expression)?;
+
+        if expression_node.kind() == SyntaxNodeKind::InferredStructLiteral {
+            return self.infer_inferred_struct_literal_type(expression, expected);
+        }
+
+        self.infer_expression_type(expression)
     }
 
     fn infer_unannotated_binding_type(&mut self, node: NodeId, expression: NodeId) {

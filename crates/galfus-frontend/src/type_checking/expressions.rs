@@ -31,6 +31,15 @@ impl<'a> DeclarationTypeChecker<'a> {
 
             SyntaxNodeKind::StructLiteral => self.infer_struct_literal_type(node),
 
+            SyntaxNodeKind::InferredStructLiteral => {
+                self.report_cannot_infer_type(
+                    node,
+                    "inferred struct literal requires an expected struct type",
+                );
+
+                Some(self.layer.table_mut().error())
+            }
+
             SyntaxNodeKind::GroupedExpression => {
                 let inner = self.graph.syntax().child(node, 0)?;
                 self.infer_expression_type(inner)

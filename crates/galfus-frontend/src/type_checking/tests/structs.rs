@@ -214,3 +214,191 @@ var user: User = User {
 
     assert!(!result.has_errors());
 }
+
+#[test]
+fn check_accepts_inferred_struct_literal_with_expected_type() {
+    let (_source, _graph, result) = check_source(
+        r#"
+        struct User {
+          id: int32,
+          name: [uint8],
+        }
+
+        var user: User = struct {
+          id: 1,
+          name: "Ana",
+        }
+        "#,
+    );
+
+    assert!(!result.has_errors());
+}
+
+#[test]
+fn check_accepts_inferred_struct_literal_with_default_field() {
+    let (_source, _graph, result) = check_source(
+        r#"
+        struct User {
+          name: [uint8],
+          age: int32 = 0,
+        }
+
+        var user: User = struct {
+          name: "Ana",
+        }
+        "#,
+    );
+
+    assert!(!result.has_errors());
+}
+
+#[test]
+fn check_reports_inferred_struct_literal_without_expected_type() {
+    let source = source(
+        r#"
+        var user = struct {
+          id: 1,
+        }
+        "#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(
+        !parse_result.has_errors(),
+        "{:?}",
+        parse_result.diagnostics()
+    );
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(
+        !resolve_result.has_errors(),
+        "{:?}",
+        resolve_result.diagnostics()
+    );
+
+    let graph = resolve_result.into_graph();
+    let result = check_declaration_types(&source, &graph);
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::CannotInferType.as_code()
+            && diagnostic
+                .message()
+                .contains("inferred struct literal requires an expected struct type")
+    }));
+}
+
+#[test]
+fn check_reports_inferred_struct_literal_with_non_struct_expected_type() {
+    let source = source(
+        r#"
+        var value: int32 = struct {
+          id: 1,
+        }
+        "#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(
+        !parse_result.has_errors(),
+        "{:?}",
+        parse_result.diagnostics()
+    );
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(
+        !resolve_result.has_errors(),
+        "{:?}",
+        resolve_result.diagnostics()
+    );
+
+    let graph = resolve_result.into_graph();
+    let result = check_declaration_types(&source, &graph);
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::CannotInferType.as_code()
+            && diagnostic
+                .message()
+                .contains("inferred struct literal requires an expected struct type")
+    }));
+}
+
+#[test]
+fn check_reports_inferred_struct_literal_unknown_field() {
+    let source = source(
+        r#"
+        struct User {
+          id: int32,
+        }
+
+        var user: User = struct {
+          id: 1,
+          name: "Ana",
+        }
+        "#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(
+        !parse_result.has_errors(),
+        "{:?}",
+        parse_result.diagnostics()
+    );
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(
+        !resolve_result.has_errors(),
+        "{:?}",
+        resolve_result.diagnostics()
+    );
+
+    let graph = resolve_result.into_graph();
+    let result = check_declaration_types(&source, &graph);
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::UnknownStructField.as_code()
+            && diagnostic.message().contains("has no field `name`")
+    }));
+}
+
+#[test]
+fn check_reports_inferred_struct_literal_field_type_mismatch() {
+    let source = source(
+        r#"
+        struct User {
+          id: int32,
+        }
+
+        var user: User = struct {
+          id: true,
+        }
+        "#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(
+        !parse_result.has_errors(),
+        "{:?}",
+        parse_result.diagnostics()
+    );
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(
+        !resolve_result.has_errors(),
+        "{:?}",
+        resolve_result.diagnostics()
+    );
+
+    let graph = resolve_result.into_graph();
+    let result = check_declaration_types(&source, &graph);
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::TypeMismatch.as_code()
+            && diagnostic
+                .message()
+                .contains("expected `int32`, got `bool`")
+    }));
+}
