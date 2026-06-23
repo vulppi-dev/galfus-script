@@ -158,6 +158,10 @@ pub enum TypeKind {
         size: ArraySize,
     },
 
+    Range {
+        element: TypeId,
+    },
+
     Tuple {
         elements: Vec<TypeId>,
     },
@@ -247,6 +251,10 @@ impl TypeTable {
         self.intern(TypeKind::FixedArray { element, size })
     }
 
+    pub fn intern_range(&mut self, element: TypeId) -> TypeId {
+        self.intern(TypeKind::Range { element })
+    }
+
     pub fn intern_tuple(&mut self, elements: Vec<TypeId>) -> TypeId {
         self.intern(TypeKind::Tuple { elements })
     }
@@ -334,6 +342,10 @@ impl TypeTable {
                 };
 
                 format!("[{}; {}]", self.describe(*element), size)
+            }
+
+            TypeKind::Range { element } => {
+                format!("range<{}>", self.describe(*element))
             }
 
             TypeKind::Tuple { elements } => {

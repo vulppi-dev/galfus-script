@@ -58,6 +58,8 @@ impl<'a> DeclarationTypeChecker<'a> {
 
             SyntaxNodeKind::UnaryExpression => self.infer_unary_expression_type(node),
 
+            SyntaxNodeKind::RangeExpression => self.infer_range_expression_type(node),
+
             SyntaxNodeKind::TupleExpression => self.infer_tuple_expression_type(node),
 
             SyntaxNodeKind::CastExpression => self.infer_cast_expression_type(node),

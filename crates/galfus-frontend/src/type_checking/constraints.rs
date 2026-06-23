@@ -56,8 +56,14 @@ impl<'a> DeclarationTypeChecker<'a> {
             return;
         };
 
-        if syntax_node.kind() == SyntaxNodeKind::StructItem {
-            self.check_struct_satisfies(node);
+        match syntax_node.kind() {
+            SyntaxNodeKind::StructItem => {
+                self.check_struct_satisfies(node);
+            }
+            SyntaxNodeKind::GenericParameterConstraint => {
+                self.check_generic_parameter_constraint(node);
+            }
+            _ => {}
         }
 
         let children = syntax_node.children().to_vec();
@@ -763,5 +769,60 @@ impl<'a> DeclarationTypeChecker<'a> {
         let member_scope = resolution.member_scope(symbol)?;
         let scope = resolution.scope(member_scope)?;
         scope.owner()
+    }
+
+    fn check_generic_parameter_constraint(&mut self, constraint: NodeId) {
+        let Some(constraint_type) = self.first_constraint_type_child(constraint) else {
+            return;
+        };
+
+        let target_name = self.node_text(constraint_type);
+
+        match self.constraint_application(constraint_type) {
+            Ok(_) => {}
+            Err(ConstraintApplicationError::InvalidTarget) => {
+                self.report_invalid_satisfies_target(constraint_type, target_name.as_str());
+            }
+            Err(ConstraintApplicationError::GenericArgumentCountMismatch {
+                constraint_name,
+                expected,
+                actual,
+            }) => {
+                self.report_constraint_generic_argument_count_mismatch(
+                    constraint_type,
+                    constraint_name.as_str(),
+                    expected,
+                    actual,
+                );
+            }
+        }
+    }
+
+    fn first_constraint_type_child(&self, node: NodeId) -> Option<NodeId> {
+        let syntax_node = self.graph.syntax().node(node)?;
+
+        for child in syntax_node.children() {
+            let Some(child_node) = self.graph.syntax().node(*child) else {
+                continue;
+            };
+
+            if matches!(
+                child_node.kind(),
+                SyntaxNodeKind::NamedType | SyntaxNodeKind::Path | SyntaxNodeKind::GenericType
+            ) {
+                return Some(*child);
+            }
+
+            if matches!(
+                child_node.kind(),
+                SyntaxNodeKind::BasicConstraint | SyntaxNodeKind::GenericParameterConstraint
+            ) {
+                if let Some(found) = self.first_constraint_type_child(*child) {
+                    return Some(found);
+                }
+            }
+        }
+
+        None
     }
 }

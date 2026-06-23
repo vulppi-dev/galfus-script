@@ -664,4 +664,26 @@ impl<'a> DeclarationTypeChecker<'a> {
         span,
     ));
     }
+
+    pub(super) fn report_invalid_range_operand_type(
+        &mut self,
+        operand: NodeId,
+        expected: &str,
+        actual: TypeId,
+    ) {
+        let span = self
+            .graph
+            .syntax()
+            .node(operand)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        let actual = self.layer.table().describe(actual);
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+            TypeDiagnosticCode::InvalidRangeOperandType,
+            format!("range operand must be {expected}, got `{actual}`"),
+            span,
+        ));
+    }
 }

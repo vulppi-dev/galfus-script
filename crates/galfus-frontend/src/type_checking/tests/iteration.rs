@@ -457,3 +457,106 @@ fn main(): null {
                 .contains("for iterable must satisfy `Iterable`")
     }));
 }
+
+#[test]
+fn check_accepts_for_over_exclusive_range() {
+    let (_source, _graph, result) = check_source(
+        r#"
+        fn main(): null {
+          for value in 1..10 {
+            var copied: int32 = value
+          }
+
+          return
+        }
+        "#,
+    );
+
+    assert!(!result.has_errors());
+}
+
+#[test]
+fn check_accepts_for_over_quantity_range_with_step() {
+    let (_source, _graph, result) = check_source(
+        r#"
+        fn main(): null {
+          for value in 1::10%2 {
+            var copied: int32 = value
+          }
+
+          return
+        }
+        "#,
+    );
+
+    assert!(!result.has_errors());
+}
+
+#[test]
+fn check_binds_for_binding_type_from_range() {
+    let (source, graph, result) = check_source(
+        r#"
+        fn main(): null {
+          for value in 1..10 {
+            var copied: int32 = value
+          }
+
+          return
+        }
+        "#,
+    );
+
+    let binding =
+        find_node_by_kind_and_text(&source, &graph, SyntaxNodeKind::ForBinding, "value").unwrap();
+
+    let ty = result.layer().node_type(binding).unwrap();
+
+    assert_eq!(
+        result.layer().table().kind(ty),
+        Some(&TypeKind::Primitive(PrimitiveType::Int32))
+    );
+}
+
+#[test]
+fn check_reports_range_assigned_to_int() {
+    let source = source(
+        r#"
+        fn main(): null {
+          var seq: int32 = 1::10
+          return
+        }
+        "#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.into_graph();
+    let result = check_declaration_types(&source, &graph);
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.message().contains("expected `int32`")
+            && diagnostic.message().contains("range<int32>")
+    }));
+}
+
+#[test]
+fn check_accepts_for_over_quantity_range() {
+    let (_source, _graph, result) = check_source(
+        r#"
+        fn main(): null {
+          for value in 1::10 {
+            var copied: int32 = value
+          }
+
+          return
+        }
+        "#,
+    );
+
+    assert!(!result.has_errors());
+}

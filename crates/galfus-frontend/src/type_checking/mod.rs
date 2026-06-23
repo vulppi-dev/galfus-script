@@ -16,6 +16,7 @@ mod instanceof;
 mod literals;
 mod matches;
 mod operators;
+mod ranges;
 mod returns;
 mod structs;
 mod support;
