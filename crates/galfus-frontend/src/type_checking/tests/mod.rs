@@ -11,6 +11,7 @@ mod calls;
 mod constraints;
 mod control_flow;
 mod declarations;
+mod decorators;
 mod generic_expressions;
 mod initializers;
 mod instanceof;

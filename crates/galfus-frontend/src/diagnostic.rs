@@ -133,6 +133,7 @@ pub enum TypeDiagnosticCode {
     InvalidRangeOperandType,
     GenericArgumentCountMismatch,
     NonExhaustiveMatch,
+    InvalidDecoratorUsage,
 }
 
 impl DiagnosticCodeKind for TypeDiagnosticCode {
@@ -173,6 +174,7 @@ impl DiagnosticCodeKind for TypeDiagnosticCode {
             Self::InvalidRangeOperandType => "T0033",
             Self::GenericArgumentCountMismatch => "T0034",
             Self::NonExhaustiveMatch => "T0035",
+            Self::InvalidDecoratorUsage => "T0036",
         }
     }
 
@@ -215,6 +217,7 @@ impl DiagnosticCodeKind for TypeDiagnosticCode {
             Self::InvalidRangeOperandType => "invalid range operand type",
             Self::GenericArgumentCountMismatch => "generic argument count mismatch",
             Self::NonExhaustiveMatch => "non-exhaustive match",
+            Self::InvalidDecoratorUsage => "invalid decorator usage",
         }
     }
 }

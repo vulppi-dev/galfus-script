@@ -64,6 +64,11 @@ impl<'a> Resolver<'a> {
         let scope = self.resolution.node_scope(node).unwrap_or(current_scope);
 
         match syntax_node.kind() {
+            SyntaxNodeKind::Decorator => {
+                self.resolve_decorator_references(node, scope);
+                return;
+            }
+
             SyntaxNodeKind::NameExpression => {
                 self.resolve_name_expression(node, scope);
                 return;
@@ -356,5 +361,28 @@ impl<'a> Resolver<'a> {
             }
             _ => PathReferenceKind::LocalMember,
         }
+    }
+
+    fn resolve_decorator_references(&mut self, decorator: NodeId, scope: ScopeId) {
+        let Some(target) = self.syntax.child(decorator, 0) else {
+            return;
+        };
+
+        let Some(target_node) = self.syntax.node(target) else {
+            return;
+        };
+
+        if target_node.kind() != SyntaxNodeKind::CallExpression {
+            return;
+        }
+
+        let Some(arguments) = self
+            .syntax
+            .first_child_of_kind(target, SyntaxNodeKind::ArgumentList)
+        else {
+            return;
+        };
+
+        self.resolve_node_references(arguments, scope);
     }
 }

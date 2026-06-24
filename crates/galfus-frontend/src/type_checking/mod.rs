@@ -10,6 +10,7 @@ mod calls;
 mod constraints;
 mod control_flow;
 mod declarations;
+mod decorators;
 mod diagnostics;
 mod expressions;
 mod generic_expressions;
@@ -88,6 +89,7 @@ impl<'a> DeclarationTypeChecker<'a> {
         };
 
         self.check_node(root);
+        self.check_decorators(root);
         self.check_control_flow(root, 0);
         self.check_initializer_types(root);
         self.check_return_types(root, None);

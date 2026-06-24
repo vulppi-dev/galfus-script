@@ -296,7 +296,7 @@ impl Parser {
         let decorators = self.parse_optional_decorator_list()?;
 
         if self.at(&TokenKind::Weak) {
-            return self.parse_weak_struct_field();
+            return self.parse_weak_struct_field(decorators);
         }
 
         let field_const = if self.at(&TokenKind::Const) {
@@ -485,7 +485,7 @@ impl Parser {
         Some(self.add_node(SyntaxNodeKind::Argument, span, vec![expression]))
     }
 
-    pub(super) fn parse_weak_struct_field(&mut self) -> Option<NodeId> {
+    pub(super) fn parse_weak_struct_field(&mut self, decorators: Option<NodeId>) -> Option<NodeId> {
         let weak_token = self.expect(TokenKind::Weak)?;
 
         self.skip_newlines();
@@ -500,7 +500,15 @@ impl Parser {
 
         let field_type = self.parse_type()?;
 
-        let mut children = vec![name, field_type];
+        let mut children = Vec::new();
+
+        if let Some(decorators) = decorators {
+            children.push(decorators);
+        }
+
+        children.push(name);
+        children.push(field_type);
+
         let mut end_span = self.node_span(field_type);
 
         self.skip_newlines();
@@ -511,7 +519,11 @@ impl Parser {
             children.push(default);
         }
 
-        let span = Span::cover(weak_token.span(), end_span).unwrap_or(weak_token.span());
+        let start_span = decorators
+            .map(|decorators| self.node_span(decorators))
+            .unwrap_or(weak_token.span());
+
+        let span = Span::cover(start_span, end_span).unwrap_or(start_span);
 
         Some(self.add_node(SyntaxNodeKind::WeakStructField, span, children))
     }
