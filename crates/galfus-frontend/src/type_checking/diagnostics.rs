@@ -762,19 +762,4 @@ impl<'a> DeclarationTypeChecker<'a> {
             span,
         ));
     }
-
-    pub(super) fn report_spread_argument_requires_rest(&mut self, argument: NodeId) {
-        let span = self
-            .graph
-            .syntax()
-            .node(argument)
-            .map(|node| node.span())
-            .unwrap_or_else(|| self.source.span());
-
-        self.diagnostics.push(Diagnostic::error_with_message(
-            TypeDiagnosticCode::ArgumentCountMismatch,
-            "spread argument requires a rest parameter",
-            span,
-        ));
-    }
 }

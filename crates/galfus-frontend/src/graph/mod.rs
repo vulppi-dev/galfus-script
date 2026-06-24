@@ -611,7 +611,6 @@ pub enum SyntaxNodeKind {
     Argument,
     OmittedArgument,
     ArgumentList,
-    SpreadArgument,
 
     // Expressions
     CallExpression,

@@ -379,19 +379,6 @@ impl Parser {
         Some(self.add_node(SyntaxNodeKind::IndexExpression, span, vec![target, index]))
     }
 
-    pub(super) fn parse_spread_argument(&mut self) -> Option<NodeId> {
-        let spread_token = self.expect(TokenKind::DotDotDot)?;
-
-        self.skip_newlines();
-
-        let expression = self.parse_expression()?;
-
-        let span = Span::cover(spread_token.span(), self.node_span(expression))
-            .unwrap_or(spread_token.span());
-
-        Some(self.add_node(SyntaxNodeKind::SpreadArgument, span, vec![expression]))
-    }
-
     pub(super) fn parse_spread_array_element(&mut self) -> Option<NodeId> {
         let spread_token = self.expect(TokenKind::DotDotDot)?;
 

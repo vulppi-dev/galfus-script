@@ -244,22 +244,6 @@ fn check_reports_omitted_required_argument() {
 }
 
 #[test]
-fn check_accepts_spread_argument_for_rest_parameter() {
-    let (_source, _graph, result) = check_source(
-        r#"
-        fn sum(...values: [int32]): int32 {
-          return 0
-        }
-
-        var values = [1, 2, 3]
-        var value: int32 = sum(...values)
-        "#,
-    );
-
-    assert!(!result.has_errors());
-}
-
-#[test]
 fn check_accepts_individual_arguments_for_rest_parameter() {
     let (_source, _graph, result) = check_source(
         r#"
@@ -267,102 +251,21 @@ fn check_accepts_individual_arguments_for_rest_parameter() {
           return 0
         }
 
+        fn call(...values: [int32]): null {
+          return
+        }
+
         var value: int32 = sum(1, 2, 3)
+
+        fn main(): null {
+          call()
+          call(1)
+          call(1, 2)
+          call(1, 2, 3)
+          return
+        }
         "#,
     );
 
     assert!(!result.has_errors());
-}
-
-#[test]
-fn check_accepts_omitted_default_before_rest_spread() {
-    let (_source, _graph, result) = check_source(
-        r#"
-        fn sum(offset: int32 = 0, ...values: [int32]): int32 {
-          return offset
-        }
-
-        var values = [1, 2, 3]
-        var value: int32 = sum(,...values)
-        "#,
-    );
-
-    assert!(!result.has_errors());
-}
-
-#[test]
-fn check_reports_spread_argument_type_mismatch() {
-    let source = source(
-        r#"
-        fn sum(...values: [int32]): int32 {
-          return 0
-        }
-
-        var value: int32 = sum(...true)
-        "#,
-    );
-
-    let parse_result = parse(&source);
-    assert!(
-        !parse_result.has_errors(),
-        "{:?}",
-        parse_result.diagnostics()
-    );
-
-    let resolve_result = resolve(&source, parse_result.into_graph());
-    assert!(
-        !resolve_result.has_errors(),
-        "{:?}",
-        resolve_result.diagnostics()
-    );
-
-    let graph = resolve_result.into_graph();
-    let result = check_declaration_types(&source, &graph);
-
-    assert!(result.has_errors());
-    assert!(result.diagnostics().iter().any(|diagnostic| {
-        diagnostic.code().as_str() == TypeDiagnosticCode::TypeMismatch.as_code()
-            && diagnostic
-                .message()
-                .contains("expected `[int32]`, got `bool`")
-    }));
-}
-
-#[test]
-fn check_reports_spread_argument_without_rest_parameter() {
-    let source = source(
-        r#"
-        fn add(a: int32, b: int32): int32 {
-          return a + b
-        }
-
-        var values = [1, 2]
-        var value: int32 = add(...values)
-        "#,
-    );
-
-    let parse_result = parse(&source);
-    assert!(
-        !parse_result.has_errors(),
-        "{:?}",
-        parse_result.diagnostics()
-    );
-
-    let resolve_result = resolve(&source, parse_result.into_graph());
-    assert!(
-        !resolve_result.has_errors(),
-        "{:?}",
-        resolve_result.diagnostics()
-    );
-
-    let graph = resolve_result.into_graph();
-    let result = check_declaration_types(&source, &graph);
-
-    assert!(result.has_errors());
-    assert!(result.diagnostics().iter().any(|diagnostic| {
-        diagnostic.code().as_str() == TypeDiagnosticCode::ArgumentCountMismatch.as_code()
-            && diagnostic
-                .message()
-                .contains("spread argument requires a rest parameter")
-    }));
 }

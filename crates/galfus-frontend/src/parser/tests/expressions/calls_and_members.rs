@@ -485,3 +485,29 @@ fn parse_null_safe_member_call() {
 
     assert_eq!(callee_node.kind(), SyntaxNodeKind::NullSafeMemberExpression);
 }
+
+#[test]
+fn parse_reports_call_spread_argument() {
+    let source = source(
+        r#"
+        call(1, ...values)
+        "#,
+    );
+
+    let result = parse(&source);
+
+    assert!(result.has_errors());
+}
+
+#[test]
+fn parse_reports_call_spread_argument_before_trailing_argument() {
+    let source = source(
+        r#"
+        call(1, ...values, 10)
+        "#,
+    );
+
+    let result = parse(&source);
+
+    assert!(result.has_errors());
+}

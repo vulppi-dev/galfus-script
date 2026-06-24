@@ -8,7 +8,6 @@ use super::DeclarationTypeChecker;
 enum CallArgument {
     Provided { expression: NodeId },
     Omitted { node: NodeId },
-    Spread { node: NodeId, expression: NodeId },
 }
 
 impl<'a> DeclarationTypeChecker<'a> {
@@ -45,20 +44,15 @@ impl<'a> DeclarationTypeChecker<'a> {
         arguments_node
             .children()
             .iter()
-            .filter_map(|child| self.call_argument_expression(*child))
+            .filter_map(|child| {
+                let syntax_node = self.graph.syntax().node(*child)?;
+
+                match syntax_node.kind() {
+                    SyntaxNodeKind::Argument => self.graph.syntax().child(*child, 0),
+                    _ => Some(*child),
+                }
+            })
             .collect()
-    }
-
-    pub(super) fn call_argument_expression(&self, node: NodeId) -> Option<NodeId> {
-        let syntax_node = self.graph.syntax().node(node)?;
-
-        match syntax_node.kind() {
-            SyntaxNodeKind::Argument | SyntaxNodeKind::SpreadArgument => {
-                self.graph.syntax().child(node, 0)
-            }
-
-            _ => Some(node),
-        }
     }
 
     fn rest_parameter_element_type(&self, rest_type: TypeId) -> Option<TypeId> {
@@ -94,10 +88,6 @@ impl<'a> DeclarationTypeChecker<'a> {
                 Some(CallArgument::Provided { expression })
             }
             SyntaxNodeKind::OmittedArgument => Some(CallArgument::Omitted { node }),
-            SyntaxNodeKind::SpreadArgument => {
-                let expression = self.graph.syntax().child(node, 0)?;
-                Some(CallArgument::Spread { node, expression })
-            }
             _ => Some(CallArgument::Provided { expression: node }),
         }
     }
@@ -134,29 +124,6 @@ impl<'a> DeclarationTypeChecker<'a> {
 
                     parameter_index += 1;
                 }
-                CallArgument::Spread { node, expression } => {
-                    let Some(rest_index) =
-                        self.rest_parameter_index_from(function, parameter_index)
-                    else {
-                        self.report_spread_argument_requires_rest(node);
-                        parameter_index += 1;
-                        continue;
-                    };
-
-                    if self.has_required_parameters_before_rest(
-                        function,
-                        parameter_index,
-                        rest_index,
-                    ) {
-                        self.report_spread_argument_requires_rest(node);
-                        parameter_index += 1;
-                        continue;
-                    }
-
-                    parameter_index = rest_index;
-                    let rest = &parameters[rest_index];
-                    self.check_spread_call_argument_type(expression, rest.ty());
-                }
             }
         }
 
@@ -186,9 +153,6 @@ impl<'a> DeclarationTypeChecker<'a> {
             CallArgument::Omitted { node } => {
                 self.report_omitted_required_argument(node);
             }
-            CallArgument::Spread { expression, .. } => {
-                self.check_spread_call_argument_type(expression, rest_type);
-            }
         }
     }
 
@@ -202,39 +166,5 @@ impl<'a> DeclarationTypeChecker<'a> {
         }
 
         self.report_type_mismatch(expression, expected, actual);
-    }
-
-    fn check_spread_call_argument_type(&mut self, expression: NodeId, expected: TypeId) {
-        self.check_single_call_argument_type(expression, expected);
-    }
-
-    fn rest_parameter_index_from(
-        &self,
-        function: &crate::FunctionType,
-        start: usize,
-    ) -> Option<usize> {
-        function
-            .parameters()
-            .iter()
-            .enumerate()
-            .skip(start)
-            .find_map(|(index, parameter)| {
-                if parameter.is_rest() {
-                    Some(index)
-                } else {
-                    None
-                }
-            })
-    }
-
-    fn has_required_parameters_before_rest(
-        &self,
-        function: &crate::FunctionType,
-        start: usize,
-        rest_index: usize,
-    ) -> bool {
-        function.parameters()[start..rest_index]
-            .iter()
-            .any(|parameter| !parameter.has_default())
     }
 }
