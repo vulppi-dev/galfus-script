@@ -134,6 +134,7 @@ pub enum TypeDiagnosticCode {
     GenericArgumentCountMismatch,
     NonExhaustiveMatch,
     InvalidDecoratorUsage,
+    RecursiveFunctionStamp,
 }
 
 impl DiagnosticCodeKind for TypeDiagnosticCode {
@@ -175,6 +176,7 @@ impl DiagnosticCodeKind for TypeDiagnosticCode {
             Self::GenericArgumentCountMismatch => "T0034",
             Self::NonExhaustiveMatch => "T0035",
             Self::InvalidDecoratorUsage => "T0036",
+            Self::RecursiveFunctionStamp => "T0037",
         }
     }
 
@@ -218,6 +220,7 @@ impl DiagnosticCodeKind for TypeDiagnosticCode {
             Self::GenericArgumentCountMismatch => "generic argument count mismatch",
             Self::NonExhaustiveMatch => "non-exhaustive match",
             Self::InvalidDecoratorUsage => "invalid decorator usage",
+            Self::RecursiveFunctionStamp => "recursive function stamp",
         }
     }
 }

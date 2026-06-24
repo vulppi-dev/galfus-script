@@ -80,7 +80,7 @@ fn main(): null {
   return
 }
 
-stamp fn max(a: int32, b: int32): int32 {
+fn(stamp) max(a: int32, b: int32): int32 {
   if a > b {
     return a
   }
@@ -193,7 +193,7 @@ export fn sum(a: int32, b: int32): int32 {
   return a + b
 }
 
-export stamp fn min(a: int32, b: int32): int32 {
+export fn(stamp) min(a: int32, b: int32): int32 {
   if a < b {
     return a
   }
@@ -797,10 +797,10 @@ fn identity<T>(value: T): T {
 
 ## 17. Stamped functions
 
-A stamped function uses the `stamp fn` prefix:
+A stamped function uses the `fn(stamp)` function metadata form:
 
 ```galfus
-stamp fn max(a: int32, b: int32): int32 {
+fn(stamp) max(a: int32, b: int32): int32 {
   if a > b {
     return a
   }
@@ -812,12 +812,12 @@ stamp fn max(a: int32, b: int32): int32 {
 A stamped anchor function:
 
 ```galfus
-stamp fn Vec2::lengthSq(self: Vec2): float32 {
+fn(stamp) Vec2::lengthSq(self: Vec2): float32 {
   return self.x * self.x + self.y * self.y
 }
 ```
 
-The syntax only marks the declaration. Stack behavior and lowering behavior are semantic and architecture concerns.
+The syntax marks the function item. Stack behavior, lowering behavior, and stamp-specific validation are semantic and architecture concerns.
 
 ---
 
@@ -1468,7 +1468,7 @@ fn createUser(
   }
 }
 
-stamp fn max(a: int32, b: int32): int32 {
+fn(stamp) max(a: int32, b: int32): int32 {
   if a > b {
     return a
   }

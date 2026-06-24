@@ -290,6 +290,7 @@ Goal: validate all core type rules and materialize inferred types before lowerin
 - [x] Nullability validation
 - [x] Function signature typing
 - [x] Function return typing
+- [x] Function stamp recursion validation
 - [x] Call argument typing
 - [x] Default parameter typing
 - [x] Rest parameter typing
@@ -322,7 +323,7 @@ Goal: validate language behavior beyond raw type compatibility.
 - [x] Import binding semantics
 - [ ] Function return path validation
 - [ ] Bare return validation
-- [ ] Stamped function restrictions
+- [ ] Remaining stamped function lowering restrictions
 - [ ] Anchor call semantics
 - [ ] No implicit anchor write-back
 - [ ] Struct expansion semantics

@@ -807,10 +807,10 @@ A bare `return` is valid only when the function return type is `null`.
 
 ## 17. Stamped functions
 
-A stamped function is declared with `stamp fn`:
+A stamped function is declared with `fn(stamp)`:
 
 ```galfus
-stamp fn max(a: int32, b: int32): int32 {
+fn(stamp) max(a: int32, b: int32): int32 {
   if a > b {
     return a
   }
@@ -825,7 +825,7 @@ Stamped functions are intended for small compile-time/lowering-time call expansi
 
 Restrictions:
 
-- no recursion;
+- no direct or indirect recursion through other stamped functions;
 - the body must be lowerable inline;
 - the body must not require a dynamic call frame;
 - any additional restriction may be enforced by the semantic checker to preserve predictable lowering.
@@ -931,7 +931,7 @@ The assignment is explicit.
 Stamped anchor functions are allowed for structs when their bodies satisfy stamped function restrictions:
 
 ```galfus
-stamp fn Vec2::lengthSq(self: Vec2): float32 {
+fn(stamp) Vec2::lengthSq(self: Vec2): float32 {
   return self.x * self.x + self.y * self.y
 }
 ```

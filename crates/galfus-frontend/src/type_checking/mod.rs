@@ -13,6 +13,7 @@ mod declarations;
 mod decorators;
 mod diagnostics;
 mod expressions;
+mod function_stamps;
 mod generic_expressions;
 mod inferred_structs;
 mod initializers;
@@ -95,6 +96,7 @@ impl<'a> DeclarationTypeChecker<'a> {
         self.check_return_types(root, None);
         self.check_assignment_types(root);
         self.check_constraint_satisfies(root);
+        self.check_function_stamps(root);
     }
 
     fn describe_type_for_diagnostic(&self, ty: TypeId) -> String {

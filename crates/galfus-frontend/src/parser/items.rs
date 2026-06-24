@@ -8,7 +8,7 @@ impl Parser {
             return self.parse_export_item(decorators);
         }
 
-        if self.at(&TokenKind::Fn) || self.at(&TokenKind::Stamp) {
+        if self.at(&TokenKind::Fn) {
             return self.parse_function_item(decorators);
         }
 
@@ -71,11 +71,7 @@ impl Parser {
 
         self.skip_newlines();
 
-        if decorators.is_some()
-            && !(self.at(&TokenKind::Fn)
-                || self.at(&TokenKind::Stamp)
-                || self.at(&TokenKind::Struct))
-        {
+        if decorators.is_some() && !(self.at(&TokenKind::Fn) || self.at(&TokenKind::Struct)) {
             let found = self.current();
 
             self.graph.push_diagnostic(Diagnostic::error_with_message(
@@ -91,7 +87,7 @@ impl Parser {
             self.parse_var_item()?
         } else if self.at(&TokenKind::Const) {
             self.parse_const_item()?
-        } else if self.at(&TokenKind::Fn) || self.at(&TokenKind::Stamp) {
+        } else if self.at(&TokenKind::Fn) {
             self.parse_function_item(decorators)?
         } else if self.at(&TokenKind::Struct) {
             self.parse_struct_item(decorators)?
@@ -137,8 +133,13 @@ impl Parser {
     }
 
     pub(super) fn parse_function_item(&mut self, decorators: Option<NodeId>) -> Option<NodeId> {
-        let stamp = if self.at(&TokenKind::Stamp) {
+        let fn_token = self.expect(TokenKind::Fn)?;
+        self.skip_newlines();
+
+        let stamp = if self.at(&TokenKind::LeftParen) && self.peek(1).kind() == &TokenKind::Stamp {
+            self.bump();
             let stamp_token = self.bump();
+            self.expect(TokenKind::RightParen)?;
             self.skip_newlines();
 
             Some(self.add_node(
@@ -149,9 +150,6 @@ impl Parser {
         } else {
             None
         };
-
-        let fn_token = self.expect(TokenKind::Fn)?;
-        self.skip_newlines();
 
         let anchor = if let Some(separator_position) = self.find_function_anchor_separator() {
             let anchor = self.parse_function_anchor_until(separator_position)?;
@@ -212,7 +210,6 @@ impl Parser {
 
         let start_span = decorators
             .map(|decorators| self.node_span(decorators))
-            .or_else(|| stamp.map(|stamp| self.node_span(stamp)))
             .unwrap_or(fn_token.span());
 
         let span = Span::cover(start_span, self.node_span(body)).unwrap_or(fn_token.span());

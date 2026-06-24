@@ -1,4 +1,6 @@
-use galfus_core::{Diagnostic, NodeId, TypeId};
+use std::collections::HashMap;
+
+use galfus_core::{Diagnostic, NodeId, SymbolId, TypeId};
 
 use crate::TypeDiagnosticCode;
 
@@ -807,5 +809,44 @@ impl<'a> DeclarationTypeChecker<'a> {
             message.into(),
             span,
         ));
+    }
+
+    pub(super) fn report_recursive_function_stamp(
+        &mut self,
+        symbol: SymbolId,
+        path: &[SymbolId],
+        stamp_functions: &HashMap<SymbolId, NodeId>,
+    ) {
+        let node = stamp_functions.get(&symbol).copied();
+        let span = node
+            .and_then(|node| self.graph.syntax().node(node).map(|node| node.span()))
+            .unwrap_or_else(|| self.source.span());
+
+        let path = self.describe_stamp_cycle(symbol, path);
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+            TypeDiagnosticCode::RecursiveFunctionStamp,
+            format!("function stamp cannot be recursive through `{path}`"),
+            span,
+        ));
+    }
+
+    fn describe_stamp_cycle(&self, start: SymbolId, path: &[SymbolId]) -> String {
+        let mut names = path
+            .iter()
+            .filter_map(|symbol| self.graph.resolution()?.symbol(*symbol))
+            .map(|symbol| symbol.name().to_string())
+            .collect::<Vec<_>>();
+
+        if let Some(start_name) = self
+            .graph
+            .resolution()
+            .and_then(|resolution| resolution.symbol(start))
+            .map(|symbol| symbol.name().to_string())
+        {
+            names.push(start_name);
+        }
+
+        names.join(" -> ")
     }
 }

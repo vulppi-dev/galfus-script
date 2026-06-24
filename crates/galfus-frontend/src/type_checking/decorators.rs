@@ -342,8 +342,7 @@ impl<'a> DeclarationTypeChecker<'a> {
                     self.report_type_mismatch(expression, expected, actual);
                 }
                 DecoratorArgument::Omitted { node } => {
-                    let Some(parameter) = self.decorator_argument_parameter(function, index)
-                    else {
+                    let Some(parameter) = self.decorator_argument_parameter(function, index) else {
                         continue;
                     };
 
