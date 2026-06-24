@@ -182,3 +182,170 @@ fn unwrap(result: Result): int32 {
             && diagnostic.message().contains("got `bool`")
     }));
 }
+
+#[test]
+fn check_accepts_exhaustive_choice_match() {
+    let (_source, _graph, result) = check_source(
+        r#"
+        choice Result {
+          Ok(int32),
+          Err([uint8]),
+        }
+
+        fn unwrap(result: Result): int32 {
+          return match result {
+            Result::Ok(value) => value,
+            Result::Err(message) => 0,
+          }
+        }
+        "#,
+    );
+
+    assert!(!result.has_errors());
+}
+
+#[test]
+fn check_accepts_choice_match_with_wildcard_default() {
+    let (_source, _graph, result) = check_source(
+        r#"
+        choice Result {
+          Ok(int32),
+          Err([uint8]),
+        }
+
+        fn unwrap(result: Result): int32 {
+          return match result {
+            Result::Ok(value) => value,
+            _ => 0,
+          }
+        }
+        "#,
+    );
+
+    assert!(!result.has_errors());
+}
+
+#[test]
+fn check_accepts_choice_match_with_binding_default() {
+    let (_source, _graph, result) = check_source(
+        r#"
+        choice Result {
+          Ok(int32),
+          Err([uint8]),
+        }
+
+        fn unwrap(result: Result): int32 {
+          return match result {
+            Result::Ok(value) => value,
+            fallback => 0,
+          }
+        }
+        "#,
+    );
+
+    assert!(!result.has_errors());
+}
+
+#[test]
+fn check_reports_non_exhaustive_choice_match() {
+    let source = source(
+        r#"
+        choice Result {
+          Ok(int32),
+          Err([uint8]),
+        }
+
+        fn unwrap(result: Result): int32 {
+          return match result {
+            Result::Ok(value) => value,
+          }
+        }
+        "#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(
+        !parse_result.has_errors(),
+        "{:?}",
+        parse_result.diagnostics()
+    );
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(
+        !resolve_result.has_errors(),
+        "{:?}",
+        resolve_result.diagnostics()
+    );
+
+    let graph = resolve_result.into_graph();
+    let result = check_declaration_types(&source, &graph);
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::NonExhaustiveMatch.as_code()
+            && diagnostic.message().contains("missing `Err`")
+    }));
+}
+
+#[test]
+fn check_reports_multiple_missing_choice_match_variants() {
+    let source = source(
+        r#"
+        choice State {
+          Loading,
+          Ready,
+          Failed([uint8]),
+        }
+
+        fn code(state: State): int32 {
+          return match state {
+            State::Loading => 0,
+          }
+        }
+        "#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(
+        !parse_result.has_errors(),
+        "{:?}",
+        parse_result.diagnostics()
+    );
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(
+        !resolve_result.has_errors(),
+        "{:?}",
+        resolve_result.diagnostics()
+    );
+
+    let graph = resolve_result.into_graph();
+    let result = check_declaration_types(&source, &graph);
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::NonExhaustiveMatch.as_code()
+            && diagnostic.message().contains("`Ready`")
+            && diagnostic.message().contains("`Failed`")
+    }));
+}
+
+#[test]
+fn check_does_not_require_enum_match_exhaustiveness_yet() {
+    let (_source, _graph, result) = check_source(
+        r#"
+        enum Direction {
+          North,
+          South,
+        }
+
+        fn code(direction: Direction): int32 {
+          return match direction {
+            Direction::North => 1,
+          }
+        }
+        "#,
+    );
+
+    assert!(!result.has_errors());
+}

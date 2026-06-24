@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use galfus_core::{NodeId, SymbolId, TypeId};
 
 use crate::{PrimitiveType, SymbolKind, SyntaxNodeKind, TypeKind};
@@ -26,6 +28,8 @@ impl<'a> DeclarationTypeChecker<'a> {
 
             return Some(error);
         }
+
+        self.check_choice_match_exhaustiveness(node, subject_type, arm_nodes.as_slice());
 
         let mut arm_types = Vec::new();
 
@@ -240,5 +244,163 @@ impl<'a> DeclarationTypeChecker<'a> {
 
     fn is_error_type(&self, ty: TypeId) -> bool {
         matches!(self.layer.table().kind(ty), Some(TypeKind::Error))
+    }
+
+    fn check_choice_match_exhaustiveness(
+        &mut self,
+        match_expression: NodeId,
+        subject_type: TypeId,
+        arms: &[NodeId],
+    ) {
+        let Some(choice_symbol) = self.choice_symbol_from_match_subject_type(subject_type) else {
+            return;
+        };
+
+        let variants = self.choice_variant_symbols_in_order(choice_symbol);
+
+        if variants.is_empty() {
+            return;
+        }
+
+        let mut covered = HashSet::new();
+
+        for arm in arms {
+            let Some(pattern) = self.graph.syntax().child(*arm, 0) else {
+                continue;
+            };
+
+            let Some(pattern_node) = self.graph.syntax().node(pattern) else {
+                continue;
+            };
+
+            match pattern_node.kind() {
+                SyntaxNodeKind::WildcardPattern | SyntaxNodeKind::BindingPattern => {
+                    return;
+                }
+                SyntaxNodeKind::VariantPattern => {
+                    let Some((owner_symbol, variant_symbol)) =
+                        self.variant_pattern_symbols(pattern)
+                    else {
+                        continue;
+                    };
+
+                    if owner_symbol == choice_symbol {
+                        covered.insert(variant_symbol);
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        let missing = variants
+            .into_iter()
+            .filter(|(variant_symbol, _)| !covered.contains(variant_symbol))
+            .map(|(_, variant_name)| variant_name)
+            .collect::<Vec<_>>();
+
+        if missing.is_empty() {
+            return;
+        }
+
+        self.report_non_exhaustive_match(match_expression, subject_type, missing.as_slice());
+    }
+
+    fn choice_symbol_from_match_subject_type(&self, subject_type: TypeId) -> Option<SymbolId> {
+        let subject_type = self.resolve_alias_type(subject_type);
+
+        match self.layer.table().kind(subject_type).cloned() {
+            Some(TypeKind::Named { symbol }) => self.choice_symbol(symbol),
+            Some(TypeKind::GenericInstance { base, .. }) => {
+                let base = self.resolve_alias_type(base);
+
+                let Some(TypeKind::Named { symbol }) = self.layer.table().kind(base).cloned()
+                else {
+                    return None;
+                };
+
+                self.choice_symbol(symbol)
+            }
+            _ => None,
+        }
+    }
+
+    fn choice_symbol(&self, symbol: SymbolId) -> Option<SymbolId> {
+        let resolution = self.graph.resolution()?;
+        let symbol_data = resolution.symbol(symbol)?;
+
+        if symbol_data.kind() == SymbolKind::Choice {
+            Some(symbol)
+        } else {
+            None
+        }
+    }
+
+    fn choice_variant_symbols_in_order(&self, choice_symbol: SymbolId) -> Vec<(SymbolId, String)> {
+        let Some(root) = self.graph.syntax().root() else {
+            return Vec::new();
+        };
+
+        let Some(choice_item) = self.choice_item_node_for_symbol(root, choice_symbol) else {
+            return Vec::new();
+        };
+
+        let Some(choice_node) = self.graph.syntax().node(choice_item) else {
+            return Vec::new();
+        };
+
+        let mut variants = Vec::new();
+
+        for child in choice_node.children() {
+            self.collect_choice_variant_symbols_in_order(*child, &mut variants);
+        }
+
+        variants
+    }
+
+    fn collect_choice_variant_symbols_in_order(
+        &self,
+        node: NodeId,
+        variants: &mut Vec<(SymbolId, String)>,
+    ) {
+        let Some(syntax_node) = self.graph.syntax().node(node) else {
+            return;
+        };
+
+        if syntax_node.kind() == SyntaxNodeKind::ChoiceVariant {
+            if let Some(symbol) = self.direct_identifier_symbol(node, SymbolKind::ChoiceVariant) {
+                let name = self.node_text(
+                    self.graph
+                        .syntax()
+                        .first_child_of_kind(node, SyntaxNodeKind::Identifier)
+                        .unwrap_or(node),
+                );
+
+                variants.push((symbol, name));
+            }
+
+            return;
+        }
+
+        for child in syntax_node.children() {
+            self.collect_choice_variant_symbols_in_order(*child, variants);
+        }
+    }
+
+    fn choice_item_node_for_symbol(&self, node: NodeId, choice_symbol: SymbolId) -> Option<NodeId> {
+        let syntax_node = self.graph.syntax().node(node)?;
+
+        if syntax_node.kind() == SyntaxNodeKind::ChoiceItem
+            && self.direct_identifier_symbol(node, SymbolKind::Choice) == Some(choice_symbol)
+        {
+            return Some(node);
+        }
+
+        for child in syntax_node.children() {
+            if let Some(found) = self.choice_item_node_for_symbol(*child, choice_symbol) {
+                return Some(found);
+            }
+        }
+
+        None
     }
 }
