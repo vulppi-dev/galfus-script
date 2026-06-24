@@ -101,34 +101,34 @@ Goal: keep the repository organized enough for MVP development and public inspec
 - [x] `examples/` folder exists
 - [x] Syntax demonstration project exists
 - [ ] Public README finalized
-- [ ] `MILESTONE.md` added
+- [x] `MILESTONE.md` added
 - [ ] Repository description added
 - [ ] Repository topics added
-- [ ] License file confirmed
-- [ ] Contribution stance documented
+- [x] License file confirmed
+- [x] Contribution stance documented
 
 ## Milestone 1 — Workspace Graph
 
 Goal: build the local project/module model used by the frontend.
 
 - [ ] Find project root through `galfus.toml`
-- [ ] Parse minimal `galfus.toml`
-- [ ] Validate `[module]`
-- [ ] Validate module `name`
-- [ ] Validate module `target`
-- [ ] Validate app `entry`
-- [ ] Validate local library exports
-- [ ] Resolve local `src/` files
-- [ ] Resolve local relative imports from project graph
+- [x] Parse minimal `galfus.toml`
+- [x] Validate `[module]`
+- [x] Validate module `name`
+- [x] Validate module `target`
+- [x] Validate app `entry`
+- [x] Validate local library exports
+- [x] Resolve local `src/` files
+- [x] Resolve local relative imports from project graph
 - [ ] Resolve named imports from project graph
 - [ ] Resolve local aliases, if included in MVP
-- [ ] Build local module records
-- [ ] Build local module graph
-- [ ] Detect missing source files
-- [ ] Detect invalid import targets
+- [x] Build local module records
+- [x] Build local module graph
+- [x] Detect missing source files
+- [x] Detect invalid import targets
 - [ ] Detect ambiguous local imports
 - [ ] Preserve case-sensitive paths
-- [ ] Produce workspace diagnostics
+- [x] Produce workspace diagnostics
 
 ## Milestone 2 — Lexer and Parser
 
@@ -265,50 +265,50 @@ Goal: expand resolution from local source validation into module-aware semantic 
 
 Goal: validate all core type rules and materialize inferred types before lowering.
 
-- [ ] Primitive scalar typing
-- [ ] Default integer literal typing
-- [ ] Default float literal typing
-- [ ] Boolean literal typing
-- [ ] Null typing
-- [ ] String literal typing as `[uint8]`
-- [ ] Array literal typing
-- [ ] Fixed-size array typing
-- [ ] Runtime-sized array typing
-- [ ] Tuple typing
-- [ ] Struct literal typing
-- [ ] Struct field compatibility
-- [ ] Struct field defaults
+- [x] Primitive scalar typing
+- [x] Default integer literal typing
+- [x] Default float literal typing
+- [x] Boolean literal typing
+- [x] Null typing
+- [x] String literal typing as `[uint8]`
+- [x] Array literal typing
+- [x] Fixed-size array typing
+- [x] Runtime-sized array typing
+- [x] Tuple typing
+- [x] Struct literal typing
+- [x] Struct field compatibility
+- [x] Struct field defaults
 - [ ] Const field validation
-- [ ] Enum typing
+- [x] Enum typing
 - [ ] Enum base type validation
-- [ ] Choice construction typing
-- [ ] Choice payload typing
-- [ ] Type alias preservation
-- [ ] Type alias assignability
-- [ ] Union type normalization
-- [ ] Union assignment compatibility
-- [ ] Nullability validation
-- [ ] Function signature typing
-- [ ] Function return typing
-- [ ] Call argument typing
-- [ ] Default parameter typing
-- [ ] Rest parameter typing
+- [x] Choice construction typing
+- [x] Choice payload typing
+- [x] Type alias preservation
+- [x] Type alias assignability
+- [x] Union type normalization
+- [x] Union assignment compatibility
+- [x] Nullability validation
+- [x] Function signature typing
+- [x] Function return typing
+- [x] Call argument typing
+- [x] Default parameter typing
+- [x] Rest parameter typing
 - [ ] Argument spread typing
-- [ ] Arrow function typing
+- [x] Arrow function typing
 - [ ] Anchor function typing
 - [ ] Generic declaration typing
-- [ ] Generic instantiation typing
-- [ ] Constraint validation
-- [ ] `satisfies` validation
-- [ ] Cast validation
-- [ ] Operator typing
-- [ ] Match expression typing
-- [ ] `instanceof` branch typing
+- [x] Generic instantiation typing
+- [x] Constraint validation
+- [x] `satisfies` validation
+- [x] Cast validation
+- [x] Operator typing
+- [x] Match expression typing
+- [x] `instanceof` branch typing
 - [ ] Type narrowing
 - [ ] Destructuring typing
-- [ ] Range typing
-- [ ] Iterator / iterable constraint typing
-- [ ] Type checker diagnostics
+- [x] Range typing
+- [x] Iterator / iterable constraint typing
+- [x] Type checker diagnostics
 
 ## Milestone 6 — Semantic Checker
 
@@ -316,10 +316,10 @@ Goal: validate language behavior beyond raw type compatibility.
 
 - [ ] Top-level initialization semantics
 - [ ] Local binding initialization
-- [ ] Mutable binding reassignment
-- [ ] Immutable binding reassignment rejection
-- [ ] Export surface validation
-- [ ] Import binding semantics
+- [x] Mutable binding reassignment
+- [x] Immutable binding reassignment rejection
+- [x] Export surface validation
+- [x] Import binding semantics
 - [ ] Function return path validation
 - [ ] Bare return validation
 - [ ] Stamped function restrictions
@@ -330,15 +330,15 @@ Goal: validate language behavior beyond raw type compatibility.
 - [ ] Shallow copy semantics
 - [ ] Explicit deep copy semantics placeholder
 - [ ] Enum symbol preservation
-- [ ] Choice exhaustiveness checks
-- [ ] Match fallback behavior
+- [x] Choice exhaustiveness checks
+- [x] Match fallback behavior
 - [ ] `instanceof` narrowing behavior
-- [ ] Decorator target validation
-- [ ] Decorator order validation
+- [x] Decorator target validation
+- [x] Decorator order validation
 - [ ] Destructuring semantics
 - [ ] Range semantics
-- [ ] Loop control validation
-- [ ] Break / continue target validation
+- [x] Loop control validation
+- [x] Break / continue target validation
 - [ ] Module initialization cycle validation
 - [ ] Runtime panic condition modeling
 - [ ] Semantic diagnostics

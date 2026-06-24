@@ -55,7 +55,7 @@ impl<'a> DeclarationTypeChecker<'a> {
             .collect()
     }
 
-    fn rest_parameter_element_type(&self, rest_type: TypeId) -> Option<TypeId> {
+    pub(super) fn rest_parameter_element_type(&self, rest_type: TypeId) -> Option<TypeId> {
         match self.layer.table().kind(rest_type) {
             Some(TypeKind::Array { element }) => Some(*element),
 

@@ -1,8 +1,14 @@
-use galfus_core::NodeId;
+use galfus_core::{NodeId, TypeId};
 
-use crate::SyntaxNodeKind;
+use crate::{FunctionParameterType, FunctionType, SymbolKind, SyntaxNodeKind, TypeKind};
 
 use super::DeclarationTypeChecker;
+
+#[derive(Debug, Clone, Copy)]
+enum DecoratorArgument {
+    Provided { expression: NodeId },
+    Omitted { node: NodeId },
+}
 
 impl<'a> DeclarationTypeChecker<'a> {
     pub(super) fn check_decorators(&mut self, node: NodeId) {
@@ -26,14 +32,20 @@ impl<'a> DeclarationTypeChecker<'a> {
                 continue;
             }
 
-            if self.can_own_decorators(kind) {
-                self.check_decorator_list(child);
-            } else {
+            if !self.can_own_decorators(kind) {
                 self.report_invalid_decorator_usage(
                     child,
                     format!("decorators are not valid on `{kind:?}`"),
                 );
+                continue;
             }
+
+            let Some(target_type) = self.decorated_target_type(node) else {
+                self.report_invalid_decorator_usage(child, "cannot infer decorated target type");
+                continue;
+            };
+
+            self.check_decorator_list(child, target_type);
         }
 
         for child in children {
@@ -62,7 +74,45 @@ impl<'a> DeclarationTypeChecker<'a> {
         )
     }
 
-    fn check_decorator_list(&mut self, list: NodeId) {
+    fn decorated_target_type(&self, node: NodeId) -> Option<TypeId> {
+        let syntax_node = self.graph.syntax().node(node)?;
+
+        match syntax_node.kind() {
+            SyntaxNodeKind::FunctionItem => self
+                .direct_identifier_symbol(node, SymbolKind::Function)
+                .and_then(|symbol| self.layer.symbol_type(symbol)),
+
+            SyntaxNodeKind::StructItem => self
+                .direct_identifier_symbol(node, SymbolKind::Struct)
+                .and_then(|symbol| self.layer.symbol_type(symbol)),
+
+            SyntaxNodeKind::Parameter => self
+                .direct_identifier_symbol(node, SymbolKind::Parameter)
+                .and_then(|symbol| self.layer.symbol_type(symbol))
+                .or_else(|| self.type_child_type(node)),
+
+            SyntaxNodeKind::RestParameter => self
+                .direct_identifier_symbol(node, SymbolKind::RestParameter)
+                .and_then(|symbol| self.layer.symbol_type(symbol))
+                .or_else(|| self.type_child_type(node)),
+
+            SyntaxNodeKind::StructField | SyntaxNodeKind::WeakStructField => self
+                .direct_identifier_symbol(node, SymbolKind::StructField)
+                .and_then(|symbol| self.layer.symbol_type(symbol))
+                .or_else(|| self.type_child_type(node)),
+
+            SyntaxNodeKind::ChoicePayloadItem => self.type_child_type(node),
+
+            _ => None,
+        }
+    }
+
+    fn type_child_type(&self, node: NodeId) -> Option<TypeId> {
+        let type_node = self.first_type_child(node)?;
+        self.layer.node_type(type_node)
+    }
+
+    fn check_decorator_list(&mut self, list: NodeId, target_type: TypeId) {
         let decorators = self
             .graph
             .syntax()
@@ -70,98 +120,281 @@ impl<'a> DeclarationTypeChecker<'a> {
             .map(|node| node.children().to_vec())
             .unwrap_or_default();
 
-        for decorator in decorators {
-            self.check_decorator(decorator);
+        // Source order:
+        // @outer
+        // @inner
+        //
+        // Semantic application order: inner -> outer.
+        for decorator in decorators.into_iter().rev() {
+            self.check_decorator_transformer(decorator, target_type);
         }
     }
 
-    fn check_decorator(&mut self, decorator: NodeId) {
-        let Some(target) = self.graph.syntax().child(decorator, 0) else {
-            self.report_invalid_decorator_usage(decorator, "decorator requires a target");
+    fn check_decorator_transformer(&mut self, decorator: NodeId, target_type: TypeId) {
+        let Some((callee, argument_list)) = self.decorator_callee_and_arguments(decorator) else {
+            self.report_invalid_decorator_usage(
+                decorator,
+                "decorator target must be a name, path, or call",
+            );
             return;
         };
 
-        self.check_decorator_target(target);
+        let arguments = self.decorator_arguments(argument_list);
+
+        let Some(decorator_type) = self.infer_expression_type(callee) else {
+            return;
+        };
+
+        let function = match self.layer.table().kind(decorator_type).cloned() {
+            Some(TypeKind::Function(function)) => function,
+            Some(TypeKind::Error) => return,
+            _ => {
+                self.report_not_callable(callee, decorator_type);
+                return;
+            }
+        };
+
+        self.check_decorator_function_signature(
+            decorator,
+            &function,
+            target_type,
+            arguments.as_slice(),
+        );
     }
 
-    fn check_decorator_target(&mut self, target: NodeId) {
-        let Some(target_node) = self.graph.syntax().node(target) else {
-            return;
-        };
+    fn decorator_callee_and_arguments(
+        &self,
+        decorator: NodeId,
+    ) -> Option<(NodeId, Option<NodeId>)> {
+        let target = self.graph.syntax().child(decorator, 0)?;
+        let target_node = self.graph.syntax().node(target)?;
 
         match target_node.kind() {
-            SyntaxNodeKind::NameExpression | SyntaxNodeKind::PathExpression => {}
+            SyntaxNodeKind::NameExpression | SyntaxNodeKind::PathExpression => Some((target, None)),
             SyntaxNodeKind::CallExpression => {
-                self.check_decorator_call_target(target);
-                self.check_decorator_call_arguments(target);
+                let callee = self.graph.syntax().child(target, 0)?;
+                let arguments = self.graph.syntax().child(target, 1);
+
+                Some((callee, arguments))
             }
-            _ => {
-                self.report_invalid_decorator_usage(
-                    target,
-                    "decorator target must be a name, path, or call",
-                );
-            }
+            _ => None,
         }
     }
 
-    fn check_decorator_call_target(&mut self, call: NodeId) {
-        let Some(callee) = self.graph.syntax().child(call, 0) else {
+    fn check_decorator_function_signature(
+        &mut self,
+        decorator: NodeId,
+        function: &FunctionType,
+        target_type: TypeId,
+        arguments: &[DecoratorArgument],
+    ) {
+        let parameters = function.parameters();
+
+        let Some(target_parameter) = parameters.first() else {
+            self.report_invalid_decorator_usage(
+                decorator,
+                "decorator function must receive the decorated target as first parameter",
+            );
             return;
         };
 
-        let Some(callee_node) = self.graph.syntax().node(callee) else {
-            return;
-        };
+        self.check_decorator_target_parameter_type(decorator, target_parameter.ty(), target_type);
 
-        if matches!(
-            callee_node.kind(),
-            SyntaxNodeKind::NameExpression | SyntaxNodeKind::PathExpression
-        ) {
+        self.check_decorator_return_type(decorator, function.return_type(), target_type);
+
+        self.check_decorator_argument_count(decorator, function, arguments.len());
+        self.check_decorator_argument_types(arguments, function);
+    }
+
+    fn check_decorator_target_parameter_type(
+        &mut self,
+        decorator: NodeId,
+        expected: TypeId,
+        actual: TypeId,
+    ) {
+        if self.is_assignable(expected, actual) {
             return;
         }
 
-        self.report_invalid_decorator_usage(callee, "decorator call target must be a name or path");
+        self.report_type_mismatch(decorator, expected, actual);
     }
 
-    fn check_decorator_call_arguments(&mut self, call: NodeId) {
-        let Some(arguments) = self
-            .graph
-            .syntax()
-            .first_child_of_kind(call, SyntaxNodeKind::ArgumentList)
-        else {
+    fn check_decorator_return_type(
+        &mut self,
+        decorator: NodeId,
+        return_type: TypeId,
+        target_type: TypeId,
+    ) {
+        if self.is_same_decorator_type(return_type, target_type) {
             return;
+        }
+
+        let expected = self.describe_type_for_diagnostic(target_type);
+        let actual = self.describe_type_for_diagnostic(return_type);
+
+        self.report_invalid_decorator_usage(
+            decorator,
+            format!(
+                "decorator return type must match decorated target type; expected `{expected}`, got `{actual}`"
+            ),
+        );
+    }
+
+    fn is_same_decorator_type(&self, left: TypeId, right: TypeId) -> bool {
+        let left = self.resolve_alias_type(left);
+        let right = self.resolve_alias_type(right);
+
+        left == right || (self.is_assignable(left, right) && self.is_assignable(right, left))
+    }
+
+    fn decorator_arguments(&self, argument_list: Option<NodeId>) -> Vec<DecoratorArgument> {
+        let Some(argument_list) = argument_list else {
+            return Vec::new();
         };
 
-        let argument_nodes = self
-            .graph
-            .syntax()
-            .node(arguments)
-            .map(|node| node.children().to_vec())
-            .unwrap_or_default();
+        let Some(arguments_node) = self.graph.syntax().node(argument_list) else {
+            return Vec::new();
+        };
 
-        for argument in argument_nodes {
-            let Some(argument_node) = self.graph.syntax().node(argument) else {
-                continue;
-            };
+        arguments_node
+            .children()
+            .iter()
+            .filter_map(|argument| self.decorator_argument(*argument))
+            .collect()
+    }
 
-            match argument_node.kind() {
-                SyntaxNodeKind::Argument => {
-                    let Some(expression) = self.graph.syntax().child(argument, 0) else {
+    fn decorator_argument(&self, node: NodeId) -> Option<DecoratorArgument> {
+        let syntax_node = self.graph.syntax().node(node)?;
+
+        match syntax_node.kind() {
+            SyntaxNodeKind::Argument => {
+                let expression = self.graph.syntax().child(node, 0)?;
+                Some(DecoratorArgument::Provided { expression })
+            }
+            SyntaxNodeKind::OmittedArgument => Some(DecoratorArgument::Omitted { node }),
+            _ => Some(DecoratorArgument::Provided { expression: node }),
+        }
+    }
+
+    fn check_decorator_argument_count(
+        &mut self,
+        decorator: NodeId,
+        function: &FunctionType,
+        argument_count: usize,
+    ) {
+        let explicit_parameters = self.decorator_explicit_parameters(function);
+
+        let required_count = explicit_parameters
+            .iter()
+            .filter(|parameter| !parameter.has_default() && !parameter.is_rest())
+            .count();
+
+        let has_rest = explicit_parameters
+            .iter()
+            .any(|parameter| parameter.is_rest());
+
+        let max_count = if has_rest {
+            None
+        } else {
+            Some(explicit_parameters.len())
+        };
+
+        let too_few = argument_count < required_count;
+        let too_many = max_count.is_some_and(|max_count| argument_count > max_count);
+
+        if !too_few && !too_many {
+            return;
+        }
+
+        let expected = match max_count {
+            Some(max_count) if required_count == max_count => required_count.to_string(),
+            Some(max_count) => format!("{required_count}..{max_count}"),
+            None => format!("{required_count}+"),
+        };
+
+        self.report_invalid_decorator_usage(
+            decorator,
+            format!("decorator expected {expected} explicit argument(s), got {argument_count}"),
+        );
+    }
+
+    fn check_decorator_argument_types(
+        &mut self,
+        arguments: &[DecoratorArgument],
+        function: &FunctionType,
+    ) {
+        for (index, argument) in arguments.iter().copied().enumerate() {
+            match argument {
+                DecoratorArgument::Provided { expression } => {
+                    let Some(expected) = self.decorator_argument_parameter_type(function, index)
+                    else {
                         continue;
                     };
 
-                    self.infer_expression_type(expression);
+                    let Some(actual) = self.infer_expression_type(expression) else {
+                        continue;
+                    };
+
+                    if self.is_assignable(expected, actual) {
+                        continue;
+                    }
+
+                    self.report_type_mismatch(expression, expected, actual);
                 }
-                SyntaxNodeKind::OmittedArgument => {
+                DecoratorArgument::Omitted { node } => {
+                    let Some(parameter) = self.decorator_argument_parameter(function, index)
+                    else {
+                        continue;
+                    };
+
+                    if parameter.has_default() && !parameter.is_rest() {
+                        continue;
+                    }
+
                     self.report_invalid_decorator_usage(
-                        argument,
+                        node,
                         "decorator arguments cannot be omitted",
                     );
                 }
-                _ => {
-                    self.infer_expression_type(argument);
-                }
             }
         }
+    }
+
+    fn decorator_argument_parameter_type(
+        &self,
+        function: &FunctionType,
+        argument_index: usize,
+    ) -> Option<TypeId> {
+        if let Some(parameter) = self.decorator_argument_parameter(function, argument_index) {
+            if parameter.is_rest() {
+                return self.rest_parameter_element_type(parameter.ty());
+            }
+
+            return Some(parameter.ty());
+        }
+
+        let explicit_parameters = self.decorator_explicit_parameters(function);
+        let rest = explicit_parameters
+            .iter()
+            .find(|parameter| parameter.is_rest())?;
+
+        self.rest_parameter_element_type(rest.ty())
+    }
+
+    fn decorator_argument_parameter<'b>(
+        &self,
+        function: &'b FunctionType,
+        argument_index: usize,
+    ) -> Option<&'b FunctionParameterType> {
+        let explicit_parameters = self.decorator_explicit_parameters(function);
+
+        explicit_parameters.get(argument_index)
+    }
+
+    fn decorator_explicit_parameters<'b>(
+        &self,
+        function: &'b FunctionType,
+    ) -> &'b [FunctionParameterType] {
+        function.parameters().get(1..).unwrap_or(&[])
     }
 }
