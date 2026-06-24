@@ -49,6 +49,8 @@ impl<'a> DeclarationTypeChecker<'a> {
 
             SyntaxNodeKind::PathExpression => self.infer_path_variant_expression_type(node),
 
+            SyntaxNodeKind::GenericExpression => self.infer_generic_expression_type(node),
+
             SyntaxNodeKind::CallExpression => self.infer_call_expression_type(node),
 
             SyntaxNodeKind::ArrowFunctionExpression => {

@@ -12,6 +12,7 @@ mod control_flow;
 mod declarations;
 mod diagnostics;
 mod expressions;
+mod generic_expressions;
 mod inferred_structs;
 mod initializers;
 mod instanceof;

@@ -131,6 +131,7 @@ pub enum TypeDiagnosticCode {
     ConstraintFunctionTypeMismatch,
     ConstraintGenericArgumentCountMismatch,
     InvalidRangeOperandType,
+    GenericArgumentCountMismatch,
 }
 
 impl DiagnosticCodeKind for TypeDiagnosticCode {
@@ -169,6 +170,7 @@ impl DiagnosticCodeKind for TypeDiagnosticCode {
             Self::ConstraintFunctionTypeMismatch => "T0031",
             Self::ConstraintGenericArgumentCountMismatch => "T0032",
             Self::InvalidRangeOperandType => "T0033",
+            Self::GenericArgumentCountMismatch => "T0034",
         }
     }
 
@@ -209,6 +211,7 @@ impl DiagnosticCodeKind for TypeDiagnosticCode {
                 "constraint generic argument count mismatch"
             }
             Self::InvalidRangeOperandType => "invalid range operand type",
+            Self::GenericArgumentCountMismatch => "generic argument count mismatch",
         }
     }
 }

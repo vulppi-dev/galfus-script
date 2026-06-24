@@ -686,4 +686,24 @@ impl<'a> DeclarationTypeChecker<'a> {
             span,
         ));
     }
+
+    pub(super) fn report_generic_argument_count_mismatch(
+        &mut self,
+        target: NodeId,
+        expected: usize,
+        actual: usize,
+    ) {
+        let span = self
+            .graph
+            .syntax()
+            .node(target)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+            TypeDiagnosticCode::GenericArgumentCountMismatch,
+            format!("expected {expected} generic argument(s), got {actual}"),
+            span,
+        ));
+    }
 }
