@@ -1,8 +1,15 @@
-use galfus_core::{Diagnostic, NodeId, TypeId};
+use galfus_core::{NodeId, TypeId};
 
-use crate::{SyntaxNodeKind, TypeDiagnosticCode, TypeKind};
+use crate::{SyntaxNodeKind, TypeKind};
 
 use super::DeclarationTypeChecker;
+
+#[derive(Debug, Clone, Copy)]
+enum CallArgument {
+    Provided { expression: NodeId },
+    Omitted { node: NodeId },
+    Spread { node: NodeId, expression: NodeId },
+}
 
 impl<'a> DeclarationTypeChecker<'a> {
     pub(super) fn infer_call_expression_type(&mut self, node: NodeId) -> Option<TypeId> {
@@ -24,11 +31,8 @@ impl<'a> DeclarationTypeChecker<'a> {
             }
         };
 
-        let argument_nodes = self.call_argument_nodes(arguments);
-
-        self.check_call_argument_count(node, &function, argument_nodes.len());
-
-        self.check_call_argument_types(argument_nodes.as_slice(), &function);
+        let call_arguments = self.call_arguments(arguments);
+        self.check_call_arguments(node, &function, call_arguments.as_slice());
 
         Some(function.return_type())
     }
@@ -57,100 +61,6 @@ impl<'a> DeclarationTypeChecker<'a> {
         }
     }
 
-    fn check_call_argument_count(
-        &mut self,
-        call: NodeId,
-        function: &crate::FunctionType,
-        argument_count: usize,
-    ) {
-        let parameters = function.parameters();
-
-        let required_count = parameters
-            .iter()
-            .filter(|parameter| !parameter.has_default() && !parameter.is_rest())
-            .count();
-
-        let has_rest = parameters.iter().any(|parameter| parameter.is_rest());
-
-        let max_count = if has_rest {
-            None
-        } else {
-            Some(parameters.len())
-        };
-
-        let too_few = argument_count < required_count;
-        let too_many = max_count.is_some_and(|max_count| argument_count > max_count);
-
-        if !too_few && !too_many {
-            return;
-        }
-
-        let expected = match max_count {
-            Some(max_count) if required_count == max_count => required_count.to_string(),
-            Some(max_count) => {
-                format!("{required_count}..{max_count}")
-            }
-            None => {
-                format!("{required_count}+")
-            }
-        };
-
-        let span = self
-            .graph
-            .syntax()
-            .node(call)
-            .map(|node| node.span())
-            .unwrap_or_else(|| self.source.span());
-
-        self.diagnostics.push(Diagnostic::error_with_message(
-            TypeDiagnosticCode::ArgumentCountMismatch,
-            format!("expected {expected} arguments, got {argument_count}"),
-            span,
-        ));
-    }
-
-    fn check_call_argument_types(
-        &mut self,
-        argument_nodes: &[NodeId],
-        function: &crate::FunctionType,
-    ) {
-        for (index, argument) in argument_nodes.iter().copied().enumerate() {
-            let Some(expected) = self.call_parameter_type(function, index) else {
-                continue;
-            };
-
-            let Some(actual) = self.infer_expression_type(argument) else {
-                continue;
-            };
-
-            if self.is_assignable(expected, actual) {
-                continue;
-            }
-
-            self.report_type_mismatch(argument, expected, actual);
-        }
-    }
-
-    fn call_parameter_type(
-        &self,
-        function: &crate::FunctionType,
-        argument_index: usize,
-    ) -> Option<TypeId> {
-        let parameters = function.parameters();
-
-        if let Some(parameter) = parameters.get(argument_index) {
-            if parameter.is_rest() {
-                return self.rest_parameter_element_type(parameter.ty());
-            }
-
-            return Some(parameter.ty());
-        }
-
-        let rest = parameters.iter().find(|parameter| parameter.is_rest())?;
-
-        self.rest_parameter_element_type(rest.ty())
-    }
-
     fn rest_parameter_element_type(&self, rest_type: TypeId) -> Option<TypeId> {
         match self.layer.table().kind(rest_type) {
             Some(TypeKind::Array { element }) => Some(*element),
@@ -161,5 +71,170 @@ impl<'a> DeclarationTypeChecker<'a> {
 
             _ => Some(rest_type),
         }
+    }
+
+    fn call_arguments(&self, arguments: NodeId) -> Vec<CallArgument> {
+        let Some(arguments_node) = self.graph.syntax().node(arguments) else {
+            return Vec::new();
+        };
+
+        arguments_node
+            .children()
+            .iter()
+            .filter_map(|child| self.call_argument(*child))
+            .collect()
+    }
+
+    fn call_argument(&self, node: NodeId) -> Option<CallArgument> {
+        let syntax_node = self.graph.syntax().node(node)?;
+
+        match syntax_node.kind() {
+            SyntaxNodeKind::Argument => {
+                let expression = self.graph.syntax().child(node, 0)?;
+                Some(CallArgument::Provided { expression })
+            }
+            SyntaxNodeKind::OmittedArgument => Some(CallArgument::Omitted { node }),
+            SyntaxNodeKind::SpreadArgument => {
+                let expression = self.graph.syntax().child(node, 0)?;
+                Some(CallArgument::Spread { node, expression })
+            }
+            _ => Some(CallArgument::Provided { expression: node }),
+        }
+    }
+
+    fn check_call_arguments(
+        &mut self,
+        call: NodeId,
+        function: &crate::FunctionType,
+        arguments: &[CallArgument],
+    ) {
+        let parameters = function.parameters();
+        let mut parameter_index = 0;
+
+        for argument in arguments.iter().copied() {
+            let Some(parameter) = parameters.get(parameter_index) else {
+                self.report_call_argument_count_mismatch(call, function, arguments.len());
+                return;
+            };
+
+            if parameter.is_rest() {
+                self.check_rest_call_argument(argument, parameter.ty());
+                continue;
+            }
+
+            match argument {
+                CallArgument::Provided { expression } => {
+                    self.check_single_call_argument_type(expression, parameter.ty());
+                    parameter_index += 1;
+                }
+                CallArgument::Omitted { node } => {
+                    if !parameter.has_default() {
+                        self.report_omitted_required_argument(node);
+                    }
+
+                    parameter_index += 1;
+                }
+                CallArgument::Spread { node, expression } => {
+                    let Some(rest_index) =
+                        self.rest_parameter_index_from(function, parameter_index)
+                    else {
+                        self.report_spread_argument_requires_rest(node);
+                        parameter_index += 1;
+                        continue;
+                    };
+
+                    if self.has_required_parameters_before_rest(
+                        function,
+                        parameter_index,
+                        rest_index,
+                    ) {
+                        self.report_spread_argument_requires_rest(node);
+                        parameter_index += 1;
+                        continue;
+                    }
+
+                    parameter_index = rest_index;
+                    let rest = &parameters[rest_index];
+                    self.check_spread_call_argument_type(expression, rest.ty());
+                }
+            }
+        }
+
+        for parameter in parameters.iter().skip(parameter_index) {
+            if parameter.is_rest() {
+                return;
+            }
+
+            if parameter.has_default() {
+                continue;
+            }
+
+            self.report_call_argument_count_mismatch(call, function, arguments.len());
+            return;
+        }
+    }
+
+    fn check_rest_call_argument(&mut self, argument: CallArgument, rest_type: TypeId) {
+        match argument {
+            CallArgument::Provided { expression } => {
+                let expected = self
+                    .rest_parameter_element_type(rest_type)
+                    .unwrap_or(rest_type);
+
+                self.check_single_call_argument_type(expression, expected);
+            }
+            CallArgument::Omitted { node } => {
+                self.report_omitted_required_argument(node);
+            }
+            CallArgument::Spread { expression, .. } => {
+                self.check_spread_call_argument_type(expression, rest_type);
+            }
+        }
+    }
+
+    fn check_single_call_argument_type(&mut self, expression: NodeId, expected: TypeId) {
+        let Some(actual) = self.infer_expression_type(expression) else {
+            return;
+        };
+
+        if self.is_assignable(expected, actual) {
+            return;
+        }
+
+        self.report_type_mismatch(expression, expected, actual);
+    }
+
+    fn check_spread_call_argument_type(&mut self, expression: NodeId, expected: TypeId) {
+        self.check_single_call_argument_type(expression, expected);
+    }
+
+    fn rest_parameter_index_from(
+        &self,
+        function: &crate::FunctionType,
+        start: usize,
+    ) -> Option<usize> {
+        function
+            .parameters()
+            .iter()
+            .enumerate()
+            .skip(start)
+            .find_map(|(index, parameter)| {
+                if parameter.is_rest() {
+                    Some(index)
+                } else {
+                    None
+                }
+            })
+    }
+
+    fn has_required_parameters_before_rest(
+        &self,
+        function: &crate::FunctionType,
+        start: usize,
+        rest_index: usize,
+    ) -> bool {
+        function.parameters()[start..rest_index]
+            .iter()
+            .any(|parameter| !parameter.has_default())
     }
 }

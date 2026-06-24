@@ -706,4 +706,75 @@ impl<'a> DeclarationTypeChecker<'a> {
             span,
         ));
     }
+
+    pub(super) fn report_call_argument_count_mismatch(
+        &mut self,
+        call: NodeId,
+        function: &crate::FunctionType,
+        argument_count: usize,
+    ) {
+        let parameters = function.parameters();
+
+        let required_count = parameters
+            .iter()
+            .filter(|parameter| !parameter.has_default() && !parameter.is_rest())
+            .count();
+
+        let has_rest = parameters.iter().any(|parameter| parameter.is_rest());
+
+        let max_count = if has_rest {
+            None
+        } else {
+            Some(parameters.len())
+        };
+
+        let expected = match max_count {
+            Some(max_count) if required_count == max_count => required_count.to_string(),
+            Some(max_count) => format!("{required_count}..{max_count}"),
+            None => format!("{required_count}+"),
+        };
+
+        let span = self
+            .graph
+            .syntax()
+            .node(call)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+            TypeDiagnosticCode::ArgumentCountMismatch,
+            format!("expected {expected} arguments, got {argument_count}"),
+            span,
+        ));
+    }
+
+    pub(super) fn report_omitted_required_argument(&mut self, argument: NodeId) {
+        let span = self
+            .graph
+            .syntax()
+            .node(argument)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+            TypeDiagnosticCode::ArgumentCountMismatch,
+            "argument cannot be omitted because the matching parameter has no default",
+            span,
+        ));
+    }
+
+    pub(super) fn report_spread_argument_requires_rest(&mut self, argument: NodeId) {
+        let span = self
+            .graph
+            .syntax()
+            .node(argument)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+            TypeDiagnosticCode::ArgumentCountMismatch,
+            "spread argument requires a rest parameter",
+            span,
+        ));
+    }
 }
