@@ -821,7 +821,7 @@ The syntax marks the function item. Stack behavior, lowering behavior, and stamp
 
 ---
 
-## 18. Parameters, defaults, rest, and spread
+## 18. Parameters, defaults, and rest
 
 Parameters:
 
@@ -865,12 +865,8 @@ fn summarize(...values: [int32]): int32 {
 }
 ```
 
-Function argument spread:
-
-```galfus
-var values = [1, 2, 3]
-var total = summarize(...values)
-```
+Call arguments do not support spread syntax. Pass rest arguments as regular
+positional values.
 
 Trailing arguments:
 

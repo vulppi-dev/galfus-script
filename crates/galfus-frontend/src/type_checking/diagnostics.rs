@@ -196,6 +196,23 @@ impl<'a> DeclarationTypeChecker<'a> {
         ));
     }
 
+    pub(super) fn report_invalid_enum_base_type(&mut self, base: NodeId, base_type: TypeId) {
+        let span = self
+            .graph
+            .syntax()
+            .node(base)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        let base_type = self.layer.table().describe(base_type);
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+            TypeDiagnosticCode::InvalidEnumBaseType,
+            format!("enum base type must be an integer, got `{base_type}`"),
+            span,
+        ));
+    }
+
     pub(super) fn report_cannot_infer_type(&mut self, node: NodeId, message: impl Into<String>) {
         let span = self
             .graph

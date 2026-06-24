@@ -49,6 +49,80 @@ var direction: Direction = Direction::North
 }
 
 #[test]
+fn check_accepts_integer_enum_base_type() {
+    let (_source, _graph, result) = check_source(
+        r#"
+enum<uint8> Mode {
+  Off(0),
+  On(1),
+}
+
+var mode: Mode = Mode::On
+"#,
+    );
+
+    assert!(!result.has_errors());
+}
+
+#[test]
+fn check_reports_non_integer_enum_base_type() {
+    let source = source(
+        r#"
+enum<bool> Mode {
+  Off,
+  On,
+}
+"#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.into_graph();
+    let result = check_declaration_types(&source, &graph);
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::InvalidEnumBaseType.as_code()
+            && diagnostic
+                .message()
+                .contains("enum base type must be an integer")
+    }));
+}
+
+#[test]
+fn check_reports_enum_discriminant_type_mismatch() {
+    let source = source(
+        r#"
+enum<uint8> Mode {
+  Off(true),
+  On(1),
+}
+"#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.into_graph();
+    let result = check_declaration_types(&source, &graph);
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::TypeMismatch.as_code()
+            && diagnostic
+                .message()
+                .contains("expected `uint8`, got `bool`")
+    }));
+}
+
+#[test]
 fn check_accepts_choice_variant_without_payload() {
     let (_source, _graph, result) = check_source(
         r#"

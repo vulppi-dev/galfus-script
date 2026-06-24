@@ -19,6 +19,7 @@ impl<'a> DeclarationTypeChecker<'a> {
         match kind {
             PathReferenceKind::EnumVariant => self.infer_enum_variant_path_type(node),
             PathReferenceKind::ChoiceVariant => self.infer_choice_variant_path_type(node),
+            PathReferenceKind::AnchorFunction => self.infer_anchor_function_path_type(node),
             _ => None,
         }
     }
@@ -103,6 +104,15 @@ impl<'a> DeclarationTypeChecker<'a> {
 
         self.layer.bind_node_type(node, payload.owner_type);
         Some(payload.owner_type)
+    }
+
+    fn infer_anchor_function_path_type(&mut self, node: NodeId) -> Option<TypeId> {
+        let resolution = self.graph.resolution()?;
+        let function_symbol = resolution.path_reference_symbol(node)?;
+        let ty = self.layer.symbol_type(function_symbol)?;
+
+        self.layer.bind_node_type(node, ty);
+        Some(ty)
     }
 
     fn choice_variant_payload(&mut self, node: NodeId) -> Option<VariantPayload> {

@@ -46,6 +46,22 @@ fn normalize(value: int32 | null): int32 {
 }
 
 #[test]
+fn check_narrows_instanceof_subject_in_type_pattern_arm() {
+    let (_source, _graph, result) = check_source(
+        r#"
+fn normalize(value: int32 | null): int32 {
+  return instanceof value {
+    int32 number => value,
+    null => 0,
+  }
+}
+"#,
+    );
+
+    assert!(!result.has_errors());
+}
+
+#[test]
 fn check_accepts_instanceof_parenthesized_type_pattern_binding() {
     let (_source, _graph, result) = check_source(
         r#"

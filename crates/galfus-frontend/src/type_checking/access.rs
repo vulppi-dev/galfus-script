@@ -90,7 +90,7 @@ impl<'a> DeclarationTypeChecker<'a> {
         Some(ty)
     }
 
-    fn member_type_for_target_type(
+    pub(super) fn member_type_for_target_type(
         &self,
         target_type: TypeId,
         member_name: &str,
@@ -133,7 +133,48 @@ impl<'a> DeclarationTypeChecker<'a> {
         self.layer.symbol_type(member_symbol)
     }
 
-    fn non_null_member_target_types(&self, ty: TypeId) -> Vec<TypeId> {
+    pub(super) fn member_symbol_for_target_type(
+        &self,
+        target_type: TypeId,
+        member_name: &str,
+    ) -> Option<SymbolId> {
+        let target_type = self.resolve_alias_type(target_type);
+
+        match self.layer.table().kind(target_type) {
+            Some(TypeKind::Named { symbol }) => self.member_symbol_for_symbol(*symbol, member_name),
+
+            _ => None,
+        }
+    }
+
+    fn member_symbol_for_symbol(&self, symbol: SymbolId, member_name: &str) -> Option<SymbolId> {
+        let resolution = self.graph.resolution()?;
+
+        let symbol_data = resolution.symbol(symbol)?;
+
+        if !matches!(
+            symbol_data.kind(),
+            SymbolKind::Struct | SymbolKind::Choice | SymbolKind::Enum
+        ) {
+            return None;
+        }
+
+        let member_scope = resolution.member_scope(symbol)?;
+
+        let member_symbol = resolution
+            .scope(member_scope)
+            .and_then(|scope| scope.symbol(member_name))?;
+
+        let member_symbol_data = resolution.symbol(member_symbol)?;
+
+        if member_symbol_data.kind() != SymbolKind::StructField {
+            return None;
+        }
+
+        Some(member_symbol)
+    }
+
+    pub(super) fn non_null_member_target_types(&self, ty: TypeId) -> Vec<TypeId> {
         let ty = self.resolve_alias_type(ty);
         let null_type = self.layer.table().primitive(PrimitiveType::Null);
 

@@ -200,7 +200,6 @@ Status: completed as current frontend foundation.
 - [x] Stamped functions
 - [x] Default parameters
 - [x] Rest parameters
-- [x] Argument spread
 - [x] Trailing arguments
 - [x] Arrow functions
 - [x] Anchor functions
@@ -279,9 +278,9 @@ Goal: validate all core type rules and materialize inferred types before lowerin
 - [x] Struct literal typing
 - [x] Struct field compatibility
 - [x] Struct field defaults
-- [ ] Const field validation
+- [x] Const field validation
 - [x] Enum typing
-- [ ] Enum base type validation
+- [x] Enum base type validation
 - [x] Choice construction typing
 - [x] Choice payload typing
 - [x] Type alias preservation
@@ -297,10 +296,9 @@ Goal: validate all core type rules and materialize inferred types before lowerin
 - [x] Call argument typing
 - [x] Default parameter typing
 - [x] Rest parameter typing
-- [ ] Argument spread typing
 - [x] Arrow function typing
-- [ ] Anchor function typing
-- [ ] Generic declaration typing
+- [x] Anchor function typing
+- [x] Generic declaration typing
 - [x] Generic instantiation typing
 - [x] Constraint validation
 - [x] `satisfies` validation
@@ -308,8 +306,8 @@ Goal: validate all core type rules and materialize inferred types before lowerin
 - [x] Operator typing
 - [x] Match expression typing
 - [x] `instanceof` branch typing
-- [ ] Type narrowing
-- [ ] Destructuring typing
+- [x] Type narrowing
+- [x] Destructuring typing
 - [x] Range typing
 - [x] Iterator / iterable constraint typing
 - [x] Type checker diagnostics

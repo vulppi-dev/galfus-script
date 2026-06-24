@@ -216,7 +216,11 @@ impl<'a> DeclarationTypeChecker<'a> {
         self.find_struct_field_node_by_name(struct_item, field_name)
     }
 
-    fn struct_item_node_by_name(&self, node: NodeId, struct_name: &str) -> Option<NodeId> {
+    pub(super) fn struct_item_node_by_name(
+        &self,
+        node: NodeId,
+        struct_name: &str,
+    ) -> Option<NodeId> {
         let syntax_node = self.graph.syntax().node(node)?;
 
         if syntax_node.kind() == SyntaxNodeKind::StructItem {
@@ -239,10 +243,17 @@ impl<'a> DeclarationTypeChecker<'a> {
         None
     }
 
-    fn find_struct_field_node_by_name(&self, node: NodeId, field_name: &str) -> Option<NodeId> {
+    pub(super) fn find_struct_field_node_by_name(
+        &self,
+        node: NodeId,
+        field_name: &str,
+    ) -> Option<NodeId> {
         let syntax_node = self.graph.syntax().node(node)?;
 
-        if syntax_node.kind() == SyntaxNodeKind::StructField {
+        if matches!(
+            syntax_node.kind(),
+            SyntaxNodeKind::StructField | SyntaxNodeKind::WeakStructField
+        ) {
             let identifier = self
                 .graph
                 .syntax()
@@ -262,7 +273,7 @@ impl<'a> DeclarationTypeChecker<'a> {
         None
     }
 
-    fn node_contains_kind(&self, node: NodeId, kind: SyntaxNodeKind) -> bool {
+    pub(super) fn node_contains_kind(&self, node: NodeId, kind: SyntaxNodeKind) -> bool {
         if self
             .graph
             .syntax()

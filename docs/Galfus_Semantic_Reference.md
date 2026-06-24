@@ -415,13 +415,11 @@ var value = values[10] // T | null
 
 ### Array spread
 
-Array spread inserts array elements into another array literal or into a call argument list:
+Array spread inserts array elements into another array literal:
 
 ```galfus
 var a = [1, 2]
 var b = [0, ...a, 3]
-
-call(...a)
 ```
 
 ### Raw byte arrays and text
@@ -832,7 +830,7 @@ Restrictions:
 
 ---
 
-## 18. Default, rest, and spread parameters
+## 18. Default and rest parameters
 
 ### Default parameters
 
@@ -867,13 +865,8 @@ fn summarize(...values: [int32]): int32 {
 }
 ```
 
-### Argument spread
-
-Argument spread expands a sequence into arguments:
-
-```galfus
-summarize(...values)
-```
+Call arguments do not support spread syntax. A rest parameter receives each
+provided positional argument as one element.
 
 ---
 

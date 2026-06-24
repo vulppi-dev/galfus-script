@@ -136,6 +136,7 @@ pub enum TypeDiagnosticCode {
     InvalidDecoratorUsage,
     RecursiveFunctionStamp,
     InvalidWeakFieldType,
+    InvalidEnumBaseType,
 }
 
 impl DiagnosticCodeKind for TypeDiagnosticCode {
@@ -179,6 +180,7 @@ impl DiagnosticCodeKind for TypeDiagnosticCode {
             Self::InvalidDecoratorUsage => "T0036",
             Self::RecursiveFunctionStamp => "T0037",
             Self::InvalidWeakFieldType => "T0038",
+            Self::InvalidEnumBaseType => "T0039",
         }
     }
 
@@ -224,6 +226,7 @@ impl DiagnosticCodeKind for TypeDiagnosticCode {
             Self::InvalidDecoratorUsage => "invalid decorator usage",
             Self::RecursiveFunctionStamp => "recursive function stamp",
             Self::InvalidWeakFieldType => "invalid weak field type",
+            Self::InvalidEnumBaseType => "invalid enum base type",
         }
     }
 }

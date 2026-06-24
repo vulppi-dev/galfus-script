@@ -86,6 +86,15 @@ impl<'a> DeclarationTypeChecker<'a> {
             return;
         };
 
+        if let Some(pattern) = self
+            .graph
+            .syntax()
+            .first_child_of_kind(node, SyntaxNodeKind::BindingPattern)
+        {
+            self.bind_binding_pattern_type(pattern, ty);
+            return;
+        }
+
         let symbols = self.declaration_symbols_in_node(
             node,
             &[

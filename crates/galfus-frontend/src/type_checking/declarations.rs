@@ -1,6 +1,6 @@
 use galfus_core::{NodeId, TypeId};
 
-use crate::{FunctionParameterType, SymbolKind, SyntaxNodeKind};
+use crate::{FunctionParameterType, SymbolKind, SyntaxNodeKind, TypeKind};
 
 use super::{DeclarationTypeChecker, primitive_type_by_name};
 
@@ -214,6 +214,15 @@ impl<'a> DeclarationTypeChecker<'a> {
             return;
         };
 
+        if let Some(pattern) = self
+            .graph
+            .syntax()
+            .first_child_of_kind(node, SyntaxNodeKind::BindingPattern)
+        {
+            self.bind_binding_pattern_type(pattern, ty);
+            return;
+        }
+
         let symbols = self.declaration_symbols_in_node(
             node,
             &[
@@ -226,6 +235,172 @@ impl<'a> DeclarationTypeChecker<'a> {
 
         for symbol in symbols {
             self.layer.bind_symbol_type(symbol, ty);
+        }
+    }
+
+    pub(super) fn bind_binding_pattern_type(&mut self, pattern: NodeId, ty: TypeId) {
+        let Some(pattern_node) = self.graph.syntax().node(pattern) else {
+            return;
+        };
+
+        self.layer.bind_node_type(pattern, ty);
+
+        match pattern_node.kind() {
+            SyntaxNodeKind::BindingPattern => {
+                if let Some(inner) = pattern_node.first_child() {
+                    self.bind_binding_pattern_type(inner, ty);
+                }
+            }
+
+            SyntaxNodeKind::Identifier => {
+                if let Some(symbol) = self
+                    .graph
+                    .resolution()
+                    .and_then(|resolution| resolution.declaration_symbol(pattern))
+                {
+                    self.layer.bind_symbol_type(symbol, ty);
+                }
+            }
+
+            SyntaxNodeKind::StructBindingPattern => {
+                self.bind_struct_binding_pattern_type(pattern, ty);
+            }
+
+            SyntaxNodeKind::StructBindingField => {
+                self.bind_struct_binding_field_type(pattern, ty);
+            }
+
+            SyntaxNodeKind::TupleBindingPattern => {
+                self.bind_tuple_binding_pattern_type(pattern, ty);
+            }
+
+            SyntaxNodeKind::ArrayBindingPattern => {
+                self.bind_array_binding_pattern_type(pattern, ty);
+            }
+
+            SyntaxNodeKind::RestBindingPattern => {
+                self.bind_rest_binding_pattern_type(pattern, ty);
+            }
+
+            SyntaxNodeKind::WildcardPattern => {}
+
+            _ => {}
+        }
+    }
+
+    fn bind_struct_binding_pattern_type(&mut self, pattern: NodeId, ty: TypeId) {
+        let fields = self
+            .graph
+            .syntax()
+            .node(pattern)
+            .map(|node| node.children().to_vec())
+            .unwrap_or_default();
+
+        for field in fields {
+            self.bind_struct_binding_field_type(field, ty);
+        }
+    }
+
+    fn bind_struct_binding_field_type(&mut self, field: NodeId, owner_type: TypeId) {
+        let Some(name) = self.graph.syntax().child(field, 0) else {
+            return;
+        };
+
+        let field_name = self.node_text(name);
+        let Some(field_type) = self.member_type_for_target_type(owner_type, field_name.as_str())
+        else {
+            self.report_unknown_member(name, field_name.as_str(), owner_type);
+            return;
+        };
+
+        match self.graph.syntax().child(field, 1) {
+            Some(alias_pattern) => self.bind_binding_pattern_type(alias_pattern, field_type),
+            None => {
+                if let Some(symbol) = self
+                    .graph
+                    .resolution()
+                    .and_then(|resolution| resolution.declaration_symbol(name))
+                {
+                    self.layer.bind_symbol_type(symbol, field_type);
+                    self.layer.bind_node_type(field, field_type);
+                }
+            }
+        }
+    }
+
+    fn bind_tuple_binding_pattern_type(&mut self, pattern: NodeId, ty: TypeId) {
+        let elements = self
+            .graph
+            .syntax()
+            .node(pattern)
+            .map(|node| node.children().to_vec())
+            .unwrap_or_default();
+
+        let resolved = self.resolve_alias_type(ty);
+        let Some(TypeKind::Tuple {
+            elements: element_types,
+        }) = self.layer.table().kind(resolved).cloned()
+        else {
+            let error = self.layer.table_mut().error();
+            self.report_type_mismatch(pattern, error, ty);
+            return;
+        };
+
+        for (index, element) in elements.into_iter().enumerate() {
+            let Some(element_type) = element_types.get(index).copied() else {
+                continue;
+            };
+
+            self.bind_binding_pattern_type(element, element_type);
+        }
+    }
+
+    fn bind_array_binding_pattern_type(&mut self, pattern: NodeId, ty: TypeId) {
+        let elements = self
+            .graph
+            .syntax()
+            .node(pattern)
+            .map(|node| node.children().to_vec())
+            .unwrap_or_default();
+
+        let Some(element_type) = self.array_binding_element_type(ty) else {
+            let error = self.layer.table_mut().error();
+            self.report_type_mismatch(pattern, error, ty);
+            return;
+        };
+
+        for element in elements {
+            let kind = self.graph.syntax().node(element).map(|node| node.kind());
+
+            if kind == Some(SyntaxNodeKind::RestBindingPattern) {
+                let rest_type = self.layer.table_mut().intern_array(element_type);
+                self.bind_binding_pattern_type(element, rest_type);
+                continue;
+            }
+
+            self.bind_binding_pattern_type(element, element_type);
+        }
+    }
+
+    fn bind_rest_binding_pattern_type(&mut self, pattern: NodeId, ty: TypeId) {
+        let Some(inner) = self.graph.syntax().child(pattern, 0) else {
+            return;
+        };
+
+        self.bind_binding_pattern_type(inner, ty);
+    }
+
+    fn array_binding_element_type(&self, ty: TypeId) -> Option<TypeId> {
+        let ty = self.resolve_alias_type(ty);
+
+        match self.layer.table().kind(ty) {
+            Some(TypeKind::Array { element }) | Some(TypeKind::FixedArray { element, .. }) => {
+                Some(*element)
+            }
+
+            Some(TypeKind::Error) => Some(ty),
+
+            _ => None,
         }
     }
 

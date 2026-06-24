@@ -12,6 +12,7 @@ mod control_flow;
 mod declarations;
 mod decorators;
 mod diagnostics;
+mod enums;
 mod expressions;
 mod function_stamps;
 mod generic_expressions;
@@ -243,6 +244,7 @@ impl<'a> DeclarationTypeChecker<'a> {
         self.check_decorators(root);
         self.check_control_flow(root, 0);
         self.check_initializer_types(root);
+        self.check_enum_types(root);
         self.check_return_types(root, None);
         self.check_assignment_types(root);
         self.check_constraint_satisfies(root);

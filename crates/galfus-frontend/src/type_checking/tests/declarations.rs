@@ -158,3 +158,108 @@ struct User {
         Some(&TypeKind::Named { symbol: user })
     );
 }
+
+#[test]
+fn check_binds_generic_parameter_symbol_type() {
+    let (_source, graph, result) = check_source(
+        r#"
+fn identity<T>(value: T): T {
+  return value
+}
+"#,
+    );
+
+    let generic = symbol_by_name_and_kind(&graph, "T", SymbolKind::GenericParameter);
+    let ty = result.layer().symbol_type(generic).unwrap();
+
+    assert_eq!(
+        result.layer().table().kind(ty),
+        Some(&TypeKind::GenericParameter { symbol: generic })
+    );
+}
+
+#[test]
+fn check_binds_struct_destructuring_field_types() {
+    let (_source, graph, result) = check_source(
+        r#"
+struct Point {
+  x: int32,
+  y: bool,
+}
+
+var { x, y } = Point { x: 1, y: true }
+"#,
+    );
+
+    let x = symbol_by_name_and_kind(&graph, "x", SymbolKind::Var);
+    let y = symbol_by_name_and_kind(&graph, "y", SymbolKind::Var);
+
+    assert_eq!(
+        result
+            .layer()
+            .table()
+            .kind(result.layer().symbol_type(x).unwrap()),
+        Some(&TypeKind::Primitive(PrimitiveType::Int32))
+    );
+    assert_eq!(
+        result
+            .layer()
+            .table()
+            .kind(result.layer().symbol_type(y).unwrap()),
+        Some(&TypeKind::Primitive(PrimitiveType::Bool))
+    );
+}
+
+#[test]
+fn check_binds_tuple_destructuring_element_types() {
+    let (_source, graph, result) = check_source(
+        r#"
+var (count, enabled) = (1, true)
+"#,
+    );
+
+    let count = symbol_by_name_and_kind(&graph, "count", SymbolKind::Var);
+    let enabled = symbol_by_name_and_kind(&graph, "enabled", SymbolKind::Var);
+
+    assert_eq!(
+        result
+            .layer()
+            .table()
+            .kind(result.layer().symbol_type(count).unwrap()),
+        Some(&TypeKind::Primitive(PrimitiveType::Int32))
+    );
+    assert_eq!(
+        result
+            .layer()
+            .table()
+            .kind(result.layer().symbol_type(enabled).unwrap()),
+        Some(&TypeKind::Primitive(PrimitiveType::Bool))
+    );
+}
+
+#[test]
+fn check_binds_array_destructuring_rest_type() {
+    let (_source, graph, result) = check_source(
+        r#"
+var [head, ...tail] = [1, 2, 3]
+"#,
+    );
+
+    let head = symbol_by_name_and_kind(&graph, "head", SymbolKind::Var);
+    let tail = symbol_by_name_and_kind(&graph, "tail", SymbolKind::Var);
+
+    assert_eq!(
+        result
+            .layer()
+            .table()
+            .kind(result.layer().symbol_type(head).unwrap()),
+        Some(&TypeKind::Primitive(PrimitiveType::Int32))
+    );
+    assert!(matches!(
+        result
+            .layer()
+            .table()
+            .kind(result.layer().symbol_type(tail).unwrap()),
+        Some(TypeKind::Array { .. })
+    ));
+}

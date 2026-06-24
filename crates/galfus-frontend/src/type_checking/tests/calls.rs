@@ -269,3 +269,55 @@ fn check_accepts_individual_arguments_for_rest_parameter() {
 
     assert!(!result.has_errors());
 }
+
+#[test]
+fn check_accepts_anchor_function_path_call() {
+    let (_source, _graph, result) = check_source(
+        r#"
+struct User {
+  name: [uint8],
+}
+
+fn User::rename(user: User, name: [uint8]): User {
+  return User { name }
+}
+
+var user: User = User { name: "Ana" }
+var renamed: User = User::rename(user, "Lia")
+"#,
+    );
+
+    assert!(!result.has_errors());
+}
+
+#[test]
+fn check_binds_anchor_function_path_type() {
+    let (source, graph, result) = check_source(
+        r#"
+struct User {
+  name: [uint8],
+}
+
+fn User::rename(user: User, name: [uint8]): User {
+  return User { name }
+}
+
+var rename = User::rename
+"#,
+    );
+
+    let path = find_node_by_kind_and_text(
+        &source,
+        &graph,
+        SyntaxNodeKind::PathExpression,
+        "User::rename",
+    )
+    .unwrap();
+
+    let ty = result.layer().node_type(path).unwrap();
+
+    assert!(matches!(
+        result.layer().table().kind(ty),
+        Some(TypeKind::Function(_))
+    ));
+}

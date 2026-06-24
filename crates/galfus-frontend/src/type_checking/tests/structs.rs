@@ -162,6 +162,61 @@ var user: User = User {
 }
 
 #[test]
+fn check_accepts_assignment_to_mutable_struct_field() {
+    let (_source, _graph, result) = check_source(
+        r#"
+struct User {
+  id: int32,
+}
+
+var user: User = User { id: 1 }
+
+fn update(): null {
+  user.id = 2
+  return
+}
+"#,
+    );
+
+    assert!(!result.has_errors());
+}
+
+#[test]
+fn check_reports_assignment_to_const_struct_field() {
+    let source = source(
+        r#"
+struct User {
+  const id: int32,
+}
+
+var user: User = User { id: 1 }
+
+fn update(): null {
+  user.id = 2
+  return
+}
+"#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.into_graph();
+    let result = check_declaration_types(&source, &graph);
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::AssignmentToImmutable.as_code()
+            && diagnostic
+                .message()
+                .contains("cannot assign to immutable binding `id`")
+    }));
+}
+
+#[test]
 fn check_reports_struct_field_type_mismatch() {
     let source = source(
         r#"

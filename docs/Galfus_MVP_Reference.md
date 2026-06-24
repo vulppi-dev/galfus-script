@@ -107,7 +107,6 @@ functions
 stamped functions
 default parameters
 rest parameters
-argument spread
 trailing arguments
 arrow functions
 anchor functions for structs
@@ -179,7 +178,6 @@ stamped function semantics
 function return semantics
 default parameter gaps
 rest parameters
-argument spread
 arrow function semantics
 closure capture semantics
 anchor functions on structs

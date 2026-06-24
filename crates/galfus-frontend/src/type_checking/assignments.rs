@@ -50,6 +50,10 @@ impl<'a> DeclarationTypeChecker<'a> {
     }
 
     fn check_assignment_target_mutability(&mut self, target: NodeId) {
+        if self.check_member_assignment_target_mutability(target) {
+            return;
+        }
+
         let Some(symbol) = self.assignment_target_symbol(target) else {
             return;
         };
@@ -74,8 +78,88 @@ impl<'a> DeclarationTypeChecker<'a> {
 
         match target_node.kind() {
             SyntaxNodeKind::NameExpression => self.infer_expression_type(target),
+            SyntaxNodeKind::MemberExpression => self.infer_member_expression_type(target, false),
             _ => None,
         }
+    }
+
+    fn check_member_assignment_target_mutability(&mut self, target: NodeId) -> bool {
+        let Some(target_node) = self.graph.syntax().node(target) else {
+            return false;
+        };
+
+        if target_node.kind() != SyntaxNodeKind::MemberExpression {
+            return false;
+        }
+
+        let Some(receiver) = self.graph.syntax().child(target, 0) else {
+            return true;
+        };
+
+        let Some(member) = self.graph.syntax().child(target, 1) else {
+            return true;
+        };
+
+        let Some(receiver_type) = self.infer_expression_type(receiver) else {
+            return true;
+        };
+
+        let member_name = self.node_text(member);
+
+        let mut immutable_field = false;
+
+        for target_type in self.non_null_member_target_types(receiver_type) {
+            let Some(member_symbol) =
+                self.member_symbol_for_target_type(target_type, member_name.as_str())
+            else {
+                continue;
+            };
+
+            let Some(resolution) = self.graph.resolution() else {
+                continue;
+            };
+
+            if resolution.symbol(member_symbol).is_none() {
+                continue;
+            }
+
+            let Some(field_node) =
+                self.struct_field_node_for_member_target(target_type, member_name.as_str())
+            else {
+                continue;
+            };
+
+            if !self.node_contains_kind(field_node, SyntaxNodeKind::StructFieldConst) {
+                continue;
+            }
+
+            immutable_field = true;
+            break;
+        }
+
+        if immutable_field {
+            self.report_assignment_to_immutable(member, member_name.as_str());
+        }
+
+        true
+    }
+
+    fn struct_field_node_for_member_target(
+        &self,
+        target_type: TypeId,
+        member_name: &str,
+    ) -> Option<NodeId> {
+        let target_type = self.resolve_alias_type(target_type);
+        let TypeKind::Named { symbol } = self.layer.table().kind(target_type)? else {
+            return None;
+        };
+
+        let resolution = self.graph.resolution()?;
+        let struct_name = resolution.symbol(*symbol)?.name();
+        let root = self.graph.syntax().root()?;
+        let struct_item = self.struct_item_node_by_name(root, struct_name)?;
+
+        self.find_struct_field_node_by_name(struct_item, member_name)
     }
 
     fn assignment_target_symbol(&self, target: NodeId) -> Option<SymbolId> {
