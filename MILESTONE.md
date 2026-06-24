@@ -222,6 +222,7 @@ Status: completed as current frontend foundation.
 - [x] Weak fields
 - [x] Parser diagnostics
 - [x] Parser recovery
+- [x] Missing comma recovery hardening
 
 ## Milestone 3 — Local Resolver
 

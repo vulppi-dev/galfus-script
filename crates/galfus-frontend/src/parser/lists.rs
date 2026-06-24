@@ -87,19 +87,37 @@ impl Parser {
                 break;
             }
 
+            let start_position = self.position;
+
             if let Some(import) = self.parse_named_import() {
                 imports.push(import);
             }
 
-            if !self.at(&TokenKind::Comma) {
+            if self.at(&TokenKind::RightBrace) {
                 break;
             }
 
-            self.bump();
-            self.skip_newlines();
+            if self.at(&TokenKind::Comma) {
+                self.bump();
+                self.skip_newlines();
 
-            if self.at(&TokenKind::RightBrace) {
-                break;
+                if self.at(&TokenKind::RightBrace) {
+                    break;
+                }
+
+                continue;
+            }
+
+            let found = self.current().clone();
+
+            self.graph.push_diagnostic(Diagnostic::error_with_message(
+                ParserDiagnosticCode::ExpectedToken,
+                format!("expected `Comma`, found `{:?}`", found.kind()),
+                found.span(),
+            ));
+
+            if self.position == start_position {
+                self.bump();
             }
         }
 
@@ -299,10 +317,16 @@ impl Parser {
                 continue;
             }
 
+            let start_position = self.position;
+
             let argument = self.parse_argument()?;
             arguments.push(argument);
 
             self.skip_newlines();
+
+            if self.at(&TokenKind::RightParen) {
+                break;
+            }
 
             if self.at(&TokenKind::Comma) {
                 self.bump();
@@ -315,7 +339,17 @@ impl Parser {
                 continue;
             }
 
-            break;
+            let found = self.current().clone();
+
+            self.graph.push_diagnostic(Diagnostic::error_with_message(
+                ParserDiagnosticCode::ExpectedToken,
+                format!("expected `Comma`, found `{:?}`", found.kind()),
+                found.span(),
+            ));
+
+            if self.position == start_position {
+                self.bump();
+            }
         }
 
         let right = self.expect(TokenKind::RightParen)?;

@@ -136,6 +136,36 @@ fn parse_call_expression_accepts_trailing_comma() {
 }
 
 #[test]
+fn parse_call_argument_list_recovers_missing_comma() {
+    let source = source("fn main(): null { const value = add(1 2); return }");
+
+    let result = parse(&source);
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == "P0001"
+            && diagnostic.message() == "expected `Comma`, found `Integer`"
+    }));
+
+    let syntax = result.graph().syntax();
+    let root = syntax.root().unwrap();
+    let function = syntax.node(root).unwrap().first_child().unwrap();
+    let function_node = syntax.node(function).unwrap();
+    let body = function_node.child(3).unwrap();
+    let body_node = syntax.node(body).unwrap();
+    let const_statement = body_node.first_child().unwrap();
+    let const_node = syntax.node(const_statement).unwrap();
+    let initializer = const_node.child(1).unwrap();
+    let initializer_node = syntax.node(initializer).unwrap();
+    let expression = initializer_node.first_child().unwrap();
+    let expression_node = syntax.node(expression).unwrap();
+    let arguments = expression_node.child(1).unwrap();
+    let arguments_node = syntax.node(arguments).unwrap();
+
+    assert_eq!(arguments_node.child_count(), 2);
+}
+
+#[test]
 fn parse_reports_missing_statement_terminator() {
     let source = source("fn main(): null { const value = add(1, 2,) return }");
 
