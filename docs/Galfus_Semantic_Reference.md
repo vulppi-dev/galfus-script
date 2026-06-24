@@ -1253,6 +1253,16 @@ struct Node {
 
 A weak field may observe `null` when the target is no longer alive.
 
+Because weak observers can decay to `null`, a weak field type must be nullable:
+
+```galfus
+struct Node {
+  weak parent: Node | null,
+}
+```
+
+The frontend records weak field metadata for later ownership validation and lowering.
+
 ---
 
 ## 30. Module initialization and cycles

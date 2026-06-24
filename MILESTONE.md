@@ -288,6 +288,8 @@ Goal: validate all core type rules and materialize inferred types before lowerin
 - [x] Union type normalization
 - [x] Union assignment compatibility
 - [x] Nullability validation
+- [x] Weak field nullability validation
+- [x] Weak field ownership metadata prep
 - [x] Function signature typing
 - [x] Function return typing
 - [x] Function stamp recursion validation

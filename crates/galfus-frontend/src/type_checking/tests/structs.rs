@@ -216,6 +216,78 @@ var user: User = User {
 }
 
 #[test]
+fn check_collects_weak_field_ownership_metadata() {
+    let (_source, graph, result) = check_source(
+        r#"
+struct Node {
+  value: int32,
+  weak parent: Node | null,
+}
+"#,
+    );
+
+    let weak_fields = result.ownership_metadata().weak_fields();
+
+    assert_eq!(weak_fields.len(), 1);
+
+    let metadata = weak_fields[0];
+    let node_symbol = symbol_by_name_and_kind(&graph, "Node", SymbolKind::Struct);
+    let parent_symbol = symbol_by_name_and_kind(&graph, "parent", SymbolKind::StructField);
+
+    assert_eq!(metadata.struct_symbol(), node_symbol);
+    assert_eq!(metadata.field_symbol(), parent_symbol);
+
+    assert!(matches!(
+        result.layer().table().kind(metadata.field_type()),
+        Some(TypeKind::Union { .. })
+    ));
+}
+
+#[test]
+fn check_reports_non_nullable_weak_field_type() {
+    let source = source(
+        r#"
+struct Node {
+  weak parent: Node,
+}
+"#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.into_graph();
+    let result = check_declaration_types(&source, &graph);
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::InvalidWeakFieldType.as_code()
+            && diagnostic
+                .message()
+                .contains("weak field type must be nullable")
+    }));
+    assert_eq!(result.ownership_metadata().weak_fields().len(), 1);
+}
+
+#[test]
+fn check_accepts_nullable_alias_weak_field_type() {
+    let (_source, _graph, result) = check_source(
+        r#"
+type MaybeNode = Node | null
+
+struct Node {
+  weak parent: MaybeNode,
+}
+"#,
+    );
+
+    assert_eq!(result.ownership_metadata().weak_fields().len(), 1);
+}
+
+#[test]
 fn check_accepts_inferred_struct_literal_with_expected_type() {
     let (_source, _graph, result) = check_source(
         r#"

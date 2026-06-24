@@ -21,6 +21,7 @@ mod instanceof;
 mod literals;
 mod matches;
 mod operators;
+mod ownership;
 mod ranges;
 mod returns;
 mod structs;
@@ -29,7 +30,7 @@ mod variants;
 
 use std::collections::HashMap;
 
-use galfus_core::{DiagnosticBag, SourceFile, SymbolId, TypeId};
+use galfus_core::{DiagnosticBag, NodeId, SourceFile, SymbolId, TypeId};
 
 use crate::{ArraySize, FunctionParameterType, ModuleGraph, PrimitiveType, TypeLayer, lower_types};
 
@@ -110,11 +111,24 @@ pub enum ImportedType {
 pub struct TypeCheckResult {
     layer: TypeLayer,
     diagnostics: DiagnosticBag,
+    ownership_metadata: OwnershipMetadata,
 }
 
 impl TypeCheckResult {
     pub fn new(layer: TypeLayer, diagnostics: DiagnosticBag) -> Self {
-        Self { layer, diagnostics }
+        Self::with_ownership_metadata(layer, diagnostics, OwnershipMetadata::default())
+    }
+
+    fn with_ownership_metadata(
+        layer: TypeLayer,
+        diagnostics: DiagnosticBag,
+        ownership_metadata: OwnershipMetadata,
+    ) -> Self {
+        Self {
+            layer,
+            diagnostics,
+            ownership_metadata,
+        }
     }
 
     pub fn layer(&self) -> &TypeLayer {
@@ -123,6 +137,10 @@ impl TypeCheckResult {
 
     pub fn diagnostics(&self) -> &DiagnosticBag {
         &self.diagnostics
+    }
+
+    pub fn ownership_metadata(&self) -> &OwnershipMetadata {
+        &self.ownership_metadata
     }
 
     pub fn has_errors(&self) -> bool {
@@ -134,11 +152,63 @@ impl TypeCheckResult {
     }
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct OwnershipMetadata {
+    weak_fields: Vec<WeakFieldMetadata>,
+}
+
+impl OwnershipMetadata {
+    pub fn weak_fields(&self) -> &[WeakFieldMetadata] {
+        &self.weak_fields
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct WeakFieldMetadata {
+    struct_symbol: SymbolId,
+    field_symbol: SymbolId,
+    declaration: NodeId,
+    field_type: TypeId,
+}
+
+impl WeakFieldMetadata {
+    pub fn new(
+        struct_symbol: SymbolId,
+        field_symbol: SymbolId,
+        declaration: NodeId,
+        field_type: TypeId,
+    ) -> Self {
+        Self {
+            struct_symbol,
+            field_symbol,
+            declaration,
+            field_type,
+        }
+    }
+
+    pub fn struct_symbol(&self) -> SymbolId {
+        self.struct_symbol
+    }
+
+    pub fn field_symbol(&self) -> SymbolId {
+        self.field_symbol
+    }
+
+    pub fn declaration(&self) -> NodeId {
+        self.declaration
+    }
+
+    pub fn field_type(&self) -> TypeId {
+        self.field_type
+    }
+}
+
 struct DeclarationTypeChecker<'a> {
     source: &'a SourceFile,
     graph: &'a ModuleGraph,
     layer: TypeLayer,
     diagnostics: DiagnosticBag,
+    ownership_metadata: OwnershipMetadata,
 }
 
 impl<'a> DeclarationTypeChecker<'a> {
@@ -148,11 +218,16 @@ impl<'a> DeclarationTypeChecker<'a> {
             graph,
             layer,
             diagnostics: DiagnosticBag::new(),
+            ownership_metadata: OwnershipMetadata::default(),
         }
     }
 
     fn into_result(self) -> TypeCheckResult {
-        TypeCheckResult::new(self.layer, self.diagnostics)
+        TypeCheckResult::with_ownership_metadata(
+            self.layer,
+            self.diagnostics,
+            self.ownership_metadata,
+        )
     }
 
     fn check(&mut self) {
@@ -172,6 +247,7 @@ impl<'a> DeclarationTypeChecker<'a> {
         self.check_assignment_types(root);
         self.check_constraint_satisfies(root);
         self.check_function_stamps(root);
+        self.check_ownership_metadata(root);
     }
 
     fn describe_type_for_diagnostic(&self, ty: TypeId) -> String {

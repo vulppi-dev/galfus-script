@@ -135,6 +135,7 @@ pub enum TypeDiagnosticCode {
     NonExhaustiveMatch,
     InvalidDecoratorUsage,
     RecursiveFunctionStamp,
+    InvalidWeakFieldType,
 }
 
 impl DiagnosticCodeKind for TypeDiagnosticCode {
@@ -177,6 +178,7 @@ impl DiagnosticCodeKind for TypeDiagnosticCode {
             Self::NonExhaustiveMatch => "T0035",
             Self::InvalidDecoratorUsage => "T0036",
             Self::RecursiveFunctionStamp => "T0037",
+            Self::InvalidWeakFieldType => "T0038",
         }
     }
 
@@ -221,6 +223,7 @@ impl DiagnosticCodeKind for TypeDiagnosticCode {
             Self::NonExhaustiveMatch => "non-exhaustive match",
             Self::InvalidDecoratorUsage => "invalid decorator usage",
             Self::RecursiveFunctionStamp => "recursive function stamp",
+            Self::InvalidWeakFieldType => "invalid weak field type",
         }
     }
 }
