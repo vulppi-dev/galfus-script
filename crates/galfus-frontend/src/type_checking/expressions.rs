@@ -51,6 +51,10 @@ impl<'a> DeclarationTypeChecker<'a> {
 
             SyntaxNodeKind::CallExpression => self.infer_call_expression_type(node),
 
+            SyntaxNodeKind::ArrowFunctionExpression => {
+                self.infer_arrow_function_expression_type(node)
+            }
+
             SyntaxNodeKind::MatchExpression => self.infer_match_expression_type(node),
 
             SyntaxNodeKind::InstanceofExpression => self.infer_instanceof_expression_type(node),

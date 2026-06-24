@@ -23,6 +23,10 @@ impl<'a> DeclarationTypeChecker<'a> {
                 return;
             }
 
+            SyntaxNodeKind::ArrowFunctionExpression => {
+                return;
+            }
+
             SyntaxNodeKind::ReturnStatement => {
                 self.check_return_statement_type(node, current_return_type);
             }

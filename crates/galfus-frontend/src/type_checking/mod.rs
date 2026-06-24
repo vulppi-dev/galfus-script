@@ -2,6 +2,7 @@
 mod tests;
 
 mod access;
+mod arrow_functions;
 mod assignability;
 mod assignments;
 mod builtin_constraints;
