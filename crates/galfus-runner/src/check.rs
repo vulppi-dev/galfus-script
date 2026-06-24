@@ -1,7 +1,11 @@
 use crate::*;
 use anyhow::Result;
-use galfus_core::{Diagnostic, DiagnosticBag, NodeId, SourceFile, SourceId};
-use galfus_frontend::{ImportKind, ModuleGraph, SyntaxNodeKind, parse, resolve};
+use galfus_core::{Diagnostic, DiagnosticBag, NodeId, SourceFile, SourceId, SymbolId, TypeId};
+use galfus_frontend::{
+    ImportKind, ImportedFunctionParameterType, ImportedType, ModuleGraph, SymbolKind,
+    SyntaxNodeKind, TypeCheckResult, TypeKind, check_declaration_types,
+    check_declaration_types_with_imports, parse, resolve,
+};
 use std::{
     collections::{HashMap, HashSet},
     fs,
@@ -13,6 +17,7 @@ pub struct CheckedModule {
     path: PathBuf,
     source: SourceFile,
     graph: ModuleGraph,
+    type_result: Option<TypeCheckResult>,
 }
 
 impl CheckedModule {
@@ -26,6 +31,10 @@ impl CheckedModule {
 
     pub fn graph(&self) -> &ModuleGraph {
         &self.graph
+    }
+
+    pub fn type_result(&self) -> Option<&TypeCheckResult> {
+        self.type_result.as_ref()
     }
 }
 
@@ -63,6 +72,7 @@ struct ImportCheckRecord {
     local_name: String,
     imported_name: Option<String>,
     declaration: NodeId,
+    local_symbol: SymbolId,
 }
 
 #[derive(Debug, Clone)]
@@ -90,6 +100,7 @@ impl ModuleLoader {
 
         self.load_module(path)?;
         self.validate_imports();
+        self.type_check_modules();
 
         Ok(())
     }
@@ -120,6 +131,7 @@ impl ModuleLoader {
             path: path.clone(),
             source,
             graph,
+            type_result: None,
         });
         self.module_by_path.insert(path.clone(), module_index);
 
@@ -265,8 +277,179 @@ impl ModuleLoader {
                 local_name: import.local_name().to_string(),
                 imported_name: import.imported_name().map(str::to_string),
                 declaration: import.declaration(),
+                local_symbol: import.local_symbol(),
             })
             .collect()
+    }
+
+    pub(crate) fn type_check_modules(&mut self) {
+        let baseline_results = self
+            .modules
+            .iter()
+            .map(|module| check_declaration_types(module.source(), module.graph()))
+            .collect::<Vec<_>>();
+
+        let imported_types = (0..self.modules.len())
+            .map(|module_index| self.imported_types_for_module(module_index, &baseline_results))
+            .collect::<Vec<_>>();
+
+        for module_index in 0..self.modules.len() {
+            let result = check_declaration_types_with_imports(
+                self.modules[module_index].source(),
+                self.modules[module_index].graph(),
+                &imported_types[module_index],
+            );
+
+            self.diagnostics
+                .extend(result.diagnostics().iter().cloned());
+            self.modules[module_index].type_result = Some(result);
+        }
+    }
+
+    fn imported_types_for_module(
+        &self,
+        module_index: usize,
+        baseline_results: &[TypeCheckResult],
+    ) -> HashMap<SymbolId, ImportedType> {
+        let mut imported_types = HashMap::new();
+
+        for import in self.module_imports(module_index) {
+            if import.kind != ImportKind::Named || !is_relative_import(import.source.as_str()) {
+                continue;
+            }
+
+            let path =
+                resolve_relative_import(self.modules[module_index].path(), import.source.as_str());
+
+            let Ok(path) = normalize_existing_path(path.as_path()) else {
+                continue;
+            };
+
+            let Some(target_index) = self.module_by_path.get(path.as_path()).copied() else {
+                continue;
+            };
+
+            let Some(imported_name) = import.imported_name.as_deref() else {
+                continue;
+            };
+
+            let Some(target_resolution) = self.modules[target_index].graph().resolution() else {
+                continue;
+            };
+
+            let Some(export) = target_resolution
+                .export_by_name(imported_name)
+                .and_then(|export| target_resolution.export_record(export))
+            else {
+                continue;
+            };
+
+            let Some(imported_type) = self.imported_type_for_export(
+                import.local_symbol,
+                export.symbol(),
+                target_index,
+                &baseline_results[target_index],
+            ) else {
+                continue;
+            };
+
+            imported_types.insert(import.local_symbol, imported_type);
+        }
+
+        imported_types
+    }
+
+    fn imported_type_for_export(
+        &self,
+        local_symbol: SymbolId,
+        export_symbol: SymbolId,
+        target_index: usize,
+        target_result: &TypeCheckResult,
+    ) -> Option<ImportedType> {
+        let target_resolution = self.modules[target_index].graph().resolution()?;
+        let symbol = target_resolution.symbol(export_symbol)?;
+
+        if matches!(
+            symbol.kind(),
+            SymbolKind::Struct
+                | SymbolKind::Enum
+                | SymbolKind::Choice
+                | SymbolKind::Constraint
+                | SymbolKind::TypeAlias
+        ) {
+            return Some(ImportedType::NamedLocal {
+                symbol: local_symbol,
+            });
+        }
+
+        let ty = target_result.layer().symbol_type(export_symbol)?;
+        Self::transport_type(target_result, ty)
+    }
+
+    fn transport_type(result: &TypeCheckResult, ty: TypeId) -> Option<ImportedType> {
+        match result.layer().table().kind(ty).cloned()? {
+            TypeKind::Primitive(primitive) => Some(ImportedType::Primitive(primitive)),
+
+            TypeKind::Array { element } => Some(ImportedType::Array {
+                element: Box::new(Self::transport_type(result, element)?),
+            }),
+
+            TypeKind::FixedArray { element, size } => Some(ImportedType::FixedArray {
+                element: Box::new(Self::transport_type(result, element)?),
+                size,
+            }),
+
+            TypeKind::Range { element } => Some(ImportedType::Range {
+                element: Box::new(Self::transport_type(result, element)?),
+            }),
+
+            TypeKind::Tuple { elements } => {
+                let elements = elements
+                    .into_iter()
+                    .map(|element| Self::transport_type(result, element))
+                    .collect::<Option<Vec<_>>>()?;
+
+                Some(ImportedType::Tuple { elements })
+            }
+
+            TypeKind::Union { members } => {
+                let members = members
+                    .into_iter()
+                    .map(|member| Self::transport_type(result, member))
+                    .collect::<Option<Vec<_>>>()?;
+
+                Some(ImportedType::Union { members })
+            }
+
+            TypeKind::Function(function) => {
+                let parameters = function
+                    .parameters()
+                    .iter()
+                    .map(|parameter| {
+                        let ty = Self::transport_type(result, parameter.ty())?;
+
+                        if parameter.is_rest() {
+                            return Some(ImportedFunctionParameterType::rest(ty));
+                        }
+
+                        if parameter.has_default() {
+                            return Some(ImportedFunctionParameterType::with_default(ty));
+                        }
+
+                        Some(ImportedFunctionParameterType::new(ty))
+                    })
+                    .collect::<Option<Vec<_>>>()?;
+
+                let return_type = Box::new(Self::transport_type(result, function.return_type())?);
+
+                Some(ImportedType::Function {
+                    parameters,
+                    return_type,
+                })
+            }
+
+            _ => None,
+        }
     }
 
     fn path_records(&self, module_index: usize) -> Vec<PathCheckRecord> {

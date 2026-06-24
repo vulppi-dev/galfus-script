@@ -120,7 +120,7 @@ Goal: build the local project/module model used by the frontend.
 - [x] Validate local library exports
 - [x] Resolve local `src/` files
 - [x] Resolve local relative imports from project graph
-- [ ] Resolve named imports from project graph
+- [x] Resolve named imports from project graph
 - [ ] Resolve local aliases, if included in MVP
 - [x] Build local module records
 - [x] Build local module graph
@@ -246,9 +246,9 @@ Status: completed as local resolver foundation.
 
 Goal: expand resolution from local source validation into module-aware semantic resolution.
 
-- [ ] Resolve imported module bindings
-- [ ] Resolve named imports
-- [ ] Resolve workspace graph imports
+- [x] Resolve imported module bindings
+- [x] Resolve named imports
+- [x] Resolve workspace graph imports
 - [ ] Resolve export surfaces
 - [ ] Resolve type paths across modules
 - [ ] Resolve callable paths across modules

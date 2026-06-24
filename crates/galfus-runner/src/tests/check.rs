@@ -2,6 +2,7 @@ use galfus_core::DiagnosticCodeKind;
 
 use crate::{CheckDiagnosticCode, check::check_path};
 use anyhow::Result;
+use galfus_frontend::TypeDiagnosticCode;
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -92,6 +93,90 @@ fn check_path_accepts_named_import_from_exported_symbol() -> Result<()> {
     let result = check_path(main.as_path())?;
 
     assert!(!result.has_errors());
+
+    fs::remove_dir_all(root)?;
+
+    Ok(())
+}
+
+#[test]
+fn check_path_typechecks_named_imported_function_call() -> Result<()> {
+    let root = temp_project()?;
+    let main = write_file(
+        root.as_path(),
+        "main.gfs",
+        r#"
+        import { add } from "./math"
+
+        var value: int32 = add(true, 2)
+
+        fn main(): null {
+            return
+        }
+        "#,
+    )?;
+
+    write_file(
+        root.as_path(),
+        "math.gfs",
+        r#"
+        export fn add(a: int32, b: int32): int32 {
+            return a
+        }
+        "#,
+    )?;
+
+    let result = check_path(main.as_path())?;
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::TypeMismatch.as_code()
+            && diagnostic
+                .message()
+                .contains("expected `int32`, got `bool`")
+    }));
+
+    fs::remove_dir_all(root)?;
+
+    Ok(())
+}
+
+#[test]
+fn check_path_accepts_named_imported_function_call() -> Result<()> {
+    let root = temp_project()?;
+    let main = write_file(
+        root.as_path(),
+        "main.gfs",
+        r#"
+        import { add } from "./math"
+
+        var value: int32 = add(1, 2)
+
+        fn main(): null {
+            return
+        }
+        "#,
+    )?;
+
+    write_file(
+        root.as_path(),
+        "math.gfs",
+        r#"
+        export fn add(a: int32, b: int32): int32 {
+            return a
+        }
+        "#,
+    )?;
+
+    let result = check_path(main.as_path())?;
+
+    assert!(!result.has_errors());
+    assert!(
+        result
+            .modules()
+            .iter()
+            .all(|module| module.type_result().is_some())
+    );
 
     fs::remove_dir_all(root)?;
 
