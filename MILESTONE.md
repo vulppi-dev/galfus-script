@@ -358,8 +358,8 @@ Goal: validate ownership metadata before `.gfb` generation.
 - [x] Validate module state anchors
 - [x] Validate block-local anchors
 - [x] Validate temporaries
-- [ ] Validate ownership cycles
-- [ ] Validate release eligibility
+- [x] Validate ownership cycles
+- [x] Validate release eligibility
 - [x] Prepare ownership metadata
 - [x] Prepare anchor metadata
 - [x] Prepare edge metadata

@@ -158,10 +158,12 @@ impl TypeCheckResult {
 pub struct OwnershipMetadata {
     anchors: Vec<AnchorMetadata>,
     edges: Vec<EdgeMetadata>,
+    cycles: Vec<OwnershipCycleMetadata>,
     weak_observers: Vec<WeakObserverMetadata>,
     weak_fields: Vec<WeakFieldMetadata>,
     captures: Vec<CaptureMetadata>,
     temporaries: Vec<TemporaryMetadata>,
+    release_eligibilities: Vec<ReleaseEligibilityMetadata>,
 }
 
 impl OwnershipMetadata {
@@ -171,6 +173,10 @@ impl OwnershipMetadata {
 
     pub fn edges(&self) -> &[EdgeMetadata] {
         &self.edges
+    }
+
+    pub fn cycles(&self) -> &[OwnershipCycleMetadata] {
+        &self.cycles
     }
 
     pub fn weak_observers(&self) -> &[WeakObserverMetadata] {
@@ -187,6 +193,10 @@ impl OwnershipMetadata {
 
     pub fn temporaries(&self) -> &[TemporaryMetadata] {
         &self.temporaries
+    }
+
+    pub fn release_eligibilities(&self) -> &[ReleaseEligibilityMetadata] {
+        &self.release_eligibilities
     }
 }
 
@@ -277,6 +287,21 @@ impl EdgeMetadata {
 
     pub fn field_type(&self) -> TypeId {
         self.field_type
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OwnershipCycleMetadata {
+    structs: Vec<SymbolId>,
+}
+
+impl OwnershipCycleMetadata {
+    pub fn new(structs: Vec<SymbolId>) -> Self {
+        Self { structs }
+    }
+
+    pub fn structs(&self) -> &[SymbolId] {
+        self.structs.as_slice()
     }
 }
 
@@ -408,6 +433,53 @@ impl TemporaryMetadata {
 
     pub fn expression(&self) -> NodeId {
         self.expression
+    }
+
+    pub fn ty(&self) -> TypeId {
+        self.ty
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ReleaseEligibilityKind {
+    Anchor,
+    Capture,
+    Temporary,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ReleaseEligibilityMetadata {
+    kind: ReleaseEligibilityKind,
+    node: NodeId,
+    symbol: Option<SymbolId>,
+    ty: TypeId,
+}
+
+impl ReleaseEligibilityMetadata {
+    pub fn new(
+        kind: ReleaseEligibilityKind,
+        node: NodeId,
+        symbol: Option<SymbolId>,
+        ty: TypeId,
+    ) -> Self {
+        Self {
+            kind,
+            node,
+            symbol,
+            ty,
+        }
+    }
+
+    pub fn kind(&self) -> ReleaseEligibilityKind {
+        self.kind
+    }
+
+    pub fn node(&self) -> NodeId {
+        self.node
+    }
+
+    pub fn symbol(&self) -> Option<SymbolId> {
+        self.symbol
     }
 
     pub fn ty(&self) -> TypeId {

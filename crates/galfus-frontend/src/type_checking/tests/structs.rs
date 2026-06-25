@@ -496,6 +496,45 @@ struct Node {
 }
 
 #[test]
+fn check_collects_strong_ownership_cycle_metadata() {
+    let (_source, graph, result) = check_source(
+        r#"
+struct Parent {
+  child: Child | null,
+}
+
+struct Child {
+  parent: Parent | null,
+}
+"#,
+    );
+
+    let parent_symbol = symbol_by_name_and_kind(&graph, "Parent", SymbolKind::Struct);
+    let child_symbol = symbol_by_name_and_kind(&graph, "Child", SymbolKind::Struct);
+
+    assert!(result.ownership_metadata().cycles().iter().any(|cycle| {
+        cycle.structs().contains(&parent_symbol) && cycle.structs().contains(&child_symbol)
+    }));
+}
+
+#[test]
+fn check_ignores_weak_fields_for_ownership_cycle_metadata() {
+    let (_source, _graph, result) = check_source(
+        r#"
+struct Parent {
+  child: Child | null,
+}
+
+struct Child {
+  weak parent: Parent | null,
+}
+"#,
+    );
+
+    assert!(result.ownership_metadata().cycles().is_empty());
+}
+
+#[test]
 fn check_collects_anchor_and_temporary_ownership_metadata() {
     let (_source, graph, result) = check_source(
         r#"
@@ -541,6 +580,25 @@ fn User::rename(user: User, name: [uint8]): User {
         anchors
             .iter()
             .any(|anchor| anchor.kind() == AnchorKind::Temporary)
+    );
+
+    assert!(
+        result
+            .ownership_metadata()
+            .release_eligibilities()
+            .iter()
+            .any(|eligibility| {
+                eligibility.kind() == ReleaseEligibilityKind::Anchor
+                    && eligibility.symbol() == Some(global_user)
+            })
+    );
+
+    assert!(
+        result
+            .ownership_metadata()
+            .release_eligibilities()
+            .iter()
+            .any(|eligibility| eligibility.kind() == ReleaseEligibilityKind::Temporary)
     );
 }
 

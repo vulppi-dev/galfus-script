@@ -88,19 +88,34 @@ fn check_accepts_arrow_function_as_call_argument() {
 fn check_collects_closure_capture_ownership_metadata() {
     let (_source, graph, result) = check_source(
         r#"
-        var factor = 2
-        var double = (value: int32): int32 => value * factor
+        struct Box {
+          value: int32,
+        }
+
+        var captured: Box = Box { value: 2 }
+        var make = (): Box => captured
         "#,
     );
 
     let arrow = find_node_by_kind(&graph, SyntaxNodeKind::ArrowFunctionExpression).unwrap();
-    let factor = symbol_by_name_and_kind(&graph, "factor", SymbolKind::Var);
+    let captured = symbol_by_name_and_kind(&graph, "captured", SymbolKind::Var);
 
     let captures = result.ownership_metadata().captures();
 
     assert_eq!(captures.len(), 1);
     assert_eq!(captures[0].closure(), arrow);
-    assert_eq!(captures[0].symbol(), factor);
+    assert_eq!(captures[0].symbol(), captured);
+
+    assert!(
+        result
+            .ownership_metadata()
+            .release_eligibilities()
+            .iter()
+            .any(|eligibility| {
+                eligibility.kind() == ReleaseEligibilityKind::Capture
+                    && eligibility.symbol() == Some(captured)
+            })
+    );
 }
 
 #[test]
