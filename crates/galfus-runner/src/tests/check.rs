@@ -296,6 +296,86 @@ fn check_path_typechecks_named_imported_choice_constructor() -> Result<()> {
 }
 
 #[test]
+fn check_path_accepts_named_imported_constraint_application() -> Result<()> {
+    let root = temp_project()?;
+    let main = write_file(
+        root.as_path(),
+        "main.gfs",
+        r#"
+        import { Named } from "./contracts"
+
+        struct User satisfies Named {
+            name: [uint8],
+        }
+
+        fn main(): null {
+            return
+        }
+        "#,
+    )?;
+
+    write_file(
+        root.as_path(),
+        "contracts.gfs",
+        r#"
+        export constraint Named {
+            name: [uint8],
+        }
+        "#,
+    )?;
+
+    let result = check_path(main.as_path())?;
+
+    assert!(!result.has_errors());
+
+    fs::remove_dir_all(root)?;
+
+    Ok(())
+}
+
+#[test]
+fn check_path_reports_named_imported_constraint_missing_field() -> Result<()> {
+    let root = temp_project()?;
+    let main = write_file(
+        root.as_path(),
+        "main.gfs",
+        r#"
+        import { Named } from "./contracts"
+
+        struct User satisfies Named {
+            id: int64,
+        }
+
+        fn main(): null {
+            return
+        }
+        "#,
+    )?;
+
+    write_file(
+        root.as_path(),
+        "contracts.gfs",
+        r#"
+        export constraint Named {
+            name: [uint8],
+        }
+        "#,
+    )?;
+
+    let result = check_path(main.as_path())?;
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::MissingConstraintField.as_code()
+            && diagnostic.message().contains("missing field `name`")
+    }));
+
+    fs::remove_dir_all(root)?;
+
+    Ok(())
+}
+
+#[test]
 fn check_path_reports_named_import_from_private_symbol() -> Result<()> {
     let root = temp_project()?;
     let main = write_file(
@@ -801,6 +881,93 @@ fn check_path_typechecks_namespace_imported_anchor_function() -> Result<()> {
     let result = check_path(main.as_path())?;
 
     assert!(!result.has_errors());
+
+    fs::remove_dir_all(root)?;
+
+    Ok(())
+}
+
+#[test]
+fn check_path_accepts_namespace_imported_constraint_application() -> Result<()> {
+    let root = temp_project()?;
+    let main = write_file(
+        root.as_path(),
+        "main.gfs",
+        r#"
+        import contracts from "./contracts"
+
+        struct User satisfies contracts::Named {
+            name: [uint8],
+        }
+
+        fn User::label(): [uint8] {
+            return "Ana"
+        }
+
+        fn main(): null {
+            return
+        }
+        "#,
+    )?;
+
+    write_file(
+        root.as_path(),
+        "contracts.gfs",
+        r#"
+        export constraint Named {
+            name: [uint8],
+            fn label(): [uint8],
+        }
+        "#,
+    )?;
+
+    let result = check_path(main.as_path())?;
+
+    assert!(!result.has_errors());
+
+    fs::remove_dir_all(root)?;
+
+    Ok(())
+}
+
+#[test]
+fn check_path_reports_namespace_imported_constraint_generic_argument_count() -> Result<()> {
+    let root = temp_project()?;
+    let main = write_file(
+        root.as_path(),
+        "main.gfs",
+        r#"
+        import contracts from "./contracts"
+
+        struct User satisfies contracts::Boxed {
+            value: int64,
+        }
+
+        fn main(): null {
+            return
+        }
+        "#,
+    )?;
+
+    write_file(
+        root.as_path(),
+        "contracts.gfs",
+        r#"
+        export constraint Boxed<T> {
+        }
+        "#,
+    )?;
+
+    let result = check_path(main.as_path())?;
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str()
+            == TypeDiagnosticCode::ConstraintGenericArgumentCountMismatch.as_code()
+            && diagnostic
+                .message()
+                .contains("constraint `Boxed` expects 1 generic argument")
+    }));
 
     fs::remove_dir_all(root)?;
 

@@ -345,10 +345,24 @@ impl ModuleLoader {
             let Some(imported_type) =
                 surfaces[target_index].imported_type_for_export(import.local_symbol, imported_name)
             else {
+                if let Some(imported_constraint) =
+                    surfaces[target_index].imported_constraint_for_export(imported_name)
+                {
+                    imported_types
+                        .insert_symbol_constraint(import.local_symbol, imported_constraint);
+                }
+
                 continue;
             };
 
             imported_types.insert_symbol_type(import.local_symbol, imported_type);
+
+            if let Some(imported_constraint) =
+                surfaces[target_index].imported_constraint_for_export(imported_name)
+            {
+                imported_types.insert_symbol_constraint(import.local_symbol, imported_constraint);
+            }
+
             imported_types.extend(imported_surface_types_for_named_export(
                 &surfaces[target_index],
                 import.local_symbol,
@@ -482,10 +496,22 @@ impl ModuleLoader {
             let Some(imported_type) = surfaces[target_index]
                 .imported_path_type_for_export(import.local_symbol, &exported_name)
             else {
+                if let Some(imported_constraint) =
+                    surfaces[target_index].imported_constraint_for_export(exported_name.as_str())
+                {
+                    imported_types.insert_path_constraint(path.node, imported_constraint);
+                }
+
                 continue;
             };
 
             imported_types.insert_path_type(path.node, imported_type);
+
+            if let Some(imported_constraint) =
+                surfaces[target_index].imported_constraint_for_export(exported_name.as_str())
+            {
+                imported_types.insert_path_constraint(path.node, imported_constraint);
+            }
         }
     }
 

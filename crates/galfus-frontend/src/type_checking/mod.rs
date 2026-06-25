@@ -113,6 +113,66 @@ pub enum ImportedType {
     },
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ImportedConstraintMember {
+    name: String,
+    ty: ImportedType,
+}
+
+impl ImportedConstraintMember {
+    pub fn new(name: String, ty: ImportedType) -> Self {
+        Self { name, ty }
+    }
+
+    pub fn name(&self) -> &str {
+        self.name.as_str()
+    }
+
+    pub fn ty(&self) -> &ImportedType {
+        &self.ty
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ImportedConstraintSurface {
+    name: String,
+    generic_parameter_count: usize,
+    fields: Vec<ImportedConstraintMember>,
+    functions: Vec<ImportedConstraintMember>,
+}
+
+impl ImportedConstraintSurface {
+    pub fn new(
+        name: String,
+        generic_parameter_count: usize,
+        fields: Vec<ImportedConstraintMember>,
+        functions: Vec<ImportedConstraintMember>,
+    ) -> Self {
+        Self {
+            name,
+            generic_parameter_count,
+            fields,
+            functions,
+        }
+    }
+
+    pub fn name(&self) -> &str {
+        self.name.as_str()
+    }
+
+    pub fn generic_parameter_count(&self) -> usize {
+        self.generic_parameter_count
+    }
+
+    pub fn fields(&self) -> &[ImportedConstraintMember] {
+        self.fields.as_slice()
+    }
+
+    pub fn functions(&self) -> &[ImportedConstraintMember] {
+        self.functions.as_slice()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ImportedMemberKey {
     namespace: SymbolId,
@@ -147,6 +207,8 @@ pub struct ImportedSurfaceTypes {
     symbol_types: HashMap<SymbolId, ImportedType>,
     path_types: HashMap<NodeId, ImportedType>,
     member_types: HashMap<ImportedMemberKey, ImportedType>,
+    symbol_constraints: HashMap<SymbolId, ImportedConstraintSurface>,
+    path_constraints: HashMap<NodeId, ImportedConstraintSurface>,
 }
 
 impl ImportedSurfaceTypes {
@@ -166,6 +228,14 @@ impl ImportedSurfaceTypes {
         &self.member_types
     }
 
+    pub fn symbol_constraints(&self) -> &HashMap<SymbolId, ImportedConstraintSurface> {
+        &self.symbol_constraints
+    }
+
+    pub fn path_constraints(&self) -> &HashMap<NodeId, ImportedConstraintSurface> {
+        &self.path_constraints
+    }
+
     pub fn insert_symbol_type(&mut self, symbol: SymbolId, ty: ImportedType) {
         self.symbol_types.insert(symbol, ty);
     }
@@ -178,10 +248,24 @@ impl ImportedSurfaceTypes {
         self.member_types.insert(key, ty);
     }
 
+    pub fn insert_symbol_constraint(
+        &mut self,
+        symbol: SymbolId,
+        constraint: ImportedConstraintSurface,
+    ) {
+        self.symbol_constraints.insert(symbol, constraint);
+    }
+
+    pub fn insert_path_constraint(&mut self, node: NodeId, constraint: ImportedConstraintSurface) {
+        self.path_constraints.insert(node, constraint);
+    }
+
     pub fn extend(&mut self, other: ImportedSurfaceTypes) {
         self.symbol_types.extend(other.symbol_types);
         self.path_types.extend(other.path_types);
         self.member_types.extend(other.member_types);
+        self.symbol_constraints.extend(other.symbol_constraints);
+        self.path_constraints.extend(other.path_constraints);
     }
 }
 
@@ -570,6 +654,22 @@ struct DeclarationTypeChecker<'a> {
     diagnostics: DiagnosticBag,
     ownership_metadata: OwnershipMetadata,
     imported_member_types: HashMap<ImportedMemberKey, TypeId>,
+    imported_symbol_constraints: HashMap<SymbolId, LoweredImportedConstraint>,
+    imported_path_constraints: HashMap<NodeId, LoweredImportedConstraint>,
+}
+
+#[derive(Debug, Clone)]
+struct LoweredImportedConstraint {
+    name: String,
+    generic_parameter_count: usize,
+    fields: Vec<LoweredImportedConstraintMember>,
+    functions: Vec<LoweredImportedConstraintMember>,
+}
+
+#[derive(Debug, Clone)]
+struct LoweredImportedConstraintMember {
+    name: String,
+    ty: TypeId,
 }
 
 impl<'a> DeclarationTypeChecker<'a> {
@@ -581,6 +681,8 @@ impl<'a> DeclarationTypeChecker<'a> {
             diagnostics: DiagnosticBag::new(),
             ownership_metadata: OwnershipMetadata::default(),
             imported_member_types: HashMap::new(),
+            imported_symbol_constraints: HashMap::new(),
+            imported_path_constraints: HashMap::new(),
         }
     }
 
@@ -641,6 +743,52 @@ impl<'a> DeclarationTypeChecker<'a> {
         for (key, imported_type) in imported_types {
             let ty = self.lower_imported_type(imported_type);
             self.imported_member_types.insert(key.clone(), ty);
+        }
+    }
+
+    fn bind_imported_symbol_constraints(
+        &mut self,
+        imported_constraints: &HashMap<SymbolId, ImportedConstraintSurface>,
+    ) {
+        for (symbol, imported_constraint) in imported_constraints {
+            let constraint = self.lower_imported_constraint(imported_constraint);
+            self.imported_symbol_constraints.insert(*symbol, constraint);
+        }
+    }
+
+    fn bind_imported_path_constraints(
+        &mut self,
+        imported_constraints: &HashMap<NodeId, ImportedConstraintSurface>,
+    ) {
+        for (node, imported_constraint) in imported_constraints {
+            let constraint = self.lower_imported_constraint(imported_constraint);
+            self.imported_path_constraints.insert(*node, constraint);
+        }
+    }
+
+    fn lower_imported_constraint(
+        &mut self,
+        imported_constraint: &ImportedConstraintSurface,
+    ) -> LoweredImportedConstraint {
+        LoweredImportedConstraint {
+            name: imported_constraint.name().to_string(),
+            generic_parameter_count: imported_constraint.generic_parameter_count(),
+            fields: imported_constraint
+                .fields()
+                .iter()
+                .map(|field| LoweredImportedConstraintMember {
+                    name: field.name().to_string(),
+                    ty: self.lower_imported_type(field.ty()),
+                })
+                .collect(),
+            functions: imported_constraint
+                .functions()
+                .iter()
+                .map(|function| LoweredImportedConstraintMember {
+                    name: function.name().to_string(),
+                    ty: self.lower_imported_type(function.ty()),
+                })
+                .collect(),
         }
     }
 
@@ -748,6 +896,8 @@ pub fn check_declaration_types_with_surfaces(
     checker.bind_imported_symbol_types(imported_types.symbol_types());
     checker.bind_imported_path_types(imported_types.path_types());
     checker.bind_imported_member_types(imported_types.member_types());
+    checker.bind_imported_symbol_constraints(imported_types.symbol_constraints());
+    checker.bind_imported_path_constraints(imported_types.path_constraints());
     checker.check();
     checker.into_result()
 }

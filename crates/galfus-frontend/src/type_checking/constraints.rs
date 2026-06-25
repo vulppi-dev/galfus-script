@@ -4,7 +4,7 @@ use galfus_core::{NodeId, SymbolId, TypeId};
 
 use crate::{FunctionParameterType, SymbolKind, SyntaxNodeKind, TypeKind};
 
-use super::DeclarationTypeChecker;
+use super::{DeclarationTypeChecker, LoweredImportedConstraint};
 
 #[derive(Debug, Clone)]
 struct ConstraintFieldInfo {
@@ -37,7 +37,9 @@ pub(super) type TypeSubstitution = HashMap<SymbolId, TypeId>;
 #[derive(Debug, Clone)]
 pub(super) struct ConstraintApplication {
     pub(super) symbol: SymbolId,
+    constraint_name: String,
     pub(super) substitution: TypeSubstitution,
+    imported_constraint: Option<LoweredImportedConstraint>,
 }
 
 #[derive(Debug, Clone)]
@@ -142,13 +144,14 @@ impl<'a> DeclarationTypeChecker<'a> {
         };
 
         let constraint_symbol = application.symbol;
+        let constraint_name = application.constraint_name.clone();
         let substitution = application.substitution;
 
-        let Some(constraint_name) = self.symbol_name(constraint_symbol) else {
-            return;
-        };
-
-        let constraint_fields = self.constraint_fields(constraint_symbol);
+        let constraint_fields = application
+            .imported_constraint
+            .as_ref()
+            .map(|constraint| self.imported_constraint_fields(constraint))
+            .unwrap_or_else(|| self.constraint_fields(constraint_symbol));
 
         for constraint_field in constraint_fields {
             let Some(struct_field) = struct_fields
@@ -180,7 +183,11 @@ impl<'a> DeclarationTypeChecker<'a> {
             );
         }
 
-        let constraint_functions = self.constraint_functions(constraint_symbol);
+        let constraint_functions = application
+            .imported_constraint
+            .as_ref()
+            .map(|constraint| self.imported_constraint_functions(constraint))
+            .unwrap_or_else(|| self.constraint_functions(constraint_symbol));
 
         for constraint_function in constraint_functions {
             let Some(struct_function) = struct_functions
@@ -338,6 +345,34 @@ impl<'a> DeclarationTypeChecker<'a> {
             .collect()
     }
 
+    fn imported_constraint_fields(
+        &self,
+        constraint: &LoweredImportedConstraint,
+    ) -> Vec<ConstraintFieldInfo> {
+        constraint
+            .fields
+            .iter()
+            .map(|field| ConstraintFieldInfo {
+                name: field.name.clone(),
+                ty: field.ty,
+            })
+            .collect()
+    }
+
+    fn imported_constraint_functions(
+        &self,
+        constraint: &LoweredImportedConstraint,
+    ) -> Vec<ConstraintFunctionInfo> {
+        constraint
+            .functions
+            .iter()
+            .map(|function| ConstraintFunctionInfo {
+                name: function.name.clone(),
+                ty: function.ty,
+            })
+            .collect()
+    }
+
     fn struct_satisfies_functions(&self, struct_name: &str) -> Vec<StructFunctionInfo> {
         let Some(root) = self.graph.syntax().root() else {
             return Vec::new();
@@ -473,53 +508,57 @@ impl<'a> DeclarationTypeChecker<'a> {
         &mut self,
         type_node: NodeId,
     ) -> Result<ConstraintApplication, ConstraintApplicationError> {
-        let Some(constraint_symbol) = self.constraint_application_base_symbol(type_node) else {
+        let Some(base) = self.constraint_application_base_node(type_node) else {
             return Err(ConstraintApplicationError::InvalidTarget);
         };
 
-        let Some(constraint_name) = self.symbol_name(constraint_symbol) else {
-            return Err(ConstraintApplicationError::InvalidTarget);
-        };
+        if let Some(constraint_symbol) = self.constraint_symbol_from_base_node(base) {
+            let Some(constraint_name) = self.symbol_name(constraint_symbol) else {
+                return Err(ConstraintApplicationError::InvalidTarget);
+            };
 
-        let generic_parameters = self.constraint_generic_parameters(constraint_symbol);
-        let explicit_arguments = self.constraint_application_argument_types(type_node);
+            let generic_parameters = self.constraint_generic_parameters(constraint_symbol);
+            let explicit_arguments = self.constraint_application_argument_types(type_node);
 
-        if generic_parameters.len() != explicit_arguments.len() {
-            return Err(ConstraintApplicationError::GenericArgumentCountMismatch {
+            if generic_parameters.len() != explicit_arguments.len() {
+                return Err(ConstraintApplicationError::GenericArgumentCountMismatch {
+                    constraint_name,
+                    expected: generic_parameters.len(),
+                    actual: explicit_arguments.len(),
+                });
+            }
+
+            let substitution = generic_parameters
+                .into_iter()
+                .zip(explicit_arguments)
+                .collect::<TypeSubstitution>();
+
+            return Ok(ConstraintApplication {
+                symbol: constraint_symbol,
                 constraint_name,
-                expected: generic_parameters.len(),
-                actual: explicit_arguments.len(),
+                substitution,
+                imported_constraint: None,
             });
         }
 
-        let substitution = generic_parameters
-            .into_iter()
-            .zip(explicit_arguments)
-            .collect::<TypeSubstitution>();
-
-        Ok(ConstraintApplication {
-            symbol: constraint_symbol,
-            substitution,
-        })
+        self.imported_constraint_application(base, type_node)
     }
 
-    fn constraint_application_base_symbol(&self, type_node: NodeId) -> Option<SymbolId> {
+    fn constraint_application_base_node(&self, type_node: NodeId) -> Option<NodeId> {
         let generic_type = self.find_generic_type_node(type_node);
 
-        let base = if let Some(generic_type) = generic_type {
+        if let Some(generic_type) = generic_type {
             let syntax = self.graph.syntax();
             let node = syntax.node(generic_type)?;
 
-            node.children().iter().copied().find(|child| {
+            return node.children().iter().copied().find(|child| {
                 syntax
                     .node(*child)
                     .is_some_and(|child_node| child_node.kind() != SyntaxNodeKind::TypeArgumentList)
-            })?
-        } else {
-            type_node
-        };
+            });
+        }
 
-        self.constraint_symbol_from_base_node(base)
+        Some(type_node)
     }
 
     fn constraint_symbol_from_base_node(&self, base: NodeId) -> Option<SymbolId> {
@@ -551,6 +590,62 @@ impl<'a> DeclarationTypeChecker<'a> {
         }
 
         Some(symbol)
+    }
+
+    fn imported_constraint_application(
+        &self,
+        base: NodeId,
+        type_node: NodeId,
+    ) -> Result<ConstraintApplication, ConstraintApplicationError> {
+        let Some((symbol, constraint)) = self.imported_constraint_for_base_node(base) else {
+            return Err(ConstraintApplicationError::InvalidTarget);
+        };
+
+        let explicit_arguments = self.constraint_application_argument_types(type_node);
+
+        if constraint.generic_parameter_count != explicit_arguments.len() {
+            return Err(ConstraintApplicationError::GenericArgumentCountMismatch {
+                constraint_name: constraint.name.clone(),
+                expected: constraint.generic_parameter_count,
+                actual: explicit_arguments.len(),
+            });
+        }
+
+        Ok(ConstraintApplication {
+            symbol,
+            constraint_name: constraint.name.clone(),
+            substitution: TypeSubstitution::new(),
+            imported_constraint: Some(constraint.clone()),
+        })
+    }
+
+    fn imported_constraint_for_base_node(
+        &self,
+        base: NodeId,
+    ) -> Option<(SymbolId, &LoweredImportedConstraint)> {
+        let resolution = self.graph.resolution()?;
+
+        if let Some(symbol) = resolution.type_reference_symbol(base) {
+            if let Some(constraint) = self.imported_symbol_constraints.get(&symbol) {
+                return Some((symbol, constraint));
+            }
+        }
+
+        if let Some(symbol) = resolution.type_path_reference_symbol(base) {
+            if let Some(constraint) = self.imported_symbol_constraints.get(&symbol) {
+                return Some((symbol, constraint));
+            }
+        }
+
+        if let Some(constraint) = self.imported_path_constraints.get(&base) {
+            let ty = self.layer.node_type(base)?;
+
+            if let Some(TypeKind::Path { root, .. }) = self.layer.table().kind(ty) {
+                return Some((*root, constraint));
+            }
+        }
+
+        None
     }
 
     fn constraint_base_name(&self, base: NodeId) -> Option<String> {
@@ -752,11 +847,7 @@ impl<'a> DeclarationTypeChecker<'a> {
                 continue;
             };
 
-            let Some(name) = self.symbol_name(application.symbol) else {
-                continue;
-            };
-
-            if name == constraint_name {
+            if application.constraint_name == constraint_name {
                 return Some(application);
             }
         }

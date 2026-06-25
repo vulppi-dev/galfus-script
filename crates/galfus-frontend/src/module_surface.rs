@@ -6,8 +6,9 @@ use std::collections::HashMap;
 use galfus_core::{SymbolId, TypeId};
 
 use crate::{
-    ImportedFunctionParameterType, ImportedMemberKey, ImportedSurfaceTypes, ImportedType,
-    ModuleGraph, SymbolKind, SyntaxNodeKind, TypeCheckResult, TypeKind,
+    ImportedConstraintMember, ImportedConstraintSurface, ImportedFunctionParameterType,
+    ImportedMemberKey, ImportedSurfaceTypes, ImportedType, ModuleGraph, SymbolKind, SyntaxNodeKind,
+    TypeCheckResult, TypeKind,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -154,6 +155,16 @@ impl ModuleSurface {
             _ => member.ty().cloned(),
         }
     }
+
+    pub fn imported_constraint_for_export(&self, name: &str) -> Option<ImportedConstraintSurface> {
+        let export = self.export(name)?;
+
+        if export.kind() != SymbolKind::Constraint {
+            return None;
+        }
+
+        Some(export.imported_constraint_surface())
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -162,11 +173,12 @@ pub struct ModuleSurfaceExport {
     kind: SymbolKind,
     ty: Option<ImportedType>,
     members: Vec<ModuleSurfaceMember>,
+    generic_parameter_count: usize,
 }
 
 impl ModuleSurfaceExport {
     pub fn new(name: String, kind: SymbolKind, ty: Option<ImportedType>) -> Self {
-        Self::with_members(name, kind, ty, Vec::new())
+        Self::with_members(name, kind, ty, Vec::new(), 0)
     }
 
     pub fn with_members(
@@ -174,12 +186,14 @@ impl ModuleSurfaceExport {
         kind: SymbolKind,
         ty: Option<ImportedType>,
         members: Vec<ModuleSurfaceMember>,
+        generic_parameter_count: usize,
     ) -> Self {
         Self {
             name,
             kind,
             ty,
             members,
+            generic_parameter_count,
         }
     }
 
@@ -197,6 +211,49 @@ impl ModuleSurfaceExport {
 
     pub fn members(&self) -> &[ModuleSurfaceMember] {
         self.members.as_slice()
+    }
+
+    pub fn generic_parameter_count(&self) -> usize {
+        self.generic_parameter_count
+    }
+
+    fn imported_constraint_surface(&self) -> ImportedConstraintSurface {
+        let fields = self
+            .members
+            .iter()
+            .filter_map(|member| {
+                if member.kind() != SymbolKind::ConstraintField {
+                    return None;
+                }
+
+                Some(ImportedConstraintMember::new(
+                    member.name().to_string(),
+                    member.ty()?.clone(),
+                ))
+            })
+            .collect();
+
+        let functions = self
+            .members
+            .iter()
+            .filter_map(|member| {
+                if member.kind() != SymbolKind::ConstraintFunction {
+                    return None;
+                }
+
+                Some(ImportedConstraintMember::new(
+                    member.name().to_string(),
+                    member.ty()?.clone(),
+                ))
+            })
+            .collect();
+
+        ImportedConstraintSurface::new(
+            self.name.clone(),
+            self.generic_parameter_count,
+            fields,
+            functions,
+        )
     }
 }
 
@@ -263,8 +320,16 @@ pub fn build_module_surface(graph: &ModuleGraph, type_result: &TypeCheckResult) 
             };
 
             let members = surface_members_for_export(graph, type_result, export.symbol());
+            let generic_parameter_count =
+                surface_generic_parameter_count(graph, export.symbol(), export.kind());
 
-            ModuleSurfaceExport::with_members(export.name().to_string(), export.kind(), ty, members)
+            ModuleSurfaceExport::with_members(
+                export.name().to_string(),
+                export.kind(),
+                ty,
+                members,
+                generic_parameter_count,
+            )
         })
         .collect();
 
@@ -350,6 +415,19 @@ fn surface_members_for_export(
                     ))
                 }
 
+                SymbolKind::ConstraintFunction => {
+                    let ty = type_result
+                        .layer()
+                        .symbol_type(*member_symbol)
+                        .and_then(|ty| transport_type(type_result, ty))?;
+
+                    Some(ModuleSurfaceMember::new(
+                        name.to_string(),
+                        member.kind(),
+                        Some(ty),
+                    ))
+                }
+
                 SymbolKind::EnumVariant => Some(ModuleSurfaceMember::new(
                     name.to_string(),
                     member.kind(),
@@ -371,6 +449,57 @@ fn surface_members_for_export(
             }
         })
         .collect()
+}
+
+fn surface_generic_parameter_count(
+    graph: &ModuleGraph,
+    symbol: SymbolId,
+    kind: SymbolKind,
+) -> usize {
+    if kind != SymbolKind::Constraint {
+        return 0;
+    }
+
+    let Some(resolution) = graph.resolution() else {
+        return 0;
+    };
+
+    let Some(member_scope) = resolution.member_scope(symbol) else {
+        return 0;
+    };
+
+    let Some(scope) = resolution.scope(member_scope) else {
+        return 0;
+    };
+
+    let Some(owner) = scope.owner() else {
+        return 0;
+    };
+
+    declaration_symbols_in_node(graph, owner, SymbolKind::GenericParameter)
+}
+
+fn declaration_symbols_in_node(
+    graph: &ModuleGraph,
+    node: galfus_core::NodeId,
+    kind: SymbolKind,
+) -> usize {
+    let Some(syntax_node) = graph.syntax().node(node) else {
+        return 0;
+    };
+
+    let current = graph
+        .resolution()
+        .and_then(|resolution| resolution.declaration_symbol(node))
+        .and_then(|symbol| graph.resolution()?.symbol(symbol))
+        .is_some_and(|symbol| symbol.kind() == kind) as usize;
+
+    current
+        + syntax_node
+            .children()
+            .iter()
+            .map(|child| declaration_symbols_in_node(graph, *child, kind))
+            .sum::<usize>()
 }
 
 fn choice_payload_types(

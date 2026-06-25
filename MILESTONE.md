@@ -102,7 +102,7 @@ imported surface consumption.
   - [x] Define frontend-owned module/export surface data
   - [x] Generate surfaces from local resolved/typechecked modules
   - [x] Keep surfaces independent from workspace paths and `galfus.toml`
-- [ ] Phase C — Imported surface consumption
+- [x] Phase C — Imported surface consumption
   - [x] Typecheck named imports from surfaces
   - [x] Typecheck namespace imports from surfaces
   - [x] Support imported struct field access from named and namespace surfaces
@@ -110,7 +110,7 @@ imported surface consumption.
   - [x] Support imported choice constructors from named and namespace surfaces
   - [x] Support imported aliases from namespace surfaces
   - [x] Support imported functions, stamped functions, and anchor functions from namespace surfaces
-  - [ ] Support imported constraint applications from surfaces
+  - [x] Support imported constraint applications from surfaces
 - [ ] Phase D — Cross-module deep validation suite
   - [ ] Cover imported struct field access
   - [ ] Cover imported enum variants
