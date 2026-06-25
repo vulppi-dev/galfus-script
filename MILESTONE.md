@@ -87,45 +87,6 @@ VM execution
   -> execution
 ```
 
-## Frontend Closure Plan
-
-Goal: finish the frontend boundary before MIR work starts. The workspace graph stays in
-`galfus-runner`; the frontend owns local validation, export surface generation, and
-imported surface consumption.
-
-- [x] Phase A — Struct instantiation syntax migration
-  - [x] Replace typed struct literals from `User { ... }` to `new(User) { ... }`
-  - [x] Replace inferred struct literals from `struct { ... }` to `new { ... }`
-  - [x] Reserve metadata syntax such as `new(User, shared) { ... }`
-  - [x] Update parser, type checker, tests, and docs
-- [x] Phase B — Frontend module surface model
-  - [x] Define frontend-owned module/export surface data
-  - [x] Generate surfaces from local resolved/typechecked modules
-  - [x] Keep surfaces independent from workspace paths and `galfus.toml`
-- [x] Phase C — Imported surface consumption
-  - [x] Typecheck named imports from surfaces
-  - [x] Typecheck namespace imports from surfaces
-  - [x] Support imported struct field access from named and namespace surfaces
-  - [x] Support imported enum variants from named and namespace surfaces
-  - [x] Support imported choice constructors from named and namespace surfaces
-  - [x] Support imported aliases from namespace surfaces
-  - [x] Support imported functions, stamped functions, and anchor functions from namespace surfaces
-  - [x] Support imported constraint applications from surfaces
-- [x] Phase D — Cross-module deep validation suite
-  - [x] Cover imported struct field access
-  - [x] Cover imported enum variants
-  - [x] Cover imported choice constructors and matches
-  - [x] Cover imported aliases, constraints, functions, stamped functions, and anchor functions
-  - [x] Cover invalid private, missing, and incompatible imported surface usage
-- [ ] Phase E — Future `.gfb` / `.gfp` surface bridge prep
-  - [ ] Allow tests to build fake external surfaces without AST
-  - [ ] Keep runner responsible for resolving future `.gfb` and `.gfp` inputs
-  - [ ] Let runner pass resolved surfaces into frontend APIs
-- [ ] Phase F — Milestone and reference cleanup
-  - [ ] Mark frontend closure only after deep surface validation passes
-  - [ ] Document the runner/frontend boundary
-  - [ ] Document struct instantiation metadata reservation
-
 ## Milestone 0 — Project Foundation
 
 Goal: keep the repository organized enough for MVP development and public inspection.

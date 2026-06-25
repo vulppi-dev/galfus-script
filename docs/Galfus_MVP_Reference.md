@@ -227,6 +227,11 @@ The frontend is allowed to run as a build-time tool only. It does not need to ex
 
 The MVP does not include runtime compilation.
 
+The frontend owns module-local validation and typed import/export surfaces. The
+runner owns the workspace graph and connects resolved surfaces to frontend
+modules. Future `.gfb` and `.gfp` imports remain runner/tooling work and are not
+required to close the frontend MVP.
+
 ## 3.4 Lowering Pipeline
 
 The MVP includes the complete lowering path from validated source to executable image.
@@ -519,6 +524,10 @@ native archive/package generation
 ```
 
 The MVP only needs to build and execute `.gfb`.
+
+`.gfb` and `.gfp` dependency consumption is outside the frontend closure target.
+The MVP validates local `.gfs` modules through frontend-generated surfaces before
+lowering.
 
 ## 4.6 Dependency and Publishing Exclusions
 

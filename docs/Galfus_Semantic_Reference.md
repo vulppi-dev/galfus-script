@@ -88,6 +88,11 @@ Each module has a module-local semantic graph. Galfus does not rely on one globa
 
 Cross-module relationships are represented through import and export surfaces.
 
+The frontend owns local parsing, resolution, type checking, semantic validation,
+ownership metadata, export surface generation, and imported surface consumption.
+The runner owns workspace graph construction and decides which local or future
+artifact surfaces are connected to each frontend module.
+
 ### Private symbols
 
 Top-level symbols that are not exported are private to the module.
@@ -1312,6 +1317,10 @@ Behavior such as collection helpers, rich text operations, regexp matching, form
 The semantic layer produces compact lowering decisions for `.gfb` generation.
 
 The `.gfb` contains only the minimum required for execution and integrity.
+
+Module export/import surfaces are frontend validation artifacts. They may inform
+lowering, but workspace graph state and source-level frontend data are not part
+of the release `.gfb`.
 
 The `.gfm` contains data for:
 
