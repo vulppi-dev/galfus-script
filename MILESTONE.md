@@ -95,7 +95,7 @@ Goal: close the MVP frontend before MIR work starts.
 - [x] Phase 3 — Full resolver local cross-module integration
 - [x] Phase 4 — Ownership frontend checker
 - [x] Phase 5 — Diagnostics, recovery, and final hardening
-- [ ] Phase 6 — Frontend MVP validation suite
+- [x] Phase 6 — Frontend MVP validation suite
 
 ## Milestone 0 — Project Foundation
 
@@ -556,31 +556,31 @@ Goal: provide a local developer command that proves the MVP pipeline.
 
 Goal: prove the complete language surface through local `.gfs` programs.
 
-- [ ] Primitive values and casts
-- [ ] Arrays and negative indexing
-- [ ] String literals as `[uint8]`
-- [ ] Tuples
-- [ ] Structs
-- [ ] Struct defaults
-- [ ] Const fields
-- [ ] Enums and enum casts
-- [ ] Choices and match
-- [ ] Unions and null narrowing
-- [ ] `instanceof` expressions
-- [ ] Functions
-- [ ] Stamped functions
-- [ ] Anchor functions on structs
-- [ ] Generics
-- [ ] Constraints
-- [ ] `satisfies`
-- [ ] Decorators
-- [ ] Destructuring
-- [ ] Ranges
-- [ ] `for in` with iterator / iterable constraints
-- [ ] Weak fields
-- [ ] Ownership validation
-- [ ] Module imports
-- [ ] Module exports
+- [x] Primitive values and casts
+- [x] Arrays and negative indexing
+- [x] String literals as `[uint8]`
+- [x] Tuples
+- [x] Structs
+- [x] Struct defaults
+- [x] Const fields
+- [x] Enums and enum casts
+- [x] Choices and match
+- [x] Unions and null narrowing
+- [x] `instanceof` expressions
+- [x] Functions
+- [x] Stamped functions
+- [x] Anchor functions on structs
+- [x] Generics
+- [x] Constraints
+- [x] `satisfies`
+- [x] Decorators
+- [x] Destructuring
+- [x] Ranges
+- [x] `for in` with iterator / iterable constraints
+- [x] Weak fields
+- [x] Ownership validation
+- [x] Module imports
+- [x] Module exports
 - [ ] `.gfb` serialization
 - [ ] VM execution
 - [ ] Panic behavior
