@@ -6,7 +6,8 @@ use std::collections::HashMap;
 use galfus_core::{SymbolId, TypeId};
 
 use crate::{
-    ImportedFunctionParameterType, ImportedType, ModuleGraph, SymbolKind, TypeCheckResult, TypeKind,
+    ImportedFunctionParameterType, ImportedMemberKey, ImportedSurfaceTypes, ImportedType,
+    ModuleGraph, SymbolKind, SyntaxNodeKind, TypeCheckResult, TypeKind,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -46,13 +47,112 @@ impl ModuleSurface {
     ) -> Option<ImportedType> {
         let export = self.export(name)?;
 
-        if export.kind().is_type_definition() {
+        if export.kind().is_nominal_surface_type() {
             return Some(ImportedType::NamedLocal {
                 symbol: local_symbol,
             });
         }
 
         export.ty().cloned()
+    }
+
+    pub fn imported_path_type_for_export(
+        &self,
+        namespace: SymbolId,
+        name: &str,
+    ) -> Option<ImportedType> {
+        if let Some(export) = self.export(name) {
+            if export.kind().is_nominal_surface_type() {
+                return Some(ImportedType::SurfacePath {
+                    namespace,
+                    name: name.to_string(),
+                });
+            }
+
+            return export.ty().cloned();
+        }
+
+        let (owner_name, member_name) = name.rsplit_once("::")?;
+        let owner = self.export(owner_name)?;
+        let member = owner
+            .members()
+            .iter()
+            .find(|member| member.name() == member_name)?;
+
+        match member.kind() {
+            SymbolKind::EnumVariant => Some(ImportedType::SurfacePath {
+                namespace,
+                name: owner_name.to_string(),
+            }),
+
+            SymbolKind::ChoiceVariant => {
+                let owner_type = ImportedType::SurfacePath {
+                    namespace,
+                    name: owner_name.to_string(),
+                };
+
+                if member.payload_types().is_empty() {
+                    return Some(owner_type);
+                }
+
+                let parameters = member
+                    .payload_types()
+                    .iter()
+                    .cloned()
+                    .map(ImportedFunctionParameterType::new)
+                    .collect();
+
+                Some(ImportedType::Function {
+                    parameters,
+                    return_type: Box::new(owner_type),
+                })
+            }
+
+            _ => member.ty().cloned(),
+        }
+    }
+
+    pub fn imported_member_path_type_for_named_export(
+        &self,
+        local_symbol: SymbolId,
+        owner_name: &str,
+        member_name: &str,
+    ) -> Option<ImportedType> {
+        let owner = self.export(owner_name)?;
+        let member = owner
+            .members()
+            .iter()
+            .find(|member| member.name() == member_name)?;
+
+        match member.kind() {
+            SymbolKind::EnumVariant => Some(ImportedType::NamedLocal {
+                symbol: local_symbol,
+            }),
+
+            SymbolKind::ChoiceVariant => {
+                let owner_type = ImportedType::NamedLocal {
+                    symbol: local_symbol,
+                };
+
+                if member.payload_types().is_empty() {
+                    return Some(owner_type);
+                }
+
+                let parameters = member
+                    .payload_types()
+                    .iter()
+                    .cloned()
+                    .map(ImportedFunctionParameterType::new)
+                    .collect();
+
+                Some(ImportedType::Function {
+                    parameters,
+                    return_type: Box::new(owner_type),
+                })
+            }
+
+            _ => member.ty().cloned(),
+        }
     }
 }
 
@@ -61,11 +161,26 @@ pub struct ModuleSurfaceExport {
     name: String,
     kind: SymbolKind,
     ty: Option<ImportedType>,
+    members: Vec<ModuleSurfaceMember>,
 }
 
 impl ModuleSurfaceExport {
     pub fn new(name: String, kind: SymbolKind, ty: Option<ImportedType>) -> Self {
-        Self { name, kind, ty }
+        Self::with_members(name, kind, ty, Vec::new())
+    }
+
+    pub fn with_members(
+        name: String,
+        kind: SymbolKind,
+        ty: Option<ImportedType>,
+        members: Vec<ModuleSurfaceMember>,
+    ) -> Self {
+        Self {
+            name,
+            kind,
+            ty,
+            members,
+        }
     }
 
     pub fn name(&self) -> &str {
@@ -79,6 +194,54 @@ impl ModuleSurfaceExport {
     pub fn ty(&self) -> Option<&ImportedType> {
         self.ty.as_ref()
     }
+
+    pub fn members(&self) -> &[ModuleSurfaceMember] {
+        self.members.as_slice()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ModuleSurfaceMember {
+    name: String,
+    kind: SymbolKind,
+    ty: Option<ImportedType>,
+    payload_types: Vec<ImportedType>,
+}
+
+impl ModuleSurfaceMember {
+    pub fn new(name: String, kind: SymbolKind, ty: Option<ImportedType>) -> Self {
+        Self {
+            name,
+            kind,
+            ty,
+            payload_types: Vec::new(),
+        }
+    }
+
+    pub fn with_payload(name: String, kind: SymbolKind, payload_types: Vec<ImportedType>) -> Self {
+        Self {
+            name,
+            kind,
+            ty: None,
+            payload_types,
+        }
+    }
+
+    pub fn name(&self) -> &str {
+        self.name.as_str()
+    }
+
+    pub fn kind(&self) -> SymbolKind {
+        self.kind
+    }
+
+    pub fn ty(&self) -> Option<&ImportedType> {
+        self.ty.as_ref()
+    }
+
+    pub fn payload_types(&self) -> &[ImportedType] {
+        self.payload_types.as_slice()
+    }
 }
 
 pub fn build_module_surface(graph: &ModuleGraph, type_result: &TypeCheckResult) -> ModuleSurface {
@@ -90,7 +253,7 @@ pub fn build_module_surface(graph: &ModuleGraph, type_result: &TypeCheckResult) 
         .exports()
         .iter()
         .map(|export| {
-            let ty = if export.kind().is_type_definition() {
+            let ty = if export.kind().is_nominal_surface_type() {
                 None
             } else {
                 type_result
@@ -99,11 +262,199 @@ pub fn build_module_surface(graph: &ModuleGraph, type_result: &TypeCheckResult) 
                     .and_then(|ty| transport_type(type_result, ty))
             };
 
-            ModuleSurfaceExport::new(export.name().to_string(), export.kind(), ty)
+            let members = surface_members_for_export(graph, type_result, export.symbol());
+
+            ModuleSurfaceExport::with_members(export.name().to_string(), export.kind(), ty, members)
         })
         .collect();
 
     ModuleSurface::new(exports)
+}
+
+pub fn imported_surface_types_for_namespace(
+    surface: &ModuleSurface,
+    namespace: SymbolId,
+) -> ImportedSurfaceTypes {
+    let mut imported_types = ImportedSurfaceTypes::new();
+
+    for export in surface.exports() {
+        for member in export.members() {
+            if let Some(ty) = member.ty() {
+                imported_types.insert_member_type(
+                    ImportedMemberKey::new(namespace, export.name(), member.name()),
+                    ty.clone(),
+                );
+            }
+        }
+    }
+
+    imported_types
+}
+
+pub fn imported_surface_types_for_named_export(
+    surface: &ModuleSurface,
+    local_symbol: SymbolId,
+    name: &str,
+) -> ImportedSurfaceTypes {
+    let mut imported_types = ImportedSurfaceTypes::new();
+    let Some(export) = surface.export(name) else {
+        return imported_types;
+    };
+
+    for member in export.members() {
+        if let Some(ty) = member.ty() {
+            imported_types.insert_member_type(
+                ImportedMemberKey::new(local_symbol, "", member.name()),
+                ty.clone(),
+            );
+        }
+    }
+
+    imported_types
+}
+
+fn surface_members_for_export(
+    graph: &ModuleGraph,
+    type_result: &TypeCheckResult,
+    symbol: SymbolId,
+) -> Vec<ModuleSurfaceMember> {
+    let Some(resolution) = graph.resolution() else {
+        return Vec::new();
+    };
+
+    let Some(member_scope) = resolution.member_scope(symbol) else {
+        return Vec::new();
+    };
+
+    let Some(scope) = resolution.scope(member_scope) else {
+        return Vec::new();
+    };
+
+    scope
+        .symbols()
+        .iter()
+        .filter_map(|(name, member_symbol)| {
+            let member = resolution.symbol(*member_symbol)?;
+
+            match member.kind() {
+                SymbolKind::StructField | SymbolKind::ConstraintField => {
+                    let ty = type_result
+                        .layer()
+                        .symbol_type(*member_symbol)
+                        .and_then(|ty| transport_type(type_result, ty))?;
+
+                    Some(ModuleSurfaceMember::new(
+                        name.to_string(),
+                        member.kind(),
+                        Some(ty),
+                    ))
+                }
+
+                SymbolKind::EnumVariant => Some(ModuleSurfaceMember::new(
+                    name.to_string(),
+                    member.kind(),
+                    None,
+                )),
+
+                SymbolKind::ChoiceVariant => {
+                    let payload_types =
+                        choice_payload_types(graph, type_result, member.declaration())?;
+
+                    Some(ModuleSurfaceMember::with_payload(
+                        name.to_string(),
+                        member.kind(),
+                        payload_types,
+                    ))
+                }
+
+                _ => None,
+            }
+        })
+        .collect()
+}
+
+fn choice_payload_types(
+    graph: &ModuleGraph,
+    type_result: &TypeCheckResult,
+    declaration: galfus_core::NodeId,
+) -> Option<Vec<ImportedType>> {
+    let root = graph.syntax().root()?;
+    let variant = find_parent_choice_variant(graph, root, declaration)?;
+    let payload = find_descendant_of_kind(graph, variant, SyntaxNodeKind::ChoicePayload)?;
+    let payload_node = graph.syntax().node(payload)?;
+
+    payload_node
+        .children()
+        .iter()
+        .map(|child| {
+            let type_node = first_type_child(graph, *child).unwrap_or(*child);
+            let ty = type_result.layer().node_type(type_node)?;
+
+            transport_type(type_result, ty)
+        })
+        .collect()
+}
+
+fn find_parent_choice_variant(
+    graph: &ModuleGraph,
+    node: galfus_core::NodeId,
+    declaration: galfus_core::NodeId,
+) -> Option<galfus_core::NodeId> {
+    let syntax_node = graph.syntax().node(node)?;
+
+    if syntax_node.kind() == SyntaxNodeKind::ChoiceVariant
+        && graph
+            .syntax()
+            .first_child_of_kind(node, SyntaxNodeKind::Identifier)
+            == Some(declaration)
+    {
+        return Some(node);
+    }
+
+    for child in syntax_node.children() {
+        if let Some(found) = find_parent_choice_variant(graph, *child, declaration) {
+            return Some(found);
+        }
+    }
+
+    None
+}
+
+fn find_descendant_of_kind(
+    graph: &ModuleGraph,
+    node: galfus_core::NodeId,
+    kind: SyntaxNodeKind,
+) -> Option<galfus_core::NodeId> {
+    let syntax_node = graph.syntax().node(node)?;
+
+    for child in syntax_node.children() {
+        let child_node = graph.syntax().node(*child)?;
+
+        if child_node.kind() == kind {
+            return Some(*child);
+        }
+
+        if let Some(found) = find_descendant_of_kind(graph, *child, kind) {
+            return Some(found);
+        }
+    }
+
+    None
+}
+
+fn first_type_child(graph: &ModuleGraph, node: galfus_core::NodeId) -> Option<galfus_core::NodeId> {
+    let syntax_node = graph.syntax().node(node)?;
+
+    if syntax_node.kind().is_type() {
+        return Some(node);
+    }
+
+    syntax_node.children().iter().copied().find(|child| {
+        graph
+            .syntax()
+            .node(*child)
+            .is_some_and(|node| node.kind().is_type())
+    })
 }
 
 fn transport_type(result: &TypeCheckResult, ty: TypeId) -> Option<ImportedType> {
@@ -177,6 +528,13 @@ impl SymbolKind {
         matches!(
             self,
             Self::Struct | Self::Enum | Self::Choice | Self::Constraint | Self::TypeAlias
+        )
+    }
+
+    pub fn is_nominal_surface_type(self) -> bool {
+        matches!(
+            self,
+            Self::Struct | Self::Enum | Self::Choice | Self::Constraint
         )
     }
 }

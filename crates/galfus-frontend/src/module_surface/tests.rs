@@ -84,6 +84,38 @@ fn module_surface_imports_exported_type_as_local_binding() {
 }
 
 #[test]
+fn module_surface_imports_exported_type_as_namespace_path() {
+    let source = source(
+        r#"
+        export struct User {
+            id: int64,
+        }
+        "#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.graph();
+    let type_result = check_declaration_types(&source, graph);
+    assert!(!type_result.has_errors());
+
+    let surface = build_module_surface(graph, &type_result);
+    let namespace = SymbolId::new(7);
+
+    assert_eq!(
+        surface.imported_path_type_for_export(namespace, "User"),
+        Some(ImportedType::SurfacePath {
+            namespace,
+            name: "User".to_string(),
+        })
+    );
+}
+
+#[test]
 fn module_surface_records_exported_function_signature() {
     let source = source(
         r#"

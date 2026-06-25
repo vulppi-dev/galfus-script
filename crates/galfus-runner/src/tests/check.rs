@@ -184,6 +184,118 @@ fn check_path_accepts_named_imported_function_call() -> Result<()> {
 }
 
 #[test]
+fn check_path_typechecks_named_imported_struct_field_access() -> Result<()> {
+    let root = temp_project()?;
+    let main = write_file(
+        root.as_path(),
+        "main.gfs",
+        r#"
+        import { User } from "./user"
+
+        fn read(value: User): int64 {
+            return value.id
+        }
+
+        fn main(): null {
+            return
+        }
+        "#,
+    )?;
+
+    write_file(
+        root.as_path(),
+        "user.gfs",
+        r#"
+        export struct User {
+            id: int64,
+        }
+        "#,
+    )?;
+
+    let result = check_path(main.as_path())?;
+
+    assert!(!result.has_errors());
+
+    fs::remove_dir_all(root)?;
+
+    Ok(())
+}
+
+#[test]
+fn check_path_typechecks_named_imported_enum_variant() -> Result<()> {
+    let root = temp_project()?;
+    let main = write_file(
+        root.as_path(),
+        "main.gfs",
+        r#"
+        import { Status } from "./status"
+
+        var current: Status = Status::Ready
+
+        fn main(): null {
+            return
+        }
+        "#,
+    )?;
+
+    write_file(
+        root.as_path(),
+        "status.gfs",
+        r#"
+        export enum Status {
+            Ready,
+            Done,
+        }
+        "#,
+    )?;
+
+    let result = check_path(main.as_path())?;
+
+    assert!(!result.has_errors());
+
+    fs::remove_dir_all(root)?;
+
+    Ok(())
+}
+
+#[test]
+fn check_path_typechecks_named_imported_choice_constructor() -> Result<()> {
+    let root = temp_project()?;
+    let main = write_file(
+        root.as_path(),
+        "main.gfs",
+        r#"
+        import { Result } from "./result"
+
+        var value: Result = Result::Ok(1)
+
+        fn main(): null {
+            return
+        }
+        "#,
+    )?;
+
+    write_file(
+        root.as_path(),
+        "result.gfs",
+        r#"
+        export choice Result {
+            Ok(int32),
+            Err([int8]),
+        }
+        "#,
+    )?;
+
+    let result = check_path(main.as_path())?;
+
+    assert!(!result.has_errors());
+
+    fs::remove_dir_all(root)?;
+
+    Ok(())
+}
+
+#[test]
 fn check_path_reports_named_import_from_private_symbol() -> Result<()> {
     let root = temp_project()?;
     let main = write_file(
@@ -318,6 +430,48 @@ export fn create(): null {
 }
 
 #[test]
+fn check_path_typechecks_namespace_imported_function_call() -> Result<()> {
+    let root = temp_project()?;
+    let main = write_file(
+        root.as_path(),
+        "main.gfs",
+        r#"
+        import math from "./math"
+
+        var value: int32 = math::add(true, 2)
+
+        fn main(): null {
+            return
+        }
+        "#,
+    )?;
+
+    write_file(
+        root.as_path(),
+        "math.gfs",
+        r#"
+        export fn add(a: int32, b: int32): int32 {
+            return a
+        }
+        "#,
+    )?;
+
+    let result = check_path(main.as_path())?;
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::TypeMismatch.as_code()
+            && diagnostic
+                .message()
+                .contains("expected `int32`, got `bool`")
+    }));
+
+    fs::remove_dir_all(root)?;
+
+    Ok(())
+}
+
+#[test]
 fn check_path_reports_namespace_import_from_private_function() -> Result<()> {
     let root = temp_project()?;
 
@@ -388,6 +542,268 @@ export struct User {
     assert_eq!(result.modules().len(), 2);
 
     fs::remove_dir_all(root)?;
+    Ok(())
+}
+
+#[test]
+fn check_path_typechecks_namespace_imported_type_path() -> Result<()> {
+    let root = temp_project()?;
+    let main = write_file(
+        root.as_path(),
+        "main.gfs",
+        r#"
+        import user from "./user"
+
+        fn identity(value: user::User): user::User {
+            return value
+        }
+
+        fn main(): null {
+            return
+        }
+        "#,
+    )?;
+
+    write_file(
+        root.as_path(),
+        "user.gfs",
+        r#"
+        export struct User {
+            id: int64,
+        }
+        "#,
+    )?;
+
+    let result = check_path(main.as_path())?;
+
+    assert!(!result.has_errors());
+
+    fs::remove_dir_all(root)?;
+
+    Ok(())
+}
+
+#[test]
+fn check_path_typechecks_namespace_imported_struct_field_access() -> Result<()> {
+    let root = temp_project()?;
+    let main = write_file(
+        root.as_path(),
+        "main.gfs",
+        r#"
+        import user from "./user"
+
+        fn read(value: user::User): int64 {
+            return value.id
+        }
+
+        fn main(): null {
+            return
+        }
+        "#,
+    )?;
+
+    write_file(
+        root.as_path(),
+        "user.gfs",
+        r#"
+        export struct User {
+            id: int64,
+        }
+        "#,
+    )?;
+
+    let result = check_path(main.as_path())?;
+
+    assert!(!result.has_errors());
+
+    fs::remove_dir_all(root)?;
+
+    Ok(())
+}
+
+#[test]
+fn check_path_typechecks_namespace_imported_enum_variant() -> Result<()> {
+    let root = temp_project()?;
+    let main = write_file(
+        root.as_path(),
+        "main.gfs",
+        r#"
+        import status from "./status"
+
+        var current: status::Status = status::Status::Ready
+
+        fn main(): null {
+            return
+        }
+        "#,
+    )?;
+
+    write_file(
+        root.as_path(),
+        "status.gfs",
+        r#"
+        export enum Status {
+            Ready,
+            Done,
+        }
+        "#,
+    )?;
+
+    let result = check_path(main.as_path())?;
+
+    assert!(!result.has_errors());
+
+    fs::remove_dir_all(root)?;
+
+    Ok(())
+}
+
+#[test]
+fn check_path_typechecks_namespace_imported_choice_constructor() -> Result<()> {
+    let root = temp_project()?;
+    let main = write_file(
+        root.as_path(),
+        "main.gfs",
+        r#"
+        import result from "./result"
+
+        var value: result::Result = result::Result::Ok(1)
+
+        fn main(): null {
+            return
+        }
+        "#,
+    )?;
+
+    write_file(
+        root.as_path(),
+        "result.gfs",
+        r#"
+        export choice Result {
+            Ok(int32),
+            Err([int8]),
+        }
+        "#,
+    )?;
+
+    let result = check_path(main.as_path())?;
+
+    assert!(!result.has_errors());
+
+    fs::remove_dir_all(root)?;
+
+    Ok(())
+}
+
+#[test]
+fn check_path_typechecks_namespace_imported_alias() -> Result<()> {
+    let root = temp_project()?;
+    let main = write_file(
+        root.as_path(),
+        "main.gfs",
+        r#"
+        import ids from "./ids"
+
+        var id: ids::UserId = 1
+
+        fn main(): null {
+            return
+        }
+        "#,
+    )?;
+
+    write_file(
+        root.as_path(),
+        "ids.gfs",
+        r#"
+        export type UserId = int32
+        "#,
+    )?;
+
+    let result = check_path(main.as_path())?;
+
+    assert!(!result.has_errors());
+
+    fs::remove_dir_all(root)?;
+
+    Ok(())
+}
+
+#[test]
+fn check_path_typechecks_namespace_imported_function_stamp() -> Result<()> {
+    let root = temp_project()?;
+    let main = write_file(
+        root.as_path(),
+        "main.gfs",
+        r#"
+        import math from "./math"
+
+        var value: int32 = math::make(1)
+
+        fn main(): null {
+            return
+        }
+        "#,
+    )?;
+
+    write_file(
+        root.as_path(),
+        "math.gfs",
+        r#"
+        export fn(stamp) make(value: int32): int32 {
+            return value
+        }
+        "#,
+    )?;
+
+    let result = check_path(main.as_path())?;
+
+    assert!(!result.has_errors());
+
+    fs::remove_dir_all(root)?;
+
+    Ok(())
+}
+
+#[test]
+fn check_path_typechecks_namespace_imported_anchor_function() -> Result<()> {
+    let root = temp_project()?;
+    let main = write_file(
+        root.as_path(),
+        "main.gfs",
+        r#"
+        import user from "./user"
+
+        fn rename(value: user::User): user::User {
+            return user::User::rename(value, "ada")
+        }
+
+        fn main(): null {
+            return
+        }
+        "#,
+    )?;
+
+    write_file(
+        root.as_path(),
+        "user.gfs",
+        r#"
+        export struct User {
+            name: [int8],
+        }
+
+        export fn User::rename(self: User, name: [int8]): User {
+            return self
+        }
+        "#,
+    )?;
+
+    let result = check_path(main.as_path())?;
+
+    assert!(!result.has_errors());
+
+    fs::remove_dir_all(root)?;
+
     Ok(())
 }
 

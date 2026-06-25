@@ -1,6 +1,6 @@
 use galfus_core::{NodeId, SymbolId, TypeId};
 
-use crate::{PrimitiveType, SymbolKind, TypeKind};
+use crate::{ImportedMemberKey, PrimitiveType, SymbolKind, TypeKind};
 
 use super::DeclarationTypeChecker;
 
@@ -91,14 +91,27 @@ impl<'a> DeclarationTypeChecker<'a> {
     }
 
     pub(super) fn member_type_for_target_type(
-        &self,
+        &mut self,
         target_type: TypeId,
         member_name: &str,
     ) -> Option<TypeId> {
         let target_type = self.resolve_alias_type(target_type);
 
         match self.layer.table().kind(target_type) {
-            Some(TypeKind::Named { symbol }) => self.member_type_for_symbol(*symbol, member_name),
+            Some(TypeKind::Named { symbol }) => self
+                .member_type_for_symbol(*symbol, member_name)
+                .or_else(|| {
+                    let key = ImportedMemberKey::new(*symbol, "", member_name);
+
+                    self.imported_member_types.get(&key).copied()
+                }),
+
+            Some(TypeKind::Path { root, segments }) => {
+                let owner = segments.join("::");
+                let key = ImportedMemberKey::new(*root, owner, member_name);
+
+                self.imported_member_types.get(&key).copied()
+            }
 
             Some(TypeKind::Error) => Some(target_type),
 

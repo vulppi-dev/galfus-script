@@ -87,6 +87,10 @@ pub enum ImportedType {
     NamedLocal {
         symbol: SymbolId,
     },
+    SurfacePath {
+        namespace: SymbolId,
+        name: String,
+    },
     Array {
         element: Box<ImportedType>,
     },
@@ -107,6 +111,78 @@ pub enum ImportedType {
         parameters: Vec<ImportedFunctionParameterType>,
         return_type: Box<ImportedType>,
     },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ImportedMemberKey {
+    namespace: SymbolId,
+    owner: String,
+    member: String,
+}
+
+impl ImportedMemberKey {
+    pub fn new(namespace: SymbolId, owner: impl Into<String>, member: impl Into<String>) -> Self {
+        Self {
+            namespace,
+            owner: owner.into(),
+            member: member.into(),
+        }
+    }
+
+    pub fn namespace(&self) -> SymbolId {
+        self.namespace
+    }
+
+    pub fn owner(&self) -> &str {
+        self.owner.as_str()
+    }
+
+    pub fn member(&self) -> &str {
+        self.member.as_str()
+    }
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ImportedSurfaceTypes {
+    symbol_types: HashMap<SymbolId, ImportedType>,
+    path_types: HashMap<NodeId, ImportedType>,
+    member_types: HashMap<ImportedMemberKey, ImportedType>,
+}
+
+impl ImportedSurfaceTypes {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn symbol_types(&self) -> &HashMap<SymbolId, ImportedType> {
+        &self.symbol_types
+    }
+
+    pub fn path_types(&self) -> &HashMap<NodeId, ImportedType> {
+        &self.path_types
+    }
+
+    pub fn member_types(&self) -> &HashMap<ImportedMemberKey, ImportedType> {
+        &self.member_types
+    }
+
+    pub fn insert_symbol_type(&mut self, symbol: SymbolId, ty: ImportedType) {
+        self.symbol_types.insert(symbol, ty);
+    }
+
+    pub fn insert_path_type(&mut self, node: NodeId, ty: ImportedType) {
+        self.path_types.insert(node, ty);
+    }
+
+    pub fn insert_member_type(&mut self, key: ImportedMemberKey, ty: ImportedType) {
+        self.member_types.insert(key, ty);
+    }
+
+    pub fn extend(&mut self, other: ImportedSurfaceTypes) {
+        self.symbol_types.extend(other.symbol_types);
+        self.path_types.extend(other.path_types);
+        self.member_types.extend(other.member_types);
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -493,6 +569,7 @@ struct DeclarationTypeChecker<'a> {
     layer: TypeLayer,
     diagnostics: DiagnosticBag,
     ownership_metadata: OwnershipMetadata,
+    imported_member_types: HashMap<ImportedMemberKey, TypeId>,
 }
 
 impl<'a> DeclarationTypeChecker<'a> {
@@ -503,6 +580,7 @@ impl<'a> DeclarationTypeChecker<'a> {
             layer,
             diagnostics: DiagnosticBag::new(),
             ownership_metadata: OwnershipMetadata::default(),
+            imported_member_types: HashMap::new(),
         }
     }
 
@@ -549,11 +627,33 @@ impl<'a> DeclarationTypeChecker<'a> {
         }
     }
 
+    fn bind_imported_path_types(&mut self, imported_types: &HashMap<NodeId, ImportedType>) {
+        for (node, imported_type) in imported_types {
+            let ty = self.lower_imported_type(imported_type);
+            self.layer.bind_node_type(*node, ty);
+        }
+    }
+
+    fn bind_imported_member_types(
+        &mut self,
+        imported_types: &HashMap<ImportedMemberKey, ImportedType>,
+    ) {
+        for (key, imported_type) in imported_types {
+            let ty = self.lower_imported_type(imported_type);
+            self.imported_member_types.insert(key.clone(), ty);
+        }
+    }
+
     fn lower_imported_type(&mut self, imported_type: &ImportedType) -> TypeId {
         match imported_type {
             ImportedType::Primitive(primitive) => self.layer.table().primitive(*primitive),
 
             ImportedType::NamedLocal { symbol } => self.layer.table_mut().intern_named(*symbol),
+
+            ImportedType::SurfacePath { namespace, name } => self
+                .layer
+                .table_mut()
+                .intern_path(*namespace, name.split("::").map(str::to_string).collect()),
 
             ImportedType::Array { element } => {
                 let element = self.lower_imported_type(element);
@@ -628,10 +728,26 @@ pub fn check_declaration_types_with_imports(
     graph: &ModuleGraph,
     imported_types: &HashMap<SymbolId, ImportedType>,
 ) -> TypeCheckResult {
+    let mut surface_types = ImportedSurfaceTypes::new();
+
+    for (symbol, ty) in imported_types {
+        surface_types.insert_symbol_type(*symbol, ty.clone());
+    }
+
+    check_declaration_types_with_surfaces(source, graph, &surface_types)
+}
+
+pub fn check_declaration_types_with_surfaces(
+    source: &SourceFile,
+    graph: &ModuleGraph,
+    imported_types: &ImportedSurfaceTypes,
+) -> TypeCheckResult {
     let lowering = lower_types(source, graph);
 
     let mut checker = DeclarationTypeChecker::new(source, graph, lowering.into_layer());
-    checker.bind_imported_symbol_types(imported_types);
+    checker.bind_imported_symbol_types(imported_types.symbol_types());
+    checker.bind_imported_path_types(imported_types.path_types());
+    checker.bind_imported_member_types(imported_types.member_types());
     checker.check();
     checker.into_result()
 }
