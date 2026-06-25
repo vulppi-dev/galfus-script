@@ -15,7 +15,7 @@ impl Parser {
                 | TokenKind::Null
                 | TokenKind::LeftParen
                 | TokenKind::LeftBracket
-                | TokenKind::Struct
+                | TokenKind::New
                 | TokenKind::Copy
                 | TokenKind::Minus
                 | TokenKind::Bang
@@ -430,7 +430,7 @@ impl Parser {
                                 | TokenKind::Null
                                 | TokenKind::LeftParen
                                 | TokenKind::LeftBracket
-                                | TokenKind::Struct
+                                | TokenKind::New
                                 | TokenKind::Copy
                                 | TokenKind::Minus
                                 | TokenKind::Bang

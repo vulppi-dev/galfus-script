@@ -137,7 +137,7 @@ struct User {
   name: Bytes,
 }
 
-var user: User = User {
+var user: User = new(User) {
   name: "Ana",
 }
 "#,

@@ -171,7 +171,7 @@ fn check_accepts_for_over_iterable_struct() {
         }
 
         fn Numbers::iter(self: Numbers): NumbersIterator {
-          return NumbersIterator {
+          return new(NumbersIterator) {
             values: self.values,
             index: 0,
           }
@@ -182,7 +182,7 @@ fn check_accepts_for_over_iterable_struct() {
         }
 
         fn main(): null {
-          var nums = Numbers {
+          var nums = new(Numbers) {
             values: [1, 2, 3],
           }
 
@@ -212,7 +212,7 @@ fn check_binds_for_binding_type_from_iterable_struct() {
         }
 
         fn Numbers::iter(self: Numbers): NumbersIterator {
-          return NumbersIterator {
+          return new(NumbersIterator) {
             values: self.values,
             index: 0,
           }
@@ -223,7 +223,7 @@ fn check_binds_for_binding_type_from_iterable_struct() {
         }
 
         fn main(): null {
-          var nums = Numbers {
+          var nums = new(Numbers) {
             values: [1, 2, 3],
           }
 
@@ -256,11 +256,11 @@ struct Iter {}
 struct Source satisfies Iterable<Source, int32, Iter> {}
 
 fn Source::iter(self: Source): Iter {
-  return Iter {}
+  return new(Iter) {}
 }
 
 fn main(): null {
-  var source = Source {}
+  var source = new(Source) {}
 
   for item in source {
     var copied: int32 = item
@@ -429,7 +429,7 @@ fn Counter::next(self: Counter): int32 | null {
 }
 
 fn main(): null {
-  var counter = Counter {}
+  var counter = new(Counter) {}
 
   for value in counter {
     var copied: int32 = value

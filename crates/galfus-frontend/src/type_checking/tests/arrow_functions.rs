@@ -92,7 +92,7 @@ fn check_collects_closure_capture_ownership_metadata() {
           value: int32,
         }
 
-        var captured: Box = Box { value: 2 }
+        var captured: Box = new(Box) { value: 2 }
         var make = (): Box => captured
         "#,
     );

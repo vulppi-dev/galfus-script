@@ -139,15 +139,18 @@ impl<'a> DeclarationTypeChecker<'a> {
         let (symbol, struct_name) = {
             let resolution = self.graph.resolution()?;
 
-            let symbol = resolution.reference_symbol(target).or_else(|| {
-                resolution
-                    .symbols()
-                    .iter()
-                    .find(|symbol| {
-                        symbol.name() == target_name && symbol.kind() == SymbolKind::Struct
-                    })
-                    .map(|symbol| symbol.id())
-            })?;
+            let symbol = resolution
+                .type_reference_symbol(target)
+                .or_else(|| resolution.reference_symbol(target))
+                .or_else(|| {
+                    resolution
+                        .symbols()
+                        .iter()
+                        .find(|symbol| {
+                            symbol.name() == target_name && symbol.kind() == SymbolKind::Struct
+                        })
+                        .map(|symbol| symbol.id())
+                })?;
 
             let symbol_data = resolution.symbol(symbol)?;
 

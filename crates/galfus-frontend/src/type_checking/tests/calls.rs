@@ -279,10 +279,10 @@ struct User {
 }
 
 fn User::rename(user: User, name: [uint8]): User {
-  return User { name }
+  return new(User) { name }
 }
 
-var user: User = User { name: "Ana" }
+var user: User = new(User) { name: "Ana" }
 var renamed: User = User::rename(user, "Lia")
 "#,
     );
@@ -299,7 +299,7 @@ struct User {
 }
 
 fn User::rename(user: User, name: [uint8]): User {
-  return User { name }
+  return new(User) { name }
 }
 
 var rename = User::rename

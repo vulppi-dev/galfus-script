@@ -32,7 +32,7 @@ impl Parser {
 
     pub(super) fn parse_primary_expression(
         &mut self,
-        boundary: ExpressionBoundary,
+        _boundary: ExpressionBoundary,
     ) -> Option<NodeId> {
         if self.at(&TokenKind::LeftParen) && self.is_arrow_function_start() {
             return self.parse_arrow_function_expression();
@@ -46,8 +46,8 @@ impl Parser {
             return self.parse_array_literal();
         }
 
-        if self.at(&TokenKind::Struct) {
-            return self.parse_inferred_struct_literal();
+        if self.at(&TokenKind::New) {
+            return self.parse_new_struct_literal();
         }
 
         if self.at(&TokenKind::Match) {
@@ -79,12 +79,6 @@ impl Parser {
         }
 
         if self.at(&TokenKind::Identifier) {
-            let next = self.peek_after_newlines(1).kind();
-
-            if next == &TokenKind::LeftBrace && boundary != ExpressionBoundary::BeforeBlock {
-                return self.parse_struct_literal();
-            }
-
             return self.parse_name_expression();
         }
 
@@ -392,17 +386,45 @@ impl Parser {
         Some(self.add_node(SyntaxNodeKind::SpreadArrayElement, span, vec![expression]))
     }
 
-    pub(super) fn parse_inferred_struct_literal(&mut self) -> Option<NodeId> {
-        let struct_token = self.expect(TokenKind::Struct)?;
+    pub(super) fn parse_new_struct_literal(&mut self) -> Option<NodeId> {
+        let new_token = self.expect(TokenKind::New)?;
+
+        self.skip_newlines();
+
+        if self.at(&TokenKind::LeftParen) {
+            return self.parse_typed_struct_literal_after_new(new_token);
+        }
+
+        let fields = self.parse_struct_literal_field_list()?;
+
+        let span =
+            Span::cover(new_token.span(), self.node_span(fields)).unwrap_or(new_token.span());
+
+        Some(self.add_node(SyntaxNodeKind::InferredStructLiteral, span, vec![fields]))
+    }
+
+    pub(super) fn parse_typed_struct_literal_after_new(
+        &mut self,
+        new_token: Token,
+    ) -> Option<NodeId> {
+        self.expect(TokenKind::LeftParen)?;
+
+        self.skip_newlines();
+
+        let target = self.parse_named_type_or_path()?;
+
+        self.skip_newlines();
+
+        self.expect(TokenKind::RightParen)?;
 
         self.skip_newlines();
 
         let fields = self.parse_struct_literal_field_list()?;
 
         let span =
-            Span::cover(struct_token.span(), self.node_span(fields)).unwrap_or(struct_token.span());
+            Span::cover(new_token.span(), self.node_span(fields)).unwrap_or(new_token.span());
 
-        Some(self.add_node(SyntaxNodeKind::InferredStructLiteral, span, vec![fields]))
+        Some(self.add_node(SyntaxNodeKind::StructLiteral, span, vec![target, fields]))
     }
 
     pub(super) fn parse_arrow_function_expression(&mut self) -> Option<NodeId> {

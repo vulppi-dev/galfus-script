@@ -484,7 +484,7 @@ struct User {
   age: int32 = 0,
 }
 
-var user = User {
+var user = new(User) {
   name: "Ana",
 }
 ```
@@ -505,7 +505,7 @@ struct User {
 A struct literal must be compatible with the expected struct type.
 
 ```galfus
-var user = User {
+var user = new(User) {
   id: 1,
   name: "Ana",
 }
@@ -516,7 +516,7 @@ var user = User {
 An inferred struct literal depends on an expected type:
 
 ```galfus
-struct {
+new {
   id: 1,
   name: "Ana",
 }
@@ -542,7 +542,7 @@ It does not create class inheritance.
 Struct literal spread copies the visible field surface from an existing value into a new literal:
 
 ```galfus
-var user2 = User {
+var user2 = new(User) {
   ...user,
   name: "Bia",
 }

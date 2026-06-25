@@ -2,9 +2,8 @@ use super::super::*;
 
 #[test]
 fn parse_inferred_struct_literal_as_call_argument() {
-    let source = source(
-        "fn main(): null {\n  createPerson(struct { email: \"user@gmail.com\" })\n  return\n}",
-    );
+    let source =
+        source("fn main(): null {\n  createPerson(new { email: \"user@gmail.com\" })\n  return\n}");
 
     let result = parse(&source);
 
@@ -35,14 +34,14 @@ fn parse_inferred_struct_literal_as_call_argument() {
     assert_eq!(value_node.kind(), SyntaxNodeKind::InferredStructLiteral);
     assert_eq!(
         source.slice(value_node.span()),
-        Some("struct { email: \"user@gmail.com\" }")
+        Some("new { email: \"user@gmail.com\" }")
     );
 }
 
 #[test]
 fn parse_inferred_struct_literal_with_multiple_fields() {
     let source = source(
-        "fn main(): null {\n  createPerson(struct {\n    name: \"Ana\",\n    email: \"ana@gmail.com\",\n  })\n  return\n}",
+        "fn main(): null {\n  createPerson(new {\n    name: \"Ana\",\n    email: \"ana@gmail.com\",\n  })\n  return\n}",
     );
 
     let result = parse(&source);
@@ -76,7 +75,7 @@ fn parse_inferred_struct_literal_with_multiple_fields() {
 
 #[test]
 fn parse_inferred_struct_literal_with_shorthand_field() {
-    let source = source("fn main(): null {\n  createPerson(struct { email })\n  return\n}");
+    let source = source("fn main(): null {\n  createPerson(new { email })\n  return\n}");
 
     let result = parse(&source);
 
@@ -112,8 +111,7 @@ fn parse_inferred_struct_literal_with_shorthand_field() {
 
 #[test]
 fn parse_inferred_struct_literal_in_return() {
-    let source =
-        source("fn makePerson(): Person {\n  return struct { email: \"user@gmail.com\" }\n}");
+    let source = source("fn makePerson(): Person {\n  return new { email: \"user@gmail.com\" }\n}");
 
     let result = parse(&source);
 
@@ -135,6 +133,6 @@ fn parse_inferred_struct_literal_in_return() {
     assert_eq!(value_node.kind(), SyntaxNodeKind::InferredStructLiteral);
     assert_eq!(
         source.slice(value_node.span()),
-        Some("struct { email: \"user@gmail.com\" }")
+        Some("new { email: \"user@gmail.com\" }")
     );
 }

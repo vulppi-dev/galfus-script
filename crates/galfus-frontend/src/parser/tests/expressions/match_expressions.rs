@@ -195,7 +195,7 @@ fn parse_match_expression_with_literal_patterns() {
 #[test]
 fn parse_match_subject_allows_struct_literal_inside_call_argument() {
     let source = source(
-        "fn main(): null {\n  match normalize(User { name }) {\n    other => {\n      print(other)\n    }\n  }\n  return\n}",
+        "fn main(): null {\n  match normalize(new(User) { name }) {\n    other => {\n      print(other)\n    }\n  }\n  return\n}",
     );
 
     let result = parse(&source);
@@ -213,7 +213,7 @@ fn parse_match_subject_allows_struct_literal_inside_call_argument() {
     assert_eq!(subject_node.kind(), SyntaxNodeKind::CallExpression);
     assert_eq!(
         source.slice(subject_node.span()),
-        Some("normalize(User { name })")
+        Some("normalize(new(User) { name })")
     );
 }
 

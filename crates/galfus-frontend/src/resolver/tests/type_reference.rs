@@ -212,7 +212,7 @@ fn resolve_binds_function_return_named_type() {
         }
 
         fn create(): User {
-            return User { name: "Ana" }
+            return new(User) { name: "Ana" }
         }
         "#,
     );

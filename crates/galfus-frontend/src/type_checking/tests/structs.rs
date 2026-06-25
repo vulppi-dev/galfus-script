@@ -9,7 +9,7 @@ struct User {
   name: [uint8],
 }
 
-var user: User = User {
+var user: User = new(User) {
   id: 1,
   name: "Ana",
 }
@@ -28,7 +28,7 @@ struct User {
   name: [uint8],
 }
 
-var user: User = User {
+var user: User = new(User) {
   id: 1,
   name: "Ana",
 }
@@ -56,7 +56,7 @@ struct User {
   id: int32,
 }
 
-var user: User = User {
+var user: User = new(User) {
   id: 1,
   name: "Ana",
 }
@@ -87,7 +87,7 @@ struct User {
   id: int32,
 }
 
-var user: User = User {
+var user: User = new(User) {
   id: 1,
   id: 2,
 }
@@ -119,7 +119,7 @@ struct User {
   name: [uint8],
 }
 
-var user: User = User {
+var user: User = new(User) {
   id: 1,
 }
 "#,
@@ -152,7 +152,7 @@ struct User {
   age: int32 = 0,
 }
 
-var user: User = User {
+var user: User = new(User) {
   id: 1,
 }
 "#,
@@ -169,7 +169,7 @@ struct User {
   id: int32,
 }
 
-var user: User = User { id: 1 }
+var user: User = new(User) { id: 1 }
 
 fn update(): null {
   user.id = 2
@@ -189,7 +189,7 @@ struct User {
   const id: int32,
 }
 
-var user: User = User { id: 1 }
+var user: User = new(User) { id: 1 }
 
 fn update(): null {
   user.id = 2
@@ -224,7 +224,7 @@ struct User {
   id: int32,
 }
 
-var user: User = User {
+var user: User = new(User) {
   id: true,
 }
 "#,
@@ -260,7 +260,7 @@ struct User {
 var id: int32 = 1
 var name: [uint8] = "Ana"
 
-var user: User = User {
+var user: User = new(User) {
   id,
   name,
 }
@@ -279,12 +279,12 @@ struct User {
   name: [uint8],
 }
 
-var base: User = User {
+var base: User = new(User) {
   id: 1,
   name: "Ana",
 }
 
-var renamed: User = User {
+var renamed: User = new(User) {
   ...base,
   name: "Bia",
 }
@@ -303,7 +303,7 @@ struct User {
 }
 
 var base: int32 = 1
-var user: User = User {
+var user: User = new(User) {
   ...base,
   id: 2,
 }
@@ -371,7 +371,7 @@ struct Admin {
   role: [uint8],
 }
 
-var admin: Admin = Admin {
+var admin: Admin = new(Admin) {
   id: 1,
   name: "Ana",
   role: "root",
@@ -395,7 +395,7 @@ struct Admin {
   role: [uint8],
 }
 
-var admin: Admin = Admin {
+var admin: Admin = new(Admin) {
   id: 1,
   role: "root",
 }
@@ -415,7 +415,7 @@ struct User {
   id: int32,
 }
 
-var user: User = User { id: 1 }
+var user: User = new(User) { id: 1 }
 var cloned: User = copy user
 "#,
     );
@@ -542,10 +542,10 @@ struct User {
   name: [uint8],
 }
 
-var global_user: User = User { name: "Ana" }
+var global_user: User = new(User) { name: "Ana" }
 
 fn User::rename(user: User, name: [uint8]): User {
-  var local_user: User = User { name }
+  var local_user: User = new(User) { name }
   return local_user
 }
 "#,
@@ -655,7 +655,7 @@ fn check_accepts_inferred_struct_literal_with_expected_type() {
           name: [uint8],
         }
 
-        var user: User = struct {
+        var user: User = new {
           id: 1,
           name: "Ana",
         }
@@ -674,7 +674,7 @@ fn check_accepts_inferred_struct_literal_with_default_field() {
           age: int32 = 0,
         }
 
-        var user: User = struct {
+        var user: User = new {
           name: "Ana",
         }
         "#,
@@ -687,7 +687,7 @@ fn check_accepts_inferred_struct_literal_with_default_field() {
 fn check_reports_inferred_struct_literal_without_expected_type() {
     let source = source(
         r#"
-        var user = struct {
+        var user = new {
           id: 1,
         }
         "#,
@@ -723,7 +723,7 @@ fn check_reports_inferred_struct_literal_without_expected_type() {
 fn check_reports_inferred_struct_literal_with_non_struct_expected_type() {
     let source = source(
         r#"
-        var value: int32 = struct {
+        var value: int32 = new {
           id: 1,
         }
         "#,
@@ -763,7 +763,7 @@ fn check_reports_inferred_struct_literal_unknown_field() {
           id: int32,
         }
 
-        var user: User = struct {
+        var user: User = new {
           id: 1,
           name: "Ana",
         }
@@ -802,7 +802,7 @@ fn check_reports_inferred_struct_literal_field_type_mismatch() {
           id: int32,
         }
 
-        var user: User = struct {
+        var user: User = new {
           id: true,
         }
         "#,

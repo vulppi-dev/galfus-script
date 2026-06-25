@@ -126,7 +126,7 @@ fn parse_enum_variant_reference_in_return() {
 #[test]
 fn parse_variant_constructor_with_struct_literal_argument() {
     let source =
-        source("fn main(): null {\n  const result = Result::Ok(User { name })\n  return\n}");
+        source("fn main(): null {\n  const result = Result::Ok(new(User) { name })\n  return\n}");
 
     let result = parse(&source);
 
@@ -153,7 +153,7 @@ fn parse_variant_constructor_with_struct_literal_argument() {
     assert_eq!(expression_node.kind(), SyntaxNodeKind::CallExpression);
     assert_eq!(
         source.slice(expression_node.span()),
-        Some("Result::Ok(User { name })")
+        Some("Result::Ok(new(User) { name })")
     );
 
     let arguments = expression_node.child(1).unwrap();
@@ -164,7 +164,7 @@ fn parse_variant_constructor_with_struct_literal_argument() {
     let value_node = syntax.node(value).unwrap();
 
     assert_eq!(value_node.kind(), SyntaxNodeKind::StructLiteral);
-    assert_eq!(source.slice(value_node.span()), Some("User { name }"));
+    assert_eq!(source.slice(value_node.span()), Some("new(User) { name }"));
 }
 
 #[test]

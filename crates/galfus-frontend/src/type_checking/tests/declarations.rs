@@ -187,7 +187,7 @@ struct Point {
   y: bool,
 }
 
-var { x, y } = Point { x: 1, y: true }
+var { x, y } = new(Point) { x: 1, y: true }
 "#,
     );
 

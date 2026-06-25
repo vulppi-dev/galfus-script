@@ -352,11 +352,15 @@ Array literals:
 Struct literals:
 
 ```galfus
-User {
+new(User) {
   id: 1,
   name: "Renato",
 }
 ```
+
+Typed struct literals use the `new(Type)` initialization form. The
+parenthesized head is reserved for future initialization metadata, for example
+`new(User, shared) { ... }`.
 
 Struct literal shorthand:
 
@@ -364,7 +368,7 @@ Struct literal shorthand:
 var id = 1
 var name = "Renato"
 
-var user = User {
+var user = new(User) {
   id,
   name,
 }
@@ -373,7 +377,7 @@ var user = User {
 Inferred struct literals:
 
 ```galfus
-struct {
+new {
   id: 1,
   name: "Renato",
 }
@@ -606,7 +610,7 @@ struct User {
 Instantiation:
 
 ```galfus
-var user = User {
+var user = new(User) {
   id: 1,
   name: "Renato",
 }
@@ -615,7 +619,7 @@ var user = User {
 With all fields:
 
 ```galfus
-var user = User {
+var user = new(User) {
   id: 1,
   name: "Renato",
   age: 30,
@@ -648,7 +652,7 @@ struct Person {
 Struct literal spread copies fields from an existing value:
 
 ```galfus
-var user2 = User {
+var user2 = new(User) {
   ...user,
 }
 ```
@@ -656,7 +660,7 @@ var user2 = User {
 Spread with override:
 
 ```galfus
-var user2 = User {
+var user2 = new(User) {
   ...user,
   name: "Ana",
 }
@@ -847,7 +851,7 @@ fn createUser(
   @trim name: [uint8],
   @min(0) age: int32,
 ): User {
-  return User { name, age }
+  return new(User) { name, age }
 }
 ```
 
@@ -926,7 +930,7 @@ fn User::rename(self: User, name: [uint8]): User {
 Call:
 
 ```galfus
-var user = User {
+var user = new(User) {
   name: "Renato",
 }
 
@@ -1094,7 +1098,7 @@ fn createUser(
   @trim name: [uint8],
   @min(0) age: int32,
 ): User {
-  return User { name, age }
+  return new(User) { name, age }
 }
 ```
 
@@ -1457,7 +1461,7 @@ fn createUser(
   @trim name: [uint8],
   @min(0) age: int32 = 0,
 ): User {
-  return User {
+  return new(User) {
     id,
     name,
     age,
@@ -1480,7 +1484,7 @@ fn main(): null {
   var user = createUser(1, " Renato ", 30)
   var label = user::toString()
 
-  var user2 = User {
+  var user2 = new(User) {
     ...user,
     name: "Ana",
   }

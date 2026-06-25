@@ -157,7 +157,7 @@ fn parse_for_iterable_identifier_does_not_become_struct_literal() {
 #[test]
 fn parse_for_iterable_allows_struct_literal_inside_call_argument() {
     let source = source(
-        "fn main(): null {\n  for item in getItems(Filter { active: true }) {\n    print(item)\n  }\n  return\n}",
+        "fn main(): null {\n  for item in getItems(new(Filter) { active: true }) {\n    print(item)\n  }\n  return\n}",
     );
 
     let result = parse(&source);
@@ -182,7 +182,7 @@ fn parse_for_iterable_allows_struct_literal_inside_call_argument() {
     assert_eq!(iterable_node.kind(), SyntaxNodeKind::CallExpression);
     assert_eq!(
         source.slice(iterable_node.span()),
-        Some("getItems(Filter { active: true })")
+        Some("getItems(new(Filter) { active: true })")
     );
 
     let arguments = iterable_node.child(1).unwrap();
@@ -195,7 +195,7 @@ fn parse_for_iterable_allows_struct_literal_inside_call_argument() {
     assert_eq!(value_node.kind(), SyntaxNodeKind::StructLiteral);
     assert_eq!(
         source.slice(value_node.span()),
-        Some("Filter { active: true }")
+        Some("new(Filter) { active: true }")
     );
 }
 

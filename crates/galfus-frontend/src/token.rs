@@ -62,6 +62,7 @@ pub enum TokenKind {
     Null,
     True,
     False,
+    New,
     Copy,
     Stamp,
 

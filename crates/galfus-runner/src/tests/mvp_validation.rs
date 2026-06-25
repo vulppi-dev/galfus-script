@@ -63,7 +63,7 @@ struct Config {
   score: int32 = 1,
 }
 
-var config = Config { id: 1, name: "main" }
+var config = new(Config) { id: 1, name: "main" }
 var copied: Config = copy config
 var { id, name } = config
 var (left, flag) = point
@@ -163,7 +163,7 @@ fn save(): null {
 }
 
 fn main(): null {
-  var user = User { name: identity<Bytes>("Ana"), manager: null }
+  var user = new(User) { name: identity<Bytes>("Ana"), manager: null }
   var label: Bytes = User::label()
   var first: int32 = collect(1, 2, 3)
   var make = (): User => user

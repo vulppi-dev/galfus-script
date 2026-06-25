@@ -190,8 +190,9 @@ fn parse_while_condition_identifier_does_not_become_struct_literal() {
 
 #[test]
 fn parse_while_condition_allows_struct_literal_inside_call_argument() {
-    let source =
-        source("fn main(): null {\n  while isValid(User { permission }) {\n    tick()\n  }\n}");
+    let source = source(
+        "fn main(): null {\n  while isValid(new(User) { permission }) {\n    tick()\n  }\n}",
+    );
 
     let result = parse(&source);
 
@@ -215,7 +216,7 @@ fn parse_while_condition_allows_struct_literal_inside_call_argument() {
     assert_eq!(condition_node.kind(), SyntaxNodeKind::CallExpression);
     assert_eq!(
         source.slice(condition_node.span()),
-        Some("isValid(User { permission })")
+        Some("isValid(new(User) { permission })")
     );
 
     let arguments = condition_node.child(1).unwrap();
@@ -226,7 +227,10 @@ fn parse_while_condition_allows_struct_literal_inside_call_argument() {
     let value_node = syntax.node(value).unwrap();
 
     assert_eq!(value_node.kind(), SyntaxNodeKind::StructLiteral);
-    assert_eq!(source.slice(value_node.span()), Some("User { permission }"));
+    assert_eq!(
+        source.slice(value_node.span()),
+        Some("new(User) { permission }")
+    );
 }
 
 #[test]

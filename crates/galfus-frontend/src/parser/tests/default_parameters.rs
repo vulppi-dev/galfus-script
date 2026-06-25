@@ -116,7 +116,7 @@ fn parse_default_parameter_with_expression() {
 
 #[test]
 fn parse_default_parameter_with_struct_literal() {
-    let source = source("fn create(user: User = User { name }): null {\n  return\n}");
+    let source = source("fn create(user: User = new(User) { name }): null {\n  return\n}");
 
     let result = parse(&source);
 
@@ -139,7 +139,7 @@ fn parse_default_parameter_with_struct_literal() {
     let value_node = syntax.node(value).unwrap();
 
     assert_eq!(value_node.kind(), SyntaxNodeKind::StructLiteral);
-    assert_eq!(source.slice(value_node.span()), Some("User { name }"));
+    assert_eq!(source.slice(value_node.span()), Some("new(User) { name }"));
 }
 
 #[test]

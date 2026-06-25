@@ -11,6 +11,7 @@ The MVP is not a product-distribution milestone. It does not include package pub
 - [Current Status](#current-status)
 - [MVP Pipeline](#mvp-pipeline)
 - [Frontend Closure Plan](#frontend-closure-plan)
+- [Frontend Reaudit Closure Plan](#frontend-reaudit-closure-plan)
 - [Milestone 0 — Project Foundation](#milestone-0--project-foundation)
 - [Milestone 1 — Workspace Graph](#milestone-1--workspace-graph)
 - [Milestone 2 — Lexer and Parser](#milestone-2--lexer-and-parser)
@@ -88,14 +89,37 @@ VM execution
 
 ## Frontend Closure Plan
 
-Goal: close the MVP frontend before MIR work starts.
+Goal: finish the frontend boundary before MIR work starts. The workspace graph stays in
+`galfus-runner`; the frontend owns local validation, export surface generation, and
+imported surface consumption.
 
-- [x] Phase 1 — Type checker core
-- [x] Phase 2 — Semantic checker
-- [x] Phase 3 — Full resolver local cross-module integration
-- [x] Phase 4 — Ownership frontend checker
-- [x] Phase 5 — Diagnostics, recovery, and final hardening
-- [x] Phase 6 — Frontend MVP validation suite
+- [x] Phase A — Struct instantiation syntax migration
+  - [x] Replace typed struct literals from `User { ... }` to `new(User) { ... }`
+  - [x] Replace inferred struct literals from `struct { ... }` to `new { ... }`
+  - [x] Reserve metadata syntax such as `new(User, shared) { ... }`
+  - [x] Update parser, type checker, tests, and docs
+- [ ] Phase B — Frontend module surface model
+  - [ ] Define frontend-owned module/export surface data
+  - [ ] Generate surfaces from local resolved/typechecked modules
+  - [ ] Keep surfaces independent from workspace paths and `galfus.toml`
+- [ ] Phase C — Imported surface consumption
+  - [ ] Typecheck named imports from surfaces
+  - [ ] Typecheck namespace imports from surfaces
+  - [ ] Support deep imported struct, enum, choice, constraint, alias, function, stamped function, and anchor function usage
+- [ ] Phase D — Cross-module deep validation suite
+  - [ ] Cover imported struct field access
+  - [ ] Cover imported enum variants
+  - [ ] Cover imported choice constructors and matches
+  - [ ] Cover imported aliases, constraints, functions, stamped functions, and anchor functions
+  - [ ] Cover invalid private, missing, and incompatible imported surface usage
+- [ ] Phase E — Future `.gfb` / `.gfp` surface bridge prep
+  - [ ] Allow tests to build fake external surfaces without AST
+  - [ ] Keep runner responsible for resolving future `.gfb` and `.gfp` inputs
+  - [ ] Let runner pass resolved surfaces into frontend APIs
+- [ ] Phase F — Milestone and reference cleanup
+  - [ ] Mark frontend closure only after deep surface validation passes
+  - [ ] Document the runner/frontend boundary
+  - [ ] Document struct instantiation metadata reservation
 
 ## Milestone 0 — Project Foundation
 
@@ -181,6 +205,8 @@ Status: completed as current frontend foundation.
 - [x] Struct field defaults
 - [x] Const fields
 - [x] Struct literals
+- [x] `new(Type)` typed struct literals
+- [x] `new` inferred struct literals
 - [x] Struct literal shorthand
 - [x] Inferred struct literals
 - [x] Struct expansion
