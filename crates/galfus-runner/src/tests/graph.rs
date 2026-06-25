@@ -13,6 +13,10 @@ fn main(): null {
 
     assert!(output.contains("phase: Resolved"));
     assert!(output.contains("syntax:"));
+    assert!(output.contains("tree:"));
+    assert!(output.contains("node #"));
+    assert!(output.contains("SourceFile"));
+    assert!(output.contains("FunctionItem"));
     assert!(output.contains("scopes:"));
     assert!(output.contains("symbols:"));
     assert!(output.contains("diagnostics: 0"));

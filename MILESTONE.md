@@ -37,7 +37,7 @@ The MVP is not a product-distribution milestone. It does not include package pub
 Current phase:
 
 ```txt
-frontend workspace graph
+MIR / lowering
 ```
 
 Completed:
@@ -54,9 +54,15 @@ ownership checker
 Active:
 
 ```txt
-workspace graph
-module/project resolution
-frontend MVP validation suite
+MIR
+bytecode
+Module Image
+```
+
+Frontend MVP status:
+
+```txt
+closed for local .gfs validation
 ```
 
 Not usable yet:
@@ -253,17 +259,17 @@ Goal: expand resolution from local source validation into module-aware semantic 
 - [x] Resolve imported module bindings
 - [x] Resolve named imports
 - [x] Resolve workspace graph imports
-- [ ] Resolve export surfaces
-- [ ] Resolve type paths across modules
-- [ ] Resolve callable paths across modules
-- [ ] Resolve anchor function paths across modules
-- [ ] Resolve enum variant paths across modules
-- [ ] Resolve choice constructor paths across modules
-- [ ] Detect private symbol access from imports
-- [ ] Detect invalid export references
-- [ ] Detect import cycles at graph level
-- [ ] Preserve module-local semantic boundaries
-- [ ] Produce full resolver diagnostics
+- [x] Resolve export surfaces
+- [x] Resolve type paths across modules
+- [x] Resolve callable paths across modules
+- [x] Resolve anchor function paths across modules
+- [x] Resolve enum variant paths across modules
+- [x] Resolve choice constructor paths across modules
+- [x] Detect private symbol access from imports
+- [x] Detect invalid export references
+- [x] Handle import cycles without infinite loading
+- [x] Preserve module-local semantic boundaries
+- [x] Produce full resolver diagnostics
 
 ## Milestone 5 — Type Checker
 
@@ -581,12 +587,12 @@ Goal: prove the complete language surface through local `.gfs` programs.
 
 The MVP is complete when:
 
-- [ ] The compiler parses the full accepted syntax
-- [ ] The compiler rejects invalid syntax with useful diagnostics
-- [ ] The resolver builds correct module-local semantic graphs
-- [ ] The type checker validates all core type rules
-- [ ] The semantic checker validates current language semantics
-- [ ] The ownership checker validates anchors, edges, and weak fields
+- [x] The compiler parses the full accepted syntax
+- [x] The compiler rejects invalid syntax with useful diagnostics
+- [x] The resolver builds correct module-local semantic graphs
+- [x] The type checker validates all core type rules
+- [x] The semantic checker validates current language semantics
+- [x] The ownership checker validates anchors, edges, and weak fields
 - [ ] The compiler lowers valid programs into MIR
 - [ ] The compiler lowers MIR into a Galfus Module Image
 - [ ] The compiler serializes the Module Image into `.gfb`
@@ -594,7 +600,7 @@ The MVP is complete when:
 - [ ] The VM executes bytecode correctly
 - [ ] The Owner Graph Core releases values deterministically
 - [ ] Runtime failures produce panic
-- [ ] Local imports and exports work
+- [x] Local imports and exports work
 - [ ] No excluded ecosystem feature is required to run MVP programs
 
 ## Out of MVP
