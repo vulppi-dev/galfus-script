@@ -14,6 +14,7 @@ mod declarations;
 mod decorators;
 mod function_stamps;
 mod generic_expressions;
+mod hardening;
 mod initializers;
 mod instanceof;
 mod iteration;

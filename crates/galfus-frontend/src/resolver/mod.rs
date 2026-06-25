@@ -15,7 +15,7 @@ mod symbol;
 mod type_member;
 mod type_reference;
 
-use galfus_core::{Diagnostic, DiagnosticBag, NodeId, ScopeId, SourceFile, SymbolId};
+use galfus_core::{Diagnostic, DiagnosticBag, NodeId, ScopeId, SourceFile, Span, SymbolId};
 
 pub use export::*;
 pub use import::*;
@@ -318,7 +318,11 @@ impl<'a> Resolver<'a> {
             .and_then(|scope| scope.symbol(name.as_str()))
             .is_some()
         {
-            let span = self.syntax.node(declaration).unwrap().span();
+            let span = self
+                .syntax
+                .node(declaration)
+                .map(|node| node.span())
+                .unwrap_or_else(|| Span::new(self.source.id(), 0, 0));
 
             self.diagnostics.push(Diagnostic::error_with_message(
                 ResolverDiagnosticCode::DuplicateSymbol,

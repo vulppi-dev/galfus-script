@@ -4,6 +4,7 @@ use galfus_core::{SourceFile, SourceId};
 mod block;
 mod export;
 mod function;
+mod hardening;
 mod import;
 mod reference;
 mod scope;

@@ -10,6 +10,7 @@ The MVP is not a product-distribution milestone. It does not include package pub
 
 - [Current Status](#current-status)
 - [MVP Pipeline](#mvp-pipeline)
+- [Frontend Closure Plan](#frontend-closure-plan)
 - [Milestone 0 — Project Foundation](#milestone-0--project-foundation)
 - [Milestone 1 — Workspace Graph](#milestone-1--workspace-graph)
 - [Milestone 2 — Lexer and Parser](#milestone-2--lexer-and-parser)
@@ -44,6 +45,9 @@ Completed:
 lexer
 parser
 local resolver
+type checker
+semantic checker
+ownership checker
 ```
 
 Active:
@@ -51,15 +55,12 @@ Active:
 ```txt
 workspace graph
 module/project resolution
-frontend validation
+frontend MVP validation suite
 ```
 
 Not usable yet:
 
 ```txt
-type checker
-semantic checker
-ownership checker
 MIR
 bytecode
 .gfb
@@ -84,6 +85,17 @@ VM execution
   -> VM
   -> execution
 ```
+
+## Frontend Closure Plan
+
+Goal: close the MVP frontend before MIR work starts.
+
+- [x] Phase 1 — Type checker core
+- [x] Phase 2 — Semantic checker
+- [x] Phase 3 — Full resolver local cross-module integration
+- [x] Phase 4 — Ownership frontend checker
+- [x] Phase 5 — Diagnostics, recovery, and final hardening
+- [ ] Phase 6 — Frontend MVP validation suite
 
 ## Milestone 0 — Project Foundation
 
