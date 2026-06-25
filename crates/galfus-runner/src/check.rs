@@ -88,6 +88,12 @@ struct PathCheckRecord {
     segments: Vec<PathSegmentRecord>,
 }
 
+#[derive(Debug, Clone)]
+struct NamedTypeCheckRecord {
+    node: NodeId,
+    name: String,
+}
+
 #[derive(Debug, Default)]
 pub(crate) struct ModuleLoader {
     pub(crate) modules: Vec<CheckedModule>,
@@ -363,6 +369,12 @@ impl ModuleLoader {
                 imported_types.insert_symbol_constraint(import.local_symbol, imported_constraint);
             }
 
+            if let Some(imported_choice) =
+                surfaces[target_index].imported_choice_for_export(imported_name)
+            {
+                imported_types.insert_symbol_choice(import.local_symbol, imported_choice);
+            }
+
             imported_types.extend(imported_surface_types_for_named_export(
                 &surfaces[target_index],
                 import.local_symbol,
@@ -370,10 +382,62 @@ impl ModuleLoader {
             ));
         }
 
+        self.collect_named_imported_type_types(module_index, surfaces, &mut imported_types);
         self.collect_named_imported_path_types(module_index, surfaces, &mut imported_types);
         self.collect_namespace_imported_path_types(module_index, surfaces, &mut imported_types);
 
         imported_types
+    }
+
+    fn collect_named_imported_type_types(
+        &self,
+        module_index: usize,
+        surfaces: &[ModuleSurface],
+        imported_types: &mut ImportedSurfaceTypes,
+    ) {
+        let imports = self.module_imports(module_index);
+        let named_imports = imports
+            .iter()
+            .filter(|import| {
+                import.kind == ImportKind::Named && is_relative_import(import.source.as_str())
+            })
+            .collect::<Vec<_>>();
+
+        if named_imports.is_empty() {
+            return;
+        }
+
+        for named_type in self.named_type_records(module_index) {
+            let Some(import) = named_imports
+                .iter()
+                .find(|import| import.local_name == named_type.name)
+            else {
+                continue;
+            };
+
+            let Some(imported_name) = import.imported_name.as_deref() else {
+                continue;
+            };
+
+            let target_path =
+                resolve_relative_import(self.modules[module_index].path(), import.source.as_str());
+
+            let Ok(target_path) = normalize_existing_path(target_path.as_path()) else {
+                continue;
+            };
+
+            let Some(target_index) = self.module_by_path.get(target_path.as_path()).copied() else {
+                continue;
+            };
+
+            let Some(imported_type) =
+                surfaces[target_index].imported_type_for_export(import.local_symbol, imported_name)
+            else {
+                continue;
+            };
+
+            imported_types.insert_path_type(named_type.node, imported_type);
+        }
     }
 
     fn collect_named_imported_path_types(
@@ -512,6 +576,52 @@ impl ModuleLoader {
             {
                 imported_types.insert_path_constraint(path.node, imported_constraint);
             }
+
+            if let Some(imported_choice) =
+                surfaces[target_index].imported_choice_for_export(exported_name.as_str())
+            {
+                imported_types.insert_path_choice(path.node, imported_choice);
+            }
+        }
+    }
+
+    fn named_type_records(&self, module_index: usize) -> Vec<NamedTypeCheckRecord> {
+        let mut records = Vec::new();
+
+        let Some(root) = self.modules[module_index].graph().syntax().root() else {
+            return records;
+        };
+
+        self.collect_named_type_records(module_index, root, &mut records);
+
+        records
+    }
+
+    fn collect_named_type_records(
+        &self,
+        module_index: usize,
+        node: NodeId,
+        records: &mut Vec<NamedTypeCheckRecord>,
+    ) {
+        let syntax = self.modules[module_index].graph().syntax();
+
+        let Some(syntax_node) = syntax.node(node) else {
+            return;
+        };
+
+        if syntax_node.kind() == SyntaxNodeKind::NamedType {
+            if let Some(identifier) = syntax.first_child_of_kind(node, SyntaxNodeKind::Identifier) {
+                records.push(NamedTypeCheckRecord {
+                    node,
+                    name: self.node_text(module_index, identifier),
+                });
+            }
+
+            return;
+        }
+
+        for child in syntax_node.children() {
+            self.collect_named_type_records(module_index, *child, records);
         }
     }
 

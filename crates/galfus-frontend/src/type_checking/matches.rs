@@ -4,7 +4,7 @@ use galfus_core::{NodeId, SymbolId, TypeId};
 
 use crate::{PrimitiveType, SymbolKind, SyntaxNodeKind, TypeKind};
 
-use super::DeclarationTypeChecker;
+use super::{DeclarationTypeChecker, LoweredImportedChoice, LoweredImportedChoiceVariant};
 
 impl<'a> DeclarationTypeChecker<'a> {
     pub(super) fn infer_match_expression_type(&mut self, node: NodeId) -> Option<TypeId> {
@@ -151,6 +151,10 @@ impl<'a> DeclarationTypeChecker<'a> {
     }
 
     fn check_variant_match_pattern_type(&mut self, pattern: NodeId, expected: TypeId) {
+        if self.check_imported_variant_match_pattern_type(pattern, expected) {
+            return;
+        }
+
         let Some((owner_symbol, variant_symbol)) = self.variant_pattern_symbols(pattern) else {
             return;
         };
@@ -233,6 +237,84 @@ impl<'a> DeclarationTypeChecker<'a> {
         }
     }
 
+    fn check_imported_variant_match_pattern_type(
+        &mut self,
+        pattern: NodeId,
+        expected: TypeId,
+    ) -> bool {
+        let Some((owner_symbol, variant)) = self.imported_variant_pattern(pattern) else {
+            return false;
+        };
+
+        let owner_type = self.layer.table_mut().intern_named(owner_symbol);
+
+        if !self.is_assignable(expected, owner_type) {
+            self.report_invalid_match_pattern_type(pattern, expected, owner_type);
+            return true;
+        }
+
+        self.check_imported_choice_variant_pattern_payload(pattern, &variant);
+
+        true
+    }
+
+    fn check_imported_choice_variant_pattern_payload(
+        &mut self,
+        pattern: NodeId,
+        variant: &LoweredImportedChoiceVariant,
+    ) {
+        let payload_patterns = self
+            .graph
+            .syntax()
+            .first_child_of_kind(pattern, SyntaxNodeKind::VariantPatternPayload)
+            .and_then(|payload| {
+                self.graph
+                    .syntax()
+                    .node(payload)
+                    .map(|node| node.children().to_vec())
+            })
+            .unwrap_or_default();
+
+        if variant.payload_types.len() != payload_patterns.len() {
+            self.report_argument_count_mismatch(
+                pattern,
+                variant.payload_types.len(),
+                payload_patterns.len(),
+            );
+            return;
+        }
+
+        for (payload_pattern, payload_type) in payload_patterns
+            .into_iter()
+            .zip(variant.payload_types.iter().copied())
+        {
+            self.check_match_pattern_type(payload_pattern, payload_type);
+        }
+    }
+
+    fn imported_variant_pattern(
+        &self,
+        pattern: NodeId,
+    ) -> Option<(SymbolId, LoweredImportedChoiceVariant)> {
+        let resolution = self.graph.resolution()?;
+        let owner_symbol = resolution.reference_symbol(pattern)?;
+        let choice = self.imported_symbol_choices.get(&owner_symbol)?;
+        let variant_name = self.variant_pattern_variant_name(pattern)?;
+        let variant = choice
+            .variants
+            .iter()
+            .find(|variant| variant.name == variant_name)?
+            .clone();
+
+        Some((owner_symbol, variant))
+    }
+
+    fn variant_pattern_variant_name(&self, pattern: NodeId) -> Option<String> {
+        let variant = self.graph.syntax().child(pattern, 1)?;
+
+        Some(self.node_text(variant))
+    }
+
     fn variant_pattern_symbols(&self, pattern: NodeId) -> Option<(SymbolId, SymbolId)> {
         let resolution = self.graph.resolution()?;
 
@@ -253,6 +335,7 @@ impl<'a> DeclarationTypeChecker<'a> {
         arms: &[NodeId],
     ) {
         let Some(choice_symbol) = self.choice_symbol_from_match_subject_type(subject_type) else {
+            self.check_imported_choice_match_exhaustiveness(match_expression, subject_type, arms);
             return;
         };
 
@@ -303,6 +386,88 @@ impl<'a> DeclarationTypeChecker<'a> {
         }
 
         self.report_non_exhaustive_match(match_expression, subject_type, missing.as_slice());
+    }
+
+    fn check_imported_choice_match_exhaustiveness(
+        &mut self,
+        match_expression: NodeId,
+        subject_type: TypeId,
+        arms: &[NodeId],
+    ) {
+        let Some((choice_symbol, choice)) =
+            self.imported_choice_from_match_subject_type(subject_type)
+        else {
+            return;
+        };
+
+        if choice.variants.is_empty() {
+            return;
+        }
+
+        let mut covered = HashSet::new();
+
+        for arm in arms {
+            let Some(pattern) = self.graph.syntax().child(*arm, 0) else {
+                continue;
+            };
+
+            let Some(pattern_node) = self.graph.syntax().node(pattern) else {
+                continue;
+            };
+
+            match pattern_node.kind() {
+                SyntaxNodeKind::WildcardPattern | SyntaxNodeKind::BindingPattern => {
+                    return;
+                }
+                SyntaxNodeKind::VariantPattern => {
+                    let Some(resolution) = self.graph.resolution() else {
+                        continue;
+                    };
+
+                    if resolution.reference_symbol(pattern) != Some(choice_symbol) {
+                        continue;
+                    }
+
+                    if let Some(variant_name) = self.variant_pattern_variant_name(pattern) {
+                        covered.insert(variant_name);
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        let missing = choice
+            .variants
+            .iter()
+            .filter(|variant| !covered.contains(variant.name.as_str()))
+            .map(|variant| variant.name.clone())
+            .collect::<Vec<_>>();
+
+        if missing.is_empty() {
+            return;
+        }
+
+        self.report_non_exhaustive_match(match_expression, subject_type, missing.as_slice());
+    }
+
+    fn imported_choice_from_match_subject_type(
+        &self,
+        subject_type: TypeId,
+    ) -> Option<(SymbolId, &LoweredImportedChoice)> {
+        let subject_type = self.resolve_alias_type(subject_type);
+
+        match self.layer.table().kind(subject_type).cloned() {
+            Some(TypeKind::Named { symbol }) => self
+                .imported_symbol_choices
+                .get(&symbol)
+                .map(|choice| (symbol, choice)),
+            Some(TypeKind::Path { root, .. }) => self
+                .imported_path_choices
+                .values()
+                .find(|choice| !choice.variants.is_empty())
+                .map(|choice| (root, choice)),
+            _ => None,
+        }
     }
 
     fn choice_symbol_from_match_subject_type(&self, subject_type: TypeId) -> Option<SymbolId> {

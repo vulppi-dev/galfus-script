@@ -173,6 +173,49 @@ impl ImportedConstraintSurface {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ImportedChoiceVariant {
+    name: String,
+    payload_types: Vec<ImportedType>,
+}
+
+impl ImportedChoiceVariant {
+    pub fn new(name: String, payload_types: Vec<ImportedType>) -> Self {
+        Self {
+            name,
+            payload_types,
+        }
+    }
+
+    pub fn name(&self) -> &str {
+        self.name.as_str()
+    }
+
+    pub fn payload_types(&self) -> &[ImportedType] {
+        self.payload_types.as_slice()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ImportedChoiceSurface {
+    name: String,
+    variants: Vec<ImportedChoiceVariant>,
+}
+
+impl ImportedChoiceSurface {
+    pub fn new(name: String, variants: Vec<ImportedChoiceVariant>) -> Self {
+        Self { name, variants }
+    }
+
+    pub fn name(&self) -> &str {
+        self.name.as_str()
+    }
+
+    pub fn variants(&self) -> &[ImportedChoiceVariant] {
+        self.variants.as_slice()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ImportedMemberKey {
     namespace: SymbolId,
@@ -209,6 +252,8 @@ pub struct ImportedSurfaceTypes {
     member_types: HashMap<ImportedMemberKey, ImportedType>,
     symbol_constraints: HashMap<SymbolId, ImportedConstraintSurface>,
     path_constraints: HashMap<NodeId, ImportedConstraintSurface>,
+    symbol_choices: HashMap<SymbolId, ImportedChoiceSurface>,
+    path_choices: HashMap<NodeId, ImportedChoiceSurface>,
 }
 
 impl ImportedSurfaceTypes {
@@ -236,6 +281,14 @@ impl ImportedSurfaceTypes {
         &self.path_constraints
     }
 
+    pub fn symbol_choices(&self) -> &HashMap<SymbolId, ImportedChoiceSurface> {
+        &self.symbol_choices
+    }
+
+    pub fn path_choices(&self) -> &HashMap<NodeId, ImportedChoiceSurface> {
+        &self.path_choices
+    }
+
     pub fn insert_symbol_type(&mut self, symbol: SymbolId, ty: ImportedType) {
         self.symbol_types.insert(symbol, ty);
     }
@@ -260,12 +313,22 @@ impl ImportedSurfaceTypes {
         self.path_constraints.insert(node, constraint);
     }
 
+    pub fn insert_symbol_choice(&mut self, symbol: SymbolId, choice: ImportedChoiceSurface) {
+        self.symbol_choices.insert(symbol, choice);
+    }
+
+    pub fn insert_path_choice(&mut self, node: NodeId, choice: ImportedChoiceSurface) {
+        self.path_choices.insert(node, choice);
+    }
+
     pub fn extend(&mut self, other: ImportedSurfaceTypes) {
         self.symbol_types.extend(other.symbol_types);
         self.path_types.extend(other.path_types);
         self.member_types.extend(other.member_types);
         self.symbol_constraints.extend(other.symbol_constraints);
         self.path_constraints.extend(other.path_constraints);
+        self.symbol_choices.extend(other.symbol_choices);
+        self.path_choices.extend(other.path_choices);
     }
 }
 
@@ -656,6 +719,8 @@ struct DeclarationTypeChecker<'a> {
     imported_member_types: HashMap<ImportedMemberKey, TypeId>,
     imported_symbol_constraints: HashMap<SymbolId, LoweredImportedConstraint>,
     imported_path_constraints: HashMap<NodeId, LoweredImportedConstraint>,
+    imported_symbol_choices: HashMap<SymbolId, LoweredImportedChoice>,
+    imported_path_choices: HashMap<NodeId, LoweredImportedChoice>,
 }
 
 #[derive(Debug, Clone)]
@@ -672,6 +737,17 @@ struct LoweredImportedConstraintMember {
     ty: TypeId,
 }
 
+#[derive(Debug, Clone)]
+struct LoweredImportedChoice {
+    variants: Vec<LoweredImportedChoiceVariant>,
+}
+
+#[derive(Debug, Clone)]
+struct LoweredImportedChoiceVariant {
+    name: String,
+    payload_types: Vec<TypeId>,
+}
+
 impl<'a> DeclarationTypeChecker<'a> {
     fn new(source: &'a SourceFile, graph: &'a ModuleGraph, layer: TypeLayer) -> Self {
         Self {
@@ -683,6 +759,8 @@ impl<'a> DeclarationTypeChecker<'a> {
             imported_member_types: HashMap::new(),
             imported_symbol_constraints: HashMap::new(),
             imported_path_constraints: HashMap::new(),
+            imported_symbol_choices: HashMap::new(),
+            imported_path_choices: HashMap::new(),
         }
     }
 
@@ -787,6 +865,46 @@ impl<'a> DeclarationTypeChecker<'a> {
                 .map(|function| LoweredImportedConstraintMember {
                     name: function.name().to_string(),
                     ty: self.lower_imported_type(function.ty()),
+                })
+                .collect(),
+        }
+    }
+
+    fn bind_imported_symbol_choices(
+        &mut self,
+        imported_choices: &HashMap<SymbolId, ImportedChoiceSurface>,
+    ) {
+        for (symbol, imported_choice) in imported_choices {
+            let choice = self.lower_imported_choice(imported_choice);
+            self.imported_symbol_choices.insert(*symbol, choice);
+        }
+    }
+
+    fn bind_imported_path_choices(
+        &mut self,
+        imported_choices: &HashMap<NodeId, ImportedChoiceSurface>,
+    ) {
+        for (node, imported_choice) in imported_choices {
+            let choice = self.lower_imported_choice(imported_choice);
+            self.imported_path_choices.insert(*node, choice);
+        }
+    }
+
+    fn lower_imported_choice(
+        &mut self,
+        imported_choice: &ImportedChoiceSurface,
+    ) -> LoweredImportedChoice {
+        LoweredImportedChoice {
+            variants: imported_choice
+                .variants()
+                .iter()
+                .map(|variant| LoweredImportedChoiceVariant {
+                    name: variant.name().to_string(),
+                    payload_types: variant
+                        .payload_types()
+                        .iter()
+                        .map(|ty| self.lower_imported_type(ty))
+                        .collect(),
                 })
                 .collect(),
         }
@@ -898,6 +1016,8 @@ pub fn check_declaration_types_with_surfaces(
     checker.bind_imported_member_types(imported_types.member_types());
     checker.bind_imported_symbol_constraints(imported_types.symbol_constraints());
     checker.bind_imported_path_constraints(imported_types.path_constraints());
+    checker.bind_imported_symbol_choices(imported_types.symbol_choices());
+    checker.bind_imported_path_choices(imported_types.path_choices());
     checker.check();
     checker.into_result()
 }

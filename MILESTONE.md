@@ -111,12 +111,12 @@ imported surface consumption.
   - [x] Support imported aliases from namespace surfaces
   - [x] Support imported functions, stamped functions, and anchor functions from namespace surfaces
   - [x] Support imported constraint applications from surfaces
-- [ ] Phase D — Cross-module deep validation suite
-  - [ ] Cover imported struct field access
-  - [ ] Cover imported enum variants
-  - [ ] Cover imported choice constructors and matches
-  - [ ] Cover imported aliases, constraints, functions, stamped functions, and anchor functions
-  - [ ] Cover invalid private, missing, and incompatible imported surface usage
+- [x] Phase D — Cross-module deep validation suite
+  - [x] Cover imported struct field access
+  - [x] Cover imported enum variants
+  - [x] Cover imported choice constructors and matches
+  - [x] Cover imported aliases, constraints, functions, stamped functions, and anchor functions
+  - [x] Cover invalid private, missing, and incompatible imported surface usage
 - [ ] Phase E — Future `.gfb` / `.gfp` surface bridge prep
   - [ ] Allow tests to build fake external surfaces without AST
   - [ ] Keep runner responsible for resolving future `.gfb` and `.gfp` inputs

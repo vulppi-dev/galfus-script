@@ -6,9 +6,10 @@ use std::collections::HashMap;
 use galfus_core::{SymbolId, TypeId};
 
 use crate::{
-    ImportedConstraintMember, ImportedConstraintSurface, ImportedFunctionParameterType,
-    ImportedMemberKey, ImportedSurfaceTypes, ImportedType, ModuleGraph, SymbolKind, SyntaxNodeKind,
-    TypeCheckResult, TypeKind,
+    ImportedChoiceSurface, ImportedChoiceVariant, ImportedConstraintMember,
+    ImportedConstraintSurface, ImportedFunctionParameterType, ImportedMemberKey,
+    ImportedSurfaceTypes, ImportedType, ModuleGraph, SymbolKind, SyntaxNodeKind, TypeCheckResult,
+    TypeKind,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -165,6 +166,16 @@ impl ModuleSurface {
 
         Some(export.imported_constraint_surface())
     }
+
+    pub fn imported_choice_for_export(&self, name: &str) -> Option<ImportedChoiceSurface> {
+        let export = self.export(name)?;
+
+        if export.kind() != SymbolKind::Choice {
+            return None;
+        }
+
+        Some(export.imported_choice_surface())
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -254,6 +265,25 @@ impl ModuleSurfaceExport {
             fields,
             functions,
         )
+    }
+
+    fn imported_choice_surface(&self) -> ImportedChoiceSurface {
+        let variants = self
+            .members
+            .iter()
+            .filter_map(|member| {
+                if member.kind() != SymbolKind::ChoiceVariant {
+                    return None;
+                }
+
+                Some(ImportedChoiceVariant::new(
+                    member.name().to_string(),
+                    member.payload_types().to_vec(),
+                ))
+            })
+            .collect();
+
+        ImportedChoiceSurface::new(self.name.clone(), variants)
     }
 }
 
