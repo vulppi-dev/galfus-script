@@ -271,6 +271,171 @@ var user: User = User {
 }
 
 #[test]
+fn check_accepts_struct_literal_spread_from_same_struct() {
+    let (_source, _graph, result) = check_source(
+        r#"
+struct User {
+  id: int32,
+  name: [uint8],
+}
+
+var base: User = User {
+  id: 1,
+  name: "Ana",
+}
+
+var renamed: User = User {
+  ...base,
+  name: "Bia",
+}
+"#,
+    );
+
+    assert!(!result.has_errors());
+}
+
+#[test]
+fn check_reports_invalid_struct_literal_spread_target() {
+    let source = source(
+        r#"
+struct User {
+  id: int32,
+}
+
+var base: int32 = 1
+var user: User = User {
+  ...base,
+  id: 2,
+}
+"#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.into_graph();
+    let result = check_declaration_types(&source, &graph);
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::InvalidStructSpreadTarget.as_code()
+            && diagnostic
+                .message()
+                .contains("struct literal spread target must be a struct")
+    }));
+}
+
+#[test]
+fn check_reports_invalid_struct_expansion_target() {
+    let source = source(
+        r#"
+struct User {
+  ...int32,
+  id: int32,
+}
+"#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.into_graph();
+    let result = check_declaration_types(&source, &graph);
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::InvalidStructExpansionTarget.as_code()
+            && diagnostic
+                .message()
+                .contains("struct expansion target must be a struct")
+    }));
+}
+
+#[test]
+fn check_accepts_struct_expansion_fields_in_literal() {
+    let (_source, _graph, result) = check_source(
+        r#"
+struct User {
+  id: int32,
+  name: [uint8],
+}
+
+struct Admin {
+  ...User,
+  role: [uint8],
+}
+
+var admin: Admin = Admin {
+  id: 1,
+  name: "Ana",
+  role: "root",
+}
+"#,
+    );
+
+    assert!(!result.has_errors());
+}
+
+#[test]
+fn check_accepts_member_access_to_struct_expansion_field() {
+    let (_source, _graph, result) = check_source(
+        r#"
+struct User {
+  id: int32,
+}
+
+struct Admin {
+  ...User,
+  role: [uint8],
+}
+
+var admin: Admin = Admin {
+  id: 1,
+  role: "root",
+}
+
+var id: int32 = admin.id
+"#,
+    );
+
+    assert!(!result.has_errors());
+}
+
+#[test]
+fn check_binds_copy_expression_to_original_value_type() {
+    let (source, graph, result) = check_source(
+        r#"
+struct User {
+  id: int32,
+}
+
+var user: User = User { id: 1 }
+var cloned: User = copy user
+"#,
+    );
+
+    let copy =
+        find_node_by_kind_and_text(&source, &graph, SyntaxNodeKind::CopyExpression, "copy user")
+            .unwrap();
+
+    let user_symbol = symbol_by_name_and_kind(&graph, "User", SymbolKind::Struct);
+    let ty = result.layer().node_type(copy).unwrap();
+
+    assert_eq!(
+        result.layer().table().kind(ty),
+        Some(&TypeKind::Named {
+            symbol: user_symbol
+        })
+    );
+}
+
+#[test]
 fn check_collects_weak_field_ownership_metadata() {
     let (_source, graph, result) = check_source(
         r#"
@@ -296,6 +461,87 @@ struct Node {
         result.layer().table().kind(metadata.field_type()),
         Some(TypeKind::Union { .. })
     ));
+}
+
+#[test]
+fn check_collects_edge_and_weak_observer_ownership_metadata() {
+    let (_source, graph, result) = check_source(
+        r#"
+struct Node {
+  child: Node | null,
+  weak parent: Node | null,
+}
+"#,
+    );
+
+    let node_symbol = symbol_by_name_and_kind(&graph, "Node", SymbolKind::Struct);
+    let child_symbol = symbol_by_name_and_kind(&graph, "child", SymbolKind::StructField);
+    let parent_symbol = symbol_by_name_and_kind(&graph, "parent", SymbolKind::StructField);
+
+    assert!(
+        result.ownership_metadata().edges().iter().any(|edge| {
+            edge.owner_symbol() == node_symbol && edge.field_symbol() == child_symbol
+        })
+    );
+
+    assert!(
+        result
+            .ownership_metadata()
+            .weak_observers()
+            .iter()
+            .any(|observer| {
+                observer.owner_symbol() == node_symbol && observer.field_symbol() == parent_symbol
+            })
+    );
+}
+
+#[test]
+fn check_collects_anchor_and_temporary_ownership_metadata() {
+    let (_source, graph, result) = check_source(
+        r#"
+struct User {
+  name: [uint8],
+}
+
+var global_user: User = User { name: "Ana" }
+
+fn User::rename(user: User, name: [uint8]): User {
+  var local_user: User = User { name }
+  return local_user
+}
+"#,
+    );
+
+    let global_user = symbol_by_name_and_kind(&graph, "global_user", SymbolKind::Var);
+    let local_user = symbol_by_name_and_kind(&graph, "local_user", SymbolKind::Var);
+    let user_parameter = symbol_by_name_and_kind(&graph, "user", SymbolKind::Parameter);
+
+    let anchors = result.ownership_metadata().anchors();
+
+    assert!(anchors.iter().any(|anchor| {
+        anchor.kind() == AnchorKind::ModuleState && anchor.symbol() == Some(global_user)
+    }));
+
+    assert!(anchors.iter().any(|anchor| {
+        anchor.kind() == AnchorKind::BlockLocal && anchor.symbol() == Some(local_user)
+    }));
+
+    assert!(anchors.iter().any(|anchor| {
+        anchor.kind() == AnchorKind::FunctionParameter && anchor.symbol() == Some(user_parameter)
+    }));
+
+    assert!(
+        anchors
+            .iter()
+            .any(|anchor| anchor.kind() == AnchorKind::FunctionAnchor)
+    );
+
+    assert!(!result.ownership_metadata().temporaries().is_empty());
+    assert!(
+        anchors
+            .iter()
+            .any(|anchor| anchor.kind() == AnchorKind::Temporary)
+    );
 }
 
 #[test]

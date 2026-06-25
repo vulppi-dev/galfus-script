@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use galfus_core::{NodeId, SymbolId, TypeId};
 
-use crate::{SymbolKind, SyntaxNodeKind};
+use crate::{SymbolKind, SyntaxNodeKind, TypeKind};
 
 use super::DeclarationTypeChecker;
 
@@ -47,6 +47,7 @@ impl<'a> DeclarationTypeChecker<'a> {
     ) -> TypeId {
         let expected_fields = self.struct_fields(struct_symbol);
         let mut provided = HashSet::new();
+        let mut explicit = HashSet::new();
         let mut has_error = false;
 
         let field_nodes = self
@@ -57,15 +58,32 @@ impl<'a> DeclarationTypeChecker<'a> {
             .unwrap_or_default();
 
         for field in field_nodes {
+            if self
+                .graph
+                .syntax()
+                .node(field)
+                .is_some_and(|node| node.kind() == SyntaxNodeKind::SpreadStructLiteralField)
+            {
+                self.check_struct_literal_spread_field(
+                    field,
+                    expected_fields.as_slice(),
+                    &mut provided,
+                    &mut has_error,
+                );
+                continue;
+            }
+
             let Some(field_name) = self.struct_literal_field_name(field) else {
                 continue;
             };
 
-            if !provided.insert(field_name.clone()) {
+            if !explicit.insert(field_name.clone()) {
                 self.report_duplicate_struct_field(field, field_name.as_str());
                 has_error = true;
                 continue;
             }
+
+            provided.insert(field_name.clone());
 
             let Some(expected_field) = expected_fields
                 .iter()
@@ -149,6 +167,38 @@ impl<'a> DeclarationTypeChecker<'a> {
     }
 
     fn struct_fields(&self, struct_symbol: SymbolId) -> Vec<StructFieldInfo> {
+        let mut visited = HashSet::new();
+        self.struct_fields_with_visited(struct_symbol, &mut visited)
+    }
+
+    fn struct_fields_with_visited(
+        &self,
+        struct_symbol: SymbolId,
+        visited: &mut HashSet<SymbolId>,
+    ) -> Vec<StructFieldInfo> {
+        if !visited.insert(struct_symbol) {
+            return Vec::new();
+        }
+
+        let mut fields = self.expanded_struct_fields(struct_symbol, visited);
+        let direct_fields = self.direct_struct_fields(struct_symbol);
+
+        for field in direct_fields {
+            if let Some(existing) = fields
+                .iter_mut()
+                .find(|candidate| candidate.name == field.name)
+            {
+                *existing = field;
+                continue;
+            }
+
+            fields.push(field);
+        }
+
+        fields
+    }
+
+    fn direct_struct_fields(&self, struct_symbol: SymbolId) -> Vec<StructFieldInfo> {
         let Some(resolution) = self.graph.resolution() else {
             return Vec::new();
         };
@@ -190,6 +240,79 @@ impl<'a> DeclarationTypeChecker<'a> {
                 })
             })
             .collect()
+    }
+
+    fn expanded_struct_fields(
+        &self,
+        struct_symbol: SymbolId,
+        visited: &mut HashSet<SymbolId>,
+    ) -> Vec<StructFieldInfo> {
+        let Some(resolution) = self.graph.resolution() else {
+            return Vec::new();
+        };
+
+        let Some(struct_symbol_data) = resolution.symbol(struct_symbol) else {
+            return Vec::new();
+        };
+
+        let Some(struct_item) = self.struct_item_node_by_name(
+            self.graph
+                .syntax()
+                .root()
+                .unwrap_or(struct_symbol_data.declaration()),
+            struct_symbol_data.name(),
+        ) else {
+            return Vec::new();
+        };
+
+        let Some(field_list) = self
+            .graph
+            .syntax()
+            .first_child_of_kind(struct_item, SyntaxNodeKind::StructFieldList)
+        else {
+            return Vec::new();
+        };
+
+        let Some(field_list_node) = self.graph.syntax().node(field_list) else {
+            return Vec::new();
+        };
+
+        let mut fields = Vec::new();
+
+        for field in field_list_node.children() {
+            let Some(field_node) = self.graph.syntax().node(*field) else {
+                continue;
+            };
+
+            if field_node.kind() != SyntaxNodeKind::StructExpansion {
+                continue;
+            }
+
+            let Some(target) = self.graph.syntax().child(*field, 0) else {
+                continue;
+            };
+
+            let Some(target_type) = self.layer.node_type(target) else {
+                continue;
+            };
+
+            let Some(target_symbol) = self.struct_symbol_for_type(target_type) else {
+                continue;
+            };
+
+            for expanded in self.struct_fields_with_visited(target_symbol, visited) {
+                if fields
+                    .iter()
+                    .any(|candidate: &StructFieldInfo| candidate.name == expanded.name)
+                {
+                    continue;
+                }
+
+                fields.push(expanded);
+            }
+        }
+
+        fields
     }
 
     fn struct_field_has_default(
@@ -340,6 +463,70 @@ impl<'a> DeclarationTypeChecker<'a> {
 
             _ => None,
         }
+    }
+
+    fn check_struct_literal_spread_field(
+        &mut self,
+        field: NodeId,
+        expected_fields: &[StructFieldInfo],
+        provided: &mut HashSet<String>,
+        has_error: &mut bool,
+    ) {
+        let Some(expression) = self.graph.syntax().child(field, 0) else {
+            return;
+        };
+
+        let Some(spread_type) = self.infer_expression_type(expression) else {
+            return;
+        };
+
+        let Some(spread_symbol) = self.struct_symbol_for_type(spread_type) else {
+            return;
+        };
+
+        for spread_field in self.struct_fields(spread_symbol) {
+            let Some(expected_field) = expected_fields
+                .iter()
+                .find(|candidate| candidate.name == spread_field.name)
+            else {
+                continue;
+            };
+
+            provided.insert(spread_field.name.clone());
+
+            if self.is_assignable(expected_field.ty, spread_field.ty) {
+                continue;
+            }
+
+            self.report_type_mismatch(field, expected_field.ty, spread_field.ty);
+            *has_error = true;
+        }
+    }
+
+    pub(super) fn struct_field_type_for_symbol(
+        &self,
+        symbol: SymbolId,
+        member_name: &str,
+    ) -> Option<TypeId> {
+        self.struct_fields(symbol)
+            .into_iter()
+            .find(|field| field.name == member_name)
+            .map(|field| field.ty)
+    }
+
+    fn struct_symbol_for_type(&self, ty: TypeId) -> Option<SymbolId> {
+        let resolved = self.resolve_alias_type(ty);
+        let TypeKind::Named { symbol } = self.layer.table().kind(resolved)? else {
+            return None;
+        };
+
+        let resolution = self.graph.resolution()?;
+
+        if resolution.symbol(*symbol)?.kind() != SymbolKind::Struct {
+            return None;
+        }
+
+        Some(*symbol)
     }
 
     fn infer_identifier_reference_type(&self, identifier: NodeId) -> Option<TypeId> {

@@ -213,6 +213,91 @@ impl<'a> DeclarationTypeChecker<'a> {
         ));
     }
 
+    pub(super) fn report_missing_return(&mut self, function: NodeId, expected: TypeId) {
+        let span = self
+            .graph
+            .syntax()
+            .node(function)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        let expected = self.describe_type_for_diagnostic(expected);
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+            TypeDiagnosticCode::MissingReturn,
+            format!("function must return `{expected}` on every path"),
+            span,
+        ));
+    }
+
+    pub(super) fn report_return_outside_function(&mut self, return_statement: NodeId) {
+        let span = self
+            .graph
+            .syntax()
+            .node(return_statement)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+            TypeDiagnosticCode::ReturnOutsideFunction,
+            "`return` can only be used inside a function",
+            span,
+        ));
+    }
+
+    pub(super) fn report_initialization_cycle(&mut self, binding: NodeId, name: &str) {
+        let span = self
+            .graph
+            .syntax()
+            .node(binding)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+            TypeDiagnosticCode::InitializationCycle,
+            format!("binding `{name}` participates in an initialization cycle"),
+            span,
+        ));
+    }
+
+    pub(super) fn report_invalid_struct_expansion_target(
+        &mut self,
+        expansion: NodeId,
+        actual: TypeId,
+    ) {
+        let span = self
+            .graph
+            .syntax()
+            .node(expansion)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        let actual = self.describe_type_for_diagnostic(actual);
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+            TypeDiagnosticCode::InvalidStructExpansionTarget,
+            format!("struct expansion target must be a struct, got `{actual}`"),
+            span,
+        ));
+    }
+
+    pub(super) fn report_invalid_struct_spread_target(&mut self, spread: NodeId, actual: TypeId) {
+        let span = self
+            .graph
+            .syntax()
+            .node(spread)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        let actual = self.describe_type_for_diagnostic(actual);
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+            TypeDiagnosticCode::InvalidStructSpreadTarget,
+            format!("struct literal spread target must be a struct, got `{actual}`"),
+            span,
+        ));
+    }
+
     pub(super) fn report_cannot_infer_type(&mut self, node: NodeId, message: impl Into<String>) {
         let span = self
             .graph

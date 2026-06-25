@@ -86,6 +86,58 @@ var age: int32 = null
 }
 
 #[test]
+fn check_reports_top_level_initialization_cycle() {
+    let source = source(
+        r#"
+var a = b
+var b = a
+"#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.into_graph();
+    let result = check_declaration_types(&source, &graph);
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::InitializationCycle.as_code()
+            && diagnostic.message().contains("initialization cycle")
+    }));
+}
+
+#[test]
+fn check_reports_local_initialization_cycle() {
+    let source = source(
+        r#"
+fn main(): null {
+  var a = b
+  var b = a
+  return
+}
+"#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.into_graph();
+    let result = check_declaration_types(&source, &graph);
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::InitializationCycle.as_code()
+    }));
+}
+
+#[test]
 fn check_accepts_name_initializer_with_matching_symbol_type() {
     let (_source, _graph, result) = check_source(
         r#"

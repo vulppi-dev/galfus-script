@@ -137,6 +137,11 @@ pub enum TypeDiagnosticCode {
     RecursiveFunctionStamp,
     InvalidWeakFieldType,
     InvalidEnumBaseType,
+    MissingReturn,
+    ReturnOutsideFunction,
+    InitializationCycle,
+    InvalidStructExpansionTarget,
+    InvalidStructSpreadTarget,
 }
 
 impl DiagnosticCodeKind for TypeDiagnosticCode {
@@ -181,6 +186,11 @@ impl DiagnosticCodeKind for TypeDiagnosticCode {
             Self::RecursiveFunctionStamp => "T0037",
             Self::InvalidWeakFieldType => "T0038",
             Self::InvalidEnumBaseType => "T0039",
+            Self::MissingReturn => "T0040",
+            Self::ReturnOutsideFunction => "T0041",
+            Self::InitializationCycle => "T0042",
+            Self::InvalidStructExpansionTarget => "T0043",
+            Self::InvalidStructSpreadTarget => "T0044",
         }
     }
 
@@ -227,6 +237,11 @@ impl DiagnosticCodeKind for TypeDiagnosticCode {
             Self::RecursiveFunctionStamp => "recursive function stamp",
             Self::InvalidWeakFieldType => "invalid weak field type",
             Self::InvalidEnumBaseType => "invalid enum base type",
+            Self::MissingReturn => "missing return",
+            Self::ReturnOutsideFunction => "return outside function",
+            Self::InitializationCycle => "initialization cycle",
+            Self::InvalidStructExpansionTarget => "invalid struct expansion target",
+            Self::InvalidStructSpreadTarget => "invalid struct spread target",
         }
     }
 }

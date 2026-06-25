@@ -1,0 +1,399 @@
+use std::collections::{HashMap, HashSet};
+
+use galfus_core::{NodeId, SymbolId, TypeId};
+
+use crate::{PrimitiveType, SymbolKind, SyntaxNodeKind, TypeKind};
+
+use super::DeclarationTypeChecker;
+
+impl<'a> DeclarationTypeChecker<'a> {
+    pub(super) fn check_semantic_rules(&mut self, root: NodeId) {
+        self.check_return_context(root, false);
+        self.check_function_return_paths(root);
+        self.check_binding_initialization_cycles(root);
+        self.check_struct_expansion_targets(root);
+        self.check_struct_literal_spread_targets(root);
+    }
+
+    fn check_return_context(&mut self, node: NodeId, inside_function: bool) {
+        let Some(syntax_node) = self.graph.syntax().node(node) else {
+            return;
+        };
+
+        match syntax_node.kind() {
+            SyntaxNodeKind::FunctionItem | SyntaxNodeKind::ArrowFunctionExpression => {
+                for child in syntax_node.children() {
+                    self.check_return_context(*child, true);
+                }
+
+                return;
+            }
+
+            SyntaxNodeKind::ReturnStatement if !inside_function => {
+                self.report_return_outside_function(node);
+            }
+
+            _ => {}
+        }
+
+        for child in syntax_node.children() {
+            self.check_return_context(*child, inside_function);
+        }
+    }
+
+    fn check_function_return_paths(&mut self, node: NodeId) {
+        let Some(syntax_node) = self.graph.syntax().node(node) else {
+            return;
+        };
+
+        if syntax_node.kind() == SyntaxNodeKind::FunctionItem {
+            self.check_single_function_return_path(node);
+            return;
+        }
+
+        for child in syntax_node.children() {
+            self.check_function_return_paths(*child);
+        }
+    }
+
+    fn check_single_function_return_path(&mut self, function: NodeId) {
+        let Some(return_type) = self
+            .last_direct_type_child(function)
+            .and_then(|node| self.layer.node_type(node))
+        else {
+            return;
+        };
+
+        if self.is_null_type(return_type) || self.is_semantic_error_type(return_type) {
+            return;
+        }
+
+        let Some(body) = self
+            .graph
+            .syntax()
+            .first_child_of_kind(function, SyntaxNodeKind::Block)
+        else {
+            return;
+        };
+
+        if self.statement_list_guarantees_return(body) {
+            return;
+        }
+
+        self.report_missing_return(function, return_type);
+    }
+
+    fn statement_list_guarantees_return(&self, block: NodeId) -> bool {
+        let Some(block_node) = self.graph.syntax().node(block) else {
+            return false;
+        };
+
+        block_node
+            .children()
+            .iter()
+            .any(|statement| self.statement_guarantees_return(*statement))
+    }
+
+    fn statement_guarantees_return(&self, statement: NodeId) -> bool {
+        let Some(statement_node) = self.graph.syntax().node(statement) else {
+            return false;
+        };
+
+        match statement_node.kind() {
+            SyntaxNodeKind::ReturnStatement => true,
+
+            SyntaxNodeKind::Block => self.statement_list_guarantees_return(statement),
+
+            SyntaxNodeKind::IfStatement => self.if_statement_guarantees_return(statement),
+
+            SyntaxNodeKind::LoopStatement => self
+                .graph
+                .syntax()
+                .child(statement, 0)
+                .is_some_and(|body| self.statement_list_guarantees_return(body)),
+
+            _ => false,
+        }
+    }
+
+    fn if_statement_guarantees_return(&self, statement: NodeId) -> bool {
+        let Some(then_block) = self.graph.syntax().child(statement, 1) else {
+            return false;
+        };
+
+        if !self.statement_list_guarantees_return(then_block) {
+            return false;
+        }
+
+        let Some(else_clause) = self
+            .graph
+            .syntax()
+            .first_child_of_kind(statement, SyntaxNodeKind::ElseClause)
+        else {
+            return false;
+        };
+
+        let Some(else_body) = self.graph.syntax().child(else_clause, 0) else {
+            return false;
+        };
+
+        self.statement_guarantees_return(else_body)
+    }
+
+    fn check_binding_initialization_cycles(&mut self, root: NodeId) {
+        let bindings = self.binding_initialization_graph(root);
+        let mut reported = HashSet::new();
+
+        for symbol in bindings.keys().copied().collect::<Vec<_>>() {
+            let mut visiting = Vec::new();
+            self.check_binding_cycle_from(symbol, &bindings, &mut visiting, &mut reported);
+        }
+    }
+
+    fn check_binding_cycle_from(
+        &mut self,
+        symbol: SymbolId,
+        bindings: &HashMap<SymbolId, BindingInitializer>,
+        visiting: &mut Vec<SymbolId>,
+        reported: &mut HashSet<SymbolId>,
+    ) {
+        if reported.contains(&symbol) {
+            return;
+        }
+
+        if let Some(cycle_start) = visiting.iter().position(|candidate| *candidate == symbol) {
+            for cycle_symbol in visiting[cycle_start..].iter().copied() {
+                self.report_binding_initialization_cycle(cycle_symbol, bindings, reported);
+            }
+
+            return;
+        }
+
+        let Some(binding) = bindings.get(&symbol) else {
+            return;
+        };
+
+        visiting.push(symbol);
+
+        for dependency in binding.dependencies.iter().copied() {
+            if bindings.contains_key(&dependency) {
+                self.check_binding_cycle_from(dependency, bindings, visiting, reported);
+            }
+        }
+
+        visiting.pop();
+    }
+
+    fn report_binding_initialization_cycle(
+        &mut self,
+        symbol: SymbolId,
+        bindings: &HashMap<SymbolId, BindingInitializer>,
+        reported: &mut HashSet<SymbolId>,
+    ) {
+        if !reported.insert(symbol) {
+            return;
+        }
+
+        let Some(binding) = bindings.get(&symbol) else {
+            return;
+        };
+
+        let name = self
+            .graph
+            .resolution()
+            .and_then(|resolution| resolution.symbol(symbol))
+            .map(|symbol| symbol.name().to_string())
+            .unwrap_or_else(|| "<unknown>".to_string());
+
+        self.report_initialization_cycle(binding.node, name.as_str());
+    }
+
+    fn binding_initialization_graph(&self, root: NodeId) -> HashMap<SymbolId, BindingInitializer> {
+        let mut bindings = HashMap::new();
+        self.collect_binding_initializers(root, &mut bindings);
+        bindings
+    }
+
+    fn collect_binding_initializers(
+        &self,
+        node: NodeId,
+        bindings: &mut HashMap<SymbolId, BindingInitializer>,
+    ) {
+        let Some(syntax_node) = self.graph.syntax().node(node) else {
+            return;
+        };
+
+        if matches!(
+            syntax_node.kind(),
+            SyntaxNodeKind::VarItem
+                | SyntaxNodeKind::ConstItem
+                | SyntaxNodeKind::VarStatement
+                | SyntaxNodeKind::ConstStatement
+        ) {
+            if let Some(binding) = self.binding_initializer(node) {
+                for symbol in binding.symbols.iter().copied() {
+                    bindings.insert(
+                        symbol,
+                        BindingInitializer {
+                            node,
+                            dependencies: binding.dependencies.clone(),
+                        },
+                    );
+                }
+            }
+        }
+
+        for child in syntax_node.children() {
+            self.collect_binding_initializers(*child, bindings);
+        }
+    }
+
+    fn binding_initializer(&self, node: NodeId) -> Option<CollectedBindingInitializer> {
+        let initializer = self
+            .graph
+            .syntax()
+            .first_child_of_kind(node, SyntaxNodeKind::Initializer)?;
+        let expression = self.graph.syntax().child(initializer, 0)?;
+
+        let symbols = self.declaration_symbols_in_node(
+            node,
+            &[
+                SymbolKind::Var,
+                SymbolKind::Const,
+                SymbolKind::PatternBinding,
+                SymbolKind::TypePatternBinding,
+            ],
+        );
+
+        if symbols.is_empty() {
+            return None;
+        }
+
+        let mut dependencies = HashSet::new();
+        self.collect_reference_dependencies(expression, &mut dependencies);
+
+        Some(CollectedBindingInitializer {
+            symbols,
+            dependencies,
+        })
+    }
+
+    fn collect_reference_dependencies(&self, node: NodeId, dependencies: &mut HashSet<SymbolId>) {
+        let Some(syntax_node) = self.graph.syntax().node(node) else {
+            return;
+        };
+
+        if matches!(
+            syntax_node.kind(),
+            SyntaxNodeKind::NameExpression | SyntaxNodeKind::Identifier
+        ) {
+            if let Some(symbol) = self
+                .graph
+                .resolution()
+                .and_then(|resolution| resolution.reference_symbol(node))
+            {
+                dependencies.insert(symbol);
+            }
+        }
+
+        for child in syntax_node.children() {
+            self.collect_reference_dependencies(*child, dependencies);
+        }
+    }
+
+    fn check_struct_expansion_targets(&mut self, node: NodeId) {
+        let Some(syntax_node) = self.graph.syntax().node(node) else {
+            return;
+        };
+
+        if syntax_node.kind() == SyntaxNodeKind::StructExpansion {
+            self.check_struct_expansion_target(node);
+        }
+
+        for child in syntax_node.children() {
+            self.check_struct_expansion_targets(*child);
+        }
+    }
+
+    fn check_struct_expansion_target(&mut self, expansion: NodeId) {
+        let Some(target) = self.graph.syntax().child(expansion, 0) else {
+            return;
+        };
+
+        let Some(ty) = self.layer.node_type(target) else {
+            return;
+        };
+
+        if self.is_struct_type(ty) || self.is_semantic_error_type(ty) {
+            return;
+        }
+
+        self.report_invalid_struct_expansion_target(expansion, ty);
+    }
+
+    fn check_struct_literal_spread_targets(&mut self, node: NodeId) {
+        let Some(syntax_node) = self.graph.syntax().node(node) else {
+            return;
+        };
+
+        if syntax_node.kind() == SyntaxNodeKind::SpreadStructLiteralField {
+            self.check_struct_literal_spread_target(node);
+        }
+
+        for child in syntax_node.children() {
+            self.check_struct_literal_spread_targets(*child);
+        }
+    }
+
+    fn check_struct_literal_spread_target(&mut self, spread: NodeId) {
+        let Some(expression) = self.graph.syntax().child(spread, 0) else {
+            return;
+        };
+
+        let Some(ty) = self.infer_expression_type(expression) else {
+            return;
+        };
+
+        if self.is_struct_type(ty) || self.is_semantic_error_type(ty) {
+            return;
+        }
+
+        self.report_invalid_struct_spread_target(spread, ty);
+    }
+
+    fn is_struct_type(&self, ty: TypeId) -> bool {
+        let resolved = self.resolve_alias_type(ty);
+
+        let Some(TypeKind::Named { symbol }) = self.layer.table().kind(resolved) else {
+            return false;
+        };
+
+        self.graph
+            .resolution()
+            .and_then(|resolution| resolution.symbol(*symbol))
+            .is_some_and(|symbol| symbol.kind() == SymbolKind::Struct)
+    }
+
+    fn is_null_type(&self, ty: TypeId) -> bool {
+        matches!(
+            self.layer.table().kind(self.resolve_alias_type(ty)),
+            Some(TypeKind::Primitive(PrimitiveType::Null)) | Some(TypeKind::Error)
+        )
+    }
+
+    fn is_semantic_error_type(&self, ty: TypeId) -> bool {
+        matches!(self.layer.table().kind(ty), Some(TypeKind::Error))
+    }
+}
+
+#[derive(Debug, Clone)]
+struct BindingInitializer {
+    node: NodeId,
+    dependencies: HashSet<SymbolId>,
+}
+
+#[derive(Debug, Clone)]
+struct CollectedBindingInitializer {
+    symbols: Vec<SymbolId>,
+    dependencies: HashSet<SymbolId>,
+}

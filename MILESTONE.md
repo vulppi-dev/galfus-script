@@ -316,55 +316,55 @@ Goal: validate all core type rules and materialize inferred types before lowerin
 
 Goal: validate language behavior beyond raw type compatibility.
 
-- [ ] Top-level initialization semantics
-- [ ] Local binding initialization
+- [x] Top-level initialization semantics
+- [x] Local binding initialization
 - [x] Mutable binding reassignment
 - [x] Immutable binding reassignment rejection
 - [x] Export surface validation
 - [x] Import binding semantics
-- [ ] Function return path validation
-- [ ] Bare return validation
-- [ ] Remaining stamped function lowering restrictions
-- [ ] Anchor call semantics
-- [ ] No implicit anchor write-back
-- [ ] Struct expansion semantics
-- [ ] Struct literal spread semantics
-- [ ] Shallow copy semantics
-- [ ] Explicit deep copy semantics placeholder
-- [ ] Enum symbol preservation
+- [x] Function return path validation
+- [x] Bare return validation
+- [x] Remaining stamped function lowering restrictions
+- [x] Anchor call semantics
+- [x] No implicit anchor write-back
+- [x] Struct expansion semantics
+- [x] Struct literal spread semantics
+- [x] Shallow copy semantics
+- [x] Explicit deep copy semantics placeholder
+- [x] Enum symbol preservation
 - [x] Choice exhaustiveness checks
 - [x] Match fallback behavior
-- [ ] `instanceof` narrowing behavior
+- [x] `instanceof` narrowing behavior
 - [x] Decorator target validation
 - [x] Decorator order validation
-- [ ] Destructuring semantics
-- [ ] Range semantics
+- [x] Destructuring semantics
+- [x] Range semantics
 - [x] Loop control validation
 - [x] Break / continue target validation
-- [ ] Module initialization cycle validation
-- [ ] Runtime panic condition modeling
-- [ ] Semantic diagnostics
+- [x] Module initialization cycle validation
+- [x] Runtime panic condition modeling
+- [x] Semantic diagnostics
 
 ## Milestone 7 — Ownership Checker
 
 Goal: validate ownership metadata before `.gfb` generation.
 
-- [ ] Model anchors
-- [ ] Model edges
-- [ ] Model weak observers
-- [ ] Validate weak fields
-- [ ] Validate captured values
-- [ ] Validate closure anchors
-- [ ] Validate module state anchors
-- [ ] Validate block-local anchors
-- [ ] Validate temporaries
+- [x] Model anchors
+- [x] Model edges
+- [x] Model weak observers
+- [x] Validate weak fields
+- [x] Validate captured values
+- [x] Validate closure anchors
+- [x] Validate module state anchors
+- [x] Validate block-local anchors
+- [x] Validate temporaries
 - [ ] Validate ownership cycles
 - [ ] Validate release eligibility
-- [ ] Prepare ownership metadata
-- [ ] Prepare anchor metadata
-- [ ] Prepare edge metadata
-- [ ] Prepare weak metadata
-- [ ] Ownership diagnostics
+- [x] Prepare ownership metadata
+- [x] Prepare anchor metadata
+- [x] Prepare edge metadata
+- [x] Prepare weak metadata
+- [x] Ownership diagnostics
 
 ## Milestone 8 — MIR
 

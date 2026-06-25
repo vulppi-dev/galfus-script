@@ -85,6 +85,36 @@ fn check_accepts_arrow_function_as_call_argument() {
 }
 
 #[test]
+fn check_collects_closure_capture_ownership_metadata() {
+    let (_source, graph, result) = check_source(
+        r#"
+        var factor = 2
+        var double = (value: int32): int32 => value * factor
+        "#,
+    );
+
+    let arrow = find_node_by_kind(&graph, SyntaxNodeKind::ArrowFunctionExpression).unwrap();
+    let factor = symbol_by_name_and_kind(&graph, "factor", SymbolKind::Var);
+
+    let captures = result.ownership_metadata().captures();
+
+    assert_eq!(captures.len(), 1);
+    assert_eq!(captures[0].closure(), arrow);
+    assert_eq!(captures[0].symbol(), factor);
+}
+
+#[test]
+fn check_does_not_capture_arrow_local_parameter() {
+    let (_source, _graph, result) = check_source(
+        r#"
+        var double = (value: int32): int32 => value * 2
+        "#,
+    );
+
+    assert!(result.ownership_metadata().captures().is_empty());
+}
+
+#[test]
 fn check_does_not_leak_arrow_block_return_to_outer_function() {
     let (_source, _graph, result) = check_source(
         r#"

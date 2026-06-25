@@ -118,19 +118,26 @@ impl<'a> DeclarationTypeChecker<'a> {
             return None;
         }
 
-        let member_scope = resolution.member_scope(symbol)?;
+        if let Some(member_scope) = resolution.member_scope(symbol) {
+            if let Some(member_symbol) = resolution
+                .scope(member_scope)
+                .and_then(|scope| scope.symbol(member_name))
+            {
+                let member_symbol_data = resolution.symbol(member_symbol)?;
 
-        let member_symbol = resolution
-            .scope(member_scope)
-            .and_then(|scope| scope.symbol(member_name))?;
+                if member_symbol_data.kind() != SymbolKind::StructField {
+                    return None;
+                }
 
-        let member_symbol_data = resolution.symbol(member_symbol)?;
-
-        if member_symbol_data.kind() != SymbolKind::StructField {
-            return None;
+                return self.layer.symbol_type(member_symbol);
+            }
         }
 
-        self.layer.symbol_type(member_symbol)
+        if symbol_data.kind() == SymbolKind::Struct {
+            return self.struct_field_type_for_symbol(symbol, member_name);
+        }
+
+        None
     }
 
     pub(super) fn member_symbol_for_target_type(
