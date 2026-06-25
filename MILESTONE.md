@@ -98,10 +98,10 @@ imported surface consumption.
   - [x] Replace inferred struct literals from `struct { ... }` to `new { ... }`
   - [x] Reserve metadata syntax such as `new(User, shared) { ... }`
   - [x] Update parser, type checker, tests, and docs
-- [ ] Phase B — Frontend module surface model
-  - [ ] Define frontend-owned module/export surface data
-  - [ ] Generate surfaces from local resolved/typechecked modules
-  - [ ] Keep surfaces independent from workspace paths and `galfus.toml`
+- [x] Phase B — Frontend module surface model
+  - [x] Define frontend-owned module/export surface data
+  - [x] Generate surfaces from local resolved/typechecked modules
+  - [x] Keep surfaces independent from workspace paths and `galfus.toml`
 - [ ] Phase C — Imported surface consumption
   - [ ] Typecheck named imports from surfaces
   - [ ] Typecheck namespace imports from surfaces

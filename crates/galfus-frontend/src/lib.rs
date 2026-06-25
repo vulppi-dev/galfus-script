@@ -1,6 +1,7 @@
 mod diagnostic;
 mod graph;
 mod lexer;
+mod module_surface;
 mod parser;
 mod resolver;
 mod token;
@@ -11,6 +12,7 @@ mod types;
 pub use diagnostic::*;
 pub use graph::*;
 pub use lexer::*;
+pub use module_surface::*;
 pub use parser::*;
 pub use resolver::*;
 pub use token::*;
