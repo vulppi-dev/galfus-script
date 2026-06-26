@@ -15,7 +15,13 @@ impl<'a> Resolver<'a> {
             }
 
             SyntaxNodeKind::FunctionItem => {
+                self.resolve_direct_decorator_list(item, parent_scope);
                 self.resolve_function_references(item);
+            }
+
+            SyntaxNodeKind::StructItem | SyntaxNodeKind::ChoiceItem => {
+                let scope = self.resolution.node_scope(item).unwrap_or(parent_scope);
+                self.resolve_decorator_references_in_node(item, scope);
             }
 
             SyntaxNodeKind::VarItem | SyntaxNodeKind::ConstItem => {
@@ -222,6 +228,42 @@ impl<'a> Resolver<'a> {
         };
 
         self.resolve_node_references(*body, arrow_scope);
+    }
+
+    fn resolve_direct_decorator_list(&mut self, node: NodeId, scope: ScopeId) {
+        let Some(decorators) = self
+            .syntax
+            .first_child_of_kind(node, SyntaxNodeKind::DecoratorList)
+        else {
+            return;
+        };
+
+        self.resolve_decorator_references_in_node(decorators, scope);
+    }
+
+    fn resolve_decorator_references_in_node(&mut self, node: NodeId, current_scope: ScopeId) {
+        let Some(syntax_node) = self.syntax.node(node) else {
+            return;
+        };
+
+        let scope = self.resolution.node_scope(node).unwrap_or(current_scope);
+
+        if syntax_node.kind() == SyntaxNodeKind::Decorator {
+            self.resolve_decorator_reference(node, scope);
+            return;
+        }
+
+        for child in syntax_node.children() {
+            self.resolve_decorator_references_in_node(*child, scope);
+        }
+    }
+
+    fn resolve_decorator_reference(&mut self, decorator: NodeId, scope: ScopeId) {
+        let Some(target) = self.syntax.child(decorator, 0) else {
+            return;
+        };
+
+        self.resolve_node_references(target, scope);
     }
 
     fn resolve_variant_pattern(&mut self, pattern: NodeId, scope: ScopeId) {

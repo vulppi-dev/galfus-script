@@ -2,7 +2,7 @@ use super::super::*;
 
 #[test]
 fn parse_empty_struct_literal() {
-    let source = source("fn main(): null {\n  const user = User {}\n  return\n}");
+    let source = source("fn main(): null {\n  const user = new(User) {}\n  return\n}");
 
     let result = parse(&source);
 
@@ -27,7 +27,7 @@ fn parse_empty_struct_literal() {
     let expression_node = syntax.node(expression).unwrap();
 
     assert_eq!(expression_node.kind(), SyntaxNodeKind::StructLiteral);
-    assert_eq!(source.slice(expression_node.span()), Some("User {}"));
+    assert_eq!(source.slice(expression_node.span()), Some("new(User) {}"));
     assert_eq!(expression_node.child_count(), 2);
 
     let name = expression_node.first_child().unwrap();
@@ -48,7 +48,7 @@ fn parse_empty_struct_literal() {
 #[test]
 fn parse_struct_literal_with_fields() {
     let source = source(
-        "fn main(): null {\n  const user = User {\n    name: \"Ana\",\n    age: 32,\n  }\n  return\n}",
+        "fn main(): null {\n  const user = new(User) {\n    name: \"Ana\",\n    age: 32,\n  }\n  return\n}",
     );
 
     let result = parse(&source);
@@ -104,7 +104,7 @@ fn parse_struct_literal_with_fields() {
 #[test]
 fn parse_struct_literal_field_value_can_be_expression() {
     let source = source(
-        "fn main(): null {\n  const user = User {\n    age: currentAge + 1,\n  }\n  return\n}",
+        "fn main(): null {\n  const user = new(User) {\n    age: currentAge + 1,\n  }\n  return\n}",
     );
 
     let result = parse(&source);
@@ -149,7 +149,7 @@ fn parse_struct_literal_field_value_can_be_expression() {
 #[test]
 fn parse_nested_struct_literal() {
     let source = source(
-        "fn main(): null {\n  const user = User {\n    address: Address {\n      city: \"Recife\",\n    },\n  }\n  return\n}",
+        "fn main(): null {\n  const user = new(User) {\n    address: new(Address) {\n      city: \"Recife\",\n    },\n  }\n  return\n}",
     );
 
     let result = parse(&source);
@@ -184,14 +184,14 @@ fn parse_nested_struct_literal() {
     assert_eq!(value_node.kind(), SyntaxNodeKind::StructLiteral);
     assert_eq!(
         source.slice(value_node.span()),
-        Some("Address {\n      city: \"Recife\",\n    }")
+        Some("new(Address) {\n      city: \"Recife\",\n    }")
     );
 }
 
 #[test]
 fn parse_struct_literal_requires_commas_between_fields() {
     let source = source(
-        "fn main(): null {\n  const user = User {\n    name: \"Ana\"\n    age: 32,\n  }\n  return\n}",
+        "fn main(): null {\n  const user = new(User) {\n    name: \"Ana\"\n    age: 32,\n  }\n  return\n}",
     );
 
     let result = parse(&source);
@@ -210,7 +210,7 @@ fn parse_struct_literal_requires_commas_between_fields() {
 #[test]
 fn parse_if_condition_allows_struct_literal_inside_call_argument() {
     let source = source(
-        "fn main(): null {\n  if isValid(User { permission: permission }) {\n    print(\"yes\")\n  }\n  return\n}",
+        "fn main(): null {\n  if isValid(new(User) { permission: permission }) {\n    print(\"yes\")\n  }\n  return\n}",
     );
 
     let result = parse(&source);
@@ -235,7 +235,7 @@ fn parse_if_condition_allows_struct_literal_inside_call_argument() {
     assert_eq!(condition_node.kind(), SyntaxNodeKind::CallExpression);
     assert_eq!(
         source.slice(condition_node.span()),
-        Some("isValid(User { permission: permission })")
+        Some("isValid(new(User) { permission: permission })")
     );
 
     let arguments = condition_node.child(1).unwrap();
@@ -250,14 +250,14 @@ fn parse_if_condition_allows_struct_literal_inside_call_argument() {
     assert_eq!(value_node.kind(), SyntaxNodeKind::StructLiteral);
     assert_eq!(
         source.slice(value_node.span()),
-        Some("User { permission: permission }")
+        Some("new(User) { permission: permission }")
     );
 }
 
 #[test]
 fn parse_if_condition_allows_parenthesized_struct_literal() {
     let source = source(
-        "fn main(): null {\n  if (User { permission: permission }) {\n    print(\"yes\")\n  }\n  return\n}",
+        "fn main(): null {\n  if (new(User) { permission: permission }) {\n    print(\"yes\")\n  }\n  return\n}",
     );
 
     let result = parse(&source);
@@ -289,7 +289,8 @@ fn parse_if_condition_allows_parenthesized_struct_literal() {
 
 #[test]
 fn parse_struct_literal_field_shorthand() {
-    let source = source("fn main(): null {\n  const user = User {\n    name,\n  }\n  return\n}");
+    let source =
+        source("fn main(): null {\n  const user = new(User) {\n    name,\n  }\n  return\n}");
 
     let result = parse(&source);
 
@@ -338,7 +339,7 @@ fn parse_struct_literal_field_shorthand() {
 #[test]
 fn parse_struct_literal_mixed_shorthand_and_named_fields() {
     let source = source(
-        "fn main(): null {\n  const user = User {\n    name,\n    age: 32,\n  }\n  return\n}",
+        "fn main(): null {\n  const user = new(User) {\n    name,\n    age: 32,\n  }\n  return\n}",
     );
 
     let result = parse(&source);
@@ -393,8 +394,9 @@ fn parse_struct_literal_mixed_shorthand_and_named_fields() {
 
 #[test]
 fn parse_struct_literal_shorthand_requires_comma_between_fields() {
-    let source =
-        source("fn main(): null {\n  const user = User {\n    name\n    age,\n  }\n  return\n}");
+    let source = source(
+        "fn main(): null {\n  const user = new(User) {\n    name\n    age,\n  }\n  return\n}",
+    );
 
     let result = parse(&source);
 
@@ -448,7 +450,7 @@ fn parse_struct_expansion_field() {
 fn parse_struct_literal_spread_field() {
     let source = source(
         "fn main(): null {
-            var user2 = User {
+            var user2 = new(User) {
                 ...user,
                 name: \"Ana\",
             }
@@ -497,4 +499,22 @@ fn parse_struct_literal_spread_field() {
         syntax.node(field).unwrap().kind(),
         SyntaxNodeKind::StructLiteralField
     );
+}
+
+#[test]
+fn parse_rejects_legacy_typed_struct_literal_syntax() {
+    let source = source("fn main(): null {\n  const user = User {}\n  return\n}");
+
+    let result = parse(&source);
+
+    assert!(result.has_errors());
+}
+
+#[test]
+fn parse_rejects_legacy_inferred_struct_literal_syntax() {
+    let source = source("fn main(): null {\n  const user = struct { name }\n  return\n}");
+
+    let result = parse(&source);
+
+    assert!(result.has_errors());
 }

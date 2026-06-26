@@ -64,7 +64,7 @@ fn parse_instanceof_expression_with_type_patterns() {
 }
 
 #[test]
-fn parse_instanceof_fallback_as_binding_pattern() {
+fn parse_instanceof_wildcard_pattern() {
     let source = source(
         "fn main(): int32 {\n  instanceof value {\n    _ => {\n      return 0\n    }\n  }\n}",
     );
@@ -85,8 +85,9 @@ fn parse_instanceof_fallback_as_binding_pattern() {
     let pattern = arm_node.first_child().unwrap();
     let pattern_node = syntax.node(pattern).unwrap();
 
-    assert_eq!(pattern_node.kind(), SyntaxNodeKind::BindingPattern);
+    assert_eq!(pattern_node.kind(), SyntaxNodeKind::WildcardPattern);
     assert_eq!(source.slice(pattern_node.span()), Some("_"));
+    assert_eq!(pattern_node.child_count(), 0);
 }
 
 #[test]

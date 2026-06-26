@@ -5,6 +5,7 @@ use std::{
 
 use anyhow::Result;
 use galfus_core::NodeId;
+use galfus_frontend::ImportKind;
 
 use crate::*;
 
@@ -67,15 +68,24 @@ impl WorkspaceModule {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WorkspaceImportEdge {
     from: WorkspaceModuleId,
+    kind: ImportKind,
     source: String,
     source_node: NodeId,
+    local_name: String,
+    imported_name: Option<String>,
     target_path: PathBuf,
     to: Option<WorkspaceModuleId>,
+    export_name: Option<String>,
+    referenced_exports: Vec<String>,
 }
 
 impl WorkspaceImportEdge {
     pub fn from(&self) -> WorkspaceModuleId {
         self.from
+    }
+
+    pub fn kind(&self) -> ImportKind {
+        self.kind
     }
 
     pub fn source(&self) -> &str {
@@ -84,6 +94,14 @@ impl WorkspaceImportEdge {
 
     pub fn source_node(&self) -> NodeId {
         self.source_node
+    }
+
+    pub fn local_name(&self) -> &str {
+        self.local_name.as_str()
+    }
+
+    pub fn imported_name(&self) -> Option<&str> {
+        self.imported_name.as_deref()
     }
 
     pub fn target_path(&self) -> &Path {
@@ -96,6 +114,18 @@ impl WorkspaceImportEdge {
 
     pub fn is_resolved(&self) -> bool {
         self.to.is_some()
+    }
+
+    pub fn export_name(&self) -> Option<&str> {
+        self.export_name.as_deref()
+    }
+
+    pub fn is_export_resolved(&self) -> bool {
+        self.export_name.is_some()
+    }
+
+    pub fn referenced_exports(&self) -> &[String] {
+        self.referenced_exports.as_slice()
     }
 }
 
@@ -205,17 +235,189 @@ impl WorkspaceGraph {
 
                 let to = self.module_by_path(target_path.as_path());
 
+                let export_name = self.resolve_import_export(import, to, checked_modules);
+                let referenced_exports =
+                    self.resolve_namespace_referenced_exports(module, import, to, checked_modules);
+
                 self.import_edges.push(WorkspaceImportEdge {
                     from,
+                    kind: import.kind(),
                     source: source.to_string(),
                     source_node: import.source_node(),
+                    local_name: import.local_name().to_string(),
+                    imported_name: import.imported_name().map(str::to_string),
                     target_path,
                     to,
+                    export_name,
+                    referenced_exports,
                 });
             }
         }
 
         Ok(())
+    }
+
+    fn resolve_import_export(
+        &self,
+        import: &galfus_frontend::ImportRecord,
+        to: Option<WorkspaceModuleId>,
+        checked_modules: &[CheckedModule],
+    ) -> Option<String> {
+        if import.kind() != ImportKind::Named {
+            return None;
+        }
+
+        let target_module = checked_modules.get(to?.raw())?;
+        let target_resolution = target_module.graph().resolution()?;
+        let imported_name = import.imported_name()?;
+
+        target_resolution
+            .export_by_name(imported_name)
+            .map(|_| imported_name.to_string())
+    }
+
+    fn resolve_namespace_referenced_exports(
+        &self,
+        module: &CheckedModule,
+        import: &galfus_frontend::ImportRecord,
+        to: Option<WorkspaceModuleId>,
+        checked_modules: &[CheckedModule],
+    ) -> Vec<String> {
+        if import.kind() != ImportKind::Namespace {
+            return Vec::new();
+        }
+
+        let Some(to) = to else {
+            return Vec::new();
+        };
+
+        let Some(target_module) = checked_modules.get(to.raw()) else {
+            return Vec::new();
+        };
+
+        let Some(target_resolution) = target_module.graph().resolution() else {
+            return Vec::new();
+        };
+
+        let mut references = self.namespace_reference_names(module, import.local_name());
+
+        references.retain(|name| target_resolution.export_by_name(name.as_str()).is_some());
+        references.sort();
+        references.dedup();
+
+        references
+    }
+
+    fn namespace_reference_names(&self, module: &CheckedModule, namespace: &str) -> Vec<String> {
+        let Some(root) = module.graph().syntax().root() else {
+            return Vec::new();
+        };
+
+        let mut references = Vec::new();
+        self.collect_namespace_reference_names(module, root, namespace, &mut references);
+        references
+    }
+
+    fn collect_namespace_reference_names(
+        &self,
+        module: &CheckedModule,
+        node: NodeId,
+        namespace: &str,
+        references: &mut Vec<String>,
+    ) {
+        let syntax = module.graph().syntax();
+
+        let Some(syntax_node) = syntax.node(node) else {
+            return;
+        };
+
+        if matches!(
+            syntax_node.kind(),
+            galfus_frontend::SyntaxNodeKind::PathExpression | galfus_frontend::SyntaxNodeKind::Path
+        ) {
+            if let Some(reference) = self.namespace_reference_name(module, node, namespace) {
+                references.push(reference);
+            }
+
+            return;
+        }
+
+        for child in syntax_node.children() {
+            self.collect_namespace_reference_names(module, *child, namespace, references);
+        }
+    }
+
+    fn namespace_reference_name(
+        &self,
+        module: &CheckedModule,
+        node: NodeId,
+        namespace: &str,
+    ) -> Option<String> {
+        let segments = self.path_segments(module, node);
+        let root = segments.first()?;
+
+        if root != namespace || segments.len() < 2 {
+            return None;
+        }
+
+        Some(segments[1..].join("::"))
+    }
+
+    fn path_segments(&self, module: &CheckedModule, node: NodeId) -> Vec<String> {
+        let syntax = module.graph().syntax();
+        let Some(syntax_node) = syntax.node(node) else {
+            return Vec::new();
+        };
+
+        match syntax_node.kind() {
+            galfus_frontend::SyntaxNodeKind::NameExpression => syntax
+                .first_child_of_kind(node, galfus_frontend::SyntaxNodeKind::Identifier)
+                .map(|identifier| self.node_text(module, identifier))
+                .into_iter()
+                .collect(),
+
+            galfus_frontend::SyntaxNodeKind::PathExpression => {
+                let Some(target) = syntax.child(node, 0) else {
+                    return Vec::new();
+                };
+
+                let Some(member) = syntax.child(node, 1) else {
+                    return Vec::new();
+                };
+
+                let mut segments = self.path_segments(module, target);
+                segments.push(self.node_text(module, member));
+                segments
+            }
+
+            galfus_frontend::SyntaxNodeKind::Path => syntax_node
+                .children()
+                .iter()
+                .filter_map(|child| {
+                    let child_node = syntax.node(*child)?;
+
+                    if child_node.kind() != galfus_frontend::SyntaxNodeKind::Identifier {
+                        return None;
+                    }
+
+                    Some(self.node_text(module, *child))
+                })
+                .collect(),
+
+            _ => Vec::new(),
+        }
+    }
+
+    fn node_text(&self, module: &CheckedModule, node: NodeId) -> String {
+        let Some(syntax_node) = module.graph().syntax().node(node) else {
+            return String::new();
+        };
+
+        module
+            .source()
+            .slice(syntax_node.span())
+            .unwrap_or("")
+            .to_string()
     }
 }
 

@@ -167,7 +167,7 @@ fn parse_parameter_decorator() {
             @string::trim name: [int8],
             @min(0) age: int32,
         ): User {
-            return User {
+            return new(User) {
                 name,
                 age,
             }

@@ -97,3 +97,24 @@ fn parse_creates_root_even_with_lexical_diagnostics() {
 
     assert_eq!(diagnostic.code().as_str(), "L0002");
 }
+
+#[test]
+fn parse_recovers_after_invalid_local_binding() {
+    let source = source(
+        "fn broken(): null {
+            var value: =
+            return
+        }
+
+        fn next(): null { return }",
+    );
+
+    let result = parse(&source);
+
+    assert!(result.has_errors());
+
+    let syntax = result.graph().syntax();
+    let root = syntax.root().expect("parse should create root node");
+
+    assert_eq!(syntax.child_count(root), Some(2));
+}

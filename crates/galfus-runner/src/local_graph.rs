@@ -36,6 +36,9 @@ fn format_local_graph(source: &SourceFile, graph: &ModuleGraph) -> String {
     write_syntax_summary(&mut out, graph);
     writeln!(out).unwrap();
 
+    write_syntax_tree(&mut out, source, graph);
+    writeln!(out).unwrap();
+
     match graph.resolution() {
         Some(resolution) => {
             write_scopes(&mut out, resolution);
@@ -82,6 +85,52 @@ fn write_syntax_summary(out: &mut String, graph: &ModuleGraph) {
         None => {
             writeln!(out, "  root: <missing>").unwrap();
         }
+    }
+}
+
+fn write_syntax_tree(out: &mut String, source: &SourceFile, graph: &ModuleGraph) {
+    writeln!(out, "tree:").unwrap();
+
+    let Some(root) = graph.syntax().root() else {
+        writeln!(out, "  <missing>").unwrap();
+        return;
+    };
+
+    write_syntax_tree_node(out, source, graph, root, 1);
+}
+
+fn write_syntax_tree_node(
+    out: &mut String,
+    source: &SourceFile,
+    graph: &ModuleGraph,
+    node: NodeId,
+    depth: usize,
+) {
+    let Some(syntax_node) = graph.syntax().node(node) else {
+        return;
+    };
+
+    let indent = "  ".repeat(depth);
+    let location = span_location(source, syntax_node.span());
+    let snippet = source
+        .slice(syntax_node.span())
+        .map(compact_snippet)
+        .filter(|snippet| !snippet.is_empty())
+        .map(|snippet| format!(" `{snippet}`"))
+        .unwrap_or_default();
+
+    writeln!(
+        out,
+        "{indent}node #{} {:?} at {}{}",
+        node.raw(),
+        syntax_node.kind(),
+        location,
+        snippet,
+    )
+    .unwrap();
+
+    for child in syntax_node.children() {
+        write_syntax_tree_node(out, source, graph, *child, depth + 1);
     }
 }
 
@@ -252,4 +301,16 @@ fn span_location(source: &SourceFile, span: Span) -> String {
         .row_col(span.start())
         .map(|position| format!("{}:{}", position.row, position.column))
         .unwrap_or_else(|| format!("{}..{}", span.start(), span.end()))
+}
+
+fn compact_snippet(text: &str) -> String {
+    let snippet = text.split_whitespace().collect::<Vec<_>>().join(" ");
+
+    if snippet.chars().count() <= 80 {
+        return snippet;
+    }
+
+    let mut compact = snippet.chars().take(77).collect::<String>();
+    compact.push_str("...");
+    compact
 }

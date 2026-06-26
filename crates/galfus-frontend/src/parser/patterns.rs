@@ -14,6 +14,10 @@ impl Parser {
             return self.parse_literal_pattern();
         }
 
+        if self.at(&TokenKind::Underscore) {
+            return self.parse_wildcard_pattern();
+        }
+
         if self.at(&TokenKind::Identifier) {
             if matches!(self.peek_after_newlines(1).kind(), TokenKind::ColonColon) {
                 return self.parse_variant_pattern();
@@ -63,6 +67,10 @@ impl Parser {
 
     pub(super) fn parse_binding_pattern(&mut self) -> Option<NodeId> {
         self.skip_newlines();
+
+        if self.at(&TokenKind::Underscore) {
+            return self.parse_wildcard_pattern();
+        }
 
         let inner = if self.at(&TokenKind::LeftBrace) {
             self.parse_struct_binding_pattern()?
@@ -221,6 +229,10 @@ impl Parser {
     }
 
     pub(super) fn parse_instanceof_pattern(&mut self) -> Option<NodeId> {
+        if self.at(&TokenKind::Underscore) {
+            return self.parse_wildcard_pattern();
+        }
+
         if self.at(&TokenKind::Identifier)
             && self.peek_after_newlines(1).kind() == &TokenKind::Arrow
         {
@@ -382,5 +394,11 @@ impl Parser {
         let span = Span::cover(spread.span(), self.node_span(pattern)).unwrap_or(spread.span());
 
         Some(self.add_node(SyntaxNodeKind::RestBindingPattern, span, vec![pattern]))
+    }
+
+    pub(super) fn parse_wildcard_pattern(&mut self) -> Option<NodeId> {
+        let token = self.expect(TokenKind::Underscore)?;
+
+        Some(self.add_node(SyntaxNodeKind::WildcardPattern, token.span(), Vec::new()))
     }
 }

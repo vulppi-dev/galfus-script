@@ -587,6 +587,7 @@ pub enum SyntaxNodeKind {
     TupleBindingPattern,
     ArrayBindingPattern,
     RestBindingPattern,
+    WildcardPattern,
 
     // Binding helpers
     TypeAnnotation,
@@ -610,7 +611,6 @@ pub enum SyntaxNodeKind {
     Argument,
     OmittedArgument,
     ArgumentList,
-    SpreadArgument,
 
     // Expressions
     CallExpression,
@@ -788,6 +788,7 @@ impl SyntaxNodeKind {
         matches!(
             self,
             SyntaxNodeKind::BindingPattern
+                | SyntaxNodeKind::WildcardPattern
                 | SyntaxNodeKind::StructBindingPattern
                 | SyntaxNodeKind::StructBindingField
                 | SyntaxNodeKind::TupleBindingPattern

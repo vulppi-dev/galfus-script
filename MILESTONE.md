@@ -10,6 +10,8 @@ The MVP is not a product-distribution milestone. It does not include package pub
 
 - [Current Status](#current-status)
 - [MVP Pipeline](#mvp-pipeline)
+- [Frontend Closure Plan](#frontend-closure-plan)
+- [Frontend Reaudit Closure Plan](#frontend-reaudit-closure-plan)
 - [Milestone 0 — Project Foundation](#milestone-0--project-foundation)
 - [Milestone 1 — Workspace Graph](#milestone-1--workspace-graph)
 - [Milestone 2 — Lexer and Parser](#milestone-2--lexer-and-parser)
@@ -35,7 +37,7 @@ The MVP is not a product-distribution milestone. It does not include package pub
 Current phase:
 
 ```txt
-frontend workspace graph
+MIR / lowering
 ```
 
 Completed:
@@ -44,22 +46,28 @@ Completed:
 lexer
 parser
 local resolver
+type checker
+semantic checker
+ownership checker
 ```
 
 Active:
 
 ```txt
-workspace graph
-module/project resolution
-frontend validation
+MIR
+bytecode
+Module Image
+```
+
+Frontend MVP status:
+
+```txt
+closed for local .gfs validation
 ```
 
 Not usable yet:
 
 ```txt
-type checker
-semantic checker
-ownership checker
 MIR
 bytecode
 .gfb
@@ -101,34 +109,34 @@ Goal: keep the repository organized enough for MVP development and public inspec
 - [x] `examples/` folder exists
 - [x] Syntax demonstration project exists
 - [ ] Public README finalized
-- [ ] `MILESTONE.md` added
+- [x] `MILESTONE.md` added
 - [ ] Repository description added
 - [ ] Repository topics added
-- [ ] License file confirmed
-- [ ] Contribution stance documented
+- [x] License file confirmed
+- [x] Contribution stance documented
 
 ## Milestone 1 — Workspace Graph
 
 Goal: build the local project/module model used by the frontend.
 
 - [ ] Find project root through `galfus.toml`
-- [ ] Parse minimal `galfus.toml`
-- [ ] Validate `[module]`
-- [ ] Validate module `name`
-- [ ] Validate module `target`
-- [ ] Validate app `entry`
-- [ ] Validate local library exports
-- [ ] Resolve local `src/` files
-- [ ] Resolve local relative imports from project graph
-- [ ] Resolve named imports from project graph
+- [x] Parse minimal `galfus.toml`
+- [x] Validate `[module]`
+- [x] Validate module `name`
+- [x] Validate module `target`
+- [x] Validate app `entry`
+- [x] Validate local library exports
+- [x] Resolve local `src/` files
+- [x] Resolve local relative imports from project graph
+- [x] Resolve named imports from project graph
 - [ ] Resolve local aliases, if included in MVP
-- [ ] Build local module records
-- [ ] Build local module graph
-- [ ] Detect missing source files
-- [ ] Detect invalid import targets
+- [x] Build local module records
+- [x] Build local module graph
+- [x] Detect missing source files
+- [x] Detect invalid import targets
 - [ ] Detect ambiguous local imports
 - [ ] Preserve case-sensitive paths
-- [ ] Produce workspace diagnostics
+- [x] Produce workspace diagnostics
 
 ## Milestone 2 — Lexer and Parser
 
@@ -169,6 +177,8 @@ Status: completed as current frontend foundation.
 - [x] Struct field defaults
 - [x] Const fields
 - [x] Struct literals
+- [x] `new(Type)` typed struct literals
+- [x] `new` inferred struct literals
 - [x] Struct literal shorthand
 - [x] Inferred struct literals
 - [x] Struct expansion
@@ -200,7 +210,6 @@ Status: completed as current frontend foundation.
 - [x] Stamped functions
 - [x] Default parameters
 - [x] Rest parameters
-- [x] Argument spread
 - [x] Trailing arguments
 - [x] Arrow functions
 - [x] Anchor functions
@@ -222,6 +231,7 @@ Status: completed as current frontend foundation.
 - [x] Weak fields
 - [x] Parser diagnostics
 - [x] Parser recovery
+- [x] Missing comma recovery hardening
 
 ## Milestone 3 — Local Resolver
 
@@ -246,123 +256,125 @@ Status: completed as local resolver foundation.
 
 Goal: expand resolution from local source validation into module-aware semantic resolution.
 
-- [ ] Resolve imported module bindings
-- [ ] Resolve named imports
-- [ ] Resolve workspace graph imports
-- [ ] Resolve export surfaces
-- [ ] Resolve type paths across modules
-- [ ] Resolve callable paths across modules
-- [ ] Resolve anchor function paths across modules
-- [ ] Resolve enum variant paths across modules
-- [ ] Resolve choice constructor paths across modules
-- [ ] Detect private symbol access from imports
-- [ ] Detect invalid export references
-- [ ] Detect import cycles at graph level
-- [ ] Preserve module-local semantic boundaries
-- [ ] Produce full resolver diagnostics
+- [x] Resolve imported module bindings
+- [x] Resolve named imports
+- [x] Resolve workspace graph imports
+- [x] Resolve export surfaces
+- [x] Resolve type paths across modules
+- [x] Resolve callable paths across modules
+- [x] Resolve anchor function paths across modules
+- [x] Resolve enum variant paths across modules
+- [x] Resolve choice constructor paths across modules
+- [x] Detect private symbol access from imports
+- [x] Detect invalid export references
+- [x] Handle import cycles without infinite loading
+- [x] Preserve module-local semantic boundaries
+- [x] Produce full resolver diagnostics
 
 ## Milestone 5 — Type Checker
 
 Goal: validate all core type rules and materialize inferred types before lowering.
 
-- [ ] Primitive scalar typing
-- [ ] Default integer literal typing
-- [ ] Default float literal typing
-- [ ] Boolean literal typing
-- [ ] Null typing
-- [ ] String literal typing as `[uint8]`
-- [ ] Array literal typing
-- [ ] Fixed-size array typing
-- [ ] Runtime-sized array typing
-- [ ] Tuple typing
-- [ ] Struct literal typing
-- [ ] Struct field compatibility
-- [ ] Struct field defaults
-- [ ] Const field validation
-- [ ] Enum typing
-- [ ] Enum base type validation
-- [ ] Choice construction typing
-- [ ] Choice payload typing
-- [ ] Type alias preservation
-- [ ] Type alias assignability
-- [ ] Union type normalization
-- [ ] Union assignment compatibility
-- [ ] Nullability validation
-- [ ] Function signature typing
-- [ ] Function return typing
-- [ ] Call argument typing
-- [ ] Default parameter typing
-- [ ] Rest parameter typing
-- [ ] Argument spread typing
-- [ ] Arrow function typing
-- [ ] Anchor function typing
-- [ ] Generic declaration typing
-- [ ] Generic instantiation typing
-- [ ] Constraint validation
-- [ ] `satisfies` validation
-- [ ] Cast validation
-- [ ] Operator typing
-- [ ] Match expression typing
-- [ ] `instanceof` branch typing
-- [ ] Type narrowing
-- [ ] Destructuring typing
-- [ ] Range typing
-- [ ] Iterator / iterable constraint typing
-- [ ] Type checker diagnostics
+- [x] Primitive scalar typing
+- [x] Default integer literal typing
+- [x] Default float literal typing
+- [x] Boolean literal typing
+- [x] Null typing
+- [x] String literal typing as `[uint8]`
+- [x] Array literal typing
+- [x] Fixed-size array typing
+- [x] Runtime-sized array typing
+- [x] Tuple typing
+- [x] Struct literal typing
+- [x] Struct field compatibility
+- [x] Struct field defaults
+- [x] Const field validation
+- [x] Enum typing
+- [x] Enum base type validation
+- [x] Choice construction typing
+- [x] Choice payload typing
+- [x] Type alias preservation
+- [x] Type alias assignability
+- [x] Union type normalization
+- [x] Union assignment compatibility
+- [x] Nullability validation
+- [x] Weak field nullability validation
+- [x] Weak field ownership metadata prep
+- [x] Function signature typing
+- [x] Function return typing
+- [x] Function stamp recursion validation
+- [x] Call argument typing
+- [x] Default parameter typing
+- [x] Rest parameter typing
+- [x] Arrow function typing
+- [x] Anchor function typing
+- [x] Generic declaration typing
+- [x] Generic instantiation typing
+- [x] Constraint validation
+- [x] `satisfies` validation
+- [x] Cast validation
+- [x] Operator typing
+- [x] Match expression typing
+- [x] `instanceof` branch typing
+- [x] Type narrowing
+- [x] Destructuring typing
+- [x] Range typing
+- [x] Iterator / iterable constraint typing
+- [x] Type checker diagnostics
 
 ## Milestone 6 — Semantic Checker
 
 Goal: validate language behavior beyond raw type compatibility.
 
-- [ ] Top-level initialization semantics
-- [ ] Local binding initialization
-- [ ] Mutable binding reassignment
-- [ ] Immutable binding reassignment rejection
-- [ ] Export surface validation
-- [ ] Import binding semantics
-- [ ] Function return path validation
-- [ ] Bare return validation
-- [ ] Stamped function restrictions
-- [ ] Anchor call semantics
-- [ ] No implicit anchor write-back
-- [ ] Struct expansion semantics
-- [ ] Struct literal spread semantics
-- [ ] Shallow copy semantics
-- [ ] Explicit deep copy semantics placeholder
-- [ ] Enum symbol preservation
-- [ ] Choice exhaustiveness checks
-- [ ] Match fallback behavior
-- [ ] `instanceof` narrowing behavior
-- [ ] Decorator target validation
-- [ ] Decorator order validation
-- [ ] Destructuring semantics
-- [ ] Range semantics
-- [ ] Loop control validation
-- [ ] Break / continue target validation
-- [ ] Module initialization cycle validation
-- [ ] Runtime panic condition modeling
-- [ ] Semantic diagnostics
+- [x] Top-level initialization semantics
+- [x] Local binding initialization
+- [x] Mutable binding reassignment
+- [x] Immutable binding reassignment rejection
+- [x] Export surface validation
+- [x] Import binding semantics
+- [x] Function return path validation
+- [x] Bare return validation
+- [x] Remaining stamped function lowering restrictions
+- [x] Anchor call semantics
+- [x] No implicit anchor write-back
+- [x] Struct expansion semantics
+- [x] Struct literal spread semantics
+- [x] Shallow copy semantics
+- [x] Explicit deep copy semantics placeholder
+- [x] Enum symbol preservation
+- [x] Choice exhaustiveness checks
+- [x] Match fallback behavior
+- [x] `instanceof` narrowing behavior
+- [x] Decorator target validation
+- [x] Decorator order validation
+- [x] Destructuring semantics
+- [x] Range semantics
+- [x] Loop control validation
+- [x] Break / continue target validation
+- [x] Module initialization cycle validation
+- [x] Runtime panic condition modeling
+- [x] Semantic diagnostics
 
 ## Milestone 7 — Ownership Checker
 
 Goal: validate ownership metadata before `.gfb` generation.
 
-- [ ] Model anchors
-- [ ] Model edges
-- [ ] Model weak observers
-- [ ] Validate weak fields
-- [ ] Validate captured values
-- [ ] Validate closure anchors
-- [ ] Validate module state anchors
-- [ ] Validate block-local anchors
-- [ ] Validate temporaries
-- [ ] Validate ownership cycles
-- [ ] Validate release eligibility
-- [ ] Prepare ownership metadata
-- [ ] Prepare anchor metadata
-- [ ] Prepare edge metadata
-- [ ] Prepare weak metadata
-- [ ] Ownership diagnostics
+- [x] Model anchors
+- [x] Model edges
+- [x] Model weak observers
+- [x] Validate weak fields
+- [x] Validate captured values
+- [x] Validate closure anchors
+- [x] Validate module state anchors
+- [x] Validate block-local anchors
+- [x] Validate temporaries
+- [x] Validate ownership cycles
+- [x] Validate release eligibility
+- [x] Prepare ownership metadata
+- [x] Prepare anchor metadata
+- [x] Prepare edge metadata
+- [x] Prepare weak metadata
+- [x] Ownership diagnostics
 
 ## Milestone 8 — MIR
 
@@ -542,31 +554,31 @@ Goal: provide a local developer command that proves the MVP pipeline.
 
 Goal: prove the complete language surface through local `.gfs` programs.
 
-- [ ] Primitive values and casts
-- [ ] Arrays and negative indexing
-- [ ] String literals as `[uint8]`
-- [ ] Tuples
-- [ ] Structs
-- [ ] Struct defaults
-- [ ] Const fields
-- [ ] Enums and enum casts
-- [ ] Choices and match
-- [ ] Unions and null narrowing
-- [ ] `instanceof` expressions
-- [ ] Functions
-- [ ] Stamped functions
-- [ ] Anchor functions on structs
-- [ ] Generics
-- [ ] Constraints
-- [ ] `satisfies`
-- [ ] Decorators
-- [ ] Destructuring
-- [ ] Ranges
-- [ ] `for in` with iterator / iterable constraints
-- [ ] Weak fields
-- [ ] Ownership validation
-- [ ] Module imports
-- [ ] Module exports
+- [x] Primitive values and casts
+- [x] Arrays and negative indexing
+- [x] String literals as `[uint8]`
+- [x] Tuples
+- [x] Structs
+- [x] Struct defaults
+- [x] Const fields
+- [x] Enums and enum casts
+- [x] Choices and match
+- [x] Unions and null narrowing
+- [x] `instanceof` expressions
+- [x] Functions
+- [x] Stamped functions
+- [x] Anchor functions on structs
+- [x] Generics
+- [x] Constraints
+- [x] `satisfies`
+- [x] Decorators
+- [x] Destructuring
+- [x] Ranges
+- [x] `for in` with iterator / iterable constraints
+- [x] Weak fields
+- [x] Ownership validation
+- [x] Module imports
+- [x] Module exports
 - [ ] `.gfb` serialization
 - [ ] VM execution
 - [ ] Panic behavior
@@ -575,12 +587,12 @@ Goal: prove the complete language surface through local `.gfs` programs.
 
 The MVP is complete when:
 
-- [ ] The compiler parses the full accepted syntax
-- [ ] The compiler rejects invalid syntax with useful diagnostics
-- [ ] The resolver builds correct module-local semantic graphs
-- [ ] The type checker validates all core type rules
-- [ ] The semantic checker validates current language semantics
-- [ ] The ownership checker validates anchors, edges, and weak fields
+- [x] The compiler parses the full accepted syntax
+- [x] The compiler rejects invalid syntax with useful diagnostics
+- [x] The resolver builds correct module-local semantic graphs
+- [x] The type checker validates all core type rules
+- [x] The semantic checker validates current language semantics
+- [x] The ownership checker validates anchors, edges, and weak fields
 - [ ] The compiler lowers valid programs into MIR
 - [ ] The compiler lowers MIR into a Galfus Module Image
 - [ ] The compiler serializes the Module Image into `.gfb`
@@ -588,7 +600,7 @@ The MVP is complete when:
 - [ ] The VM executes bytecode correctly
 - [ ] The Owner Graph Core releases values deterministically
 - [ ] Runtime failures produce panic
-- [ ] Local imports and exports work
+- [x] Local imports and exports work
 - [ ] No excluded ecosystem feature is required to run MVP programs
 
 ## Out of MVP

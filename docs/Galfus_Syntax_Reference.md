@@ -80,7 +80,7 @@ fn main(): null {
   return
 }
 
-stamp fn max(a: int32, b: int32): int32 {
+fn(stamp) max(a: int32, b: int32): int32 {
   if a > b {
     return a
   }
@@ -193,7 +193,7 @@ export fn sum(a: int32, b: int32): int32 {
   return a + b
 }
 
-export stamp fn min(a: int32, b: int32): int32 {
+export fn(stamp) min(a: int32, b: int32): int32 {
   if a < b {
     return a
   }
@@ -352,11 +352,15 @@ Array literals:
 Struct literals:
 
 ```galfus
-User {
+new(User) {
   id: 1,
   name: "Renato",
 }
 ```
+
+Typed struct literals use the `new(Type)` initialization form. The
+parenthesized head is reserved for future initialization metadata, for example
+`new(User, shared) { ... }`.
 
 Struct literal shorthand:
 
@@ -364,7 +368,7 @@ Struct literal shorthand:
 var id = 1
 var name = "Renato"
 
-var user = User {
+var user = new(User) {
   id,
   name,
 }
@@ -373,7 +377,7 @@ var user = User {
 Inferred struct literals:
 
 ```galfus
-struct {
+new {
   id: 1,
   name: "Renato",
 }
@@ -606,7 +610,7 @@ struct User {
 Instantiation:
 
 ```galfus
-var user = User {
+var user = new(User) {
   id: 1,
   name: "Renato",
 }
@@ -615,7 +619,7 @@ var user = User {
 With all fields:
 
 ```galfus
-var user = User {
+var user = new(User) {
   id: 1,
   name: "Renato",
   age: 30,
@@ -648,7 +652,7 @@ struct Person {
 Struct literal spread copies fields from an existing value:
 
 ```galfus
-var user2 = User {
+var user2 = new(User) {
   ...user,
 }
 ```
@@ -656,7 +660,7 @@ var user2 = User {
 Spread with override:
 
 ```galfus
-var user2 = User {
+var user2 = new(User) {
   ...user,
   name: "Ana",
 }
@@ -797,10 +801,10 @@ fn identity<T>(value: T): T {
 
 ## 17. Stamped functions
 
-A stamped function uses the `stamp fn` prefix:
+A stamped function uses the `fn(stamp)` function metadata form:
 
 ```galfus
-stamp fn max(a: int32, b: int32): int32 {
+fn(stamp) max(a: int32, b: int32): int32 {
   if a > b {
     return a
   }
@@ -812,16 +816,16 @@ stamp fn max(a: int32, b: int32): int32 {
 A stamped anchor function:
 
 ```galfus
-stamp fn Vec2::lengthSq(self: Vec2): float32 {
+fn(stamp) Vec2::lengthSq(self: Vec2): float32 {
   return self.x * self.x + self.y * self.y
 }
 ```
 
-The syntax only marks the declaration. Stack behavior and lowering behavior are semantic and architecture concerns.
+The syntax marks the function item. Stack behavior, lowering behavior, and stamp-specific validation are semantic and architecture concerns.
 
 ---
 
-## 18. Parameters, defaults, rest, and spread
+## 18. Parameters, defaults, and rest
 
 Parameters:
 
@@ -847,7 +851,7 @@ fn createUser(
   @trim name: [uint8],
   @min(0) age: int32,
 ): User {
-  return User { name, age }
+  return new(User) { name, age }
 }
 ```
 
@@ -865,12 +869,8 @@ fn summarize(...values: [int32]): int32 {
 }
 ```
 
-Function argument spread:
-
-```galfus
-var values = [1, 2, 3]
-var total = summarize(...values)
-```
+Call arguments do not support spread syntax. Pass rest arguments as regular
+positional values.
 
 Trailing arguments:
 
@@ -930,7 +930,7 @@ fn User::rename(self: User, name: [uint8]): User {
 Call:
 
 ```galfus
-var user = User {
+var user = new(User) {
   name: "Renato",
 }
 
@@ -1098,7 +1098,7 @@ fn createUser(
   @trim name: [uint8],
   @min(0) age: int32,
 ): User {
-  return User { name, age }
+  return new(User) { name, age }
 }
 ```
 
@@ -1461,14 +1461,14 @@ fn createUser(
   @trim name: [uint8],
   @min(0) age: int32 = 0,
 ): User {
-  return User {
+  return new(User) {
     id,
     name,
     age,
   }
 }
 
-stamp fn max(a: int32, b: int32): int32 {
+fn(stamp) max(a: int32, b: int32): int32 {
   if a > b {
     return a
   }
@@ -1484,7 +1484,7 @@ fn main(): null {
   var user = createUser(1, " Renato ", 30)
   var label = user::toString()
 
-  var user2 = User {
+  var user2 = new(User) {
     ...user,
     name: "Ana",
   }

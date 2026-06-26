@@ -32,7 +32,7 @@ impl Parser {
 
     pub(super) fn parse_primary_expression(
         &mut self,
-        boundary: ExpressionBoundary,
+        _boundary: ExpressionBoundary,
     ) -> Option<NodeId> {
         if self.at(&TokenKind::LeftParen) && self.is_arrow_function_start() {
             return self.parse_arrow_function_expression();
@@ -46,8 +46,8 @@ impl Parser {
             return self.parse_array_literal();
         }
 
-        if self.at(&TokenKind::Struct) {
-            return self.parse_inferred_struct_literal();
+        if self.at(&TokenKind::New) {
+            return self.parse_new_struct_literal();
         }
 
         if self.at(&TokenKind::Match) {
@@ -79,12 +79,6 @@ impl Parser {
         }
 
         if self.at(&TokenKind::Identifier) {
-            let next = self.peek_after_newlines(1).kind();
-
-            if next == &TokenKind::LeftBrace && boundary != ExpressionBoundary::BeforeBlock {
-                return self.parse_struct_literal();
-            }
-
             return self.parse_name_expression();
         }
 
@@ -379,19 +373,6 @@ impl Parser {
         Some(self.add_node(SyntaxNodeKind::IndexExpression, span, vec![target, index]))
     }
 
-    pub(super) fn parse_spread_argument(&mut self) -> Option<NodeId> {
-        let spread_token = self.expect(TokenKind::DotDotDot)?;
-
-        self.skip_newlines();
-
-        let expression = self.parse_expression()?;
-
-        let span = Span::cover(spread_token.span(), self.node_span(expression))
-            .unwrap_or(spread_token.span());
-
-        Some(self.add_node(SyntaxNodeKind::SpreadArgument, span, vec![expression]))
-    }
-
     pub(super) fn parse_spread_array_element(&mut self) -> Option<NodeId> {
         let spread_token = self.expect(TokenKind::DotDotDot)?;
 
@@ -405,17 +386,45 @@ impl Parser {
         Some(self.add_node(SyntaxNodeKind::SpreadArrayElement, span, vec![expression]))
     }
 
-    pub(super) fn parse_inferred_struct_literal(&mut self) -> Option<NodeId> {
-        let struct_token = self.expect(TokenKind::Struct)?;
+    pub(super) fn parse_new_struct_literal(&mut self) -> Option<NodeId> {
+        let new_token = self.expect(TokenKind::New)?;
+
+        self.skip_newlines();
+
+        if self.at(&TokenKind::LeftParen) {
+            return self.parse_typed_struct_literal_after_new(new_token);
+        }
+
+        let fields = self.parse_struct_literal_field_list()?;
+
+        let span =
+            Span::cover(new_token.span(), self.node_span(fields)).unwrap_or(new_token.span());
+
+        Some(self.add_node(SyntaxNodeKind::InferredStructLiteral, span, vec![fields]))
+    }
+
+    pub(super) fn parse_typed_struct_literal_after_new(
+        &mut self,
+        new_token: Token,
+    ) -> Option<NodeId> {
+        self.expect(TokenKind::LeftParen)?;
+
+        self.skip_newlines();
+
+        let target = self.parse_named_type_or_path()?;
+
+        self.skip_newlines();
+
+        self.expect(TokenKind::RightParen)?;
 
         self.skip_newlines();
 
         let fields = self.parse_struct_literal_field_list()?;
 
         let span =
-            Span::cover(struct_token.span(), self.node_span(fields)).unwrap_or(struct_token.span());
+            Span::cover(new_token.span(), self.node_span(fields)).unwrap_or(new_token.span());
 
-        Some(self.add_node(SyntaxNodeKind::InferredStructLiteral, span, vec![fields]))
+        Some(self.add_node(SyntaxNodeKind::StructLiteral, span, vec![target, fields]))
     }
 
     pub(super) fn parse_arrow_function_expression(&mut self) -> Option<NodeId> {
@@ -508,7 +517,7 @@ impl Parser {
     pub(super) fn parse_range_expression(
         &mut self,
         start: NodeId,
-        boundary: ExpressionBoundary,
+        _boundary: ExpressionBoundary,
     ) -> Option<NodeId> {
         let operator_token = self.bump();
 
@@ -521,17 +530,13 @@ impl Parser {
             OperatorKind::Range(operator_kind),
         );
 
-        self.skip_newlines();
-
-        let end_or_count = self.parse_unary_expression(boundary)?;
+        let end_or_count = self.parse_range_operand()?;
 
         let mut children = vec![start, operator, end_or_count];
         let mut end_span = self.node_span(end_or_count);
 
-        self.skip_newlines();
-
         if operator_kind == RangeOperatorKind::Quantity && self.at(&TokenKind::Percent) {
-            let step = self.parse_range_step(boundary)?;
+            let step = self.parse_range_step()?;
             end_span = self.node_span(step);
             children.push(step);
         }
@@ -542,12 +547,29 @@ impl Parser {
         Some(self.add_node(SyntaxNodeKind::RangeExpression, span, children))
     }
 
-    pub(super) fn parse_range_step(&mut self, boundary: ExpressionBoundary) -> Option<NodeId> {
+    pub(super) fn parse_range_operand(&mut self) -> Option<NodeId> {
+        if self.at(&TokenKind::Integer) {
+            return self.parse_integer_literal();
+        }
+
+        if self.at(&TokenKind::Float) {
+            return self.parse_float_literal();
+        }
+
+        let found = self.bump();
+
+        self.graph.push_diagnostic(Diagnostic::error_with_message(
+            ParserDiagnosticCode::UnexpectedToken,
+            format!("expected numeric literal, found `{:?}`", found.kind()),
+            found.span(),
+        ));
+
+        None
+    }
+
+    pub(super) fn parse_range_step(&mut self) -> Option<NodeId> {
         let percent = self.expect(TokenKind::Percent)?;
-
-        self.skip_newlines();
-
-        let expression = self.parse_unary_expression(boundary)?;
+        let expression = self.parse_range_operand()?;
 
         let span =
             Span::cover(percent.span(), self.node_span(expression)).unwrap_or(percent.span());

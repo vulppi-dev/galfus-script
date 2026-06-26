@@ -1,19 +1,21 @@
 mod diagnostic;
 mod graph;
 mod lexer;
+mod module_surface;
 mod parser;
 mod resolver;
 mod token;
-mod type_cheking;
+mod type_checking;
 mod type_lowering;
 mod types;
 
 pub use diagnostic::*;
 pub use graph::*;
 pub use lexer::*;
+pub use module_surface::*;
 pub use parser::*;
 pub use resolver::*;
 pub use token::*;
-pub use type_cheking::*;
+pub use type_checking::*;
 pub use type_lowering::*;
 pub use types::*;

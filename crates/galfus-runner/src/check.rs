@@ -1,7 +1,12 @@
 use crate::*;
 use anyhow::Result;
-use galfus_core::{Diagnostic, DiagnosticBag, NodeId, SourceFile, SourceId};
-use galfus_frontend::{ImportKind, ModuleGraph, SyntaxNodeKind, parse, resolve};
+use galfus_core::{Diagnostic, DiagnosticBag, NodeId, SourceFile, SourceId, SymbolId};
+use galfus_frontend::{
+    ImportKind, ImportedSurfaceTypes, ModuleGraph, ModuleSurface, ResolutionLayer, SyntaxNodeKind,
+    TypeCheckResult, build_module_surface, check_declaration_types,
+    check_declaration_types_with_surfaces, imported_surface_types_for_named_export,
+    imported_surface_types_for_namespace, parse, resolve,
+};
 use std::{
     collections::{HashMap, HashSet},
     fs,
@@ -13,6 +18,7 @@ pub struct CheckedModule {
     path: PathBuf,
     source: SourceFile,
     graph: ModuleGraph,
+    type_result: Option<TypeCheckResult>,
 }
 
 impl CheckedModule {
@@ -26,6 +32,10 @@ impl CheckedModule {
 
     pub fn graph(&self) -> &ModuleGraph {
         &self.graph
+    }
+
+    pub fn type_result(&self) -> Option<&TypeCheckResult> {
+        self.type_result.as_ref()
     }
 }
 
@@ -63,6 +73,7 @@ struct ImportCheckRecord {
     local_name: String,
     imported_name: Option<String>,
     declaration: NodeId,
+    local_symbol: SymbolId,
 }
 
 #[derive(Debug, Clone)]
@@ -73,7 +84,14 @@ struct PathSegmentRecord {
 
 #[derive(Debug, Clone)]
 struct PathCheckRecord {
+    node: NodeId,
     segments: Vec<PathSegmentRecord>,
+}
+
+#[derive(Debug, Clone)]
+struct NamedTypeCheckRecord {
+    node: NodeId,
+    name: String,
 }
 
 #[derive(Debug, Default)]
@@ -90,6 +108,7 @@ impl ModuleLoader {
 
         self.load_module(path)?;
         self.validate_imports();
+        self.type_check_modules();
 
         Ok(())
     }
@@ -120,6 +139,7 @@ impl ModuleLoader {
             path: path.clone(),
             source,
             graph,
+            type_result: None,
         });
         self.module_by_path.insert(path.clone(), module_index);
 
@@ -265,8 +285,344 @@ impl ModuleLoader {
                 local_name: import.local_name().to_string(),
                 imported_name: import.imported_name().map(str::to_string),
                 declaration: import.declaration(),
+                local_symbol: import.local_symbol(),
             })
             .collect()
+    }
+
+    pub(crate) fn type_check_modules(&mut self) {
+        let baseline_results = self
+            .modules
+            .iter()
+            .map(|module| check_declaration_types(module.source(), module.graph()))
+            .collect::<Vec<_>>();
+
+        let surfaces = self
+            .modules
+            .iter()
+            .zip(baseline_results.iter())
+            .map(|(module, result)| build_module_surface(module.graph(), result))
+            .collect::<Vec<_>>();
+
+        let imported_types = (0..self.modules.len())
+            .map(|module_index| self.imported_surface_types_for_module(module_index, &surfaces))
+            .collect::<Vec<_>>();
+
+        for module_index in 0..self.modules.len() {
+            let result = check_declaration_types_with_surfaces(
+                self.modules[module_index].source(),
+                self.modules[module_index].graph(),
+                &imported_types[module_index],
+            );
+
+            self.diagnostics
+                .extend(result.diagnostics().iter().cloned());
+            self.modules[module_index].type_result = Some(result);
+        }
+    }
+
+    fn imported_surface_types_for_module(
+        &self,
+        module_index: usize,
+        surfaces: &[ModuleSurface],
+    ) -> ImportedSurfaceTypes {
+        let mut imported_types = ImportedSurfaceTypes::new();
+
+        for import in self.module_imports(module_index) {
+            if import.kind != ImportKind::Named || !is_relative_import(import.source.as_str()) {
+                continue;
+            }
+
+            let path =
+                resolve_relative_import(self.modules[module_index].path(), import.source.as_str());
+
+            let Ok(path) = normalize_existing_path(path.as_path()) else {
+                continue;
+            };
+
+            let Some(target_index) = self.module_by_path.get(path.as_path()).copied() else {
+                continue;
+            };
+
+            let Some(imported_name) = import.imported_name.as_deref() else {
+                continue;
+            };
+
+            let Some(imported_type) =
+                surfaces[target_index].imported_type_for_export(import.local_symbol, imported_name)
+            else {
+                if let Some(imported_constraint) =
+                    surfaces[target_index].imported_constraint_for_export(imported_name)
+                {
+                    imported_types
+                        .insert_symbol_constraint(import.local_symbol, imported_constraint);
+                }
+
+                continue;
+            };
+
+            imported_types.insert_symbol_type(import.local_symbol, imported_type);
+
+            if let Some(imported_constraint) =
+                surfaces[target_index].imported_constraint_for_export(imported_name)
+            {
+                imported_types.insert_symbol_constraint(import.local_symbol, imported_constraint);
+            }
+
+            if let Some(imported_choice) =
+                surfaces[target_index].imported_choice_for_export(imported_name)
+            {
+                imported_types.insert_symbol_choice(import.local_symbol, imported_choice);
+            }
+
+            imported_types.extend(imported_surface_types_for_named_export(
+                &surfaces[target_index],
+                import.local_symbol,
+                imported_name,
+            ));
+        }
+
+        self.collect_named_imported_type_types(module_index, surfaces, &mut imported_types);
+        self.collect_named_imported_path_types(module_index, surfaces, &mut imported_types);
+        self.collect_namespace_imported_path_types(module_index, surfaces, &mut imported_types);
+
+        imported_types
+    }
+
+    fn collect_named_imported_type_types(
+        &self,
+        module_index: usize,
+        surfaces: &[ModuleSurface],
+        imported_types: &mut ImportedSurfaceTypes,
+    ) {
+        let imports = self.module_imports(module_index);
+        let named_imports = imports
+            .iter()
+            .filter(|import| {
+                import.kind == ImportKind::Named && is_relative_import(import.source.as_str())
+            })
+            .collect::<Vec<_>>();
+
+        if named_imports.is_empty() {
+            return;
+        }
+
+        for named_type in self.named_type_records(module_index) {
+            let Some(import) = named_imports
+                .iter()
+                .find(|import| import.local_name == named_type.name)
+            else {
+                continue;
+            };
+
+            let Some(imported_name) = import.imported_name.as_deref() else {
+                continue;
+            };
+
+            let target_path =
+                resolve_relative_import(self.modules[module_index].path(), import.source.as_str());
+
+            let Ok(target_path) = normalize_existing_path(target_path.as_path()) else {
+                continue;
+            };
+
+            let Some(target_index) = self.module_by_path.get(target_path.as_path()).copied() else {
+                continue;
+            };
+
+            let Some(imported_type) =
+                surfaces[target_index].imported_type_for_export(import.local_symbol, imported_name)
+            else {
+                continue;
+            };
+
+            imported_types.insert_path_type(named_type.node, imported_type);
+        }
+    }
+
+    fn collect_named_imported_path_types(
+        &self,
+        module_index: usize,
+        surfaces: &[ModuleSurface],
+        imported_types: &mut ImportedSurfaceTypes,
+    ) {
+        let imports = self.module_imports(module_index);
+        let named_imports = imports
+            .iter()
+            .filter(|import| {
+                import.kind == ImportKind::Named && is_relative_import(import.source.as_str())
+            })
+            .collect::<Vec<_>>();
+
+        if named_imports.is_empty() {
+            return;
+        }
+
+        for path in self.path_records(module_index) {
+            let Some(root_segment) = path.segments.first() else {
+                continue;
+            };
+
+            let Some(import) = named_imports
+                .iter()
+                .find(|import| import.local_name == root_segment.name)
+            else {
+                continue;
+            };
+
+            let Some(imported_name) = import.imported_name.as_deref() else {
+                continue;
+            };
+
+            let target_path =
+                resolve_relative_import(self.modules[module_index].path(), import.source.as_str());
+
+            let Ok(target_path) = normalize_existing_path(target_path.as_path()) else {
+                continue;
+            };
+
+            let Some(target_index) = self.module_by_path.get(target_path.as_path()).copied() else {
+                continue;
+            };
+
+            let member_name = path.segments[1..]
+                .iter()
+                .map(|segment| segment.name.as_str())
+                .collect::<Vec<_>>()
+                .join("::");
+
+            let Some(imported_type) = surfaces[target_index]
+                .imported_member_path_type_for_named_export(
+                    import.local_symbol,
+                    imported_name,
+                    &member_name,
+                )
+            else {
+                continue;
+            };
+
+            imported_types.insert_path_type(path.node, imported_type);
+        }
+    }
+
+    fn collect_namespace_imported_path_types(
+        &self,
+        module_index: usize,
+        surfaces: &[ModuleSurface],
+        imported_types: &mut ImportedSurfaceTypes,
+    ) {
+        let imports = self.module_imports(module_index);
+        let namespace_imports = imports
+            .iter()
+            .filter(|import| {
+                import.kind == ImportKind::Namespace && is_relative_import(import.source.as_str())
+            })
+            .collect::<Vec<_>>();
+
+        if namespace_imports.is_empty() {
+            return;
+        }
+
+        for path in self.path_records(module_index) {
+            let Some(root_segment) = path.segments.first() else {
+                continue;
+            };
+
+            let Some(import) = namespace_imports
+                .iter()
+                .find(|import| import.local_name == root_segment.name)
+            else {
+                continue;
+            };
+
+            let target_path =
+                resolve_relative_import(self.modules[module_index].path(), import.source.as_str());
+
+            let Ok(target_path) = normalize_existing_path(target_path.as_path()) else {
+                continue;
+            };
+
+            let Some(target_index) = self.module_by_path.get(target_path.as_path()).copied() else {
+                continue;
+            };
+
+            imported_types.extend(imported_surface_types_for_namespace(
+                &surfaces[target_index],
+                import.local_symbol,
+            ));
+
+            let exported_name = path.segments[1..]
+                .iter()
+                .map(|segment| segment.name.as_str())
+                .collect::<Vec<_>>()
+                .join("::");
+
+            let Some(imported_type) = surfaces[target_index]
+                .imported_path_type_for_export(import.local_symbol, &exported_name)
+            else {
+                if let Some(imported_constraint) =
+                    surfaces[target_index].imported_constraint_for_export(exported_name.as_str())
+                {
+                    imported_types.insert_path_constraint(path.node, imported_constraint);
+                }
+
+                continue;
+            };
+
+            imported_types.insert_path_type(path.node, imported_type);
+
+            if let Some(imported_constraint) =
+                surfaces[target_index].imported_constraint_for_export(exported_name.as_str())
+            {
+                imported_types.insert_path_constraint(path.node, imported_constraint);
+            }
+
+            if let Some(imported_choice) =
+                surfaces[target_index].imported_choice_for_export(exported_name.as_str())
+            {
+                imported_types.insert_path_choice(path.node, imported_choice);
+            }
+        }
+    }
+
+    fn named_type_records(&self, module_index: usize) -> Vec<NamedTypeCheckRecord> {
+        let mut records = Vec::new();
+
+        let Some(root) = self.modules[module_index].graph().syntax().root() else {
+            return records;
+        };
+
+        self.collect_named_type_records(module_index, root, &mut records);
+
+        records
+    }
+
+    fn collect_named_type_records(
+        &self,
+        module_index: usize,
+        node: NodeId,
+        records: &mut Vec<NamedTypeCheckRecord>,
+    ) {
+        let syntax = self.modules[module_index].graph().syntax();
+
+        let Some(syntax_node) = syntax.node(node) else {
+            return;
+        };
+
+        if syntax_node.kind() == SyntaxNodeKind::NamedType {
+            if let Some(identifier) = syntax.first_child_of_kind(node, SyntaxNodeKind::Identifier) {
+                records.push(NamedTypeCheckRecord {
+                    node,
+                    name: self.node_text(module_index, identifier),
+                });
+            }
+
+            return;
+        }
+
+        for child in syntax_node.children() {
+            self.collect_named_type_records(module_index, *child, records);
+        }
     }
 
     fn path_records(&self, module_index: usize) -> Vec<PathCheckRecord> {
@@ -298,7 +654,7 @@ impl ModuleLoader {
                 let segments = self.path_expression_segments(module_index, node);
 
                 if segments.len() >= 2 {
-                    records.push(PathCheckRecord { segments });
+                    records.push(PathCheckRecord { node, segments });
                 }
 
                 return;
@@ -308,7 +664,7 @@ impl ModuleLoader {
                 let segments = self.type_path_segments(module_index, node);
 
                 if segments.len() >= 2 {
-                    records.push(PathCheckRecord { segments });
+                    records.push(PathCheckRecord { node, segments });
                 }
 
                 return;
@@ -462,10 +818,7 @@ impl ModuleLoader {
                     .collect::<Vec<_>>()
                     .join("::");
 
-                if target_resolution
-                    .export_by_name(exported_name.as_str())
-                    .is_some()
-                {
+                if self.target_exports_path(target_resolution, exported_name.as_str()) {
                     continue;
                 }
 
@@ -486,6 +839,32 @@ impl ModuleLoader {
                 ));
             }
         }
+    }
+
+    fn target_exports_path(&self, resolution: &ResolutionLayer, exported_name: &str) -> bool {
+        if resolution.export_by_name(exported_name).is_some() {
+            return true;
+        }
+
+        let Some((owner_name, member_name)) = exported_name.rsplit_once("::") else {
+            return false;
+        };
+
+        let Some(owner) = resolution
+            .export_by_name(owner_name)
+            .and_then(|export| resolution.export_record(export))
+        else {
+            return false;
+        };
+
+        let Some(member_scope) = resolution.member_scope(owner.symbol()) else {
+            return false;
+        };
+
+        resolution
+            .scope(member_scope)
+            .and_then(|scope| scope.symbol(member_name))
+            .is_some()
     }
 }
 

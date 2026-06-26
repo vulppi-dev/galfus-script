@@ -88,6 +88,11 @@ Each module has a module-local semantic graph. Galfus does not rely on one globa
 
 Cross-module relationships are represented through import and export surfaces.
 
+The frontend owns local parsing, resolution, type checking, semantic validation,
+ownership metadata, export surface generation, and imported surface consumption.
+The runner owns workspace graph construction and decides which local or future
+artifact surfaces are connected to each frontend module.
+
 ### Private symbols
 
 Top-level symbols that are not exported are private to the module.
@@ -415,13 +420,11 @@ var value = values[10] // T | null
 
 ### Array spread
 
-Array spread inserts array elements into another array literal or into a call argument list:
+Array spread inserts array elements into another array literal:
 
 ```galfus
 var a = [1, 2]
 var b = [0, ...a, 3]
-
-call(...a)
 ```
 
 ### Raw byte arrays and text
@@ -486,7 +489,7 @@ struct User {
   age: int32 = 0,
 }
 
-var user = User {
+var user = new(User) {
   name: "Ana",
 }
 ```
@@ -507,7 +510,7 @@ struct User {
 A struct literal must be compatible with the expected struct type.
 
 ```galfus
-var user = User {
+var user = new(User) {
   id: 1,
   name: "Ana",
 }
@@ -518,7 +521,7 @@ var user = User {
 An inferred struct literal depends on an expected type:
 
 ```galfus
-struct {
+new {
   id: 1,
   name: "Ana",
 }
@@ -544,7 +547,7 @@ It does not create class inheritance.
 Struct literal spread copies the visible field surface from an existing value into a new literal:
 
 ```galfus
-var user2 = User {
+var user2 = new(User) {
   ...user,
   name: "Bia",
 }
@@ -807,10 +810,10 @@ A bare `return` is valid only when the function return type is `null`.
 
 ## 17. Stamped functions
 
-A stamped function is declared with `stamp fn`:
+A stamped function is declared with `fn(stamp)`:
 
 ```galfus
-stamp fn max(a: int32, b: int32): int32 {
+fn(stamp) max(a: int32, b: int32): int32 {
   if a > b {
     return a
   }
@@ -825,14 +828,14 @@ Stamped functions are intended for small compile-time/lowering-time call expansi
 
 Restrictions:
 
-- no recursion;
+- no direct or indirect recursion through other stamped functions;
 - the body must be lowerable inline;
 - the body must not require a dynamic call frame;
 - any additional restriction may be enforced by the semantic checker to preserve predictable lowering.
 
 ---
 
-## 18. Default, rest, and spread parameters
+## 18. Default and rest parameters
 
 ### Default parameters
 
@@ -867,13 +870,8 @@ fn summarize(...values: [int32]): int32 {
 }
 ```
 
-### Argument spread
-
-Argument spread expands a sequence into arguments:
-
-```galfus
-summarize(...values)
-```
+Call arguments do not support spread syntax. A rest parameter receives each
+provided positional argument as one element.
 
 ---
 
@@ -931,7 +929,7 @@ The assignment is explicit.
 Stamped anchor functions are allowed for structs when their bodies satisfy stamped function restrictions:
 
 ```galfus
-stamp fn Vec2::lengthSq(self: Vec2): float32 {
+fn(stamp) Vec2::lengthSq(self: Vec2): float32 {
   return self.x * self.x + self.y * self.y
 }
 ```
@@ -1253,6 +1251,16 @@ struct Node {
 
 A weak field may observe `null` when the target is no longer alive.
 
+Because weak observers can decay to `null`, a weak field type must be nullable:
+
+```galfus
+struct Node {
+  weak parent: Node | null,
+}
+```
+
+The frontend records weak field metadata for later ownership validation and lowering.
+
 ---
 
 ## 30. Module initialization and cycles
@@ -1309,6 +1317,10 @@ Behavior such as collection helpers, rich text operations, regexp matching, form
 The semantic layer produces compact lowering decisions for `.gfb` generation.
 
 The `.gfb` contains only the minimum required for execution and integrity.
+
+Module export/import surfaces are frontend validation artifacts. They may inform
+lowering, but workspace graph state and source-level frontend data are not part
+of the release `.gfb`.
 
 The `.gfm` contains data for:
 

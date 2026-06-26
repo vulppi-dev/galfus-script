@@ -62,6 +62,7 @@ pub enum TokenKind {
     Null,
     True,
     False,
+    New,
     Copy,
     Stamp,
 
@@ -74,11 +75,12 @@ pub enum TokenKind {
     RightBracket, // ]
 
     // Punctuation
-    Comma,     // ,
-    Dot,       // .
-    Colon,     // :
-    Semicolon, // ;
-    At,        // @
+    Comma,      // ,
+    Dot,        // .
+    Colon,      // :
+    Semicolon,  // ;
+    At,         // @
+    Underscore, // _
 
     // Operators
     Plus,     // +

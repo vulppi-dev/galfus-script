@@ -2,6 +2,7 @@ use galfus_core::DiagnosticCodeKind;
 
 use crate::{CheckDiagnosticCode, check::check_path};
 use anyhow::Result;
+use galfus_frontend::TypeDiagnosticCode;
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -92,6 +93,497 @@ fn check_path_accepts_named_import_from_exported_symbol() -> Result<()> {
     let result = check_path(main.as_path())?;
 
     assert!(!result.has_errors());
+
+    fs::remove_dir_all(root)?;
+
+    Ok(())
+}
+
+#[test]
+fn check_path_typechecks_named_imported_function_call() -> Result<()> {
+    let root = temp_project()?;
+    let main = write_file(
+        root.as_path(),
+        "main.gfs",
+        r#"
+        import { add } from "./math"
+
+        var value: int32 = add(true, 2)
+
+        fn main(): null {
+            return
+        }
+        "#,
+    )?;
+
+    write_file(
+        root.as_path(),
+        "math.gfs",
+        r#"
+        export fn add(a: int32, b: int32): int32 {
+            return a
+        }
+        "#,
+    )?;
+
+    let result = check_path(main.as_path())?;
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::TypeMismatch.as_code()
+            && diagnostic
+                .message()
+                .contains("expected `int32`, got `bool`")
+    }));
+
+    fs::remove_dir_all(root)?;
+
+    Ok(())
+}
+
+#[test]
+fn check_path_accepts_named_imported_function_call() -> Result<()> {
+    let root = temp_project()?;
+    let main = write_file(
+        root.as_path(),
+        "main.gfs",
+        r#"
+        import { add } from "./math"
+
+        var value: int32 = add(1, 2)
+
+        fn main(): null {
+            return
+        }
+        "#,
+    )?;
+
+    write_file(
+        root.as_path(),
+        "math.gfs",
+        r#"
+        export fn add(a: int32, b: int32): int32 {
+            return a
+        }
+        "#,
+    )?;
+
+    let result = check_path(main.as_path())?;
+
+    assert!(!result.has_errors());
+    assert!(
+        result
+            .modules()
+            .iter()
+            .all(|module| module.type_result().is_some())
+    );
+
+    fs::remove_dir_all(root)?;
+
+    Ok(())
+}
+
+#[test]
+fn check_path_typechecks_named_imported_struct_field_access() -> Result<()> {
+    let root = temp_project()?;
+    let main = write_file(
+        root.as_path(),
+        "main.gfs",
+        r#"
+        import { User } from "./user"
+
+        fn read(value: User): int64 {
+            return value.id
+        }
+
+        fn main(): null {
+            return
+        }
+        "#,
+    )?;
+
+    write_file(
+        root.as_path(),
+        "user.gfs",
+        r#"
+        export struct User {
+            id: int64,
+        }
+        "#,
+    )?;
+
+    let result = check_path(main.as_path())?;
+
+    assert!(!result.has_errors());
+
+    fs::remove_dir_all(root)?;
+
+    Ok(())
+}
+
+#[test]
+fn check_path_typechecks_named_imported_enum_variant() -> Result<()> {
+    let root = temp_project()?;
+    let main = write_file(
+        root.as_path(),
+        "main.gfs",
+        r#"
+        import { Status } from "./status"
+
+        var current: Status = Status::Ready
+
+        fn main(): null {
+            return
+        }
+        "#,
+    )?;
+
+    write_file(
+        root.as_path(),
+        "status.gfs",
+        r#"
+        export enum Status {
+            Ready,
+            Done,
+        }
+        "#,
+    )?;
+
+    let result = check_path(main.as_path())?;
+
+    assert!(!result.has_errors());
+
+    fs::remove_dir_all(root)?;
+
+    Ok(())
+}
+
+#[test]
+fn check_path_typechecks_named_imported_choice_constructor() -> Result<()> {
+    let root = temp_project()?;
+    let main = write_file(
+        root.as_path(),
+        "main.gfs",
+        r#"
+        import { Result } from "./result"
+
+        var value: Result = Result::Ok(1)
+
+        fn main(): null {
+            return
+        }
+        "#,
+    )?;
+
+    write_file(
+        root.as_path(),
+        "result.gfs",
+        r#"
+        export choice Result {
+            Ok(int32),
+            Err([int8]),
+        }
+        "#,
+    )?;
+
+    let result = check_path(main.as_path())?;
+
+    assert!(!result.has_errors());
+
+    fs::remove_dir_all(root)?;
+
+    Ok(())
+}
+
+#[test]
+fn check_path_accepts_named_imported_choice_match() -> Result<()> {
+    let root = temp_project()?;
+    let main = write_file(
+        root.as_path(),
+        "main.gfs",
+        r#"
+        import { Result } from "./result"
+
+        fn unwrap(value: Result): int32 {
+            return match value {
+                Result::Ok(inner) => inner,
+                Result::Err(message) => 0,
+            }
+        }
+
+        fn main(): null {
+            return
+        }
+        "#,
+    )?;
+
+    write_file(
+        root.as_path(),
+        "result.gfs",
+        r#"
+        export choice Result {
+            Ok(int32),
+            Err([uint8]),
+        }
+        "#,
+    )?;
+
+    let result = check_path(main.as_path())?;
+
+    assert!(!result.has_errors());
+
+    fs::remove_dir_all(root)?;
+
+    Ok(())
+}
+
+#[test]
+fn check_path_reports_named_imported_choice_match_payload_mismatch() -> Result<()> {
+    let root = temp_project()?;
+    let main = write_file(
+        root.as_path(),
+        "main.gfs",
+        r#"
+        import { Result } from "./result"
+
+        fn unwrap(value: Result): int32 {
+            return match value {
+                Result::Ok(true) => 1,
+                Result::Err(message) => 0,
+            }
+        }
+
+        fn main(): null {
+            return
+        }
+        "#,
+    )?;
+
+    write_file(
+        root.as_path(),
+        "result.gfs",
+        r#"
+        export choice Result {
+            Ok(int32),
+            Err([uint8]),
+        }
+        "#,
+    )?;
+
+    let result = check_path(main.as_path())?;
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::InvalidMatchPatternType.as_code()
+            && diagnostic.message().contains("got `bool`")
+    }));
+
+    fs::remove_dir_all(root)?;
+
+    Ok(())
+}
+
+#[test]
+fn check_path_reports_named_imported_choice_match_non_exhaustive() -> Result<()> {
+    let root = temp_project()?;
+    let main = write_file(
+        root.as_path(),
+        "main.gfs",
+        r#"
+        import { Result } from "./result"
+
+        fn unwrap(value: Result): int32 {
+            return match value {
+                Result::Ok(inner) => inner,
+            }
+        }
+
+        fn main(): null {
+            return
+        }
+        "#,
+    )?;
+
+    write_file(
+        root.as_path(),
+        "result.gfs",
+        r#"
+        export choice Result {
+            Ok(int32),
+            Err([uint8]),
+        }
+        "#,
+    )?;
+
+    let result = check_path(main.as_path())?;
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::NonExhaustiveMatch.as_code()
+            && diagnostic.message().contains("missing `Err`")
+    }));
+
+    fs::remove_dir_all(root)?;
+
+    Ok(())
+}
+
+#[test]
+fn check_path_accepts_named_imported_constraint_application() -> Result<()> {
+    let root = temp_project()?;
+    let main = write_file(
+        root.as_path(),
+        "main.gfs",
+        r#"
+        import { Named } from "./contracts"
+
+        struct User satisfies Named {
+            name: [uint8],
+        }
+
+        fn main(): null {
+            return
+        }
+        "#,
+    )?;
+
+    write_file(
+        root.as_path(),
+        "contracts.gfs",
+        r#"
+        export constraint Named {
+            name: [uint8],
+        }
+        "#,
+    )?;
+
+    let result = check_path(main.as_path())?;
+
+    assert!(!result.has_errors());
+
+    fs::remove_dir_all(root)?;
+
+    Ok(())
+}
+
+#[test]
+fn check_path_reports_named_imported_constraint_missing_field() -> Result<()> {
+    let root = temp_project()?;
+    let main = write_file(
+        root.as_path(),
+        "main.gfs",
+        r#"
+        import { Named } from "./contracts"
+
+        struct User satisfies Named {
+            id: int64,
+        }
+
+        fn main(): null {
+            return
+        }
+        "#,
+    )?;
+
+    write_file(
+        root.as_path(),
+        "contracts.gfs",
+        r#"
+        export constraint Named {
+            name: [uint8],
+        }
+        "#,
+    )?;
+
+    let result = check_path(main.as_path())?;
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::MissingConstraintField.as_code()
+            && diagnostic.message().contains("missing field `name`")
+    }));
+
+    fs::remove_dir_all(root)?;
+
+    Ok(())
+}
+
+#[test]
+fn check_path_typechecks_named_imported_alias() -> Result<()> {
+    let root = temp_project()?;
+    let main = write_file(
+        root.as_path(),
+        "main.gfs",
+        r#"
+        import { UserId } from "./ids"
+
+        var id: UserId = true
+
+        fn main(): null {
+            return
+        }
+        "#,
+    )?;
+
+    write_file(
+        root.as_path(),
+        "ids.gfs",
+        r#"
+        export type UserId = int32
+        "#,
+    )?;
+
+    let result = check_path(main.as_path())?;
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::TypeMismatch.as_code()
+            && diagnostic
+                .message()
+                .contains("expected `int32`, got `bool`")
+    }));
+
+    fs::remove_dir_all(root)?;
+
+    Ok(())
+}
+
+#[test]
+fn check_path_reports_named_imported_struct_unknown_field() -> Result<()> {
+    let root = temp_project()?;
+    let main = write_file(
+        root.as_path(),
+        "main.gfs",
+        r#"
+        import { User } from "./user"
+
+        fn read(value: User): int64 {
+            return value.missing
+        }
+
+        fn main(): null {
+            return
+        }
+        "#,
+    )?;
+
+    write_file(
+        root.as_path(),
+        "user.gfs",
+        r#"
+        export struct User {
+            id: int64,
+        }
+        "#,
+    )?;
+
+    let result = check_path(main.as_path())?;
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::UnknownMember.as_code()
+            && diagnostic.message().contains("has no member `missing`")
+    }));
 
     fs::remove_dir_all(root)?;
 
@@ -233,6 +725,48 @@ export fn create(): null {
 }
 
 #[test]
+fn check_path_typechecks_namespace_imported_function_call() -> Result<()> {
+    let root = temp_project()?;
+    let main = write_file(
+        root.as_path(),
+        "main.gfs",
+        r#"
+        import math from "./math"
+
+        var value: int32 = math::add(true, 2)
+
+        fn main(): null {
+            return
+        }
+        "#,
+    )?;
+
+    write_file(
+        root.as_path(),
+        "math.gfs",
+        r#"
+        export fn add(a: int32, b: int32): int32 {
+            return a
+        }
+        "#,
+    )?;
+
+    let result = check_path(main.as_path())?;
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::TypeMismatch.as_code()
+            && diagnostic
+                .message()
+                .contains("expected `int32`, got `bool`")
+    }));
+
+    fs::remove_dir_all(root)?;
+
+    Ok(())
+}
+
+#[test]
 fn check_path_reports_namespace_import_from_private_function() -> Result<()> {
     let root = temp_project()?;
 
@@ -303,6 +837,355 @@ export struct User {
     assert_eq!(result.modules().len(), 2);
 
     fs::remove_dir_all(root)?;
+    Ok(())
+}
+
+#[test]
+fn check_path_typechecks_namespace_imported_type_path() -> Result<()> {
+    let root = temp_project()?;
+    let main = write_file(
+        root.as_path(),
+        "main.gfs",
+        r#"
+        import user from "./user"
+
+        fn identity(value: user::User): user::User {
+            return value
+        }
+
+        fn main(): null {
+            return
+        }
+        "#,
+    )?;
+
+    write_file(
+        root.as_path(),
+        "user.gfs",
+        r#"
+        export struct User {
+            id: int64,
+        }
+        "#,
+    )?;
+
+    let result = check_path(main.as_path())?;
+
+    assert!(!result.has_errors());
+
+    fs::remove_dir_all(root)?;
+
+    Ok(())
+}
+
+#[test]
+fn check_path_typechecks_namespace_imported_struct_field_access() -> Result<()> {
+    let root = temp_project()?;
+    let main = write_file(
+        root.as_path(),
+        "main.gfs",
+        r#"
+        import user from "./user"
+
+        fn read(value: user::User): int64 {
+            return value.id
+        }
+
+        fn main(): null {
+            return
+        }
+        "#,
+    )?;
+
+    write_file(
+        root.as_path(),
+        "user.gfs",
+        r#"
+        export struct User {
+            id: int64,
+        }
+        "#,
+    )?;
+
+    let result = check_path(main.as_path())?;
+
+    assert!(!result.has_errors());
+
+    fs::remove_dir_all(root)?;
+
+    Ok(())
+}
+
+#[test]
+fn check_path_typechecks_namespace_imported_enum_variant() -> Result<()> {
+    let root = temp_project()?;
+    let main = write_file(
+        root.as_path(),
+        "main.gfs",
+        r#"
+        import status from "./status"
+
+        var current: status::Status = status::Status::Ready
+
+        fn main(): null {
+            return
+        }
+        "#,
+    )?;
+
+    write_file(
+        root.as_path(),
+        "status.gfs",
+        r#"
+        export enum Status {
+            Ready,
+            Done,
+        }
+        "#,
+    )?;
+
+    let result = check_path(main.as_path())?;
+
+    assert!(!result.has_errors());
+
+    fs::remove_dir_all(root)?;
+
+    Ok(())
+}
+
+#[test]
+fn check_path_typechecks_namespace_imported_choice_constructor() -> Result<()> {
+    let root = temp_project()?;
+    let main = write_file(
+        root.as_path(),
+        "main.gfs",
+        r#"
+        import result from "./result"
+
+        var value: result::Result = result::Result::Ok(1)
+
+        fn main(): null {
+            return
+        }
+        "#,
+    )?;
+
+    write_file(
+        root.as_path(),
+        "result.gfs",
+        r#"
+        export choice Result {
+            Ok(int32),
+            Err([int8]),
+        }
+        "#,
+    )?;
+
+    let result = check_path(main.as_path())?;
+
+    assert!(!result.has_errors());
+
+    fs::remove_dir_all(root)?;
+
+    Ok(())
+}
+
+#[test]
+fn check_path_typechecks_namespace_imported_alias() -> Result<()> {
+    let root = temp_project()?;
+    let main = write_file(
+        root.as_path(),
+        "main.gfs",
+        r#"
+        import ids from "./ids"
+
+        var id: ids::UserId = 1
+
+        fn main(): null {
+            return
+        }
+        "#,
+    )?;
+
+    write_file(
+        root.as_path(),
+        "ids.gfs",
+        r#"
+        export type UserId = int32
+        "#,
+    )?;
+
+    let result = check_path(main.as_path())?;
+
+    assert!(!result.has_errors());
+
+    fs::remove_dir_all(root)?;
+
+    Ok(())
+}
+
+#[test]
+fn check_path_typechecks_namespace_imported_function_stamp() -> Result<()> {
+    let root = temp_project()?;
+    let main = write_file(
+        root.as_path(),
+        "main.gfs",
+        r#"
+        import math from "./math"
+
+        var value: int32 = math::make(1)
+
+        fn main(): null {
+            return
+        }
+        "#,
+    )?;
+
+    write_file(
+        root.as_path(),
+        "math.gfs",
+        r#"
+        export fn(stamp) make(value: int32): int32 {
+            return value
+        }
+        "#,
+    )?;
+
+    let result = check_path(main.as_path())?;
+
+    assert!(!result.has_errors());
+
+    fs::remove_dir_all(root)?;
+
+    Ok(())
+}
+
+#[test]
+fn check_path_typechecks_namespace_imported_anchor_function() -> Result<()> {
+    let root = temp_project()?;
+    let main = write_file(
+        root.as_path(),
+        "main.gfs",
+        r#"
+        import user from "./user"
+
+        fn rename(value: user::User): user::User {
+            return user::User::rename(value, "ada")
+        }
+
+        fn main(): null {
+            return
+        }
+        "#,
+    )?;
+
+    write_file(
+        root.as_path(),
+        "user.gfs",
+        r#"
+        export struct User {
+            name: [int8],
+        }
+
+        export fn User::rename(self: User, name: [int8]): User {
+            return self
+        }
+        "#,
+    )?;
+
+    let result = check_path(main.as_path())?;
+
+    assert!(!result.has_errors());
+
+    fs::remove_dir_all(root)?;
+
+    Ok(())
+}
+
+#[test]
+fn check_path_accepts_namespace_imported_constraint_application() -> Result<()> {
+    let root = temp_project()?;
+    let main = write_file(
+        root.as_path(),
+        "main.gfs",
+        r#"
+        import contracts from "./contracts"
+
+        struct User satisfies contracts::Named {
+            name: [uint8],
+        }
+
+        fn User::label(): [uint8] {
+            return "Ana"
+        }
+
+        fn main(): null {
+            return
+        }
+        "#,
+    )?;
+
+    write_file(
+        root.as_path(),
+        "contracts.gfs",
+        r#"
+        export constraint Named {
+            name: [uint8],
+            fn label(): [uint8],
+        }
+        "#,
+    )?;
+
+    let result = check_path(main.as_path())?;
+
+    assert!(!result.has_errors());
+
+    fs::remove_dir_all(root)?;
+
+    Ok(())
+}
+
+#[test]
+fn check_path_reports_namespace_imported_constraint_generic_argument_count() -> Result<()> {
+    let root = temp_project()?;
+    let main = write_file(
+        root.as_path(),
+        "main.gfs",
+        r#"
+        import contracts from "./contracts"
+
+        struct User satisfies contracts::Boxed {
+            value: int64,
+        }
+
+        fn main(): null {
+            return
+        }
+        "#,
+    )?;
+
+    write_file(
+        root.as_path(),
+        "contracts.gfs",
+        r#"
+        export constraint Boxed<T> {
+        }
+        "#,
+    )?;
+
+    let result = check_path(main.as_path())?;
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str()
+            == TypeDiagnosticCode::ConstraintGenericArgumentCountMismatch.as_code()
+            && diagnostic
+                .message()
+                .contains("constraint `Boxed` expects 1 generic argument")
+    }));
+
+    fs::remove_dir_all(root)?;
+
     Ok(())
 }
 

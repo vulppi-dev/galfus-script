@@ -10,27 +10,6 @@ fn source(text: &str) -> SourceFile {
     )
 }
 
-fn lower_source(text: &str) -> TypeLoweringResult {
-    let source = source(text);
-    let parse_result = parse(&source);
-
-    assert!(
-        !parse_result.has_errors(),
-        "{:?}",
-        parse_result.diagnostics()
-    );
-
-    let resolve_result = resolve(&source, parse_result.into_graph());
-
-    assert!(
-        !resolve_result.has_errors(),
-        "{:?}",
-        resolve_result.diagnostics()
-    );
-
-    lower_types(&source, resolve_result.graph())
-}
-
 fn find_node_by_kind_and_text(
     source: &SourceFile,
     graph: &ModuleGraph,

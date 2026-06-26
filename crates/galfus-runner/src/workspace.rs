@@ -168,6 +168,7 @@ pub(crate) fn check_workspace(root: impl AsRef<Path>) -> Result<WorkspaceCheckRe
     }
 
     loader.validate_imports();
+    loader.type_check_modules();
 
     let graph = WorkspaceGraph::from_workspace_config(&config, loader.modules.as_slice())?;
 

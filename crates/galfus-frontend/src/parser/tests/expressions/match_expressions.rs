@@ -195,7 +195,7 @@ fn parse_match_expression_with_literal_patterns() {
 #[test]
 fn parse_match_subject_allows_struct_literal_inside_call_argument() {
     let source = source(
-        "fn main(): null {\n  match normalize(User { name }) {\n    other => {\n      print(other)\n    }\n  }\n  return\n}",
+        "fn main(): null {\n  match normalize(new(User) { name }) {\n    other => {\n      print(other)\n    }\n  }\n  return\n}",
     );
 
     let result = parse(&source);
@@ -213,7 +213,7 @@ fn parse_match_subject_allows_struct_literal_inside_call_argument() {
     assert_eq!(subject_node.kind(), SyntaxNodeKind::CallExpression);
     assert_eq!(
         source.slice(subject_node.span()),
-        Some("normalize(User { name })")
+        Some("normalize(new(User) { name })")
     );
 }
 
@@ -246,7 +246,7 @@ fn parse_match_subject_identifier_does_not_become_struct_literal() {
 }
 
 #[test]
-fn parse_match_expression_with_underscore_binding_pattern() {
+fn parse_match_expression_with_wildcard_pattern() {
     let source = source(
         "fn main(): null {\n  match value {\n    _ => {\n      print(\"fallback\")\n    }\n  }\n  return\n}",
     );
@@ -267,15 +267,9 @@ fn parse_match_expression_with_underscore_binding_pattern() {
     let pattern = arm_node.first_child().unwrap();
     let pattern_node = syntax.node(pattern).unwrap();
 
-    assert_eq!(pattern_node.kind(), SyntaxNodeKind::BindingPattern);
+    assert_eq!(pattern_node.kind(), SyntaxNodeKind::WildcardPattern);
     assert_eq!(source.slice(pattern_node.span()), Some("_"));
-
-    let identifier = pattern_node.first_child().unwrap();
-
-    assert_eq!(
-        source.slice(syntax.node(identifier).unwrap().span()),
-        Some("_")
-    );
+    assert_eq!(pattern_node.child_count(), 0);
 }
 
 #[test]

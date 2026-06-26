@@ -109,16 +109,14 @@ impl Parser {
 
         if !self.expression_can_be_statement(expression) {
             let expression_kind = self
-                .graph
-                .syntax()
-                .node(expression)
-                .expect("expression node must exist")
-                .kind();
+                .node_kind(expression)
+                .map(|kind| format!("{kind:?}"))
+                .unwrap_or_else(|| "<missing>".to_string());
 
             self.graph.push_diagnostic(Diagnostic::error_with_message(
                 ParserDiagnosticCode::ExpectedStatement,
                 format!(
-                    "expected call expression statement, found `{:?}`",
+                    "expected call expression statement, found `{}`",
                     expression_kind
                 ),
                 span,
@@ -189,15 +187,13 @@ impl Parser {
 
         if !self.expression_can_be_assignment_target(target) {
             let target_kind = self
-                .graph
-                .syntax()
-                .node(target)
-                .expect("target expression node must exist")
-                .kind();
+                .node_kind(target)
+                .map(|kind| format!("{kind:?}"))
+                .unwrap_or_else(|| "<missing>".to_string());
 
             self.graph.push_diagnostic(Diagnostic::error_with_message(
                 ParserDiagnosticCode::ExpectedStatement,
-                format!("invalid assignment target `{:?}`", target_kind),
+                format!("invalid assignment target `{target_kind}`"),
                 target_span,
             ));
         }

@@ -225,7 +225,7 @@ fn parse_parameter_list_accepts_multiline_trailing_comma() {
 fn parse_stamp_function_item() {
     let source = source(
         r#"
-        stamp fn max(a: int32, b: int32): int32 {
+        fn(stamp) max(a: int32, b: int32): int32 {
             return a
         }
         "#,
@@ -247,7 +247,7 @@ fn parse_stamp_function_item() {
 fn parse_export_stamp_function_item() {
     let source = source(
         r#"
-        export stamp fn min(a: int32, b: int32): int32 {
+        export fn(stamp) min(a: int32, b: int32): int32 {
             return a
         }
         "#,

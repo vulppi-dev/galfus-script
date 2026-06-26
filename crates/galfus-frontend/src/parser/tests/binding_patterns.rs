@@ -220,3 +220,44 @@ fn parse_block_destructuring_binding() {
         SyntaxNodeKind::BindingPattern
     );
 }
+
+#[test]
+fn parse_wildcard_binding_pattern() {
+    let source = source("var _ = value");
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+    let root = syntax.root().unwrap();
+    let var_item = syntax.first_child(root).unwrap();
+    let wildcard = syntax.child(var_item, 0).unwrap();
+
+    assert_eq!(
+        syntax.node(wildcard).unwrap().kind(),
+        SyntaxNodeKind::WildcardPattern
+    );
+}
+
+#[test]
+fn parse_match_wildcard_pattern() {
+    let source = source(
+        r#"
+fn code(value: int32): int32 {
+  return match value {
+    _ => 0,
+  }
+}
+"#,
+    );
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+    let root = syntax.root().unwrap();
+
+    assert!(find_first_of_kind(syntax, root, SyntaxNodeKind::WildcardPattern).is_some());
+}

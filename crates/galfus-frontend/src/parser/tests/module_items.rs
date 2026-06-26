@@ -213,6 +213,29 @@ fn parse_named_import_list() {
 }
 
 #[test]
+fn parse_named_import_list_recovers_missing_comma() {
+    let source = source("import { sin cos } from \"std/math\"");
+
+    let result = parse(&source);
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == "P0001"
+            && diagnostic.message() == "expected `Comma`, found `Identifier`"
+    }));
+
+    let syntax = result.graph().syntax();
+    let root = syntax.root().unwrap();
+    let import = syntax.node(root).unwrap().first_child().unwrap();
+    let import_node = syntax.node(import).unwrap();
+    let clause = import_node.first_child().unwrap();
+    let clause_node = syntax.node(clause).unwrap();
+
+    assert_eq!(clause_node.kind(), SyntaxNodeKind::NamedImportList);
+    assert_eq!(clause_node.child_count(), 2);
+}
+
+#[test]
 fn parse_named_import_alias() {
     let source = source("import { sin as sine, cos } from \"std/math\"");
 

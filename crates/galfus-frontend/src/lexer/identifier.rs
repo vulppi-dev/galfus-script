@@ -3,6 +3,8 @@ use super::*;
 impl Lexer<'_> {
     pub(super) fn keyword_kind(text: &str) -> Option<TokenKind> {
         let kind = match text {
+            "_" => TokenKind::Underscore,
+
             "import" => TokenKind::Import,
             "from" => TokenKind::From,
             "export" => TokenKind::Export,
@@ -31,6 +33,7 @@ impl Lexer<'_> {
             "null" => TokenKind::Null,
             "true" => TokenKind::True,
             "false" => TokenKind::False,
+            "new" => TokenKind::New,
             "copy" => TokenKind::Copy,
             "stamp" => TokenKind::Stamp,
             _ => return None,

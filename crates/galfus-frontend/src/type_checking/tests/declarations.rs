@@ -1,49 +1,5 @@
 use super::*;
 
-use galfus_core::{DiagnosticCodeKind, SourceId};
-
-use crate::{TypeKind, parse, resolve};
-
-fn source(text: &str) -> SourceFile {
-    SourceFile::new(SourceId::new(0), "test.gfs".to_string(), text.to_string())
-}
-
-fn check_source(text: &str) -> (SourceFile, ModuleGraph, TypeCheckResult) {
-    let source = source(text);
-
-    let parse_result = parse(&source);
-    assert!(
-        !parse_result.has_errors(),
-        "{:?}",
-        parse_result.diagnostics()
-    );
-
-    let resolve_result = resolve(&source, parse_result.into_graph());
-    assert!(
-        !resolve_result.has_errors(),
-        "{:?}",
-        resolve_result.diagnostics()
-    );
-
-    let graph = resolve_result.into_graph();
-    let result = check_declaration_types(&source, &graph);
-
-    assert!(!result.has_errors(), "{:?}", result.diagnostics());
-
-    (source, graph, result)
-}
-
-fn symbol_by_name_and_kind(graph: &ModuleGraph, name: &str, kind: SymbolKind) -> SymbolId {
-    let resolution = graph.resolution().unwrap();
-
-    resolution
-        .symbols()
-        .iter()
-        .find(|symbol| symbol.name() == name && symbol.kind() == kind)
-        .map(|symbol| symbol.id())
-        .unwrap_or_else(|| panic!("missing symbol `{name}` of kind {kind:?}"))
-}
-
 #[test]
 fn check_binds_function_symbol_type() {
     let (_source, graph, result) = check_source(
@@ -204,98 +160,106 @@ struct User {
 }
 
 #[test]
-fn check_accepts_matching_var_initializer_type() {
-    let (_source, _graph, result) = check_source(
+fn check_binds_generic_parameter_symbol_type() {
+    let (_source, graph, result) = check_source(
         r#"
-var age: int32 = 10
+fn identity<T>(value: T): T {
+  return value
+}
 "#,
     );
 
-    assert!(!result.has_errors());
+    let generic = symbol_by_name_and_kind(&graph, "T", SymbolKind::GenericParameter);
+    let ty = result.layer().symbol_type(generic).unwrap();
+
+    assert_eq!(
+        result.layer().table().kind(ty),
+        Some(&TypeKind::GenericParameter { symbol: generic })
+    );
 }
 
 #[test]
-fn check_reports_var_initializer_type_mismatch() {
-    let source = source(
+fn check_binds_struct_destructuring_field_types() {
+    let (_source, graph, result) = check_source(
         r#"
-var age: int32 = true
+struct Point {
+  x: int32,
+  y: bool,
+}
+
+var { x, y } = new(Point) { x: 1, y: true }
 "#,
     );
 
-    let parse_result = parse(&source);
-    assert!(!parse_result.has_errors());
+    let x = symbol_by_name_and_kind(&graph, "x", SymbolKind::Var);
+    let y = symbol_by_name_and_kind(&graph, "y", SymbolKind::Var);
 
-    let resolve_result = resolve(&source, parse_result.into_graph());
-    assert!(!resolve_result.has_errors());
-
-    let graph = resolve_result.into_graph();
-    let result = check_declaration_types(&source, &graph);
-
-    assert!(result.has_errors());
-    assert!(result.diagnostics().iter().any(|diagnostic| {
-        diagnostic.code().as_str() == TypeDiagnosticCode::TypeMismatch.as_code()
-            && diagnostic
-                .message()
-                .contains("expected `int32`, got `bool`")
-    }));
+    assert_eq!(
+        result
+            .layer()
+            .table()
+            .kind(result.layer().symbol_type(x).unwrap()),
+        Some(&TypeKind::Primitive(PrimitiveType::Int32))
+    );
+    assert_eq!(
+        result
+            .layer()
+            .table()
+            .kind(result.layer().symbol_type(y).unwrap()),
+        Some(&TypeKind::Primitive(PrimitiveType::Bool))
+    );
 }
 
 #[test]
-fn check_accepts_matching_const_initializer_type() {
-    let (_source, _graph, result) = check_source(
+fn check_binds_tuple_destructuring_element_types() {
+    let (_source, graph, result) = check_source(
         r#"
-const enabled: bool = true
+var (count, enabled) = (1, true)
 "#,
     );
 
-    assert!(!result.has_errors());
+    let count = symbol_by_name_and_kind(&graph, "count", SymbolKind::Var);
+    let enabled = symbol_by_name_and_kind(&graph, "enabled", SymbolKind::Var);
+
+    assert_eq!(
+        result
+            .layer()
+            .table()
+            .kind(result.layer().symbol_type(count).unwrap()),
+        Some(&TypeKind::Primitive(PrimitiveType::Int32))
+    );
+    assert_eq!(
+        result
+            .layer()
+            .table()
+            .kind(result.layer().symbol_type(enabled).unwrap()),
+        Some(&TypeKind::Primitive(PrimitiveType::Bool))
+    );
 }
 
 #[test]
-fn check_accepts_null_initializer_for_nullable_union() {
-    let (_source, _graph, result) = check_source(
+fn check_binds_array_destructuring_rest_type() {
+    let (_source, graph, result) = check_source(
         r#"
-var maybe: int32 | null = null
+var [head, ...tail] = [1, 2, 3]
 "#,
     );
 
-    assert!(!result.has_errors());
-}
+    let head = symbol_by_name_and_kind(&graph, "head", SymbolKind::Var);
+    let tail = symbol_by_name_and_kind(&graph, "tail", SymbolKind::Var);
 
-#[test]
-fn check_reports_null_initializer_for_non_nullable_type() {
-    let source = source(
-        r#"
-var age: int32 = null
-"#,
+    assert_eq!(
+        result
+            .layer()
+            .table()
+            .kind(result.layer().symbol_type(head).unwrap()),
+        Some(&TypeKind::Primitive(PrimitiveType::Int32))
     );
-
-    let parse_result = parse(&source);
-    assert!(!parse_result.has_errors());
-
-    let resolve_result = resolve(&source, parse_result.into_graph());
-    assert!(!resolve_result.has_errors());
-
-    let graph = resolve_result.into_graph();
-    let result = check_declaration_types(&source, &graph);
-
-    assert!(result.has_errors());
-    assert!(result.diagnostics().iter().any(|diagnostic| {
-        diagnostic.code().as_str() == TypeDiagnosticCode::TypeMismatch.as_code()
-            && diagnostic
-                .message()
-                .contains("expected `int32`, got `null`")
-    }));
-}
-
-#[test]
-fn check_accepts_name_initializer_with_matching_symbol_type() {
-    let (_source, _graph, result) = check_source(
-        r#"
-var first: int32 = 10
-var second: int32 = first
-"#,
-    );
-
-    assert!(!result.has_errors());
+    assert!(matches!(
+        result
+            .layer()
+            .table()
+            .kind(result.layer().symbol_type(tail).unwrap()),
+        Some(TypeKind::Array { .. })
+    ));
 }

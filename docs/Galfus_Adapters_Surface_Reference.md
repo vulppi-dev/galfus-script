@@ -257,7 +257,7 @@ Opaque resource structs cannot be constructed directly by ordinary Galfus source
 Invalid:
 
 ```galfus
-var body = PhysicsBody {}
+var body = new(PhysicsBody) {}
 ```
 
 Valid:
