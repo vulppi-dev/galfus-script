@@ -412,14 +412,14 @@ Goal: lower validated semantic graphs into a typed mid-level representation.
 
 Goal: Define the in-memory data structures for the compiler's output and VM's input.
 
-- [ ] Define VM Value representations (scalars, structures, arrays, null)
-- [ ] Define instruction opcodes (`0x01` to `0x64`) and operand registers/indices
-- [ ] Define `ModuleImage` structure containing bytecode, tables, and metadata
-- [ ] Define constant pool structure and encoding rules
-- [ ] Define function table and import/export slot schemas
-- [ ] Define type and layout table formats
-- [ ] Define ownership metadata structure (anchors, edges, weak fields)
-- [ ] Implement in-memory `ModuleImage` structural validation and diagnostics
+- [x] Define VM Value representations (scalars, structures, arrays, null)
+- [x] Define instruction opcodes (`0x01` to `0x64`) and operand registers/indices
+- [x] Define `ModuleImage` structure containing bytecode, tables, and metadata
+- [x] Define constant pool structure and encoding rules
+- [x] Define function table and import/export slot schemas
+- [x] Define type and layout table formats
+- [x] Define ownership metadata structure (anchors, edges, weak fields)
+- [x] Implement in-memory `ModuleImage` structural validation and diagnostics
 
 ## Milestone 10 — MIR to Module Image Lowering
 
