@@ -4,6 +4,8 @@ mod tests;
 use crate::{ResolutionLayer, Token, TokenKind};
 use galfus_core::{Diagnostic, DiagnosticBag, NodeId, SourceId, Span};
 
+use smallvec::SmallVec;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum GraphPhase {
     Parsed,
@@ -115,7 +117,8 @@ impl SyntaxLayer {
     pub fn add_node(&mut self, kind: SyntaxNodeKind, span: Span, children: Vec<NodeId>) -> NodeId {
         let id = NodeId::new(self.nodes.len() as u32);
 
-        self.nodes.push(SyntaxNode::new(kind, span, children));
+        self.nodes
+            .push(SyntaxNode::new(kind, span, children.into()));
 
         id
     }
@@ -392,12 +395,12 @@ pub enum BinaryAssociativity {
 pub struct SyntaxNode {
     kind: SyntaxNodeKind,
     span: Span,
-    children: Vec<NodeId>,
+    children: SmallVec<[NodeId; 3]>,
     operator: Option<OperatorKind>,
 }
 
 impl SyntaxNode {
-    pub fn new(kind: SyntaxNodeKind, span: Span, children: Vec<NodeId>) -> Self {
+    pub fn new(kind: SyntaxNodeKind, span: Span, children: SmallVec<[NodeId; 3]>) -> Self {
         Self {
             kind,
             span,
@@ -410,7 +413,7 @@ impl SyntaxNode {
         Self {
             kind,
             span,
-            children: Vec::new(),
+            children: SmallVec::new(),
             operator: Some(operator),
         }
     }

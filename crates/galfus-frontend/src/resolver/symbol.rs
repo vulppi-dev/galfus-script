@@ -1,3 +1,4 @@
+use crate::NameId;
 use galfus_core::{NodeId, ScopeId, SymbolId};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -35,7 +36,7 @@ pub enum SymbolKind {
 pub struct Symbol {
     id: SymbolId,
     kind: SymbolKind,
-    name: String,
+    name: NameId,
     declaration: NodeId,
     scope: ScopeId,
 }
@@ -44,7 +45,7 @@ impl Symbol {
     pub fn new(
         id: SymbolId,
         kind: SymbolKind,
-        name: String,
+        name: NameId,
         declaration: NodeId,
         scope: ScopeId,
     ) -> Self {
@@ -65,8 +66,12 @@ impl Symbol {
         self.kind
     }
 
-    pub fn name(&self) -> &str {
+    pub fn name(&self) -> &'static str {
         self.name.as_str()
+    }
+
+    pub fn name_id(&self) -> NameId {
+        self.name
     }
 
     pub fn declaration(&self) -> NodeId {

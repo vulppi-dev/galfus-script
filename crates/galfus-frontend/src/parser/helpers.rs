@@ -393,6 +393,22 @@ impl Parser {
         Some((children, end_span))
     }
 
+    pub(super) fn parse_binding_helper(
+        &mut self,
+        keyword: TokenKind,
+        is_const: bool,
+        node_kind: SyntaxNodeKind,
+    ) -> Option<NodeId> {
+        let token = self.expect(keyword)?;
+        let (children, end_span) = self.parse_binding_after_keyword(is_const)?;
+
+        self.expect_statement_end();
+
+        let span = Span::cover(token.span(), end_span).unwrap_or(token.span());
+
+        Some(self.add_node(node_kind, span, children))
+    }
+
     pub(super) fn can_parse_cast_expression(&self) -> bool {
         if !self.at(&TokenKind::Less) {
             return false;

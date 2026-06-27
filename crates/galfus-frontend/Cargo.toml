@@ -8,6 +8,7 @@ license.workspace = true
 galfus-core = { path = "../galfus-core" }
 
 indexmap.workspace = true
+smallvec.workspace = true
 thiserror.workspace = true
 
 unicode-ident = "1.0"

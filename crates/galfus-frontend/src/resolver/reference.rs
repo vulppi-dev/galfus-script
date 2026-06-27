@@ -116,8 +116,9 @@ impl<'a> Resolver<'a> {
         };
 
         let symbol_name = self.node_text(name);
+        let name_id = NameId::intern(&symbol_name);
 
-        if let Some(symbol) = self.resolution.lookup_symbol(scope, symbol_name.as_str()) {
+        if let Some(symbol) = self.resolution.lookup_symbol(scope, name_id) {
             self.resolution.bind_reference(expression, symbol);
             return;
         }
@@ -272,8 +273,9 @@ impl<'a> Resolver<'a> {
         };
 
         let root_name = self.node_text(root);
+        let root_name_id = NameId::intern(&root_name);
 
-        let Some(root_symbol) = self.resolution.lookup_symbol(scope, root_name.as_str()) else {
+        let Some(root_symbol) = self.resolution.lookup_symbol(scope, root_name_id) else {
             self.report_unresolved_name(root, root_name);
             return;
         };
@@ -298,11 +300,12 @@ impl<'a> Resolver<'a> {
         };
 
         let variant_name = self.node_text(variant);
+        let variant_name_id = NameId::intern(&variant_name);
 
         let Some(symbol) = self
             .resolution
             .scope(member_scope)
-            .and_then(|scope| scope.symbol(variant_name.as_str()))
+            .and_then(|scope| scope.symbol(variant_name_id))
         else {
             self.report_unresolved_path_member(variant, variant_name);
             return;
@@ -354,9 +357,11 @@ impl<'a> Resolver<'a> {
     ) -> Option<SymbolId> {
         let member_scope = self.resolution.member_scope(root_symbol)?;
 
+        let member_name_id = NameId::intern(member_name);
+
         self.resolution
             .scope(member_scope)
-            .and_then(|scope| scope.symbol(member_name))
+            .and_then(|scope| scope.symbol(member_name_id))
     }
 
     fn resolve_anchor_function_member(
@@ -371,10 +376,11 @@ impl<'a> Resolver<'a> {
         }
 
         let anchored_name = format!("{}::{member_name}", root_symbol_data.name());
+        let anchored_name_id = NameId::intern(&anchored_name);
 
         let symbol = self
             .resolution
-            .lookup_symbol(self.resolution.module_scope(), anchored_name.as_str())?;
+            .lookup_symbol(self.resolution.module_scope(), anchored_name_id)?;
 
         let symbol_data = self.resolution.symbol(symbol)?;
 

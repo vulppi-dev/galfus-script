@@ -23,7 +23,7 @@ pub use resolution::*;
 pub use scope::*;
 pub use symbol::*;
 
-use crate::{ModuleGraph, ResolverDiagnosticCode, SyntaxLayer, SyntaxNodeKind};
+use crate::{AsNameId, ModuleGraph, NameId, ResolverDiagnosticCode, SyntaxLayer, SyntaxNodeKind};
 
 pub struct ResolveResult {
     graph: ModuleGraph,
@@ -198,8 +198,9 @@ impl<'a> Resolver<'a> {
         };
 
         let symbol_name = self.function_symbol_name(item, name);
+        let name_id = NameId::intern(&symbol_name);
 
-        self.declare_symbol(symbol_name, SymbolKind::Function, name, scope);
+        self.declare_symbol(name_id, SymbolKind::Function, name, scope);
     }
 
     fn declare_named_item(&mut self, item: NodeId, kind: SymbolKind, scope: ScopeId) {
@@ -211,8 +212,9 @@ impl<'a> Resolver<'a> {
         };
 
         let symbol_name = self.node_text(name);
+        let name_id = NameId::intern(&symbol_name);
 
-        self.declare_symbol(symbol_name, kind, name, scope);
+        self.declare_symbol(name_id, kind, name, scope);
     }
 
     pub(super) fn function_name(&self, item: NodeId) -> Option<NodeId> {
@@ -263,7 +265,8 @@ impl<'a> Resolver<'a> {
 
             SyntaxNodeKind::Identifier => {
                 let symbol_name = self.node_text(pattern);
-                self.declare_symbol(symbol_name, kind, pattern, scope);
+                let name_id = NameId::intern(&symbol_name);
+                self.declare_symbol(name_id, kind, pattern, scope);
             }
 
             SyntaxNodeKind::StructBindingPattern => {
@@ -278,7 +281,8 @@ impl<'a> Resolver<'a> {
                 1 => {
                     if let Some(name) = node.first_child() {
                         let symbol_name = self.node_text(name);
-                        self.declare_symbol(symbol_name, kind, name, scope);
+                        let name_id = NameId::intern(&symbol_name);
+                        self.declare_symbol(name_id, kind, name, scope);
                     }
                 }
 
@@ -305,17 +309,18 @@ impl<'a> Resolver<'a> {
         }
     }
 
-    pub(super) fn declare_symbol(
+    pub(super) fn declare_symbol<N: AsNameId>(
         &mut self,
-        name: String,
+        name: N,
         kind: SymbolKind,
         declaration: NodeId,
         scope: ScopeId,
     ) -> Option<SymbolId> {
+        let name_id = name.as_name_id();
         if self
             .resolution
             .scope(scope)
-            .and_then(|scope| scope.symbol(name.as_str()))
+            .and_then(|scope| scope.symbol(name_id))
             .is_some()
         {
             let span = self
@@ -326,7 +331,7 @@ impl<'a> Resolver<'a> {
 
             self.diagnostics.push(Diagnostic::error_with_message(
                 ResolverDiagnosticCode::DuplicateSymbol,
-                format!("duplicate symbol `{name}`"),
+                format!("duplicate symbol `{name_id}`"),
                 span,
             ));
 
@@ -335,10 +340,10 @@ impl<'a> Resolver<'a> {
 
         let symbol = self
             .resolution
-            .add_symbol(kind, name.clone(), declaration, scope);
+            .add_symbol(kind, name_id, declaration, scope);
 
         if let Some(scope) = self.resolution.scope_mut(scope) {
-            scope.insert_symbol(name, symbol);
+            scope.insert_symbol(name_id, symbol);
         }
 
         Some(symbol)

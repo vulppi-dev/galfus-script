@@ -295,11 +295,11 @@ impl Parser {
     pub(super) fn parse_struct_field(&mut self) -> Option<NodeId> {
         let decorators = self.parse_optional_decorator_list()?;
 
-        if self.at(&TokenKind::Weak) {
-            return self.parse_weak_struct_field(decorators);
-        }
+        let is_weak = self.at(&TokenKind::Weak);
+        let weak_token = if is_weak { Some(self.bump()) } else { None };
+        self.skip_newlines();
 
-        let field_const = if self.at(&TokenKind::Const) {
+        let field_const = if !is_weak && self.at(&TokenKind::Const) {
             let const_token = self.bump();
             self.skip_newlines();
 
@@ -348,11 +348,18 @@ impl Parser {
 
         let start_span = decorators
             .map(|decorators| self.node_span(decorators))
+            .or_else(|| weak_token.map(|t| t.span()))
             .or_else(|| field_const.map(|field_const| self.node_span(field_const)))
             .unwrap_or(name_span);
         let span = Span::cover(start_span, end_span).unwrap_or(name_span);
 
-        Some(self.add_node(SyntaxNodeKind::StructField, span, children))
+        let kind = if is_weak {
+            SyntaxNodeKind::WeakStructField
+        } else {
+            SyntaxNodeKind::StructField
+        };
+
+        Some(self.add_node(kind, span, children))
     }
 
     pub(super) fn parse_enum_variant(&mut self) -> Option<NodeId> {
@@ -483,49 +490,6 @@ impl Parser {
         let span = self.node_span(expression);
 
         Some(self.add_node(SyntaxNodeKind::Argument, span, vec![expression]))
-    }
-
-    pub(super) fn parse_weak_struct_field(&mut self, decorators: Option<NodeId>) -> Option<NodeId> {
-        let weak_token = self.expect(TokenKind::Weak)?;
-
-        self.skip_newlines();
-
-        let name = self.parse_identifier()?;
-
-        self.skip_newlines();
-
-        self.expect(TokenKind::Colon)?;
-
-        self.skip_newlines();
-
-        let field_type = self.parse_type()?;
-
-        let mut children = Vec::new();
-
-        if let Some(decorators) = decorators {
-            children.push(decorators);
-        }
-
-        children.push(name);
-        children.push(field_type);
-
-        let mut end_span = self.node_span(field_type);
-
-        self.skip_newlines();
-
-        if self.at(&TokenKind::Equal) {
-            let default = self.parse_struct_field_default()?;
-            end_span = self.node_span(default);
-            children.push(default);
-        }
-
-        let start_span = decorators
-            .map(|decorators| self.node_span(decorators))
-            .unwrap_or(weak_token.span());
-
-        let span = Span::cover(start_span, end_span).unwrap_or(start_span);
-
-        Some(self.add_node(SyntaxNodeKind::WeakStructField, span, children))
     }
 
     pub(super) fn parse_generic_type(&mut self, base: NodeId) -> Option<NodeId> {

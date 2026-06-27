@@ -1,6 +1,8 @@
 use super::*;
 use galfus_core::{SourceId, Span};
 
+use smallvec::smallvec;
+
 #[test]
 fn syntax_layer_starts_empty() {
     let syntax = SyntaxLayer::new();
@@ -59,7 +61,7 @@ fn syntax_node_exposes_child_helpers() {
     let node = SyntaxNode::new(
         SyntaxNodeKind::SourceFile,
         Span::new(SourceId::new(0), 0, 10),
-        vec![NodeId::new(1), NodeId::new(2)],
+        smallvec![NodeId::new(1), NodeId::new(2)],
     );
 
     assert_eq!(node.child_count(), 2);

@@ -50,24 +50,23 @@ impl<'a> Resolver<'a> {
             return;
         };
 
+        let name_id = NameId::intern(name);
+
         if self
             .resolution
             .scope(scope)
-            .and_then(|scope| scope.symbol(name))
+            .and_then(|scope| scope.symbol(name_id))
             .is_some()
         {
             return;
         }
 
-        let symbol = self.resolution.add_symbol(
-            SymbolKind::BuiltinType,
-            name.to_string(),
-            declaration,
-            scope,
-        );
+        let symbol =
+            self.resolution
+                .add_symbol(SymbolKind::BuiltinType, name_id, declaration, scope);
 
         if let Some(scope) = self.resolution.scope_mut(scope) {
-            scope.insert_symbol(name.to_string(), symbol);
+            scope.insert_symbol(name_id, symbol);
         }
     }
 
@@ -76,10 +75,12 @@ impl<'a> Resolver<'a> {
             return;
         };
 
+        let constraint_name_id = NameId::intern(constraint.name);
+
         if self
             .resolution
             .scope(scope)
-            .and_then(|scope| scope.symbol(constraint.name))
+            .and_then(|scope| scope.symbol(constraint_name_id))
             .is_some()
         {
             return;
@@ -87,13 +88,13 @@ impl<'a> Resolver<'a> {
 
         let constraint_symbol = self.resolution.add_symbol(
             SymbolKind::Constraint,
-            constraint.name.to_string(),
+            constraint_name_id,
             declaration,
             scope,
         );
 
         if let Some(scope) = self.resolution.scope_mut(scope) {
-            scope.insert_symbol(constraint.name.to_string(), constraint_symbol);
+            scope.insert_symbol(constraint_name_id, constraint_symbol);
         }
 
         let member_scope =
@@ -104,28 +105,30 @@ impl<'a> Resolver<'a> {
             .bind_member_scope(constraint_symbol, member_scope);
 
         for parameter in constraint.generic_parameters {
+            let param_name_id = NameId::intern(parameter);
             let symbol = self.resolution.add_symbol(
                 SymbolKind::GenericParameter,
-                parameter.to_string(),
+                param_name_id,
                 declaration,
                 member_scope,
             );
 
             if let Some(scope) = self.resolution.scope_mut(member_scope) {
-                scope.insert_symbol(parameter.to_string(), symbol);
+                scope.insert_symbol(param_name_id, symbol);
             }
         }
 
         for function in constraint.functions {
+            let func_name_id = NameId::intern(function);
             let symbol = self.resolution.add_symbol(
                 SymbolKind::ConstraintFunction,
-                function.to_string(),
+                func_name_id,
                 declaration,
                 member_scope,
             );
 
             if let Some(scope) = self.resolution.scope_mut(member_scope) {
-                scope.insert_symbol(function.to_string(), symbol);
+                scope.insert_symbol(func_name_id, symbol);
             }
         }
     }
