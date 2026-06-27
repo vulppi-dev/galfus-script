@@ -42,6 +42,7 @@ pub enum Value {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Constant {
+    Bool(bool),
     Int(i64),
     Float(f64),
     String(String),

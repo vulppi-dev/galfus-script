@@ -504,3 +504,60 @@ fn test_mir_builder_phase4() {
         validation.err()
     );
 }
+
+#[test]
+fn test_mir_lowering_basic() {
+    let source_id = SourceId::new(0);
+    let code = r#"
+        struct Point {
+            x: int32,
+            y: int32,
+        }
+
+        fn compute(a: int32, b: int32): int32 {
+            var pt = new(Point) { x: a, y: b };
+            return pt.x + pt.y
+        }
+    "#;
+    let source = SourceFile::new(source_id, "test.gfs".to_string(), code.to_string());
+
+    let parse_result = parse(&source);
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    let graph = resolve_result.into_graph();
+    assert!(
+        !graph.has_errors(),
+        "Parse/Resolve error: {:?}",
+        graph.diagnostics()
+    );
+
+    let type_result = check_declaration_types(&source, &graph);
+    assert!(
+        !type_result.has_errors(),
+        "Typecheck error: {:?}",
+        type_result.diagnostics()
+    );
+
+    let mir_module = builder::MirBuilder::new(&graph, &type_result, code).build();
+    let module_image = lower_module(&mir_module, &type_result, &graph, code);
+
+    // Verify module image metadata
+    assert!(!module_image.functions.is_empty());
+    let compute_func = module_image
+        .functions
+        .iter()
+        .find(|f| f.name == "compute")
+        .expect("compute function not found");
+
+    assert_eq!(compute_func.param_count, 2);
+    // locals: pt + MIR temporaries
+    assert_eq!(compute_func.local_count, 5);
+    assert!(!compute_func.instructions.is_empty());
+
+    // Verify struct layout was created
+    assert!(!module_image.struct_layouts.is_empty());
+    let pt_layout = &module_image.struct_layouts[0];
+    assert_eq!(pt_layout.name, "Point");
+    assert_eq!(pt_layout.fields.len(), 2);
+    assert_eq!(pt_layout.fields[0].name, "x");
+    assert_eq!(pt_layout.fields[1].name, "y");
+}
