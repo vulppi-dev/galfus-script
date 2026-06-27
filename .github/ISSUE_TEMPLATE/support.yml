@@ -16,7 +16,7 @@ body:
     attributes:
       label: Question Summary
       description: A short title for your question.
-      placeholder: How can I configure Bunbox with custom plugins?
+      placeholder: How can I configure Galfus Script with custom settings?
     validations:
       required: true
 
@@ -25,7 +25,7 @@ body:
     attributes:
       label: Context
       description: Describe what you are trying to achieve, and why you need help.
-      placeholder: I'm trying to integrate Bunbox with SDL3, but I'm not sure how to set up the window flags...
+      placeholder: I'm trying to import a module in Galfus Script, but I'm not sure...
     validations:
       required: true
 
@@ -34,7 +34,7 @@ body:
     attributes:
       label: What Have You Tried?
       description: Explain what you already tried or researched before asking.
-      placeholder: I looked at the docs and tried changing the flags, but the window still opens in the wrong mode.
+      placeholder: I looked at the reference docs and tried using the parser, but it fails...
     validations:
       required: false
 
@@ -44,10 +44,10 @@ body:
       label: Environment
       description: Share details about your setup to help others reproduce or understand the context.
       placeholder: |
-        OS: Windows 11  
-        Bun: 1.2.x  
-        Node: 22.x  
-        Project version: v0.3.0
+        OS: Linux / Ubuntu 24.04
+        Rust: 1.85.0
+        Cargo: 1.85.0
+        Project version: v0.0.0
     validations:
       required: false
 
