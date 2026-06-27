@@ -4,6 +4,7 @@ use galfus_frontend::{ModuleGraph, SymbolKind, SyntaxNodeKind, TypeCheckResult, 
 
 pub mod expression;
 pub mod function;
+pub mod helpers;
 pub mod pattern;
 
 pub struct MirBuilder<'a> {
