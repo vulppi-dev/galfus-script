@@ -247,9 +247,12 @@ impl<'a> Resolver<'a> {
     pub(super) fn import_source_text(&self, source_node: NodeId) -> String {
         let raw = self.node_text(source_node);
 
-        raw.strip_prefix('"')
-            .and_then(|value| value.strip_suffix('"'))
-            .unwrap_or(raw.as_str())
-            .to_string()
+        if let Some(stripped) = raw.strip_prefix('"').and_then(|value| value.strip_suffix('"')) {
+            stripped.to_string()
+        } else if let Some(stripped) = raw.strip_prefix('\'').and_then(|value| value.strip_suffix('\'')) {
+            stripped.to_string()
+        } else {
+            raw
+        }
     }
 }
