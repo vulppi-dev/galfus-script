@@ -1,0 +1,85 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Galfus Script",
+  "scopeName": "source.gfs",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#strings" },
+    { "include": "#keywords" },
+    { "include": "#types" },
+    { "include": "#numbers" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.gfs",
+          "match": "//.*$"
+        },
+        {
+          "name": "comment.block.gfs",
+          "begin": "/\\*",
+          "end": "\\*/"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.gfs",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.gfs",
+              "match": "\\\\."
+            }
+          ]
+        },
+        {
+          "name": "string.quoted.single.gfs",
+          "begin": "'",
+          "end": "'",
+          "patterns": [
+            {
+              "name": "constant.character.escape.gfs",
+              "match": "\\\\."
+            }
+          ]
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.gfs",
+          "match": "\\b(import|from|export|fn|var|const|struct|enum|choice|if|else|for|in|while|loop|break|continue|return|match|instanceof|weak|satisfies)\\b"
+        },
+        {
+          "name": "constant.language.gfs",
+          "match": "\\b(true|false|null)\\b"
+        }
+      ]
+    },
+    "types": {
+      "patterns": [
+        {
+          "name": "support.type.primitive.gfs",
+          "match": "\\b(null|bool|int8|int16|int32|int64|uint8|uint16|uint32|uint64|float16|float32|float64)\\b"
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.float.gfs",
+          "match": "\\b\\d+\\.\\d+\\b"
+        },
+        {
+          "name": "constant.numeric.integer.gfs",
+          "match": "\\b\\d+\\b"
+        }
+      ]
+    }
+  }
+}

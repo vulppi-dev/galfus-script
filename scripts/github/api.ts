@@ -38,15 +38,15 @@ export async function githubRequest<T>(config: {
       Authorization: `Bearer ${token}`,
       'User-Agent': 'galfus-bun-workflow',
       ...(config.body ? { 'Content-Type': 'application/json' } : {}),
-      ...config.headers
+      ...config.headers,
     },
-    body: config.body ? JSON.stringify(config.body) : undefined
+    body: config.body ? JSON.stringify(config.body) : undefined,
   });
 
   if (!response.ok) {
     const text = await response.text();
     const error = new Error(
-      `GitHub API request failed (${response.status}) ${config.method ?? 'GET'} ${config.path}: ${text}`
+      `GitHub API request failed (${response.status}) ${config.method ?? 'GET'} ${config.path}: ${text}`,
     ) as GitHubError;
     error.status = response.status;
     throw error;
@@ -66,7 +66,7 @@ export async function paginateGitHub<T>(path: string): Promise<T[]> {
   for (;;) {
     const separator = path.includes('?') ? '&' : '?';
     const batch = await githubRequest<T[]>({
-      path: `${path}${separator}per_page=100&page=${page}`
+      path: `${path}${separator}per_page=100&page=${page}`,
     });
     items.push(...batch);
     if (batch.length < 100) {
