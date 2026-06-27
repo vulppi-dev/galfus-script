@@ -1,7 +1,6 @@
 use super::function::{FunctionBuilder, parse_int};
-use crate::mir::*;
 use galfus_core::{NodeId, SymbolId, TypeId};
-use galfus_frontend::{PathReferenceKind, SymbolKind, SyntaxNodeKind, TypeKind};
+use galfus_frontend::{PathReferenceKind, SymbolKind, SyntaxNodeKind};
 
 impl<'b, 'a> FunctionBuilder<'b, 'a> {
     pub(super) fn is_choice_variant_call_target(&self, target: NodeId) -> bool {

@@ -19,9 +19,9 @@ The MVP is not a product-distribution milestone. It does not include package pub
 - [Milestone 6 — Semantic Checker](#milestone-6--semantic-checker)
 - [Milestone 7 — Ownership Checker](#milestone-7--ownership-checker)
 - [Milestone 8 — MIR](#milestone-8--mir)
-- [Milestone 9 — Bytecode](#milestone-9--bytecode)
-- [Milestone 10 — Galfus Module Image](#milestone-10--galfus-module-image)
-- [Milestone 11 — `.gfb`](#milestone-11--gfb)
+- [Milestone 9 — Module Image & Bytecode Definition](#milestone-9--module-image--bytecode-definition)
+- [Milestone 10 — MIR to Module Image Lowering](#milestone-10--mir-to-module-image-lowering)
+- [Milestone 11 — .gfb Serialization & Loader](#milestone-11--gfb-serialization--loader)
 - [Milestone 12 — VM Core](#milestone-12--vm-core)
 - [Milestone 13 — Owner Graph Core Runtime](#milestone-13--owner-graph-core-runtime)
 - [Milestone 14 — Local MVP Runner](#milestone-14--local-mvp-runner)
@@ -53,8 +53,7 @@ Active:
 
 ```txt
 MIR
-bytecode
-Module Image
+Module Image & Bytecode
 ```
 
 Frontend MVP status:
@@ -84,8 +83,7 @@ VM execution
   -> semantic checker
   -> ownership checker
   -> MIR
-  -> bytecode
-  -> Galfus Module Image
+  -> Module Image (with Bytecode)
   -> .gfb
   -> VM
   -> execution
@@ -410,79 +408,52 @@ Goal: lower validated semantic graphs into a typed mid-level representation.
 - [x] MIR validation
 - [x] MIR diagnostics
 
-## Milestone 9 — Bytecode
+## Milestone 9 — Module Image & Bytecode Definition
 
-Goal: lower MIR into bytecode executable by the MVP VM.
+Goal: Define the in-memory data structures for the compiler's output and VM's input.
 
-- [ ] Define MVP bytecode format
-- [ ] Define instruction encoding
-- [ ] Define constant encoding
-- [ ] Define function table references
-- [ ] Define type table references
-- [ ] Define layout table references
-- [ ] Define local slots
-- [ ] Define temporary slots
-- [ ] Emit constants
-- [ ] Emit local load/store
-- [ ] Emit module state load/store
-- [ ] Emit arithmetic instructions
-- [ ] Emit comparison instructions
-- [ ] Emit boolean instructions
-- [ ] Emit cast instructions
-- [ ] Emit jumps
-- [ ] Emit branches
-- [ ] Emit calls
-- [ ] Emit returns
-- [ ] Emit struct operations
-- [ ] Emit tuple operations
-- [ ] Emit array operations
-- [ ] Emit choice operations
-- [ ] Emit enum operations
-- [ ] Emit module init instructions
-- [ ] Emit panic instruction or panic path
-- [ ] Bytecode validation
-- [ ] Bytecode diagnostics
+- [ ] Define VM Value representations (scalars, structures, arrays, null)
+- [ ] Define instruction opcodes (`0x01` to `0x64`) and operand registers/indices
+- [ ] Define `ModuleImage` structure containing bytecode, tables, and metadata
+- [ ] Define constant pool structure and encoding rules
+- [ ] Define function table and import/export slot schemas
+- [ ] Define type and layout table formats
+- [ ] Define ownership metadata structure (anchors, edges, weak fields)
+- [ ] Implement in-memory `ModuleImage` structural validation and diagnostics
 
-## Milestone 10 — Galfus Module Image
+## Milestone 10 — MIR to Module Image Lowering
 
-Goal: build the minimal runtime-facing executable image.
+Goal: Implement the compiler backend pass lowering MIR to `ModuleImage`.
 
-- [ ] Define Module Image structure
-- [ ] Build bytecode section
-- [ ] Build constant pool
-- [ ] Build function table
-- [ ] Build type table
-- [ ] Build layout table
-- [ ] Build import slots
-- [ ] Build export slots
-- [ ] Build module init data
-- [ ] Build ownership metadata
-- [ ] Build anchor metadata
-- [ ] Build edge metadata
-- [ ] Build weak metadata
-- [ ] Build minimal runtime metadata
-- [ ] Build integrity metadata placeholder
-- [ ] Ensure no frontend-only data is included
-- [ ] Validate Module Image before serialization
+- [ ] Initialize target `ModuleImage` from MIR module structure
+- [ ] Lower MIR constants and populate constant pool
+- [ ] Lower local and temporary slots to register indices
+- [ ] Lower loads, stores, and copies (variables, globals)
+- [ ] Lower arithmetic and bitwise instructions
+- [ ] Lower comparison and boolean instructions
+- [ ] Lower control flow (unconditional jumps, conditional branches)
+- [ ] Lower functions (parameter mappings, returns, standard and anchor calls)
+- [ ] Lower struct creation and field access instructions
+- [ ] Lower tuple creation and indexing operations
+- [ ] Lower array allocation and indexing operations
+- [ ] Lower choice creation, enums, and match checks
+- [ ] Lower explicit ownership drop operations from MIR
+- [ ] Extract and embed ownership metadata (anchors, edges, weak fields)
+- [ ] Implement backend compilation diagnostics
+- [ ] Add unit tests for lowering MIR structures to `ModuleImage`
 
-## Milestone 11 — `.gfb`
+## Milestone 11 — .gfb Serialization & Loader
 
-Goal: serialize and load Galfus Binary artifacts.
+Goal: Serialize `ModuleImage` to the compact binary format `.gfb` and read/validate it.
 
-- [ ] Define `.gfb` header
-- [ ] Define format version
-- [ ] Define runtime ABI version
-- [ ] Define section table
-- [ ] Define body size
-- [ ] Define body hash or checksum strategy
-- [ ] Serialize Module Image to `.gfb`
-- [ ] Read `.gfb` header
-- [ ] Validate `.gfb` format
-- [ ] Validate `.gfb` version
-- [ ] Validate `.gfb` integrity metadata
-- [ ] Deserialize `.gfb` into Module Image
-- [ ] Report `.gfb` loader diagnostics
-- [ ] Add `.gfb` golden tests
+- [ ] Define `.gfb` binary format header (magic bytes, version, offsets)
+- [ ] Implement binary encoder/serializer for `ModuleImage` constants and tables
+- [ ] Implement binary encoder/serializer for instruction stream
+- [ ] Implement binary decoder/deserializer for `.gfb` byte streams
+- [ ] Validate header, format compatibility, and checksums/integrity during loading
+- [ ] Reconstruct `ModuleImage` object in memory from deserialized `.gfb`
+- [ ] Add loader validation error diagnostics
+- [ ] Add `.gfb` golden tests (compiling, serializing, and deserializing program samples)
 
 ## Milestone 12 — VM Core
 
