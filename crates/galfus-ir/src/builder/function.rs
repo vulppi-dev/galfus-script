@@ -7,6 +7,7 @@ pub struct FunctionBuilder<'b, 'a> {
     pub(super) locals: Vec<LocalDecl>,
     pub(super) symbol_to_local: std::collections::HashMap<SymbolId, LocalId>,
     pub(super) current_instructions: Vec<Instruction>,
+    pub(super) scopes: Vec<Vec<LocalId>>,
 }
 
 impl<'b, 'a> FunctionBuilder<'b, 'a> {
@@ -15,6 +16,9 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
         self.locals.push(LocalDecl { id: local_id, ty });
         if let Some(sym) = symbol {
             self.symbol_to_local.insert(sym, local_id);
+        }
+        if let Some(current_scope) = self.scopes.last_mut() {
+            current_scope.push(local_id);
         }
         local_id
     }
@@ -41,6 +45,14 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
         }
     }
 
+    fn is_terminated(statements: &[MirBody]) -> bool {
+        if let Some(MirBody::BasicBlock(bb)) = statements.last() {
+            matches!(bb.terminator, Terminator::Return(_))
+        } else {
+            false
+        }
+    }
+
     pub(super) fn lower_block(&mut self, block_node_id: NodeId) -> MirBody {
         let syntax = self.builder.graph.syntax();
         let Some(block_node) = syntax.node(block_node_id) else {
@@ -51,10 +63,23 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
             });
         };
 
+        self.scopes.push(Vec::new());
         let mut statements = Vec::new();
 
         for &stmt_id in block_node.children() {
             self.lower_statement(stmt_id, &mut statements);
+        }
+
+        if let Some(scope_locals) = self.scopes.pop() {
+            if !Self::is_terminated(&statements) {
+                for local_id in scope_locals {
+                    if let Some(decl) = self.locals.iter().find(|l| l.id == local_id) {
+                        if self.builder.is_owned_type(decl.ty) {
+                            self.current_instructions.push(Instruction::Drop(local_id));
+                        }
+                    }
+                }
+            }
         }
 
         self.flush_current_instructions(&mut statements);
@@ -136,11 +161,27 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                                 res.reference_symbol(ident)
                             })
                         });
-                        if let Some(local_id) =
-                            symbol.and_then(|sym| self.symbol_to_local.get(&sym).copied())
-                        {
-                            self.current_instructions
-                                .push(Instruction::Assign(local_id, RValue::Use(operand)));
+                        if let Some(sym) = symbol {
+                            if let Some(local_id) = self.symbol_to_local.get(&sym).copied() {
+                                self.current_instructions
+                                    .push(Instruction::Assign(local_id, RValue::Use(operand)));
+                            } else {
+                                let is_global = resolution.is_some_and(|res| {
+                                    matches!(
+                                        res.symbol(sym).map(|s| s.kind()),
+                                        Some(galfus_frontend::SymbolKind::Var)
+                                            | Some(galfus_frontend::SymbolKind::Const)
+                                    )
+                                });
+                                if is_global {
+                                    let name = resolution
+                                        .and_then(|res| res.symbol(sym))
+                                        .map(|s| s.name().to_string())
+                                        .unwrap_or_default();
+                                    self.current_instructions
+                                        .push(Instruction::StoreGlobal(name, operand));
+                                }
+                            }
                         }
                     }
                 }
@@ -149,6 +190,24 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
             SyntaxNodeKind::ReturnStatement => {
                 let expr = node.first_child();
                 let operand = expr.map(|e| self.lower_expression(e, statements));
+
+                let ret_local = match &operand {
+                    Some(Operand::Local(local_id)) => Some(*local_id),
+                    _ => None,
+                };
+
+                for scope in self.scopes.iter().rev() {
+                    for &local_id in scope.iter().rev() {
+                        if Some(local_id) == ret_local {
+                            continue;
+                        }
+                        if let Some(decl) = self.locals.iter().find(|l| l.id == local_id) {
+                            if self.builder.is_owned_type(decl.ty) {
+                                self.current_instructions.push(Instruction::Drop(local_id));
+                            }
+                        }
+                    }
+                }
 
                 let instructions = std::mem::take(&mut self.current_instructions);
                 let block_id = self.builder.next_block();

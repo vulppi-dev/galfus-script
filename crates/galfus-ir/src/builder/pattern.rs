@@ -199,37 +199,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
     }
 
     pub(super) fn resolve_alias_type(&self, ty: TypeId) -> TypeId {
-        let mut visited = Vec::new();
-        self.resolve_alias_type_with_visited(ty, &mut visited)
-    }
-
-    pub(super) fn resolve_alias_type_with_visited(
-        &self,
-        ty: TypeId,
-        visited: &mut Vec<SymbolId>,
-    ) -> TypeId {
-        let table = self.builder.type_result.layer().table();
-        let Some(TypeKind::Named { symbol }) = table.kind(ty) else {
-            return ty;
-        };
-        let Some(resolution) = self.builder.graph.resolution() else {
-            return ty;
-        };
-        let Some(symbol_data) = resolution.symbol(*symbol) else {
-            return ty;
-        };
-        if symbol_data.kind() != SymbolKind::TypeAlias {
-            return ty;
-        }
-        if visited.contains(symbol) {
-            return ty;
-        }
-        visited.push(*symbol);
-        if let Some(underlying_ty) = self.builder.type_result.layer().symbol_type(*symbol) {
-            self.resolve_alias_type_with_visited(underlying_ty, visited)
-        } else {
-            ty
-        }
+        self.builder.resolve_alias_type(ty)
     }
 
     pub(super) fn get_enum_variant_value(&self, variant_symbol: SymbolId) -> i64 {

@@ -27,9 +27,16 @@ impl BlockId {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct GlobalDecl {
+    pub name: String,
+    pub ty: TypeId,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MirModule {
     pub functions: Vec<MirFunction>,
+    pub globals: Vec<GlobalDecl>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -76,6 +83,7 @@ pub struct BasicBlock {
 pub enum Instruction {
     Assign(LocalId, RValue),
     Drop(LocalId),
+    StoreGlobal(String, Operand),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -126,6 +134,7 @@ pub enum RValue {
     ArrayIndex(Operand, Operand),
     Choice(TypeId, String, Option<Operand>),
     Instanceof(Operand, TypeId),
+    LoadGlobal(String),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

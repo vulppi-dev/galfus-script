@@ -31,6 +31,8 @@ impl<'a> MirBuilder<'a> {
 
     pub fn build(mut self) -> MirModule {
         let mut functions = Vec::new();
+        let mut globals = Vec::new();
+        let mut global_items = Vec::new();
 
         if let Some(root_node) = self
             .graph
@@ -56,15 +58,22 @@ impl<'a> MirBuilder<'a> {
                                         inner_node.kind() == SyntaxNodeKind::FunctionItem
                                     })
                                     .unwrap_or(false);
-                                let func = if is_func {
-                                    self.build_function(inner)
-                                } else {
-                                    None
-                                };
-                                if let Some(func) = func {
-                                    functions.push(func);
+                                if is_func {
+                                    if let Some(func) = self.build_function(inner) {
+                                        functions.push(func);
+                                    }
+                                } else if let Some(inner_node) = self.graph.syntax().node(inner) {
+                                    if matches!(
+                                        inner_node.kind(),
+                                        SyntaxNodeKind::VarItem | SyntaxNodeKind::ConstItem
+                                    ) {
+                                        global_items.push(inner);
+                                    }
                                 }
                             }
+                        }
+                        SyntaxNodeKind::VarItem | SyntaxNodeKind::ConstItem => {
+                            global_items.push(*item);
                         }
                         _ => {}
                     }
@@ -72,7 +81,184 @@ impl<'a> MirBuilder<'a> {
             }
         }
 
-        MirModule { functions }
+        // Process global declarations
+        for &item in &global_items {
+            if let Some(binding) = self
+                .graph
+                .syntax()
+                .first_child_of_kind(item, SyntaxNodeKind::BindingPattern)
+            {
+                let mut symbols = Vec::new();
+                self.collect_symbols_recursive_in_builder(binding, &mut symbols);
+                for symbol in symbols {
+                    let ty = self
+                        .type_result
+                        .layer()
+                        .symbol_type(symbol)
+                        .unwrap_or_else(|| TypeId::new(0));
+                    let name = self
+                        .graph
+                        .resolution()
+                        .and_then(|res| res.symbol(symbol))
+                        .map(|sym| sym.name().to_string())
+                        .unwrap_or_default();
+                    globals.push(GlobalDecl { name, ty });
+                }
+            }
+        }
+
+        // Build synthetic init function if there are global initializers
+        if let Some(init_func) = self.build_global_initializers(&global_items) {
+            functions.push(init_func);
+        }
+
+        MirModule { functions, globals }
+    }
+
+    fn collect_symbols_recursive_in_builder(&self, node_id: NodeId, symbols: &mut Vec<SymbolId>) {
+        if let Some(sym) = self
+            .graph
+            .resolution()
+            .and_then(|res| res.declaration_symbol(node_id))
+        {
+            symbols.push(sym);
+        }
+        if let Some(node) = self.graph.syntax().node(node_id) {
+            for &child in node.children() {
+                self.collect_symbols_recursive_in_builder(child, symbols);
+            }
+        }
+    }
+
+    fn build_global_initializers(&mut self, items: &[NodeId]) -> Option<MirFunction> {
+        let mut builder_ctx = function::FunctionBuilder {
+            builder: self,
+            locals: Vec::new(),
+            symbol_to_local: std::collections::HashMap::new(),
+            current_instructions: Vec::new(),
+            scopes: vec![Vec::new()],
+        };
+
+        let mut statements = Vec::new();
+        let syntax = builder_ctx.builder.graph.syntax();
+
+        for &item in items {
+            if let Some(node) = syntax.node(item) {
+                if matches!(
+                    node.kind(),
+                    SyntaxNodeKind::VarItem | SyntaxNodeKind::ConstItem
+                ) {
+                    if let Some(initializer) =
+                        syntax.first_child_of_kind(item, SyntaxNodeKind::Initializer)
+                    {
+                        if let Some(expr) = syntax.first_child(initializer) {
+                            let operand = builder_ctx.lower_expression(expr, &mut statements);
+
+                            if let Some(binding) =
+                                syntax.first_child_of_kind(item, SyntaxNodeKind::BindingPattern)
+                            {
+                                let symbols = builder_ctx.collect_declaration_symbols(binding);
+                                for symbol in symbols {
+                                    let name = builder_ctx
+                                        .builder
+                                        .graph
+                                        .resolution()
+                                        .and_then(|res| res.symbol(symbol))
+                                        .map(|sym| sym.name().to_string())
+                                        .unwrap_or_default();
+
+                                    builder_ctx.flush_current_instructions(&mut statements);
+                                    builder_ctx
+                                        .current_instructions
+                                        .push(Instruction::StoreGlobal(name, operand.clone()));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        builder_ctx.flush_current_instructions(&mut statements);
+
+        if statements.is_empty() {
+            return None;
+        }
+
+        let body = if statements.len() == 1 {
+            statements.pop().unwrap()
+        } else {
+            MirBody::Block {
+                locals: Vec::new(),
+                statements,
+            }
+        };
+
+        Some(MirFunction {
+            id: FunctionId::new(u32::MAX),
+            name: "__init_module".to_string(),
+            return_type: TypeId::new(0),
+            parameter_types: Vec::new(),
+            locals: builder_ctx.locals,
+            body,
+        })
+    }
+
+    pub(super) fn is_owned_type(&self, ty: TypeId) -> bool {
+        let ty = self.resolve_alias_type(ty);
+        let table = self.type_result.layer().table();
+
+        match table.kind(ty) {
+            Some(TypeKind::Named { symbol }) => self
+                .graph
+                .resolution()
+                .and_then(|resolution| resolution.symbol(*symbol))
+                .is_some_and(|symbol| {
+                    matches!(symbol.kind(), SymbolKind::Struct | SymbolKind::Choice)
+                }),
+
+            Some(TypeKind::Array { .. })
+            | Some(TypeKind::FixedArray { .. })
+            | Some(TypeKind::Tuple { .. }) => true,
+
+            Some(TypeKind::Union { members }) => members
+                .iter()
+                .copied()
+                .any(|member| self.is_owned_type(member)),
+
+            _ => false,
+        }
+    }
+
+    pub(super) fn resolve_alias_type(&self, ty: TypeId) -> TypeId {
+        let mut visited = Vec::new();
+        self.resolve_alias_type_with_visited(ty, &mut visited)
+    }
+
+    pub(super) fn resolve_alias_type_with_visited(
+        &self,
+        ty: TypeId,
+        visited: &mut Vec<SymbolId>,
+    ) -> TypeId {
+        let table = self.type_result.layer().table();
+        let Some(TypeKind::Named { symbol }) = table.kind(ty) else {
+            return ty;
+        };
+        let Some(resolution) = self.graph.resolution() else {
+            return ty;
+        };
+        let Some(symbol_data) = resolution.symbol(*symbol) else {
+            return ty;
+        };
+        if symbol_data.kind() != SymbolKind::TypeAlias {
+            return ty;
+        }
+        if visited.contains(symbol) {
+            return ty;
+        }
+        visited.push(*symbol);
+        let underlying_ty = self.type_result.layer().symbol_type(*symbol).unwrap_or(ty);
+        self.resolve_alias_type_with_visited(underlying_ty, visited)
     }
 
     fn build_function(&mut self, item: NodeId) -> Option<MirFunction> {
@@ -128,6 +314,7 @@ impl<'a> MirBuilder<'a> {
             locals: Vec::new(),
             symbol_to_local: std::collections::HashMap::new(),
             current_instructions: Vec::new(),
+            scopes: vec![Vec::new()],
         };
 
         // Declare parameters as locals

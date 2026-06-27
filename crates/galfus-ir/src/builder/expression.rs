@@ -55,10 +55,32 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                             syntax.first_child_of_kind(expr_id, SyntaxNodeKind::Identifier)?;
                         res.reference_symbol(ident)
                     });
-                    if let Some(local_id) =
-                        symbol.and_then(|sym| self.symbol_to_local.get(&sym).copied())
-                    {
-                        return Operand::Local(local_id);
+                    if let Some(sym) = symbol {
+                        if let Some(local_id) = self.symbol_to_local.get(&sym).copied() {
+                            return Operand::Local(local_id);
+                        } else {
+                            let is_global = matches!(
+                                res.symbol(sym).map(|s| s.kind()),
+                                Some(galfus_frontend::SymbolKind::Var)
+                                    | Some(galfus_frontend::SymbolKind::Const)
+                            );
+                            if is_global {
+                                let name = res
+                                    .symbol(sym)
+                                    .map(|s| s.name().to_string())
+                                    .unwrap_or_default();
+                                let ty = self
+                                    .builder
+                                    .type_result
+                                    .layer()
+                                    .symbol_type(sym)
+                                    .unwrap_or_else(|| TypeId::new(0));
+                                let temp_id = self.declare_local(None, ty);
+                                self.current_instructions
+                                    .push(Instruction::Assign(temp_id, RValue::LoadGlobal(name)));
+                                return Operand::Local(temp_id);
+                            }
+                        }
                     }
                 }
                 Operand::Constant(Constant::Null)

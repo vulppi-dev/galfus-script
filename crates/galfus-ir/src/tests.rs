@@ -388,3 +388,119 @@ fn test_mir_builder_phase3() {
         other => panic!("Expected block body, found {:?}", other),
     }
 }
+
+#[test]
+fn test_mir_builder_phase4() {
+    let source_id = SourceId::new(0);
+    let code = r#"
+        var g_var = 100
+        const g_const = "global_const"
+
+        struct Point {
+            x: int32,
+            y: int32,
+        }
+
+        fn test_drops(cond: bool): int32 {
+            var pt = new(Point) { x: 10, y: 20 }
+            if cond {
+                var pt2 = new(Point) { x: 30, y: 40 }
+                return pt2.x
+            }
+            return pt.x
+        }
+    "#;
+    let source = SourceFile::new(source_id, "test.gfs".to_string(), code.to_string());
+
+    let parse_result = parse(&source);
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    let graph = resolve_result.into_graph();
+    assert!(
+        !graph.has_errors(),
+        "Parse or resolve errors occurred: {:?}",
+        graph.diagnostics()
+    );
+
+    let type_result = check_declaration_types(&source, &graph);
+    assert!(
+        !type_result.has_errors(),
+        "Typecheck errors occurred: {:?}",
+        type_result.diagnostics()
+    );
+
+    let mir_module = builder::MirBuilder::new(&graph, &type_result, code).build();
+
+    // Verify globals: g_var and g_const
+    assert_eq!(mir_module.globals.len(), 2);
+    let g_var = mir_module
+        .globals
+        .iter()
+        .find(|g| g.name == "g_var")
+        .unwrap();
+    let g_const = mir_module
+        .globals
+        .iter()
+        .find(|g| g.name == "g_const")
+        .unwrap();
+    assert_eq!(g_var.name, "g_var");
+    assert_eq!(g_const.name, "g_const");
+
+    // Verify __init_module function is built
+    let init_func = mir_module
+        .functions
+        .iter()
+        .find(|f| f.name == "__init_module")
+        .unwrap();
+    assert_eq!(init_func.name, "__init_module");
+
+    // Verify test_drops contains Drop instructions
+    let drops_func = mir_module
+        .functions
+        .iter()
+        .find(|f| f.name == "test_drops")
+        .unwrap();
+
+    let mut found_drops = 0;
+    fn count_drops(body: &MirBody, found_drops: &mut usize) {
+        match body {
+            MirBody::BasicBlock(bb) => {
+                for inst in &bb.instructions {
+                    if matches!(inst, Instruction::Drop(_)) {
+                        *found_drops += 1;
+                    }
+                }
+            }
+            MirBody::Block { statements, .. } => {
+                for stmt in statements {
+                    count_drops(stmt, found_drops);
+                }
+            }
+            MirBody::If {
+                then_branch,
+                else_branch,
+                ..
+            } => {
+                count_drops(then_branch, found_drops);
+                if let Some(eb) = else_branch {
+                    count_drops(eb, found_drops);
+                }
+            }
+            MirBody::Loop { body } => {
+                count_drops(body, found_drops);
+            }
+        }
+    }
+    count_drops(&drops_func.body, &mut found_drops);
+    assert!(
+        found_drops > 0,
+        "Expected at least one Drop instruction in test_drops"
+    );
+
+    // Verify validator accepts the module
+    let validation = validate_module(&mir_module, &type_result);
+    assert!(
+        validation.is_ok(),
+        "Expected validation to succeed, but found errors: {:?}",
+        validation.err()
+    );
+}
