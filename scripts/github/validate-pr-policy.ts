@@ -27,7 +27,7 @@ const CHANGELOG_LABELS = [
   'changelog:refactor',
   'changelog:performance',
   'changelog:docs',
-  'changelog:internal'
+  'changelog:internal',
 ];
 
 async function main(): Promise<void> {
@@ -42,7 +42,7 @@ async function main(): Promise<void> {
   const semanticTitle = /^(feat|fix|perf|docs|chore|refactor|test|build|ci)(\([^)]+\))?!?:\s+.+$/;
   if (!semanticTitle.test(title)) {
     errors.push(
-      'Invalid PR title. Use semantic format: type(scope): summary (types: feat, fix, perf, docs, chore, refactor, test, build, ci).'
+      'Invalid PR title. Use semantic format: type(scope): summary (types: feat, fix, perf, docs, chore, refactor, test, build, ci).',
     );
   }
 
@@ -64,13 +64,13 @@ async function main(): Promise<void> {
         owner,
         repo,
         issueNumber: Number(shortRef[1]),
-        raw: target
+        raw: target,
       });
       continue;
     }
 
     const urlRef = /^https:\/\/github\.com\/([^/\s]+)\/([^/\s]+)\/(issues|pull)\/(\d+)$/i.exec(
-      target
+      target,
     );
     if (!urlRef) {
       errors.push(`Invalid linked issue reference: "${target}".`);
@@ -87,7 +87,7 @@ async function main(): Promise<void> {
       owner: owner!,
       repo: repo!,
       issueNumber: Number(number),
-      raw: target
+      raw: target,
     });
   }
 
@@ -101,11 +101,11 @@ async function main(): Promise<void> {
 
     try {
       const issue = await githubRequest<IssueResponse>({
-        path: `/repos/${ref.owner}/${ref.repo}/issues/${ref.issueNumber}`
+        path: `/repos/${ref.owner}/${ref.repo}/issues/${ref.issueNumber}`,
       });
       if (issue.pull_request) {
         errors.push(
-          `Linked reference "${ref.raw}" resolves to PR #${ref.issueNumber}, not an issue.`
+          `Linked reference "${ref.raw}" resolves to PR #${ref.issueNumber}, not an issue.`,
         );
       }
     } catch (error) {
@@ -120,7 +120,7 @@ async function main(): Promise<void> {
 
   const { owner, repo } = getRepoContext();
   const currentPr = await githubRequest<PullResponse>({
-    path: `/repos/${owner}/${repo}/pulls/${pr.number}`
+    path: `/repos/${owner}/${repo}/pulls/${pr.number}`,
   });
   const labels = currentPr.labels.map((label) => label.name);
   if (!labels.some((name) => CHANGELOG_LABELS.includes(name))) {
@@ -140,7 +140,7 @@ async function main(): Promise<void> {
     const isStable = /^stable\/.+$/.test(headRef);
     if (!isMain && !isStable) {
       errors.push(
-        `Invalid promotion source "${headRef}". Allowed sources for ${baseRef}: main or stable/*`
+        `Invalid promotion source "${headRef}". Allowed sources for ${baseRef}: main or stable/*`,
       );
     }
   }
