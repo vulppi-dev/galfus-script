@@ -10,8 +10,6 @@ The MVP is not a product-distribution milestone. It does not include package pub
 
 - [Current Status](#current-status)
 - [MVP Pipeline](#mvp-pipeline)
-- [Frontend Closure Plan](#frontend-closure-plan)
-- [Frontend Reaudit Closure Plan](#frontend-reaudit-closure-plan)
 - [Milestone 0 — Project Foundation](#milestone-0--project-foundation)
 - [Milestone 1 — Workspace Graph](#milestone-1--workspace-graph)
 - [Milestone 2 — Lexer and Parser](#milestone-2--lexer-and-parser)
@@ -380,21 +378,21 @@ Goal: validate ownership metadata before `.gfb` generation.
 
 Goal: lower validated semantic graphs into a typed mid-level representation.
 
-- [ ] MIR module representation
-- [ ] MIR function representation
-- [ ] MIR block representation
-- [ ] MIR local representation
-- [ ] MIR temporary representation
-- [ ] MIR instruction representation
-- [ ] Materialize inferred types in MIR
-- [ ] Lower constants
-- [ ] Lower variables
-- [ ] Lower assignments
-- [ ] Lower arithmetic
-- [ ] Lower comparisons
-- [ ] Lower boolean operations
-- [ ] Lower null fallback
-- [ ] Lower casts
+- [x] MIR module representation
+- [x] MIR function representation
+- [x] MIR block representation
+- [x] MIR local representation
+- [x] MIR temporary representation
+- [x] MIR instruction representation
+- [x] Materialize inferred types in MIR
+- [x] Lower constants
+- [x] Lower variables
+- [x] Lower assignments
+- [x] Lower arithmetic
+- [x] Lower comparisons
+- [x] Lower boolean operations
+- [x] Lower null fallback
+- [x] Lower casts
 - [ ] Lower control flow
 - [ ] Lower loops
 - [ ] Lower `match`

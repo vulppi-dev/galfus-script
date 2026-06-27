@@ -6,6 +6,7 @@ license.workspace = true
 
 [dependencies]
 galfus-core = { path = "../galfus-core" }
+galfus-frontend = { path = "../galfus-frontend" }
 
 serde.workspace = true
 postcard.workspace = true
