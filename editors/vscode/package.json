@@ -1,0 +1,30 @@
+{
+  "name": "galfus-vscode",
+  "displayName": "Galfus Script Syntax Highlighting",
+  "description": "Minimal syntax highlighting for Galfus Script (.gfs)",
+  "version": "0.1.0",
+  "publisher": "galfus",
+  "engines": {
+    "vscode": "^1.60.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "galfus",
+        "aliases": ["Galfus", "galfus"],
+        "extensions": [".gfs"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "galfus",
+        "scopeName": "source.gfs",
+        "path": "./syntaxes/galfus.tmLanguage.json"
+      }
+    ]
+  }
+}
