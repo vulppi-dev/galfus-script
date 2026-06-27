@@ -395,20 +395,20 @@ Goal: lower validated semantic graphs into a typed mid-level representation.
 - [x] Lower casts
 - [x] Lower control flow
 - [x] Lower loops
-- [ ] Lower `match`
-- [ ] Lower `instanceof`
+- [x] Lower `match`
+- [x] Lower `instanceof`
 - [x] Lower function calls
-- [ ] Lower anchor calls
-- [ ] Lower struct literals
-- [ ] Lower struct field access
-- [ ] Lower tuples
-- [ ] Lower arrays
-- [ ] Lower choices
-- [ ] Lower enums
-- [ ] Lower module initialization
-- [ ] Lower ownership metadata references
-- [ ] MIR validation
-- [ ] MIR diagnostics
+- [x] Lower anchor calls
+- [x] Lower struct literals
+- [x] Lower struct field access
+- [x] Lower tuples
+- [x] Lower arrays
+- [x] Lower choices
+- [x] Lower enums
+- [x] Lower module initialization
+- [x] Lower ownership metadata references
+- [x] MIR validation
+- [x] MIR diagnostics
 
 ## Milestone 9 — Bytecode
 
