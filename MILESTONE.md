@@ -393,11 +393,11 @@ Goal: lower validated semantic graphs into a typed mid-level representation.
 - [x] Lower boolean operations
 - [x] Lower null fallback
 - [x] Lower casts
-- [ ] Lower control flow
-- [ ] Lower loops
+- [x] Lower control flow
+- [x] Lower loops
 - [ ] Lower `match`
 - [ ] Lower `instanceof`
-- [ ] Lower function calls
+- [x] Lower function calls
 - [ ] Lower anchor calls
 - [ ] Lower struct literals
 - [ ] Lower struct field access

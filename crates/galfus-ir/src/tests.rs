@@ -148,3 +148,102 @@ fn test_mir_builder_phase1() {
         ),
     }
 }
+
+#[test]
+fn test_mir_builder_phase2() {
+    let source_id = SourceId::new(0);
+    let code = r#"
+        fn other_func(x: int32): int32 {
+            return x * 2
+        }
+
+        fn control_flow(cond: bool, val: int32): int32 {
+            var res = 0;
+            if cond {
+                res = other_func(val);
+            } else {
+                res = 100;
+            }
+
+            var i = 0;
+            while i < 10 {
+                i = i + 1;
+                if i == 5 {
+                    continue;
+                }
+                if i == 8 {
+                    break;
+                }
+            }
+
+            loop {
+                break;
+            }
+
+            return res
+        }
+    "#;
+    let source = SourceFile::new(source_id, "test.gfs".to_string(), code.to_string());
+
+    let parse_result = parse(&source);
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    let graph = resolve_result.into_graph();
+    assert!(
+        !graph.has_errors(),
+        "Parse or resolve errors occurred: {:?}",
+        graph.diagnostics()
+    );
+
+    let type_result = check_declaration_types(&source, &graph);
+    assert!(
+        !type_result.has_errors(),
+        "Typecheck errors occurred: {:?}",
+        type_result.diagnostics()
+    );
+
+    let builder = builder::MirBuilder::new(&graph, &type_result, code);
+    let mir_module = builder.build();
+
+    assert_eq!(mir_module.functions.len(), 2);
+    let func = &mir_module.functions[1];
+    assert_eq!(func.name, "control_flow");
+
+    match &func.body {
+        MirBody::Block { statements, .. } => {
+            let mut found_if = false;
+            let mut found_while = false;
+            let mut found_loop = false;
+            let mut found_return = false;
+
+            for stmt in statements {
+                match stmt {
+                    MirBody::If { .. } => {
+                        found_if = true;
+                    }
+                    MirBody::Loop { .. } => {
+                        if found_while {
+                            found_loop = true;
+                        } else {
+                            found_while = true;
+                        }
+                    }
+                    MirBody::BasicBlock(bb) => {
+                        if matches!(bb.terminator, Terminator::Return(_)) {
+                            found_return = true;
+                        }
+                    }
+                    _ => {}
+                }
+            }
+
+            assert!(found_if, "If statement not found in MIR");
+            assert!(found_while, "While statement not found in MIR");
+            assert!(found_loop, "Loop statement not found in MIR");
+            assert!(found_return, "Return statement not found in MIR");
+        }
+        other => panic!(
+            "Expected block body for control_flow function, found {:?}",
+            other
+        ),
+    }
+}

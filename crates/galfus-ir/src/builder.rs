@@ -230,21 +230,10 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
         let mut statements = Vec::new();
 
         for &stmt_id in block_node.children() {
-            if let Some(stmt_body) = self.lower_statement(stmt_id) {
-                statements.push(stmt_body);
-            }
+            self.lower_statement(stmt_id, &mut statements);
         }
 
-        // If we have remaining instructions, or if the block does not end in a terminator, flush it.
-        let terminated = statements.last().map(ends_with_terminator).unwrap_or(false);
-        if !terminated || !self.current_instructions.is_empty() {
-            let instructions = std::mem::take(&mut self.current_instructions);
-            statements.push(MirBody::BasicBlock(BasicBlock {
-                id: self.builder.next_block(),
-                instructions,
-                terminator: Terminator::Return(None),
-            }));
-        }
+        self.flush_current_instructions(&mut statements);
 
         if statements.len() == 1 {
             statements.pop().unwrap()
@@ -256,10 +245,23 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
         }
     }
 
-    fn lower_statement(&mut self, stmt_id: NodeId) -> Option<MirBody> {
+    fn flush_current_instructions(&mut self, statements: &mut Vec<MirBody>) {
+        if !self.current_instructions.is_empty() {
+            let instructions = std::mem::take(&mut self.current_instructions);
+            statements.push(MirBody::BasicBlock(BasicBlock {
+                id: self.builder.next_block(),
+                instructions,
+                terminator: Terminator::Return(None),
+            }));
+        }
+    }
+
+    fn lower_statement(&mut self, stmt_id: NodeId, statements: &mut Vec<MirBody>) {
         let syntax = self.builder.graph.syntax();
-        let node = syntax.node(stmt_id)?;
-        let resolution = self.builder.graph.resolution()?;
+        let Some(node) = syntax.node(stmt_id) else {
+            return;
+        };
+        let resolution = self.builder.graph.resolution();
 
         match node.kind() {
             SyntaxNodeKind::VarStatement | SyntaxNodeKind::ConstStatement => {
@@ -271,7 +273,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                         .and_then(|init| syntax.first_child(init));
 
                     let operand = if let Some(init_expr) = initializer {
-                        self.lower_expression(init_expr)
+                        self.lower_expression(init_expr, statements)
                     } else {
                         Operand::Constant(Constant::Null)
                     };
@@ -290,7 +292,6 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                             .push(Instruction::Assign(local_id, RValue::Use(operand.clone())));
                     }
                 }
-                None
             }
 
             SyntaxNodeKind::AssignmentStatement => {
@@ -298,16 +299,18 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                 let value = node.child(2);
 
                 if let (Some(target), Some(value)) = (target, value) {
-                    let operand = self.lower_expression(value);
+                    let operand = self.lower_expression(value, statements);
 
                     if syntax
                         .node(target)
                         .is_some_and(|n| n.kind() == SyntaxNodeKind::NameExpression)
                     {
-                        let symbol = resolution.reference_symbol(target).or_else(|| {
-                            let ident =
-                                syntax.first_child_of_kind(target, SyntaxNodeKind::Identifier)?;
-                            resolution.reference_symbol(ident)
+                        let symbol = resolution.and_then(|res| {
+                            res.reference_symbol(target).or_else(|| {
+                                let ident = syntax
+                                    .first_child_of_kind(target, SyntaxNodeKind::Identifier)?;
+                                res.reference_symbol(ident)
+                            })
                         });
                         if let Some(local_id) =
                             symbol.and_then(|sym| self.symbol_to_local.get(&sym).copied())
@@ -317,34 +320,161 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                         }
                     }
                 }
-                None
             }
 
             SyntaxNodeKind::ReturnStatement => {
                 let expr = node.first_child();
-                let operand = expr.map(|e| self.lower_expression(e));
+                let operand = expr.map(|e| self.lower_expression(e, statements));
 
                 let instructions = std::mem::take(&mut self.current_instructions);
                 let block_id = self.builder.next_block();
-                Some(MirBody::BasicBlock(BasicBlock {
+                statements.push(MirBody::BasicBlock(BasicBlock {
                     id: block_id,
                     instructions,
                     terminator: Terminator::Return(operand),
-                }))
+                }));
+            }
+
+            SyntaxNodeKind::BreakStatement => {
+                self.flush_current_instructions(statements);
+                let block_id = self.builder.next_block();
+                statements.push(MirBody::BasicBlock(BasicBlock {
+                    id: block_id,
+                    instructions: Vec::new(),
+                    terminator: Terminator::Break,
+                }));
+            }
+
+            SyntaxNodeKind::ContinueStatement => {
+                self.flush_current_instructions(statements);
+                let block_id = self.builder.next_block();
+                statements.push(MirBody::BasicBlock(BasicBlock {
+                    id: block_id,
+                    instructions: Vec::new(),
+                    terminator: Terminator::Continue,
+                }));
             }
 
             SyntaxNodeKind::ExpressionStatement => {
                 if let Some(expr) = node.first_child() {
-                    self.lower_expression(expr);
+                    self.lower_expression(expr, statements);
                 }
-                None
             }
 
-            _ => None,
+            SyntaxNodeKind::Block => {
+                self.flush_current_instructions(statements);
+                let nested_block = self.lower_block(stmt_id);
+                statements.push(nested_block);
+            }
+
+            SyntaxNodeKind::IfStatement => {
+                self.flush_current_instructions(statements);
+
+                let cond_node = node.child(0).unwrap();
+                let then_node = node.child(1).unwrap();
+                let else_clause_node = node.child(2);
+
+                let cond = self.lower_expression(cond_node, statements);
+
+                self.flush_current_instructions(statements);
+
+                let then_branch = Box::new(self.lower_block(then_node));
+                let else_branch = else_clause_node.and_then(|else_clause| {
+                    let clause_node = syntax.node(else_clause)?;
+                    let child_node = clause_node.first_child()?;
+                    Some(Box::new(self.lower_block(child_node)))
+                });
+
+                statements.push(MirBody::If {
+                    cond,
+                    then_branch,
+                    else_branch,
+                });
+            }
+
+            SyntaxNodeKind::WhileStatement => {
+                self.flush_current_instructions(statements);
+
+                let cond_node = node.child(0).unwrap();
+                let body_node = node.child(1).unwrap();
+
+                let mut loop_body_statements = Vec::new();
+
+                let cond = self.lower_expression(cond_node, &mut loop_body_statements);
+
+                let bool_ty = self
+                    .builder
+                    .type_result
+                    .layer()
+                    .node_type(cond_node)
+                    .unwrap_or_else(|| TypeId::new(0));
+
+                let temp_id = self.declare_local(None, bool_ty);
+                self.current_instructions.push(Instruction::Assign(
+                    temp_id,
+                    RValue::UnaryOp(MirUnaryOp::Not, cond),
+                ));
+                let not_cond = Operand::Local(temp_id);
+
+                if !self.current_instructions.is_empty() {
+                    let instructions = std::mem::take(&mut self.current_instructions);
+                    loop_body_statements.push(MirBody::BasicBlock(BasicBlock {
+                        id: self.builder.next_block(),
+                        instructions,
+                        terminator: Terminator::Return(None),
+                    }));
+                }
+
+                let break_bb = MirBody::BasicBlock(BasicBlock {
+                    id: self.builder.next_block(),
+                    instructions: Vec::new(),
+                    terminator: Terminator::Break,
+                });
+                loop_body_statements.push(MirBody::If {
+                    cond: not_cond,
+                    then_branch: Box::new(break_bb),
+                    else_branch: None,
+                });
+
+                let lowered_body = self.lower_block(body_node);
+                loop_body_statements.push(lowered_body);
+
+                statements.push(MirBody::Loop {
+                    body: Box::new(MirBody::Block {
+                        locals: Vec::new(),
+                        statements: loop_body_statements,
+                    }),
+                });
+            }
+
+            SyntaxNodeKind::LoopStatement => {
+                self.flush_current_instructions(statements);
+
+                let body_node = node.child(0).unwrap();
+                let body = Box::new(self.lower_block(body_node));
+
+                statements.push(MirBody::Loop { body });
+            }
+
+            SyntaxNodeKind::ForStatement => {
+                self.flush_current_instructions(statements);
+
+                if let Some(iterable_node) = node.child(1) {
+                    self.lower_expression(iterable_node, statements);
+                    self.flush_current_instructions(statements);
+                }
+
+                let body_node = node.child(2).unwrap();
+                let body = Box::new(self.lower_block(body_node));
+
+                statements.push(MirBody::Loop { body });
+            }
+
+            _ => {}
         }
     }
 
-    fn lower_expression(&mut self, expr_id: NodeId) -> Operand {
+    fn lower_expression(&mut self, expr_id: NodeId, statements: &mut Vec<MirBody>) -> Operand {
         let syntax = self.builder.graph.syntax();
         let Some(node) = syntax.node(expr_id) else {
             return Operand::Constant(Constant::Null);
@@ -405,8 +535,8 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                 let op_node = node.child(1).unwrap();
                 let right = node.child(2).unwrap();
 
-                let left_operand = self.lower_expression(left);
-                let right_operand = self.lower_expression(right);
+                let left_operand = self.lower_expression(left, statements);
+                let right_operand = self.lower_expression(right, statements);
 
                 let op = self.lower_binary_op(op_node);
 
@@ -429,7 +559,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                 let op_node = node.child(0).unwrap();
                 let operand_node = node.child(1).unwrap();
 
-                let operand = self.lower_expression(operand_node);
+                let operand = self.lower_expression(operand_node, statements);
                 let op = self.lower_unary_op(op_node);
 
                 let ty = self
@@ -447,7 +577,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
 
             SyntaxNodeKind::CastExpression => {
                 let val_node = node.child(1).unwrap();
-                let operand = self.lower_expression(val_node);
+                let operand = self.lower_expression(val_node, statements);
 
                 let ty = self
                     .builder
@@ -464,10 +594,68 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
 
             SyntaxNodeKind::GroupedExpression => {
                 if let Some(inner) = node.first_child() {
-                    self.lower_expression(inner)
+                    self.lower_expression(inner, statements)
                 } else {
                     Operand::Constant(Constant::Null)
                 }
+            }
+
+            SyntaxNodeKind::CallExpression => {
+                let target_node = node.child(0).unwrap();
+                let arg_list_node = node.child(1).unwrap();
+
+                let mut args = Vec::new();
+                if let Some(arg_list) = syntax.node(arg_list_node) {
+                    for &arg_id in arg_list.children() {
+                        let arg_expr = syntax
+                            .node(arg_id)
+                            .and_then(|n| {
+                                if n.kind() == SyntaxNodeKind::Argument {
+                                    syntax.child(arg_id, 0)
+                                } else {
+                                    Some(arg_id)
+                                }
+                            })
+                            .unwrap_or(arg_id);
+
+                        let arg_op = self.lower_expression(arg_expr, statements);
+                        args.push(arg_op);
+                    }
+                }
+
+                let symbol = resolution.and_then(|res| {
+                    res.reference_symbol(target_node).or_else(|| {
+                        let ident =
+                            syntax.first_child_of_kind(target_node, SyntaxNodeKind::Identifier)?;
+                        res.reference_symbol(ident)
+                    })
+                });
+                let func_id = symbol
+                    .map(|sym| FunctionId::new(sym.raw()))
+                    .unwrap_or_else(|| FunctionId::new(0));
+
+                let ty = self
+                    .builder
+                    .type_result
+                    .layer()
+                    .node_type(expr_id)
+                    .unwrap_or_else(|| TypeId::new(0));
+
+                let temp_id = self.declare_local(None, ty);
+
+                let instructions = std::mem::take(&mut self.current_instructions);
+                let block_id = self.builder.next_block();
+                statements.push(MirBody::BasicBlock(BasicBlock {
+                    id: block_id,
+                    instructions,
+                    terminator: Terminator::Call {
+                        func: func_id,
+                        args,
+                        destination: temp_id,
+                    },
+                }));
+
+                Operand::Local(temp_id)
             }
 
             _ => Operand::Constant(Constant::Null),
@@ -519,28 +707,6 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
             };
         }
         MirUnaryOp::Negate
-    }
-}
-
-fn ends_with_terminator(body: &MirBody) -> bool {
-    match body {
-        MirBody::BasicBlock(_) => true,
-        MirBody::Block { statements, .. } => {
-            statements.last().map(ends_with_terminator).unwrap_or(false)
-        }
-        MirBody::If {
-            then_branch,
-            else_branch,
-            ..
-        } => {
-            let then_term = ends_with_terminator(then_branch);
-            let else_term = else_branch
-                .as_ref()
-                .map(|b| ends_with_terminator(b))
-                .unwrap_or(false);
-            then_term && else_term
-        }
-        MirBody::Loop { body } => ends_with_terminator(body),
     }
 }
 
