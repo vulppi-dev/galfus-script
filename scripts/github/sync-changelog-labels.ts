@@ -22,6 +22,16 @@ const MANAGED_LABELS = [
   'changelog:internal'
 ] as const;
 
+const LABEL_META: Record<string, { color: string; description: string }> = {
+  'changelog:breaking': { color: 'd73a4a', description: 'Breaking changes that require user intervention' },
+  'changelog:feature': { color: 'a2eeef', description: 'New features and enhancements' },
+  'changelog:fix': { color: '34c759', description: 'Bug fixes and stability improvements' },
+  'changelog:refactor': { color: 'cca7f1', description: 'Code refactoring without functional changes' },
+  'changelog:performance': { color: 'ffcc00', description: 'Performance optimizations' },
+  'changelog:docs': { color: '007aff', description: 'Documentation updates and design specifications' },
+  'changelog:internal': { color: '8e8e93', description: 'Internal changes excluded from the public changelog' }
+};
+
 type RepoLabel = {
   name: string;
 };
@@ -50,10 +60,32 @@ async function main(): Promise<void> {
   const repoLabelSet = new Set(existingRepoLabels.map((label) => label.name));
 
   const toAdd = [...checked].filter(
-    (label) => repoLabelSet.has(label) && !currentPrLabels.has(label)
+    (label) => !currentPrLabels.has(label)
   );
+
+  for (const label of toAdd) {
+    if (!repoLabelSet.has(label)) {
+      try {
+        const meta = LABEL_META[label] || { color: 'ededed', description: '' };
+        await githubRequest({
+          method: 'POST',
+          path: `/repos/${owner}/${repo}/labels`,
+          body: {
+            name: label,
+            color: meta.color,
+            description: meta.description
+          }
+        });
+        console.log(`Created missing repository label: ${label}`);
+        repoLabelSet.add(label);
+      } catch (error) {
+        console.error(`Failed to create repository label: ${label}`, error);
+      }
+    }
+  }
+
   const toRemove = MANAGED_LABELS.filter(
-    (label) => repoLabelSet.has(label) && currentPrLabels.has(label) && !checked.has(label)
+    (label) => currentPrLabels.has(label) && !checked.has(label)
   );
 
   if (toAdd.length > 0) {
