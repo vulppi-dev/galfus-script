@@ -2,6 +2,7 @@ use crate::mir::*;
 use galfus_core::{FunctionId, NodeId, SymbolId, TypeId};
 use galfus_frontend::{ModuleGraph, SymbolKind, SyntaxNodeKind, TypeCheckResult, TypeKind};
 
+pub mod complex_literals;
 pub mod expression;
 pub mod function;
 pub mod helpers;
