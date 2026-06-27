@@ -639,6 +639,7 @@ version = "0.0.0"
 dependencies = [
  "galfus-core",
  "indexmap",
+ "smallvec",
  "thiserror 2.0.18",
  "unicode-ident",
 ]

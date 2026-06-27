@@ -1,3 +1,4 @@
+use crate::{AsNameId, NameId};
 use galfus_core::{NodeId, ScopeId, SymbolId};
 use std::collections::HashMap;
 
@@ -23,7 +24,7 @@ pub struct Scope {
     kind: ScopeKind,
     parent: Option<ScopeId>,
     owner: Option<NodeId>,
-    symbols: HashMap<String, SymbolId>,
+    symbols: HashMap<NameId, SymbolId>,
 }
 
 impl Scope {
@@ -58,15 +59,19 @@ impl Scope {
         self.owner
     }
 
-    pub fn symbols(&self) -> &HashMap<String, SymbolId> {
+    pub fn symbols(&self) -> &HashMap<NameId, SymbolId> {
         &self.symbols
     }
 
-    pub fn symbol(&self, name: &str) -> Option<SymbolId> {
-        self.symbols.get(name).copied()
+    pub fn symbol<N: AsNameId>(&self, name: N) -> Option<SymbolId> {
+        self.symbols.get(&name.as_name_id()).copied()
     }
 
-    pub(crate) fn insert_symbol(&mut self, name: String, symbol: SymbolId) -> Option<SymbolId> {
-        self.symbols.insert(name, symbol)
+    pub(crate) fn insert_symbol<N: AsNameId>(
+        &mut self,
+        name: N,
+        symbol: SymbolId,
+    ) -> Option<SymbolId> {
+        self.symbols.insert(name.as_name_id(), symbol)
     }
 }

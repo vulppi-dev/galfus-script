@@ -109,16 +109,6 @@ impl Lexer<'_> {
             }
 
             '/' => {
-                if self.peek_next() == Some('/') {
-                    self.skip_line_comment();
-                    return self.next_token();
-                }
-
-                if self.peek_next() == Some('*') {
-                    self.skip_block_comment();
-                    return self.next_token();
-                }
-
                 if self.match_char('=') {
                     TokenKind::SlashEqual
                 } else {

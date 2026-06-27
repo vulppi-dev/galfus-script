@@ -33,11 +33,11 @@ impl Parser {
         }
 
         if self.at(&TokenKind::Var) {
-            return self.parse_var_item();
+            return self.parse_binding_helper(TokenKind::Var, false, SyntaxNodeKind::VarItem);
         }
 
         if self.at(&TokenKind::Const) {
-            return self.parse_const_item();
+            return self.parse_binding_helper(TokenKind::Const, true, SyntaxNodeKind::ConstItem);
         }
 
         if self.at(&TokenKind::Enum) {
@@ -84,9 +84,9 @@ impl Parser {
         }
 
         let item = if self.at(&TokenKind::Var) {
-            self.parse_var_item()?
+            self.parse_binding_helper(TokenKind::Var, false, SyntaxNodeKind::VarItem)?
         } else if self.at(&TokenKind::Const) {
-            self.parse_const_item()?
+            self.parse_binding_helper(TokenKind::Const, true, SyntaxNodeKind::ConstItem)?
         } else if self.at(&TokenKind::Fn) {
             self.parse_function_item(decorators)?
         } else if self.at(&TokenKind::Struct) {
@@ -566,28 +566,6 @@ impl Parser {
         let span = Span::cover(satisfies_token.span(), end_span).unwrap_or(satisfies_token.span());
 
         Some(self.add_node(SyntaxNodeKind::SatisfiesClause, span, constraints))
-    }
-
-    pub(super) fn parse_var_item(&mut self) -> Option<NodeId> {
-        let var_token = self.expect(TokenKind::Var)?;
-        let (children, end_span) = self.parse_binding_after_keyword(false)?;
-
-        self.expect_statement_end();
-
-        let span = Span::cover(var_token.span(), end_span).unwrap_or(var_token.span());
-
-        Some(self.add_node(SyntaxNodeKind::VarItem, span, children))
-    }
-
-    pub(super) fn parse_const_item(&mut self) -> Option<NodeId> {
-        let const_token = self.expect(TokenKind::Const)?;
-        let (children, end_span) = self.parse_binding_after_keyword(true)?;
-
-        self.expect_statement_end();
-
-        let span = Span::cover(const_token.span(), end_span).unwrap_or(const_token.span());
-
-        Some(self.add_node(SyntaxNodeKind::ConstItem, span, children))
     }
 
     pub(super) fn parse_struct_expansion(&mut self) -> Option<NodeId> {
