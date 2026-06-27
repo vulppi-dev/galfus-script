@@ -123,6 +123,7 @@ pub enum RValue {
     NewArray(TypeId, Vec<Operand>),
     NewTuple(TypeId, Vec<Operand>),
     MemberAccess(Operand, String),
+    ArrayIndex(Operand, Operand),
     Choice(TypeId, String, Option<Operand>),
     Instanceof(Operand, TypeId),
 }
