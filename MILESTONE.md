@@ -35,7 +35,7 @@ The MVP is not a product-distribution milestone. It does not include package pub
 Current phase:
 
 ```txt
-Owner Graph Core Runtime
+Local MVP Runner
 ```
 
 Completed:
@@ -52,12 +52,13 @@ Module Image & Bytecode
 MIR to Module Image Lowering
 .gfb Serialization & Loader
 VM Core
+Owner Graph Core Runtime
 ```
 
 Active:
 
 ```txt
-Owner Graph Core Runtime
+Local MVP Runner
 ```
 
 Frontend MVP status:
@@ -69,7 +70,7 @@ closed for local .gfs validation
 Not usable yet:
 
 ```txt
-Owner Graph Core Runtime
+Local MVP Runner
 ```
 
 ## MVP Pipeline
@@ -486,20 +487,20 @@ Goal: execute `.gfb` through a minimal interpreted VM.
 
 Goal: execute the Galfus ownership model at runtime.
 
-- [ ] Runtime anchor representation
-- [ ] Runtime edge representation
-- [ ] Runtime weak observer representation
-- [ ] Value lifetime tracking
-- [ ] Deterministic release
-- [ ] Cycle-safe release
-- [ ] Weak invalidation
-- [ ] Module state roots
-- [ ] Call frame roots
-- [ ] Local roots
-- [ ] Temporary roots
-- [ ] Closure roots
-- [ ] Owner graph tests
-- [ ] Runtime ownership panic paths
+- [x] Runtime anchor representation
+- [x] Runtime edge representation
+- [x] Runtime weak observer representation
+- [x] Value lifetime tracking
+- [x] Deterministic release
+- [x] Cycle-safe release
+- [x] Weak invalidation
+- [x] Module state roots
+- [x] Call frame roots
+- [x] Local roots
+- [x] Temporary roots
+- [x] Closure roots
+- [x] Owner graph tests
+- [x] Runtime ownership panic paths
 
 ## Milestone 14 — Local MVP Runner
 
