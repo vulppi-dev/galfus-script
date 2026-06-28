@@ -1,6 +1,8 @@
 #[cfg(test)]
 mod tests;
 
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
+pub mod error;
+pub mod runtime;
+
+pub use error::{StackFrameInfo, VmError, VmPanic};
+pub use runtime::{CallFrame, HeapObject, VirtualMachine};

@@ -35,7 +35,7 @@ The MVP is not a product-distribution milestone. It does not include package pub
 Current phase:
 
 ```txt
-MIR / lowering
+Owner Graph Core Runtime
 ```
 
 Completed:
@@ -47,13 +47,17 @@ local resolver
 type checker
 semantic checker
 ownership checker
+MIR
+Module Image & Bytecode
+MIR to Module Image Lowering
+.gfb Serialization & Loader
+VM Core
 ```
 
 Active:
 
 ```txt
-MIR
-Module Image & Bytecode
+Owner Graph Core Runtime
 ```
 
 Frontend MVP status:
@@ -65,10 +69,7 @@ closed for local .gfs validation
 Not usable yet:
 
 ```txt
-MIR
-bytecode
-.gfb
-VM execution
+Owner Graph Core Runtime
 ```
 
 ## MVP Pipeline
@@ -459,27 +460,27 @@ Goal: Serialize `ModuleImage` to the compact binary format `.gfb` and read/valid
 
 Goal: execute `.gfb` through a minimal interpreted VM.
 
-- [ ] VM runtime structure
-- [ ] Module Image loading
-- [ ] Module Image validation
-- [ ] Entrypoint lookup
-- [ ] Bytecode dispatch
-- [ ] Call frames
-- [ ] Locals
-- [ ] Temporaries
-- [ ] Function calls
-- [ ] Returns
-- [ ] Cast execution
-- [ ] Control flow execution
-- [ ] Struct execution support
-- [ ] Tuple execution support
-- [ ] Array execution support
-- [ ] Choice execution support
-- [ ] Enum execution support
-- [ ] Module initialization
-- [ ] Minimal panic handling
-- [ ] VM diagnostics
-- [ ] VM execution tests
+- [x] VM runtime structure
+- [x] Module Image loading
+- [x] Module Image validation
+- [x] Entrypoint lookup
+- [x] Bytecode dispatch
+- [x] Call frames
+- [x] Locals
+- [x] Temporaries
+- [x] Function calls
+- [x] Returns
+- [x] Cast execution
+- [x] Control flow execution
+- [x] Struct execution support
+- [x] Tuple execution support
+- [x] Array execution support
+- [x] Choice execution support
+- [x] Enum execution support
+- [x] Module initialization
+- [x] Minimal panic handling
+- [x] VM diagnostics
+- [x] VM execution tests
 
 ## Milestone 13 — Owner Graph Core Runtime
 
@@ -548,9 +549,9 @@ Goal: prove the complete language surface through local `.gfs` programs.
 - [x] Ownership validation
 - [x] Module imports
 - [x] Module exports
-- [ ] `.gfb` serialization
-- [ ] VM execution
-- [ ] Panic behavior
+- [x] `.gfb` serialization
+- [x] VM execution
+- [x] Panic behavior
 
 ## MVP Success Criteria
 
@@ -562,13 +563,13 @@ The MVP is complete when:
 - [x] The type checker validates all core type rules
 - [x] The semantic checker validates current language semantics
 - [x] The ownership checker validates anchors, edges, and weak fields
-- [ ] The compiler lowers valid programs into MIR
-- [ ] The compiler lowers MIR into a Galfus Module Image
-- [ ] The compiler serializes the Module Image into `.gfb`
-- [ ] The VM loads and validates `.gfb`
-- [ ] The VM executes bytecode correctly
+- [x] The compiler lowers valid programs into MIR
+- [x] The compiler lowers MIR into a Galfus Module Image
+- [x] The compiler serializes the Module Image into `.gfb`
+- [x] The VM loads and validates `.gfb`
+- [x] The VM executes bytecode correctly
 - [ ] The Owner Graph Core releases values deterministically
-- [ ] Runtime failures produce panic
+- [x] Runtime failures produce panic
 - [x] Local imports and exports work
 - [ ] No excluded ecosystem feature is required to run MVP programs
 
