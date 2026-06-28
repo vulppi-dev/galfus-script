@@ -27,7 +27,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
             return MirBody::BasicBlock(BasicBlock {
                 id: self.builder.next_block(),
                 instructions: insts,
-                terminator: Terminator::Return(None),
+                terminator: Terminator::None,
             });
         }
 
@@ -134,7 +134,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                         bindings.push(MirBody::BasicBlock(BasicBlock {
                             id: self.builder.next_block(),
                             instructions: bind_insts,
-                            terminator: Terminator::Return(None),
+                            terminator: Terminator::None,
                         }));
                     }
                 }
@@ -229,14 +229,14 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                                         bindings.push(MirBody::BasicBlock(BasicBlock {
                                             id: self.builder.next_block(),
                                             instructions: extract_insts,
-                                            terminator: Terminator::Return(None),
+                                            terminator: Terminator::None,
                                         }));
                                         bindings.extend(nested_bindings);
                                     } else {
                                         bindings.push(MirBody::BasicBlock(BasicBlock {
                                             id: self.builder.next_block(),
                                             instructions: extract_insts,
-                                            terminator: Terminator::Return(None),
+                                            terminator: Terminator::None,
                                         }));
                                         for (i, &child_pattern) in
                                             payload_patterns.iter().enumerate()
@@ -253,7 +253,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                                             bindings.push(MirBody::BasicBlock(BasicBlock {
                                                 id: self.builder.next_block(),
                                                 instructions: elem_insts,
-                                                terminator: Terminator::Return(None),
+                                                terminator: Terminator::None,
                                             }));
 
                                             let mut nested_bindings = Vec::new();
@@ -316,7 +316,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                         bindings.push(MirBody::BasicBlock(BasicBlock {
                             id: self.builder.next_block(),
                             instructions: bind_insts,
-                            terminator: Terminator::Return(None),
+                            terminator: Terminator::None,
                         }));
                     }
                 }

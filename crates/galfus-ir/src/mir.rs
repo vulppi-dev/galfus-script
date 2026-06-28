@@ -155,6 +155,7 @@ pub enum Terminator {
         destination: LocalId,
     },
     Panic(String),
+    None,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

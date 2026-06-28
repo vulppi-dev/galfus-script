@@ -172,6 +172,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                             .get_or_create_constant(&crate::mir::Constant::String(msg.clone()));
                         self.instructions.push(Instruction::Panic { const_idx });
                     }
+                    Terminator::None => {}
                     Terminator::Call {
                         func,
                         args,

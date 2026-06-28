@@ -645,7 +645,7 @@ impl VirtualMachine {
                 // Category C: Control Flow & Subroutines
                 Instruction::Jump { offset } => {
                     let frame = self.call_stack.last_mut().ok_or(VmError::EmptyCallStack)?;
-                    let new_pc = (frame.pc as i32 + offset - 1) as usize;
+                    let new_pc = (frame.pc as i32 + offset) as usize;
                     frame.pc = new_pc;
                 }
                 Instruction::JumpTrue { cond, offset } => {
@@ -655,7 +655,7 @@ impl VirtualMachine {
                             if b {
                                 let frame =
                                     self.call_stack.last_mut().ok_or(VmError::EmptyCallStack)?;
-                                let new_pc = (frame.pc as i32 + offset - 1) as usize;
+                                let new_pc = (frame.pc as i32 + offset) as usize;
                                 frame.pc = new_pc;
                             }
                         }
@@ -674,7 +674,7 @@ impl VirtualMachine {
                             if !b {
                                 let frame =
                                     self.call_stack.last_mut().ok_or(VmError::EmptyCallStack)?;
-                                let new_pc = (frame.pc as i32 + offset - 1) as usize;
+                                let new_pc = (frame.pc as i32 + offset) as usize;
                                 frame.pc = new_pc;
                             }
                         }
@@ -690,7 +690,7 @@ impl VirtualMachine {
                     let val_read = self.read_reg(val)?;
                     if matches!(val_read, Value::Null) {
                         let frame = self.call_stack.last_mut().ok_or(VmError::EmptyCallStack)?;
-                        let new_pc = (frame.pc as i32 + offset - 1) as usize;
+                        let new_pc = (frame.pc as i32 + offset) as usize;
                         frame.pc = new_pc;
                     }
                 }

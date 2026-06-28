@@ -321,3 +321,86 @@ var rename = User::rename
         Some(TypeKind::Function(_))
     ));
 }
+
+#[test]
+fn check_reports_expression_statement_type_mismatch() {
+    let source = source(
+        r#"
+fn print(text: [uint8]): null {
+  return null
+}
+
+fn main(): null {
+  print(123)
+}
+"#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.into_graph();
+    let result = check_declaration_types(&source, &graph);
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::TypeMismatch.as_code()
+    }));
+}
+
+#[test]
+fn check_reports_restricted_builtin_symbol_declaration() {
+    let source = source(
+        r#"
+fn __builtin_write(text: [uint8]): null {
+  return null
+}
+"#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.into_graph();
+    let result = check_declaration_types(&source, &graph);
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::RestrictedBuiltinSymbol.as_code()
+    }));
+}
+
+#[test]
+fn check_reports_restricted_builtin_symbol_reference() {
+    let source = source(
+        r#"
+fn __builtin_write(text: [uint8]): null {
+  return null
+}
+
+fn main(): null {
+  var x = __builtin_write
+}
+"#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.into_graph();
+    let result = check_declaration_types(&source, &graph);
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::RestrictedBuiltinSymbol.as_code()
+    }));
+}

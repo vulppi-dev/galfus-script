@@ -310,7 +310,7 @@ fn test_control_flow_jumps() {
         },
         Instruction::JumpFalse {
             cond: Reg(1),
-            offset: 3,
+            offset: 2,
         },
         Instruction::LoadConst {
             dest: Reg(2),

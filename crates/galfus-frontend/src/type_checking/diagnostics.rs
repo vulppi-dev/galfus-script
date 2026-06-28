@@ -930,4 +930,19 @@ impl<'a> DeclarationTypeChecker<'a> {
 
         names.join(" -> ")
     }
+
+    pub(super) fn report_restricted_builtin_symbol(&mut self, identifier: NodeId, name: &str) {
+        let span = self
+            .graph
+            .syntax()
+            .node(identifier)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+            TypeDiagnosticCode::RestrictedBuiltinSymbol,
+            format!("use of restricted builtin name `{name}`"),
+            span,
+        ));
+    }
 }

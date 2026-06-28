@@ -1,5 +1,6 @@
-fn __builtin_write(text: [int8]): null {}
+fn __builtin_write(text: [uint8]): null {}
 
-export fn print(text: [int8]): null {
-    __builtin_write(text)
+export fn print(text: [uint8]): null {
+  __builtin_write(text)
 }
+

@@ -100,7 +100,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
             statements.push(MirBody::BasicBlock(BasicBlock {
                 id: self.builder.next_block(),
                 instructions,
-                terminator: Terminator::Return(None),
+                terminator: Terminator::None,
             }));
         }
     }

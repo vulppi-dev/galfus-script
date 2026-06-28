@@ -123,6 +123,7 @@ fn validate_body(
                 Terminator::Break => {}
                 Terminator::Continue => {}
                 Terminator::Panic(_) => {}
+                Terminator::None => {}
                 Terminator::Call {
                     func: target_func_id,
                     args,

@@ -34,7 +34,10 @@ use std::collections::HashMap;
 
 use galfus_core::{DiagnosticBag, NodeId, SourceFile, SymbolId, TypeId};
 
-use crate::{ArraySize, FunctionParameterType, ModuleGraph, PrimitiveType, TypeLayer, lower_types};
+use crate::{
+    ArraySize, FunctionParameterType, ModuleGraph, PrimitiveType, SyntaxNodeKind, TypeLayer,
+    lower_types,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ImportedFunctionParameterType {
@@ -785,6 +788,7 @@ impl<'a> DeclarationTypeChecker<'a> {
         self.check_decorators(root);
         self.check_control_flow(root, 0);
         self.check_initializer_types(root);
+        self.check_expression_statements(root);
         self.check_enum_types(root);
         self.check_return_types(root, None);
         self.check_assignment_types(root);
@@ -981,6 +985,22 @@ impl<'a> DeclarationTypeChecker<'a> {
                     .table_mut()
                     .intern_function(parameters, return_type)
             }
+        }
+    }
+
+    fn check_expression_statements(&mut self, node: NodeId) {
+        let Some(syntax_node) = self.graph.syntax().node(node) else {
+            return;
+        };
+
+        if syntax_node.kind() == SyntaxNodeKind::ExpressionStatement {
+            if let Some(expression) = self.graph.syntax().child(node, 0) {
+                self.infer_expression_type(expression);
+            }
+        }
+
+        for child in syntax_node.children() {
+            self.check_expression_statements(*child);
         }
     }
 }

@@ -142,6 +142,7 @@ pub enum TypeDiagnosticCode {
     InitializationCycle,
     InvalidStructExpansionTarget,
     InvalidStructSpreadTarget,
+    RestrictedBuiltinSymbol,
 }
 
 impl DiagnosticCodeKind for TypeDiagnosticCode {
@@ -191,6 +192,7 @@ impl DiagnosticCodeKind for TypeDiagnosticCode {
             Self::InitializationCycle => "T0042",
             Self::InvalidStructExpansionTarget => "T0043",
             Self::InvalidStructSpreadTarget => "T0044",
+            Self::RestrictedBuiltinSymbol => "T0045",
         }
     }
 
@@ -242,6 +244,7 @@ impl DiagnosticCodeKind for TypeDiagnosticCode {
             Self::InitializationCycle => "initialization cycle",
             Self::InvalidStructExpansionTarget => "invalid struct expansion target",
             Self::InvalidStructSpreadTarget => "invalid struct spread target",
+            Self::RestrictedBuiltinSymbol => "restricted builtin symbol usage",
         }
     }
 }
