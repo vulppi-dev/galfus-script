@@ -6,6 +6,8 @@ license.workspace = true
 
 [dependencies]
 galfus-core = { path = "../galfus-core" }
+galfus-image = { path = "../galfus-image" }
+galfus-target = { path = "../galfus-target" }
 
 smallvec.workspace = true
 thiserror.workspace = true

@@ -1,7 +1,7 @@
 use super::LowerCtx;
 use crate::mir::{MirBody, MirFunction, Terminator};
-use galfus_core::image::Instruction;
-use galfus_core::image::instruction::{GlobalIdx, Reg};
+use galfus_image::Instruction;
+use galfus_image::instruction::{GlobalIdx, Reg};
 
 pub struct LoopLabels {
     pub start: usize,

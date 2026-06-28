@@ -608,8 +608,8 @@ name = "galfus-builtins"
 version = "0.0.0"
 dependencies = [
  "galfus-core",
- "galfus-host",
  "galfus-runtime",
+ "galfus-target",
  "thiserror 2.0.18",
 ]
 
@@ -646,15 +646,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "galfus-host"
+name = "galfus-image"
 version = "0.0.0"
 dependencies = [
- "galfus-core",
- "galfus-ir",
- "galfus-runtime",
- "libloading",
+ "indexmap",
+ "postcard",
+ "serde",
  "thiserror 2.0.18",
- "wasmtime",
 ]
 
 [[package]]
@@ -663,6 +661,7 @@ version = "0.0.0"
 dependencies = [
  "galfus-core",
  "galfus-frontend",
+ "galfus-image",
  "postcard",
  "serde",
  "thiserror 2.0.18",
@@ -686,9 +685,10 @@ dependencies = [
  "galfus-builtins",
  "galfus-core",
  "galfus-frontend",
- "galfus-host",
+ "galfus-image",
  "galfus-ir",
  "galfus-runtime",
+ "galfus-target",
  "galfus-vm",
  "notify",
  "serde",
@@ -702,21 +702,21 @@ name = "galfus-runtime"
 version = "0.0.0"
 dependencies = [
  "galfus-core",
+ "galfus-image",
+ "galfus-target",
  "smallvec",
  "thiserror 2.0.18",
 ]
 
 [[package]]
-name = "galfus-tools"
+name = "galfus-target"
 version = "0.0.0"
 dependencies = [
- "anyhow",
  "galfus-core",
- "galfus-frontend",
- "galfus-ir",
- "galfus-runner",
- "galfus-vm",
+ "galfus-image",
+ "libloading",
  "thiserror 2.0.18",
+ "wasmtime",
 ]
 
 [[package]]
@@ -724,9 +724,9 @@ name = "galfus-vm"
 version = "0.0.0"
 dependencies = [
  "galfus-core",
- "galfus-host",
- "galfus-ir",
+ "galfus-image",
  "galfus-runtime",
+ "galfus-target",
  "thiserror 2.0.18",
  "tracing",
 ]

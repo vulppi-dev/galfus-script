@@ -126,7 +126,7 @@ impl ModuleLoader {
 
         let source_id = SourceId::new(self.modules.len() as u32);
         let text = if path.to_str() == Some("std/io") {
-            include_str!("../../../rich_builtin/io.gfs").to_string()
+            galfus_builtins::STD_IO_SOURCE.to_string()
         } else {
             fs::read_to_string(path.as_path())?
         };

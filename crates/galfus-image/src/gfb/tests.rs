@@ -1,5 +1,5 @@
 use super::*;
-use crate::image::ConstantPool;
+use crate::ConstantPool;
 
 #[test]
 fn test_gfb_roundtrip() {

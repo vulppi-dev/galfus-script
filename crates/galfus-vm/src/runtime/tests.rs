@@ -1,6 +1,6 @@
 use super::*;
-use galfus_core::image::instruction::{ConstIdx, FieldIdx};
-use galfus_core::image::{
+use galfus_image::instruction::{ConstIdx, FieldIdx};
+use galfus_image::{
     ChoiceLayout, ChoiceVariantLayout, ConstantPool, FieldLayout, ImageFunction, OwnershipKind,
     StructLayout,
 };

@@ -1,11 +1,9 @@
-<div align="center">
-  <img src="/assets/brand-effect.png" alt="Galfus" width="400" />
-  
-  # Galfus Script
-  
-  [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE.md)
-  [![Rust](https://img.shields.io/badge/rust-stable-orange.svg)](https://www.rust-lang.org/)
-</div>
+![Galfus](/assets/brand-effect.png)
+
+# Galfus Script
+
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE.md)
+[![Rust](https://img.shields.io/badge/rust-stable-orange.svg)](https://www.rust-lang.org/)
 
 > A small, efficient, highly modular interpreted scripting language built around typed source code, compact `.gfb` artifacts, and a deterministic VM runtime.
 
@@ -29,11 +27,9 @@ Galfus Script is a programming language validating a compact, modular, VM-first 
 
 ## Status
 
-**MVP Status: Fully Operational & Verified 🎉**
-
 The entire core execution pipeline is complete. You can parse, typecheck, compile, and run Galfus Script projects using the local VM runner.
 
-```
+```txt
 .gfs Source Files (Workspace)
   └── Lexer & AST Parser
         └── Resolver (Scope & Name Resolution)
@@ -81,15 +77,19 @@ Galfus Script is structured as a cargo workspace containing the following crates
 ```txt
 galfus-script/
   ├── crates/
-  │    ├── galfus-core/       # Core binary image layout, opcodes, and serialization
-  │    ├── galfus-vm/         # Virtual Machine interpreter and owner graph engine
-  │    ├── galfus-ir/         # MIR (Middle Intermediate Representation) and lowering
-  │    ├── galfus-frontend/   # Lexer, AST Parser, Resolver, Type Checker, and Semantics
-  │    ├── galfus-runner/     # Workspace compilation pipeline and executor
+  │    ├── galfus-core/       # Shared IDs, diagnostics, spans, and primitive metadata
+  │    ├── galfus-frontend/   # Lexer, parser, resolver, checker, and semantic validation
+  │    ├── galfus-ir/         # MIR representation and VM lowering code
+  │    ├── galfus-image/      # Bytecode format, validation, layouts, and GFB serialization
+  │    ├── galfus-runtime/    # Concurrency runtime, threads, loader, and registry
+  │    ├── galfus-vm/         # Virtual Machine interpreter and ownership graph engine
+  │    ├── galfus-jit/        # Just-in-Time compilation engine skeleton
+  │    ├── galfus-target/     # Low-level target capabilities provider interface
+  │    ├── galfus-builtins/   # Standard library builtins and rich_builtins files
+  │    ├── galfus-runner/     # Workspace compilation pipeline and linker
   │    └── galfus-cli/        # CLI interface (Command Line Interface)
-  ├── examples/
-  │    └── project/           # Sample workspace project with local main.gfs and config
-  └── rich_builtin/           # Default library source code files (e.g. std/io)
+  └── examples/
+       └── project/           # Sample workspace project with local main.gfs and config
 ```
 
 ---

@@ -1,8 +1,8 @@
 use crate::error::{StackFrameInfo, VmError, VmPanic};
-use galfus_core::image::instruction::{
+use galfus_image::instruction::{
     ChoiceLayoutIdx, FuncIdx, Instruction, Reg, StructLayoutIdx, TypeIdx,
 };
-use galfus_core::image::{Constant, ImageType, ModuleImage, ObjectRef, OwnershipKind, Value};
+use galfus_image::{Constant, ImageType, ModuleImage, ObjectRef, OwnershipKind, Value};
 
 #[cfg(test)]
 mod tests;

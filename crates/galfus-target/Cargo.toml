@@ -1,13 +1,12 @@
 [package]
-name = "galfus-host"
+name = "galfus-target"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 
 [dependencies]
 galfus-core = { path = "../galfus-core" }
-galfus-ir = { path = "../galfus-ir" }
-galfus-runtime = { path = "../galfus-runtime" }
+galfus-image = { path = "../galfus-image" }
 
 thiserror.workspace = true
 

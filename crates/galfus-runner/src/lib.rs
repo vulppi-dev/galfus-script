@@ -111,14 +111,14 @@ pub fn compile_file_to_gfb(source_path: &Path, output_path: &Path) -> Result<()>
     let mir_module = galfus_ir::builder::MirBuilder::new(&graph, &type_result, &code).build();
     let module_image = galfus_ir::lower::lower_module(&mir_module, &type_result, &graph, &code);
 
-    if let Err(errors) = galfus_core::image::validation::validate_module_image(&module_image) {
+    if let Err(errors) = galfus_image::validation::validate_module_image(&module_image) {
         return Err(anyhow::anyhow!(
             "ModuleImage validation failed: {:?}",
             errors
         ));
     }
 
-    let gfb_bytes = galfus_core::image::gfb::serialize_to_gfb(&module_image)
+    let gfb_bytes = galfus_image::gfb::serialize_to_gfb(&module_image)
         .map_err(|e| anyhow::anyhow!("Serialization error: {}", e))?;
 
     fs::write(output_path, gfb_bytes)?;
@@ -126,11 +126,11 @@ pub fn compile_file_to_gfb(source_path: &Path, output_path: &Path) -> Result<()>
     Ok(())
 }
 
-pub fn load_gfb_file(path: &Path) -> Result<galfus_core::image::ModuleImage> {
+pub fn load_gfb_file(path: &Path) -> Result<galfus_image::ModuleImage> {
     use std::fs;
 
     let bytes = fs::read(path)?;
-    let module_image = galfus_core::image::gfb::deserialize_from_gfb(&bytes)
+    let module_image = galfus_image::gfb::deserialize_from_gfb(&bytes)
         .map_err(|e| anyhow::anyhow!("GFB loader error: {}", e))?;
     Ok(module_image)
 }
@@ -200,7 +200,7 @@ pub fn run_project(path: &str) -> Result<()> {
     let main_func_pos = module_image.functions.iter().position(|f| f.name == "main");
 
     if let Some(pos) = main_func_pos {
-        let main_idx = galfus_core::image::instruction::FuncIdx(pos as u16);
+        let main_idx = galfus_image::instruction::FuncIdx(pos as u16);
         match vm.run_function(main_idx, vec![]) {
             Ok(val) => {
                 println!("Program exited successfully with value: {:?}", val);
@@ -222,7 +222,7 @@ pub fn compile_workspace_to_gfb(
     check_result: &WorkspaceCheckResult,
     output_path: &Path,
 ) -> Result<()> {
-    use galfus_core::image::{
+    use galfus_image::{
         ConstantPool, ImageFunction, ImageType, ModuleImage,
         instruction::{FuncIdx, Instruction, Reg, TypeIdx},
     };
@@ -442,14 +442,14 @@ pub fn compile_workspace_to_gfb(
         init_func_idx,
     };
 
-    if let Err(errors) = galfus_core::image::validation::validate_module_image(&module_image) {
+    if let Err(errors) = galfus_image::validation::validate_module_image(&module_image) {
         return Err(anyhow::anyhow!(
             "ModuleImage validation failed: {:?}",
             errors
         ));
     }
 
-    let gfb_bytes = galfus_core::image::gfb::serialize_to_gfb(&module_image)
+    let gfb_bytes = galfus_image::gfb::serialize_to_gfb(&module_image)
         .map_err(|e| anyhow::anyhow!("Serialization error: {}", e))?;
 
     fs::write(output_path, gfb_bytes)?;
@@ -581,18 +581,18 @@ fn canonical_global_idx(
     modules: &[CheckedModule],
     mod_idx: usize,
     local_pos: u16,
-    global_var_map: &mut HashMap<(usize, String), galfus_core::image::instruction::GlobalIdx>,
+    global_var_map: &mut HashMap<(usize, String), galfus_image::instruction::GlobalIdx>,
     next_global_idx: &mut u16,
-) -> galfus_core::image::instruction::GlobalIdx {
+) -> galfus_image::instruction::GlobalIdx {
     let module = &modules[mod_idx];
     let resolution = match module.graph().resolution() {
         Some(res) => res,
-        None => return galfus_core::image::instruction::GlobalIdx(0),
+        None => return galfus_image::instruction::GlobalIdx(0),
     };
     let symbols = resolution.symbols();
     let s = match symbols.get(local_pos as usize) {
         Some(sym) => sym,
-        None => return galfus_core::image::instruction::GlobalIdx(0),
+        None => return galfus_image::instruction::GlobalIdx(0),
     };
 
     // If s is an import, resolve it
@@ -612,7 +612,7 @@ fn canonical_global_idx(
         {
             let key = (target_idx, imported_name.to_string());
             return *global_var_map.entry(key).or_insert_with(|| {
-                let idx = galfus_core::image::instruction::GlobalIdx(*next_global_idx);
+                let idx = galfus_image::instruction::GlobalIdx(*next_global_idx);
                 *next_global_idx += 1;
                 idx
             });
@@ -622,20 +622,20 @@ fn canonical_global_idx(
     // Otherwise, s is local to mod_idx
     let key = (mod_idx, s.name().to_string());
     *global_var_map.entry(key).or_insert_with(|| {
-        let idx = galfus_core::image::instruction::GlobalIdx(*next_global_idx);
+        let idx = galfus_image::instruction::GlobalIdx(*next_global_idx);
         *next_global_idx += 1;
         idx
     })
 }
 
 fn rewrite_global_indices(
-    instructions: &mut [galfus_core::image::instruction::Instruction],
+    instructions: &mut [galfus_image::instruction::Instruction],
     modules: &[CheckedModule],
     mod_idx: usize,
-    global_var_map: &mut HashMap<(usize, String), galfus_core::image::instruction::GlobalIdx>,
+    global_var_map: &mut HashMap<(usize, String), galfus_image::instruction::GlobalIdx>,
     next_global_idx: &mut u16,
 ) {
-    use galfus_core::image::instruction::Instruction;
+    use galfus_image::instruction::Instruction;
     for instr in instructions {
         match instr {
             Instruction::LoadGlobal {
@@ -667,12 +667,9 @@ fn rewrite_global_indices(
 fn collect_entry_exports(
     entry_module: &CheckedModule,
     entry_mir: &galfus_ir::mir::MirModule,
-    global_func_map: &HashMap<
-        (usize, galfus_core::FunctionId),
-        galfus_core::image::instruction::FuncIdx,
-    >,
+    global_func_map: &HashMap<(usize, galfus_core::FunctionId), galfus_image::instruction::FuncIdx>,
     entry_idx: usize,
-) -> Vec<galfus_core::image::ExportSlot> {
+) -> Vec<galfus_image::ExportSlot> {
     use galfus_core::SymbolId;
     let mut exports = Vec::new();
     let resolution = match entry_module.graph().resolution() {
@@ -691,7 +688,7 @@ fn collect_entry_exports(
         if export_symbols.contains(&sym)
             && let Some(&func_idx) = global_func_map.get(&(entry_idx, func.id))
         {
-            exports.push(galfus_core::image::ExportSlot {
+            exports.push(galfus_image::ExportSlot {
                 symbol_name: func.name.clone(),
                 func_idx,
             });

@@ -1,7 +1,7 @@
 use super::*;
 
 #[test]
-fn it_works() {
-    let result = add(2, 2);
-    assert_eq!(result, 4);
+fn test_std_io_source_not_empty() {
+    assert!(!STD_IO_SOURCE.is_empty());
+    assert!(STD_IO_SOURCE.contains("print"));
 }

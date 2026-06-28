@@ -1,9 +1,9 @@
-use galfus_core::image::instruction::{ConstIdx, FuncIdx, TypeIdx};
-use galfus_core::image::*;
 use galfus_core::{FunctionId, NodeId, SymbolId, TypeId};
 use galfus_frontend::{
     ArraySize, ModuleGraph, PrimitiveType, SymbolKind, SyntaxNodeKind, TypeCheckResult, TypeKind,
 };
+use galfus_image::instruction::{ConstIdx, FuncIdx, TypeIdx};
+use galfus_image::*;
 use std::collections::{HashMap, HashSet};
 
 pub mod control_flow;

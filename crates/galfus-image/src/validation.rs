@@ -1,5 +1,5 @@
-use super::instruction::{ConstIdx, FieldIdx, FuncIdx, Reg, TypeIdx};
-use super::*;
+use crate::instruction::{ConstIdx, FieldIdx, FuncIdx, Reg, TypeIdx};
+use crate::*;
 
 #[cfg(test)]
 mod tests;
