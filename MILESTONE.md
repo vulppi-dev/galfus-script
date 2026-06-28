@@ -446,14 +446,14 @@ Goal: Implement the compiler backend pass lowering MIR to `ModuleImage`.
 
 Goal: Serialize `ModuleImage` to the compact binary format `.gfb` and read/validate it.
 
-- [ ] Define `.gfb` binary format header (magic bytes, version, offsets)
-- [ ] Implement binary encoder/serializer for `ModuleImage` constants and tables
-- [ ] Implement binary encoder/serializer for instruction stream
-- [ ] Implement binary decoder/deserializer for `.gfb` byte streams
-- [ ] Validate header, format compatibility, and checksums/integrity during loading
-- [ ] Reconstruct `ModuleImage` object in memory from deserialized `.gfb`
-- [ ] Add loader validation error diagnostics
-- [ ] Add `.gfb` golden tests (compiling, serializing, and deserializing program samples)
+- [x] Define `.gfb` binary format header (magic bytes, version, offsets)
+- [x] Implement binary encoder/serializer for `ModuleImage` constants and tables
+- [x] Implement binary encoder/serializer for instruction stream
+- [x] Implement binary decoder/deserializer for `.gfb` byte streams
+- [x] Validate header, format compatibility, and checksums/integrity during loading
+- [x] Reconstruct `ModuleImage` object in memory from deserialized `.gfb`
+- [x] Add loader validation error diagnostics
+- [x] Add `.gfb` golden tests (compiling, serializing, and deserializing program samples)
 
 ## Milestone 12 — VM Core
 
