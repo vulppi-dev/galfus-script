@@ -420,7 +420,10 @@ impl<'a> LowerCtx<'a> {
         let root = self.graph.syntax().root().unwrap();
         if let Some(choice_node_id) = self.choice_item_node_for_symbol(root, choice_symbol) {
             let syntax = self.graph.syntax();
-            if let Some(choice_node) = syntax.node(choice_node_id) {
+            let variant_list_node = syntax
+                .first_child_of_kind(choice_node_id, SyntaxNodeKind::ChoiceVariantList)
+                .unwrap_or(choice_node_id);
+            if let Some(choice_node) = syntax.node(variant_list_node) {
                 for &child in choice_node.children() {
                     if let Some(variant_node) = syntax.node(child) {
                         if variant_node.kind() == SyntaxNodeKind::ChoiceVariant {
@@ -617,6 +620,12 @@ pub fn lower_module(
         }
 
         let return_ty = ctx.lower_type(mir_func.return_type);
+        for &param_ty in &mir_func.parameter_types {
+            ctx.lower_type(param_ty);
+        }
+        for local_decl in &mir_func.locals {
+            ctx.lower_type(local_decl.ty);
+        }
         let param_count = mir_func.parameter_types.len() as u16;
         let local_count = (mir_func.locals.len() as u16).saturating_sub(param_count);
 

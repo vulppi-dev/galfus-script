@@ -262,17 +262,26 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
             RValue::MemberAccess(obj_operand, field_name) => {
                 let obj = self.operand_reg(obj_operand);
                 let obj_type = self.get_operand_type(obj_operand);
-                let struct_symbol = self.struct_symbol_for_type(obj_type).unwrap();
-                let struct_fields = self.ctx.get_struct_fields(struct_symbol);
-                let field_idx = struct_fields
-                    .iter()
-                    .position(|(name, _)| name == field_name)
-                    .unwrap_or(0);
+                let table = self.ctx.type_result.layer().table();
+                let resolved_type = self.ctx.resolve_alias_type(obj_type);
+
+                let field_idx = if matches!(table.kind(resolved_type), Some(TypeKind::Tuple { .. }))
+                {
+                    field_name.parse::<u16>().unwrap_or(0)
+                } else if let Some(symbol) = self.struct_symbol_for_type(obj_type) {
+                    let struct_fields = self.ctx.get_struct_fields(symbol);
+                    struct_fields
+                        .iter()
+                        .position(|(name, _)| name == field_name)
+                        .unwrap_or(0) as u16
+                } else {
+                    0
+                };
 
                 self.instructions.push(Instruction::LoadField {
                     dest,
                     obj,
-                    field: FieldIdx(field_idx as u16),
+                    field: FieldIdx(field_idx),
                 });
                 self.free_temp_if_operand(obj_operand);
             }
@@ -396,10 +405,10 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
             match table.kind(current) {
                 Some(TypeKind::Named { symbol }) => {
                     let resolution = self.ctx.graph.resolution()?;
-                    let is_struct = resolution
-                        .symbol(*symbol)
-                        .is_some_and(|sd| sd.kind() == SymbolKind::Struct);
-                    if is_struct {
+                    let is_struct_or_choice = resolution.symbol(*symbol).is_some_and(|sd| {
+                        sd.kind() == SymbolKind::Struct || sd.kind() == SymbolKind::Choice
+                    });
+                    if is_struct_or_choice {
                         return Some(*symbol);
                     }
                     break;

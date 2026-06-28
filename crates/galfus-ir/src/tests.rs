@@ -561,3 +561,101 @@ fn test_mir_lowering_basic() {
     assert_eq!(pt_layout.fields[0].name, "x");
     assert_eq!(pt_layout.fields[1].name, "y");
 }
+
+#[test]
+fn test_mir_lowering_advanced() {
+    let source_id = SourceId::new(0);
+    let code = r#"
+        choice Shape {
+            Circle(int32),
+            Square,
+        }
+
+        fn process(s: Shape): int32 {
+            return match s {
+                Shape::Circle(r) => r * r,
+                Shape::Square => 0,
+            }
+        }
+
+        fn calculate_sum(limit: int32): int32 {
+            var sum = 0;
+            var i = 0;
+            loop {
+                if i >= limit {
+                    break;
+                }
+                if i == 5 {
+                    i = i + 1;
+                    continue;
+                }
+                sum = sum + i;
+                i = i + 1;
+            }
+            return sum;
+        }
+
+        fn tuple_operations(): (int32, int32) {
+            var t = (10, 20);
+            return t;
+        }
+    "#;
+    let source = SourceFile::new(source_id, "test_adv.gfs".to_string(), code.to_string());
+
+    let parse_result = parse(&source);
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    let graph = resolve_result.into_graph();
+    assert!(
+        !graph.has_errors(),
+        "Parse/Resolve error: {:?}",
+        graph.diagnostics()
+    );
+
+    let type_result = check_declaration_types(&source, &graph);
+    assert!(
+        !type_result.has_errors(),
+        "Typecheck error: {:?}",
+        type_result.diagnostics()
+    );
+
+    let mir_module = builder::MirBuilder::new(&graph, &type_result, code).build();
+    let module_image = lower_module(&mir_module, &type_result, &graph, code);
+
+    // Verify functions
+    assert!(!module_image.functions.is_empty());
+
+    // 1. process (choice match, returns, expression)
+    let process_func = module_image
+        .functions
+        .iter()
+        .find(|f| f.name == "process")
+        .expect("process func not found");
+    assert_eq!(process_func.param_count, 1);
+    assert!(!process_func.instructions.is_empty());
+
+    // 2. calculate_sum (loop, if, break, continue, comparison)
+    let sum_func = module_image
+        .functions
+        .iter()
+        .find(|f| f.name == "calculate_sum")
+        .expect("calculate_sum func not found");
+    assert_eq!(sum_func.param_count, 1);
+    assert!(!sum_func.instructions.is_empty());
+
+    // 3. tuple_operations (tuple construction)
+    let tuple_func = module_image
+        .functions
+        .iter()
+        .find(|f| f.name == "tuple_operations")
+        .expect("tuple_operations func not found");
+    assert_eq!(tuple_func.param_count, 0);
+    assert!(!tuple_func.instructions.is_empty());
+
+    // Verify choice layout was compiled
+    assert!(!module_image.choice_layouts.is_empty());
+    let shape_layout = &module_image.choice_layouts[0];
+    assert_eq!(shape_layout.name, "Shape");
+    assert_eq!(shape_layout.variants.len(), 2);
+    assert_eq!(shape_layout.variants[0].name, "Circle");
+    assert_eq!(shape_layout.variants[1].name, "Square");
+}

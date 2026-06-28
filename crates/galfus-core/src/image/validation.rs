@@ -1,6 +1,9 @@
 use super::instruction::{ConstIdx, FieldIdx, FuncIdx, Reg, TypeIdx};
 use super::*;
 
+#[cfg(test)]
+mod tests;
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ImageValidationError {
     InvalidConstantIndex {
@@ -88,13 +91,26 @@ pub fn validate_module_image(image: &ModuleImage) -> Result<(), Vec<ImageValidat
         }
     }
 
-    // 3. Helper to determine max fields in any struct
-    let max_fields = image
+    // 3. Helper to determine max fields in any struct or choice variant
+    let max_struct_fields = image
         .struct_layouts
         .iter()
         .map(|l| l.fields.len())
         .max()
         .unwrap_or(0);
+    let max_choice_payloads = image
+        .choice_layouts
+        .iter()
+        .map(|l| {
+            l.variants
+                .iter()
+                .map(|v| if v.payload_ty.is_some() { 1 } else { 0 })
+                .max()
+                .unwrap_or(0)
+        })
+        .max()
+        .unwrap_or(0);
+    let max_fields = max_struct_fields.max(max_choice_payloads);
 
     // 4. Validate instructions of each function
     for func in &image.functions {
@@ -473,144 +489,5 @@ pub fn validate_module_image(image: &ModuleImage) -> Result<(), Vec<ImageValidat
         Ok(())
     } else {
         Err(errors)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn create_dummy_image(instructions: Vec<Instruction>) -> ModuleImage {
-        ModuleImage {
-            name: "test".to_string(),
-            constants: ConstantPool {
-                constants: vec![Constant::Int(42)],
-            },
-            functions: vec![ImageFunction {
-                name: "main".to_string(),
-                param_count: 1,
-                local_count: 2,
-                temp_count: 2,
-                return_ty: TypeIdx(0),
-                instructions,
-            }],
-            types: vec![
-                ImageType::Int64,
-                ImageType::Struct(StructLayoutIdx(0)),
-                ImageType::Tuple(vec![TypeIdx(0), TypeIdx(0)]),
-            ],
-            struct_layouts: vec![StructLayout {
-                name: "Point".to_string(),
-                fields: vec![FieldLayout {
-                    name: "x".to_string(),
-                    ty: TypeIdx(0),
-                    offset: 0,
-                    ownership: OwnershipKind::Value,
-                }],
-            }],
-            choice_layouts: vec![],
-            imports: vec![],
-            exports: vec![],
-            init_func_idx: None,
-        }
-    }
-
-    #[test]
-    fn test_valid_image() {
-        let image = create_dummy_image(vec![
-            Instruction::Move {
-                dest: Reg(1),
-                src: Reg(0),
-            },
-            Instruction::Ret { src: Reg(1) },
-        ]);
-        assert!(validate_module_image(&image).is_ok());
-    }
-
-    #[test]
-    fn test_invalid_register() {
-        let image = create_dummy_image(vec![Instruction::Move {
-            dest: Reg(10),
-            src: Reg(0),
-        }]);
-        let res = validate_module_image(&image);
-        assert!(res.is_err());
-        let errs = res.unwrap_err();
-        assert!(matches!(
-            errs[0],
-            ImageValidationError::InvalidRegister { ref reg, .. } if reg.raw() == 10
-        ));
-    }
-
-    #[test]
-    fn test_invalid_constant_index() {
-        let image = create_dummy_image(vec![Instruction::LoadConst {
-            dest: Reg(1),
-            const_idx: ConstIdx(5),
-        }]);
-        let res = validate_module_image(&image);
-        assert!(res.is_err());
-        let errs = res.unwrap_err();
-        assert!(matches!(
-            errs[0],
-            ImageValidationError::InvalidConstantIndex {
-                index: ConstIdx(5),
-                ..
-            }
-        ));
-    }
-
-    #[test]
-    fn test_invalid_jump_offset() {
-        let image = create_dummy_image(vec![Instruction::Jump { offset: 10 }]);
-        let res = validate_module_image(&image);
-        assert!(res.is_err());
-        let errs = res.unwrap_err();
-        assert!(matches!(
-            errs[0],
-            ImageValidationError::InvalidJumpOffset { target_idx: 11, .. }
-        ));
-    }
-
-    #[test]
-    fn test_type_mismatch_alloc() {
-        // TypeIdx(0) is Int64, not Struct
-        let image = create_dummy_image(vec![Instruction::AllocLocal {
-            dest: Reg(1),
-            type_idx: TypeIdx(0),
-        }]);
-        let res = validate_module_image(&image);
-        assert!(res.is_err());
-        let errs = res.unwrap_err();
-        assert!(matches!(
-            errs[0],
-            ImageValidationError::TypeMismatchAlloc {
-                found: TypeIdx(0),
-                expected: "Struct",
-                ..
-            }
-        ));
-    }
-
-    #[test]
-    fn test_tuple_count_mismatch() {
-        // TypeIdx(2) is Tuple with 2 elements, but count: 3 is requested
-        let image = create_dummy_image(vec![Instruction::NewTuple {
-            dest: Reg(1),
-            type_idx: TypeIdx(2),
-            start: Reg(0),
-            count: 3,
-        }]);
-        let res = validate_module_image(&image);
-        assert!(res.is_err());
-        let errs = res.unwrap_err();
-        assert!(matches!(
-            errs[0],
-            ImageValidationError::TupleCountMismatch {
-                expected_count: 2,
-                found_count: 3,
-                ..
-            }
-        ));
     }
 }
