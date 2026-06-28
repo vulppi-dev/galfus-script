@@ -425,22 +425,22 @@ Goal: Define the in-memory data structures for the compiler's output and VM's in
 
 Goal: Implement the compiler backend pass lowering MIR to `ModuleImage`.
 
-- [ ] Initialize target `ModuleImage` from MIR module structure
-- [ ] Lower MIR constants and populate constant pool
-- [ ] Lower local and temporary slots to register indices
-- [ ] Lower loads, stores, and copies (variables, globals)
-- [ ] Lower arithmetic and bitwise instructions
-- [ ] Lower comparison and boolean instructions
-- [ ] Lower control flow (unconditional jumps, conditional branches)
-- [ ] Lower functions (parameter mappings, returns, standard and anchor calls)
-- [ ] Lower struct creation and field access instructions
-- [ ] Lower tuple creation and indexing operations
-- [ ] Lower array allocation and indexing operations
-- [ ] Lower choice creation, enums, and match checks
-- [ ] Lower explicit ownership drop operations from MIR
-- [ ] Extract and embed ownership metadata (anchors, edges, weak fields)
-- [ ] Implement backend compilation diagnostics
-- [ ] Add unit tests for lowering MIR structures to `ModuleImage`
+- [x] Initialize target `ModuleImage` from MIR module structure
+- [x] Lower MIR constants and populate constant pool
+- [x] Lower local and temporary slots to register indices
+- [x] Lower loads, stores, and copies (variables, globals)
+- [x] Lower arithmetic and bitwise instructions
+- [x] Lower comparison and boolean instructions
+- [x] Lower control flow (unconditional jumps, conditional branches)
+- [x] Lower functions (parameter mappings, returns, standard and anchor calls)
+- [x] Lower struct creation and field access instructions
+- [x] Lower tuple creation and indexing operations
+- [x] Lower array allocation and indexing operations
+- [x] Lower choice creation, enums, and match checks
+- [x] Lower explicit ownership drop operations from MIR
+- [x] Extract and embed ownership metadata (anchors, edges, weak fields)
+- [x] Implement backend compilation diagnostics
+- [x] Add unit tests for lowering MIR structures to `ModuleImage`
 
 ## Milestone 11 — .gfb Serialization & Loader
 
