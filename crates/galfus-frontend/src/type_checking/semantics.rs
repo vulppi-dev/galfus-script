@@ -229,17 +229,16 @@ impl<'a> DeclarationTypeChecker<'a> {
                 | SyntaxNodeKind::ConstItem
                 | SyntaxNodeKind::VarStatement
                 | SyntaxNodeKind::ConstStatement
-        ) {
-            if let Some(binding) = self.binding_initializer(node) {
-                for symbol in binding.symbols.iter().copied() {
-                    bindings.insert(
-                        symbol,
-                        BindingInitializer {
-                            node,
-                            dependencies: binding.dependencies.clone(),
-                        },
-                    );
-                }
+        ) && let Some(binding) = self.binding_initializer(node)
+        {
+            for symbol in binding.symbols.iter().copied() {
+                bindings.insert(
+                    symbol,
+                    BindingInitializer {
+                        node,
+                        dependencies: binding.dependencies.clone(),
+                    },
+                );
             }
         }
 
@@ -286,14 +285,12 @@ impl<'a> DeclarationTypeChecker<'a> {
         if matches!(
             syntax_node.kind(),
             SyntaxNodeKind::NameExpression | SyntaxNodeKind::Identifier
-        ) {
-            if let Some(symbol) = self
-                .graph
-                .resolution()
-                .and_then(|resolution| resolution.reference_symbol(node))
-            {
-                dependencies.insert(symbol);
-            }
+        ) && let Some(symbol) = self
+            .graph
+            .resolution()
+            .and_then(|resolution| resolution.reference_symbol(node))
+        {
+            dependencies.insert(symbol);
         }
 
         for child in syntax_node.children() {

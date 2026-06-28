@@ -10,12 +10,11 @@ fn find_name_expression_by_text(
 ) -> Option<NodeId> {
     let syntax_node = syntax.node(node)?;
 
-    if syntax_node.kind() == SyntaxNodeKind::NameExpression {
-        if let Some(identifier) = syntax.first_child_of_kind(node, SyntaxNodeKind::Identifier) {
-            if source.slice(syntax.node(identifier)?.span()) == Some(text) {
-                return Some(node);
-            }
-        }
+    if syntax_node.kind() == SyntaxNodeKind::NameExpression
+        && let Some(identifier) = syntax.first_child_of_kind(node, SyntaxNodeKind::Identifier)
+        && source.slice(syntax.node(identifier)?.span()) == Some(text)
+    {
+        return Some(node);
     }
 
     for child in syntax_node.children() {

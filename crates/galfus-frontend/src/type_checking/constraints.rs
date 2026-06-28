@@ -408,10 +408,10 @@ impl<'a> DeclarationTypeChecker<'a> {
         };
 
         if syntax_node.kind() == SyntaxNodeKind::FunctionItem {
-            if let Some((anchor_name, _)) = self.function_anchor_and_name(node) {
-                if anchor_name == struct_name {
-                    functions.push(node);
-                }
+            if let Some((anchor_name, _)) = self.function_anchor_and_name(node)
+                && anchor_name == struct_name
+            {
+                functions.push(node);
             }
 
             return;
@@ -625,16 +625,16 @@ impl<'a> DeclarationTypeChecker<'a> {
     ) -> Option<(SymbolId, &LoweredImportedConstraint)> {
         let resolution = self.graph.resolution()?;
 
-        if let Some(symbol) = resolution.type_reference_symbol(base) {
-            if let Some(constraint) = self.imported_symbol_constraints.get(&symbol) {
-                return Some((symbol, constraint));
-            }
+        if let Some(symbol) = resolution.type_reference_symbol(base)
+            && let Some(constraint) = self.imported_symbol_constraints.get(&symbol)
+        {
+            return Some((symbol, constraint));
         }
 
-        if let Some(symbol) = resolution.type_path_reference_symbol(base) {
-            if let Some(constraint) = self.imported_symbol_constraints.get(&symbol) {
-                return Some((symbol, constraint));
-            }
+        if let Some(symbol) = resolution.type_path_reference_symbol(base)
+            && let Some(constraint) = self.imported_symbol_constraints.get(&symbol)
+        {
+            return Some((symbol, constraint));
         }
 
         if let Some(constraint) = self.imported_path_constraints.get(&base) {
@@ -907,10 +907,9 @@ impl<'a> DeclarationTypeChecker<'a> {
             if matches!(
                 child_node.kind(),
                 SyntaxNodeKind::BasicConstraint | SyntaxNodeKind::GenericParameterConstraint
-            ) {
-                if let Some(found) = self.first_constraint_type_child(*child) {
-                    return Some(found);
-                }
+            ) && let Some(found) = self.first_constraint_type_child(*child)
+            {
+                return Some(found);
             }
         }
 

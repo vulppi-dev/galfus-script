@@ -295,8 +295,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                     .unwrap_or(0);
 
                 let payload_reg = if let Some(op) = payload_operand {
-                    let reg = self.operand_reg(op);
-                    reg
+                    self.operand_reg(op)
                 } else {
                     let reg = self.alloc_temp();
                     self.instructions.push(Instruction::LoadNull { dest: reg });

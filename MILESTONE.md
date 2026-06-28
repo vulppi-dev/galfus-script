@@ -506,20 +506,20 @@ Goal: execute the Galfus ownership model at runtime.
 
 Goal: provide a local developer command that proves the MVP pipeline.
 
-- [ ] Load local `galfus.toml`
-- [ ] Load app entrypoint
-- [ ] Build workspace graph
-- [ ] Run frontend
-- [ ] Run semantic validation
-- [ ] Run ownership validation
-- [ ] Build MIR
-- [ ] Build bytecode
-- [ ] Build Module Image
-- [ ] Write `.gfb`
-- [ ] Load `.gfb`
-- [ ] Execute in VM
-- [ ] Report diagnostics
-- [ ] Exit with correct status code
+- [x] Load local `galfus.toml`
+- [x] Load app entrypoint
+- [x] Build workspace graph
+- [x] Run frontend
+- [x] Run semantic validation
+- [x] Run ownership validation
+- [x] Build MIR
+- [x] Build bytecode
+- [x] Build Module Image
+- [x] Write `.gfb`
+- [x] Load `.gfb`
+- [x] Execute in VM
+- [x] Report diagnostics
+- [x] Exit with correct status code
 
 ## Milestone 15 — MVP Validation Suite
 
@@ -545,7 +545,7 @@ Goal: prove the complete language surface through local `.gfs` programs.
 - [x] Decorators
 - [x] Destructuring
 - [x] Ranges
-- [x] `for in` with iterator / iterable constraints
+- [x] `for in` with iterable / iterable constraints
 - [x] Weak fields
 - [x] Ownership validation
 - [x] Module imports
@@ -569,10 +569,10 @@ The MVP is complete when:
 - [x] The compiler serializes the Module Image into `.gfb`
 - [x] The VM loads and validates `.gfb`
 - [x] The VM executes bytecode correctly
-- [ ] The Owner Graph Core releases values deterministically
+- [x] The Owner Graph Core releases values deterministically
 - [x] Runtime failures produce panic
 - [x] Local imports and exports work
-- [ ] No excluded ecosystem feature is required to run MVP programs
+- [x] No excluded ecosystem feature is required to run MVP programs
 
 ## Out of MVP
 

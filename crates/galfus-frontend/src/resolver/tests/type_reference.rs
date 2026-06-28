@@ -14,12 +14,11 @@ fn find_named_type_by_text(
 ) -> Option<NodeId> {
     let syntax_node = syntax.node(node)?;
 
-    if syntax_node.kind() == SyntaxNodeKind::NamedType {
-        if let Some(identifier) = syntax.first_child_of_kind(node, SyntaxNodeKind::Identifier) {
-            if source.slice(syntax.node(identifier)?.span()) == Some(text) {
-                return Some(node);
-            }
-        }
+    if syntax_node.kind() == SyntaxNodeKind::NamedType
+        && let Some(identifier) = syntax.first_child_of_kind(node, SyntaxNodeKind::Identifier)
+        && source.slice(syntax.node(identifier)?.span()) == Some(text)
+    {
+        return Some(node);
     }
 
     for child in syntax_node.children() {
@@ -42,12 +41,11 @@ fn collect_named_types_by_text(
         return;
     };
 
-    if syntax_node.kind() == SyntaxNodeKind::NamedType {
-        if let Some(identifier) = syntax.first_child_of_kind(node, SyntaxNodeKind::Identifier) {
-            if source.slice(syntax.node(identifier).unwrap().span()) == Some(text) {
-                found.push(node);
-            }
-        }
+    if syntax_node.kind() == SyntaxNodeKind::NamedType
+        && let Some(identifier) = syntax.first_child_of_kind(node, SyntaxNodeKind::Identifier)
+        && source.slice(syntax.node(identifier).unwrap().span()) == Some(text)
+    {
+        found.push(node);
     }
 
     for child in syntax_node.children() {

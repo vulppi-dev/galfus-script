@@ -75,10 +75,10 @@ pub fn validate_module_image(image: &ModuleImage) -> Result<(), Vec<ImageValidat
     let mut errors = Vec::new();
 
     // 1. Validate init function
-    if let Some(init_idx) = image.init_func_idx {
-        if init_idx.raw() as usize >= image.functions.len() {
-            errors.push(ImageValidationError::InitFunctionOutOfBounds { func_idx: init_idx });
-        }
+    if let Some(init_idx) = image.init_func_idx
+        && init_idx.raw() as usize >= image.functions.len()
+    {
+        errors.push(ImageValidationError::InitFunctionOutOfBounds { func_idx: init_idx });
     }
 
     // 2. Validate exports

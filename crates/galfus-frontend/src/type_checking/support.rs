@@ -64,12 +64,11 @@ impl<'a> DeclarationTypeChecker<'a> {
             return;
         };
 
-        if let Some(symbol) = resolution.declaration_symbol(node) {
-            if let Some(symbol_data) = resolution.symbol(symbol) {
-                if kinds.contains(&symbol_data.kind()) {
-                    symbols.push(symbol);
-                }
-            }
+        if let Some(symbol) = resolution.declaration_symbol(node)
+            && let Some(symbol_data) = resolution.symbol(symbol)
+            && kinds.contains(&symbol_data.kind())
+        {
+            symbols.push(symbol);
         }
 
         let Some(syntax_node) = self.graph.syntax().node(node) else {

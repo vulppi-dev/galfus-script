@@ -17,7 +17,7 @@ fn resolve_creates_module_scope() {
     let resolution = graph.resolution().unwrap();
     let module_scope = resolution.module_scope();
 
-    assert!(resolution.scopes().len() >= 1);
+    assert!(!resolution.scopes().is_empty());
     assert_eq!(
         resolution.scope(module_scope).unwrap().kind(),
         ScopeKind::Module

@@ -6,7 +6,7 @@ use galfus_frontend::{
 };
 use std::collections::{HashMap, HashSet};
 
-mod control_flow;
+pub mod control_flow;
 mod expression;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -314,20 +314,19 @@ impl<'a> LowerCtx<'a> {
                             }
                         }
                     }
-                } else if node_kind == Some(SyntaxNodeKind::StructField) {
-                    if let Some(ident_node) =
+                } else if node_kind == Some(SyntaxNodeKind::StructField)
+                    && let Some(ident_node) =
                         syntax.first_child_of_kind(field_child, SyntaxNodeKind::Identifier)
+                {
+                    let name_str = self.node_text(ident_node).to_string();
+                    let field_ty = resolution
+                        .declaration_symbol(ident_node)
+                        .and_then(|sym| self.type_result.layer().symbol_type(sym))
+                        .or_else(|| self.type_result.layer().node_type(field_child));
+                    if let Some(ty) = field_ty
+                        && !fields.iter().any(|(n, _)| *n == name_str)
                     {
-                        let name_str = self.node_text(ident_node).to_string();
-                        let field_ty = resolution
-                            .declaration_symbol(ident_node)
-                            .and_then(|sym| self.type_result.layer().symbol_type(sym))
-                            .or_else(|| self.type_result.layer().node_type(field_child));
-                        if let Some(ty) = field_ty {
-                            if !fields.iter().any(|(n, _)| *n == name_str) {
-                                fields.push((name_str, ty));
-                            }
-                        }
+                        fields.push((name_str, ty));
                     }
                 }
             }
@@ -425,29 +424,23 @@ impl<'a> LowerCtx<'a> {
                 .unwrap_or(choice_node_id);
             if let Some(choice_node) = syntax.node(variant_list_node) {
                 for &child in choice_node.children() {
-                    if let Some(variant_node) = syntax.node(child) {
-                        if variant_node.kind() == SyntaxNodeKind::ChoiceVariant {
-                            if let Some(ident_node) =
-                                syntax.first_child_of_kind(child, SyntaxNodeKind::Identifier)
-                            {
-                                let variant_name = self.node_text(ident_node).to_string();
-                                if let Some(variant_symbol) =
-                                    resolution.declaration_symbol(ident_node)
-                                {
-                                    let payload_types = self.choice_variant_payload_types(
-                                        choice_symbol,
-                                        variant_symbol,
-                                    );
-                                    let payload_ty = if payload_types.is_empty() {
-                                        None
-                                    } else if payload_types.len() == 1 {
-                                        Some(payload_types[0])
-                                    } else {
-                                        Some(self.find_tuple_type(&payload_types))
-                                    };
-                                    variants.push((variant_name, payload_ty));
-                                }
-                            }
+                    if let Some(variant_node) = syntax.node(child)
+                        && variant_node.kind() == SyntaxNodeKind::ChoiceVariant
+                        && let Some(ident_node) =
+                            syntax.first_child_of_kind(child, SyntaxNodeKind::Identifier)
+                    {
+                        let variant_name = self.node_text(ident_node).to_string();
+                        if let Some(variant_symbol) = resolution.declaration_symbol(ident_node) {
+                            let payload_types =
+                                self.choice_variant_payload_types(choice_symbol, variant_symbol);
+                            let payload_ty = if payload_types.is_empty() {
+                                None
+                            } else if payload_types.len() == 1 {
+                                Some(payload_types[0])
+                            } else {
+                                Some(self.find_tuple_type(&payload_types))
+                            };
+                            variants.push((variant_name, payload_ty));
                         }
                     }
                 }
@@ -569,17 +562,17 @@ impl<'a> LowerCtx<'a> {
         let syntax = self.graph.syntax();
         let syntax_node = syntax.node(node)?;
         for &child in syntax_node.children() {
-            if let Some(child_node) = syntax.node(child) {
-                if matches!(
+            if let Some(child_node) = syntax.node(child)
+                && matches!(
                     child_node.kind(),
                     SyntaxNodeKind::NamedType
                         | SyntaxNodeKind::ArrayType
                         | SyntaxNodeKind::FixedArrayType
                         | SyntaxNodeKind::TupleType
                         | SyntaxNodeKind::UnionType
-                ) {
-                    return Some(child);
-                }
+                )
+            {
+                return Some(child);
             }
         }
         None
@@ -681,22 +674,20 @@ fn collect_exports(graph: &ModuleGraph) -> HashSet<SymbolId> {
     };
     if let Some(root_node) = syntax.root().and_then(|root| syntax.node(root)) {
         for &item in root_node.children() {
-            if let Some(node) = syntax.node(item) {
-                if node.kind() == SyntaxNodeKind::ExportItem {
-                    if let Some(inner) = node.first_child() {
-                        if let Some(inner_node) = syntax.node(inner) {
-                            let ident_node = if inner_node.kind() == SyntaxNodeKind::FunctionItem {
-                                syntax.first_child_of_kind(inner, SyntaxNodeKind::Identifier)
-                            } else {
-                                Some(inner)
-                            };
-                            if let Some(ident) = ident_node {
-                                if let Some(sym) = resolution.declaration_symbol(ident) {
-                                    exports.insert(sym);
-                                }
-                            }
-                        }
-                    }
+            if let Some(node) = syntax.node(item)
+                && node.kind() == SyntaxNodeKind::ExportItem
+                && let Some(inner) = node.first_child()
+                && let Some(inner_node) = syntax.node(inner)
+            {
+                let ident_node = if inner_node.kind() == SyntaxNodeKind::FunctionItem {
+                    syntax.first_child_of_kind(inner, SyntaxNodeKind::Identifier)
+                } else {
+                    Some(inner)
+                };
+                if let Some(ident) = ident_node
+                    && let Some(sym) = resolution.declaration_symbol(ident)
+                {
+                    exports.insert(sym);
                 }
             }
         }

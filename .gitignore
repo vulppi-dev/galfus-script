@@ -7,8 +7,8 @@ out/
 dist/
 *.tgz
 /.old
-/.tmp
-/.temp
+.tmp/
+.temp/
 
 # code coverage
 coverage/

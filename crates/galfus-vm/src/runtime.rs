@@ -571,25 +571,25 @@ impl VirtualMachine {
                     let lhs_val = self.read_reg(lhs)?;
                     let rhs_val = self.read_reg(rhs)?;
                     let cmp = self.compare_values(&lhs_val, &rhs_val)?;
-                    self.write_reg(dest, Value::Bool(cmp.map_or(false, |o| o.is_lt())))?;
+                    self.write_reg(dest, Value::Bool(cmp.is_some_and(|o| o.is_lt())))?;
                 }
                 Instruction::Le { dest, lhs, rhs } => {
                     let lhs_val = self.read_reg(lhs)?;
                     let rhs_val = self.read_reg(rhs)?;
                     let cmp = self.compare_values(&lhs_val, &rhs_val)?;
-                    self.write_reg(dest, Value::Bool(cmp.map_or(false, |o| o.is_le())))?;
+                    self.write_reg(dest, Value::Bool(cmp.is_some_and(|o| o.is_le())))?;
                 }
                 Instruction::Gt { dest, lhs, rhs } => {
                     let lhs_val = self.read_reg(lhs)?;
                     let rhs_val = self.read_reg(rhs)?;
                     let cmp = self.compare_values(&lhs_val, &rhs_val)?;
-                    self.write_reg(dest, Value::Bool(cmp.map_or(false, |o| o.is_gt())))?;
+                    self.write_reg(dest, Value::Bool(cmp.is_some_and(|o| o.is_gt())))?;
                 }
                 Instruction::Ge { dest, lhs, rhs } => {
                     let lhs_val = self.read_reg(lhs)?;
                     let rhs_val = self.read_reg(rhs)?;
                     let cmp = self.compare_values(&lhs_val, &rhs_val)?;
-                    self.write_reg(dest, Value::Bool(cmp.map_or(false, |o| o.is_ge())))?;
+                    self.write_reg(dest, Value::Bool(cmp.is_some_and(|o| o.is_ge())))?;
                 }
                 Instruction::Fallback {
                     dest,
@@ -1105,7 +1105,7 @@ impl VirtualMachine {
             Value::Int64(x) => Ok(x as u32),
             Value::Uint8(x) => Ok(x as u32),
             Value::Uint16(x) => Ok(x as u32),
-            Value::Uint32(x) => Ok(x as u32),
+            Value::Uint32(x) => Ok(x),
             Value::Uint64(x) => Ok(x as u32),
             x => Err(VmError::TypeMismatch {
                 expected: "integer shift amount".to_string(),
@@ -1139,7 +1139,7 @@ impl VirtualMachine {
             (Value::Int64(l), Value::Int64(r)) => Value::Int64(l.wrapping_pow(r as u32)),
             (Value::Uint8(l), Value::Uint8(r)) => Value::Uint8(l.wrapping_pow(r as u32)),
             (Value::Uint16(l), Value::Uint16(r)) => Value::Uint16(l.wrapping_pow(r as u32)),
-            (Value::Uint32(l), Value::Uint32(r)) => Value::Uint32(l.wrapping_pow(r as u32)),
+            (Value::Uint32(l), Value::Uint32(r)) => Value::Uint32(l.wrapping_pow(r)),
             (Value::Uint64(l), Value::Uint64(r)) => Value::Uint64(l.wrapping_pow(r as u32)),
             (Value::Float32(l), Value::Float32(r)) => Value::Float32(l.powf(r)),
             (Value::Float64(l), Value::Float64(r)) => Value::Float64(l.powf(r)),

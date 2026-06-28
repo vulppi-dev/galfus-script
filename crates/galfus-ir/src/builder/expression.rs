@@ -1,7 +1,7 @@
 use super::function::{FunctionBuilder, parse_int};
 use crate::mir::*;
 use galfus_core::{FunctionId, NodeId, TypeId};
-use galfus_frontend::{PathReferenceKind, SyntaxNodeKind, TypeKind};
+use galfus_frontend::{PathReferenceKind, SymbolKind, SyntaxNodeKind, TypeKind};
 
 impl<'b, 'a> FunctionBuilder<'b, 'a> {
     pub(super) fn lower_expression(
@@ -218,16 +218,32 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                     return Operand::Local(choice_temp);
                 }
 
-                let symbol = resolution.and_then(|res| {
-                    res.reference_symbol(target_node).or_else(|| {
-                        let ident =
-                            syntax.first_child_of_kind(target_node, SyntaxNodeKind::Identifier)?;
-                        res.reference_symbol(ident)
-                    })
-                });
-                let func_id = symbol
-                    .map(|sym| FunctionId::new(sym.raw()))
-                    .unwrap_or_else(|| FunctionId::new(0));
+                let mut is_namespace_call = false;
+                if let Some(target) = syntax.node(target_node)
+                    && target.kind() == SyntaxNodeKind::PathExpression
+                    && let Some(root_node) = target.first_child()
+                    && let Some(root_symbol) =
+                        resolution.and_then(|res| res.reference_symbol(root_node))
+                    && let Some(sym_data) = resolution.and_then(|res| res.symbol(root_symbol))
+                    && sym_data.kind() == SymbolKind::ImportNamespace
+                {
+                    is_namespace_call = true;
+                }
+
+                let func_id = if is_namespace_call {
+                    FunctionId::new(target_node.raw())
+                } else {
+                    let symbol = resolution.and_then(|res| {
+                        res.reference_symbol(target_node).or_else(|| {
+                            let ident = syntax
+                                .first_child_of_kind(target_node, SyntaxNodeKind::Identifier)?;
+                            res.reference_symbol(ident)
+                        })
+                    });
+                    symbol
+                        .map(|sym| FunctionId::new(sym.raw()))
+                        .unwrap_or_else(|| FunctionId::new(0))
+                };
 
                 let ty = self
                     .builder

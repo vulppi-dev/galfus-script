@@ -101,6 +101,15 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
             self.instructions[*pc] = patched_instr;
         }
 
+        if !matches!(
+            self.instructions.last(),
+            Some(Instruction::Ret { .. })
+                | Some(Instruction::RetNull)
+                | Some(Instruction::Panic { .. })
+        ) {
+            self.instructions.push(Instruction::RetNull);
+        }
+
         std::mem::take(&mut self.instructions)
     }
 
