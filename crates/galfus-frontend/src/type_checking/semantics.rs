@@ -13,6 +13,7 @@ impl<'a> DeclarationTypeChecker<'a> {
         self.check_binding_initialization_cycles(root);
         self.check_struct_expansion_targets(root);
         self.check_struct_literal_spread_targets(root);
+        self.check_builtin_symbol_visibility(root);
     }
 
     fn check_return_context(&mut self, node: NodeId, inside_function: bool) {
@@ -229,17 +230,16 @@ impl<'a> DeclarationTypeChecker<'a> {
                 | SyntaxNodeKind::ConstItem
                 | SyntaxNodeKind::VarStatement
                 | SyntaxNodeKind::ConstStatement
-        ) {
-            if let Some(binding) = self.binding_initializer(node) {
-                for symbol in binding.symbols.iter().copied() {
-                    bindings.insert(
-                        symbol,
-                        BindingInitializer {
-                            node,
-                            dependencies: binding.dependencies.clone(),
-                        },
-                    );
-                }
+        ) && let Some(binding) = self.binding_initializer(node)
+        {
+            for symbol in binding.symbols.iter().copied() {
+                bindings.insert(
+                    symbol,
+                    BindingInitializer {
+                        node,
+                        dependencies: binding.dependencies.clone(),
+                    },
+                );
             }
         }
 
@@ -286,14 +286,12 @@ impl<'a> DeclarationTypeChecker<'a> {
         if matches!(
             syntax_node.kind(),
             SyntaxNodeKind::NameExpression | SyntaxNodeKind::Identifier
-        ) {
-            if let Some(symbol) = self
-                .graph
-                .resolution()
-                .and_then(|resolution| resolution.reference_symbol(node))
-            {
-                dependencies.insert(symbol);
-            }
+        ) && let Some(symbol) = self
+            .graph
+            .resolution()
+            .and_then(|resolution| resolution.reference_symbol(node))
+        {
+            dependencies.insert(symbol);
         }
 
         for child in syntax_node.children() {
@@ -383,6 +381,27 @@ impl<'a> DeclarationTypeChecker<'a> {
 
     fn is_semantic_error_type(&self, ty: TypeId) -> bool {
         matches!(self.layer.table().kind(ty), Some(TypeKind::Error))
+    }
+
+    fn check_builtin_symbol_visibility(&mut self, node: NodeId) {
+        let Some(syntax_node) = self.graph.syntax().node(node) else {
+            return;
+        };
+
+        let is_builtin_module = self.source.name() == "std/io"
+            || self.source.name().starts_with("std/")
+            || self.source.name() == "std/fs"; // Add common namespaces if needed
+
+        if !is_builtin_module && syntax_node.kind() == SyntaxNodeKind::Identifier {
+            let name = self.node_text(node);
+            if name.starts_with("__builtin_") {
+                self.report_restricted_builtin_symbol(node, &name);
+            }
+        }
+
+        for child in syntax_node.children() {
+            self.check_builtin_symbol_visibility(*child);
+        }
     }
 }
 

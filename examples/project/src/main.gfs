@@ -1,5 +1,22 @@
-import { print } from './print'
+import { print } from 'std/io'
+
+struct User {
+  name: [uint8],
+  age: int32,
+}
 
 fn main(): null {
-  print('asd', '123')
+  const msg1 = "Hello "
+  const msg2 = "Galfus!"
+  const full_msg = [...msg1, ...msg2]
+  print(full_msg)
+
+  var user = new(User) {
+    name: "Aventureiro",
+    age: 25,
+  }
+
+  if user.age > 20 {
+    print("\nIdade maior que 20\n")
+  }
 }

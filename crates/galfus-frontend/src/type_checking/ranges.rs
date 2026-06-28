@@ -40,22 +40,22 @@ impl<'a> DeclarationTypeChecker<'a> {
             has_error = true;
         }
 
-        if let Some(step) = self.graph.syntax().child(node, 3) {
-            if let Some(step_type) = self.infer_range_step_type(step) {
-                let step_is_numeric = self.is_numeric_type(step_type);
+        if let Some(step) = self.graph.syntax().child(node, 3)
+            && let Some(step_type) = self.infer_range_step_type(step)
+        {
+            let step_is_numeric = self.is_numeric_type(step_type);
 
-                if !step_is_numeric {
-                    self.report_invalid_range_operand_type(step, "numeric", step_type);
-                    has_error = true;
-                } else if start_is_numeric && !self.is_same_numeric_type(start_type, step_type) {
-                    let expected = format!(
-                        "same numeric type as range start `{}`",
-                        self.layer.table().describe(start_type)
-                    );
+            if !step_is_numeric {
+                self.report_invalid_range_operand_type(step, "numeric", step_type);
+                has_error = true;
+            } else if start_is_numeric && !self.is_same_numeric_type(start_type, step_type) {
+                let expected = format!(
+                    "same numeric type as range start `{}`",
+                    self.layer.table().describe(start_type)
+                );
 
-                    self.report_invalid_range_operand_type(step, expected.as_str(), step_type);
-                    has_error = true;
-                }
+                self.report_invalid_range_operand_type(step, expected.as_str(), step_type);
+                has_error = true;
             }
         }
 

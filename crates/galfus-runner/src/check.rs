@@ -125,7 +125,11 @@ impl ModuleLoader {
         self.loading.insert(path.clone());
 
         let source_id = SourceId::new(self.modules.len() as u32);
-        let text = fs::read_to_string(path.as_path())?;
+        let text = if path.to_str() == Some("std/io") {
+            include_str!("../../../rich_builtin/io.gfs").to_string()
+        } else {
+            fs::read_to_string(path.as_path())?
+        };
         let source = SourceFile::new(source_id, path.display().to_string(), text);
 
         let parse_result = parse(&source);
@@ -154,6 +158,12 @@ impl ModuleLoader {
         let imports = self.import_sources(module_index);
 
         for (source, source_node) in imports {
+            if is_builtin_import(source.as_str()) {
+                let path = PathBuf::from(&source);
+                self.load_module(path)?;
+                continue;
+            }
+
             if !is_relative_import(source.as_str()) {
                 continue;
             }
@@ -217,14 +227,19 @@ impl ModuleLoader {
             let imports = self.module_imports(module_index);
 
             for import in imports {
-                if import.kind != ImportKind::Named || !is_relative_import(import.source.as_str()) {
+                if import.kind != ImportKind::Named || !is_resolvable_import(import.source.as_str())
+                {
                     continue;
                 }
 
-                let path = resolve_relative_import(
-                    self.modules[module_index].path(),
-                    import.source.as_str(),
-                );
+                let path = if is_builtin_import(import.source.as_str()) {
+                    PathBuf::from(import.source.as_str())
+                } else {
+                    resolve_relative_import(
+                        self.modules[module_index].path(),
+                        import.source.as_str(),
+                    )
+                };
 
                 let Ok(path) = normalize_existing_path(path.as_path()) else {
                     continue;
@@ -329,12 +344,15 @@ impl ModuleLoader {
         let mut imported_types = ImportedSurfaceTypes::new();
 
         for import in self.module_imports(module_index) {
-            if import.kind != ImportKind::Named || !is_relative_import(import.source.as_str()) {
+            if import.kind != ImportKind::Named || !is_resolvable_import(import.source.as_str()) {
                 continue;
             }
 
-            let path =
-                resolve_relative_import(self.modules[module_index].path(), import.source.as_str());
+            let path = if is_builtin_import(import.source.as_str()) {
+                PathBuf::from(import.source.as_str())
+            } else {
+                resolve_relative_import(self.modules[module_index].path(), import.source.as_str())
+            };
 
             let Ok(path) = normalize_existing_path(path.as_path()) else {
                 continue;
@@ -399,7 +417,7 @@ impl ModuleLoader {
         let named_imports = imports
             .iter()
             .filter(|import| {
-                import.kind == ImportKind::Named && is_relative_import(import.source.as_str())
+                import.kind == ImportKind::Named && is_resolvable_import(import.source.as_str())
             })
             .collect::<Vec<_>>();
 
@@ -419,8 +437,11 @@ impl ModuleLoader {
                 continue;
             };
 
-            let target_path =
-                resolve_relative_import(self.modules[module_index].path(), import.source.as_str());
+            let target_path = if is_builtin_import(import.source.as_str()) {
+                PathBuf::from(import.source.as_str())
+            } else {
+                resolve_relative_import(self.modules[module_index].path(), import.source.as_str())
+            };
 
             let Ok(target_path) = normalize_existing_path(target_path.as_path()) else {
                 continue;
@@ -450,7 +471,7 @@ impl ModuleLoader {
         let named_imports = imports
             .iter()
             .filter(|import| {
-                import.kind == ImportKind::Named && is_relative_import(import.source.as_str())
+                import.kind == ImportKind::Named && is_resolvable_import(import.source.as_str())
             })
             .collect::<Vec<_>>();
 
@@ -474,8 +495,11 @@ impl ModuleLoader {
                 continue;
             };
 
-            let target_path =
-                resolve_relative_import(self.modules[module_index].path(), import.source.as_str());
+            let target_path = if is_builtin_import(import.source.as_str()) {
+                PathBuf::from(import.source.as_str())
+            } else {
+                resolve_relative_import(self.modules[module_index].path(), import.source.as_str())
+            };
 
             let Ok(target_path) = normalize_existing_path(target_path.as_path()) else {
                 continue;
@@ -515,7 +539,7 @@ impl ModuleLoader {
         let namespace_imports = imports
             .iter()
             .filter(|import| {
-                import.kind == ImportKind::Namespace && is_relative_import(import.source.as_str())
+                import.kind == ImportKind::Namespace && is_resolvable_import(import.source.as_str())
             })
             .collect::<Vec<_>>();
 
@@ -535,8 +559,11 @@ impl ModuleLoader {
                 continue;
             };
 
-            let target_path =
-                resolve_relative_import(self.modules[module_index].path(), import.source.as_str());
+            let target_path = if is_builtin_import(import.source.as_str()) {
+                PathBuf::from(import.source.as_str())
+            } else {
+                resolve_relative_import(self.modules[module_index].path(), import.source.as_str())
+            };
 
             let Ok(target_path) = normalize_existing_path(target_path.as_path()) else {
                 continue;
@@ -771,7 +798,7 @@ impl ModuleLoader {
                 .iter()
                 .filter(|import| {
                     import.kind == ImportKind::Namespace
-                        && is_relative_import(import.source.as_str())
+                        && is_resolvable_import(import.source.as_str())
                 })
                 .collect::<Vec<_>>();
 
@@ -793,10 +820,14 @@ impl ModuleLoader {
                     continue;
                 };
 
-                let target_path = resolve_relative_import(
-                    self.modules[module_index].path(),
-                    import.source.as_str(),
-                );
+                let target_path = if is_builtin_import(import.source.as_str()) {
+                    PathBuf::from(import.source.as_str())
+                } else {
+                    resolve_relative_import(
+                        self.modules[module_index].path(),
+                        import.source.as_str(),
+                    )
+                };
 
                 let Ok(target_path) = normalize_existing_path(target_path.as_path()) else {
                     continue;
@@ -887,6 +918,14 @@ pub fn check_file(path: &str) -> Result<()> {
 
 fn is_relative_import(source: &str) -> bool {
     source.starts_with("./") || source.starts_with("../")
+}
+
+fn is_builtin_import(source: &str) -> bool {
+    source == "std/io"
+}
+
+fn is_resolvable_import(source: &str) -> bool {
+    is_relative_import(source) || is_builtin_import(source)
 }
 
 fn resolve_relative_import(base_module: &Path, source: &str) -> PathBuf {

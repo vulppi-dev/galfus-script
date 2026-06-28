@@ -25,7 +25,7 @@ fn main() -> Result<()> {
 
     match cli.command {
         Command::Run { file } => {
-            println!("galfus run {file}");
+            galfus_runner::run_project(&file)?;
         }
         Command::Check { file } => {
             galfus_runner::check_file(&file)?;

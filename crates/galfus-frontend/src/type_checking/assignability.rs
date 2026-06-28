@@ -68,6 +68,55 @@ impl<'a> DeclarationTypeChecker<'a> {
             }
 
             (
+                Some(TypeKind::Primitive(expected_primitive)),
+                Some(TypeKind::Primitive(actual_primitive)),
+            ) => {
+                if expected_primitive == actual_primitive {
+                    true
+                } else {
+                    let is_expected_int = matches!(
+                        expected_primitive,
+                        crate::PrimitiveType::Int8
+                            | crate::PrimitiveType::Int16
+                            | crate::PrimitiveType::Int32
+                            | crate::PrimitiveType::Int64
+                            | crate::PrimitiveType::Uint8
+                            | crate::PrimitiveType::Uint16
+                            | crate::PrimitiveType::Uint32
+                            | crate::PrimitiveType::Uint64
+                    );
+                    let is_actual_int = matches!(
+                        actual_primitive,
+                        crate::PrimitiveType::Int8
+                            | crate::PrimitiveType::Int16
+                            | crate::PrimitiveType::Int32
+                            | crate::PrimitiveType::Int64
+                            | crate::PrimitiveType::Uint8
+                            | crate::PrimitiveType::Uint16
+                            | crate::PrimitiveType::Uint32
+                            | crate::PrimitiveType::Uint64
+                    );
+                    if is_expected_int && is_actual_int {
+                        true
+                    } else {
+                        let is_expected_float = matches!(
+                            expected_primitive,
+                            crate::PrimitiveType::Float16
+                                | crate::PrimitiveType::Float32
+                                | crate::PrimitiveType::Float64
+                        );
+                        let is_actual_float = matches!(
+                            actual_primitive,
+                            crate::PrimitiveType::Float16
+                                | crate::PrimitiveType::Float32
+                                | crate::PrimitiveType::Float64
+                        );
+                        is_expected_float && is_actual_float
+                    }
+                }
+            }
+
+            (
                 Some(TypeKind::Function(expected_function)),
                 Some(TypeKind::Function(actual_function)),
             ) => self.is_function_type_assignable(&expected_function, &actual_function),

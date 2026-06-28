@@ -58,10 +58,9 @@ impl<'a> DeclarationTypeChecker<'a> {
                 .syntax()
                 .first_child_of_kind(node, SyntaxNodeKind::FunctionStamp)
                 .is_some()
+            && let Some(symbol) = self.direct_identifier_symbol(node, SymbolKind::Function)
         {
-            if let Some(symbol) = self.direct_identifier_symbol(node, SymbolKind::Function) {
-                stamps.insert(symbol, node);
-            }
+            stamps.insert(symbol, node);
         }
 
         for child in syntax_node.children() {
@@ -79,12 +78,11 @@ impl<'a> DeclarationTypeChecker<'a> {
             return;
         };
 
-        if syntax_node.kind() == SyntaxNodeKind::CallExpression {
-            if let Some(symbol) = self.call_target_symbol(node) {
-                if stamp_symbols.contains(&symbol) {
-                    calls.insert(symbol);
-                }
-            }
+        if syntax_node.kind() == SyntaxNodeKind::CallExpression
+            && let Some(symbol) = self.call_target_symbol(node)
+            && stamp_symbols.contains(&symbol)
+        {
+            calls.insert(symbol);
         }
 
         for child in syntax_node.children() {

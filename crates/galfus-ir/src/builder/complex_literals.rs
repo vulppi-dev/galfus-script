@@ -1,7 +1,7 @@
 use super::function::FunctionBuilder;
 use crate::mir::*;
 use galfus_core::{NodeId, StorageMetadata, TypeId};
-use galfus_frontend::{SyntaxNode, SyntaxNodeKind, TypeKind};
+use galfus_frontend::{SyntaxNode, SyntaxNodeKind};
 
 impl<'b, 'a> FunctionBuilder<'b, 'a> {
     pub(super) fn lower_struct_literal(
@@ -135,61 +135,66 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
             .node_type(expr_id)
             .unwrap_or_else(|| TypeId::new(0));
 
-        let mut elements = Vec::new();
-        for &child_id in node.children() {
-            if let Some(child_node) = syntax.node(child_id) {
-                match child_node.kind() {
-                    SyntaxNodeKind::ArrayElement => {
-                        let val_expr = child_node.child(0).unwrap();
-                        let op = self.lower_expression(val_expr, statements);
-                        elements.push(op);
-                    }
-                    SyntaxNodeKind::SpreadArrayElement => {
-                        let spread_expr = child_node.child(0).unwrap();
-                        let op = self.lower_expression(spread_expr, statements);
+        let has_spread = node.children().iter().any(|&child_id| {
+            syntax
+                .node(child_id)
+                .is_some_and(|child_node| child_node.kind() == SyntaxNodeKind::SpreadArrayElement)
+        });
 
-                        let spread_ty = self
-                            .builder
-                            .type_result
-                            .layer()
-                            .node_type(spread_expr)
-                            .unwrap_or_else(|| TypeId::new(0));
-                        let resolved = self.resolve_alias_type(spread_ty);
-
-                        if let Some(TypeKind::FixedArray {
-                            element: element_ty,
-                            size: galfus_frontend::ArraySize::Known(len),
-                        }) = self.builder.type_result.layer().table().kind(resolved)
-                        {
-                            let len_val = *len;
-                            let elem_ty = *element_ty;
-                            for i in 0..len_val {
-                                let temp_id = self.declare_local(None, elem_ty);
-                                self.current_instructions.push(Instruction::Assign(
-                                    temp_id,
-                                    RValue::ArrayIndex(
-                                        op.clone(),
-                                        Operand::Constant(Constant::Int(i as i64)),
-                                    ),
-                                ));
-                                elements.push(Operand::Local(temp_id));
-                            }
+        if has_spread {
+            let mut elements = Vec::new();
+            for &child_id in node.children() {
+                if let Some(child_node) = syntax.node(child_id) {
+                    match child_node.kind() {
+                        SyntaxNodeKind::ArrayElement => {
+                            let val_expr = child_node.child(0).unwrap();
+                            let op = self.lower_expression(val_expr, statements);
+                            elements.push(ArrayLiteralElement::Single(op));
                         }
-                    }
-                    _ => {
-                        let op = self.lower_expression(child_id, statements);
-                        elements.push(op);
+                        SyntaxNodeKind::SpreadArrayElement => {
+                            let spread_expr = child_node.child(0).unwrap();
+                            let op = self.lower_expression(spread_expr, statements);
+                            elements.push(ArrayLiteralElement::Spread(op));
+                        }
+                        _ => {
+                            let op = self.lower_expression(child_id, statements);
+                            elements.push(ArrayLiteralElement::Single(op));
+                        }
                     }
                 }
             }
-        }
 
-        let temp_id = self.declare_local(None, array_type);
-        self.current_instructions.push(Instruction::Assign(
-            temp_id,
-            RValue::NewArray(array_type, elements),
-        ));
-        Operand::Local(temp_id)
+            let temp_id = self.declare_local(None, array_type);
+            self.current_instructions.push(Instruction::Assign(
+                temp_id,
+                RValue::NewArrayDynamic(array_type, elements),
+            ));
+            Operand::Local(temp_id)
+        } else {
+            let mut elements = Vec::new();
+            for &child_id in node.children() {
+                if let Some(child_node) = syntax.node(child_id) {
+                    match child_node.kind() {
+                        SyntaxNodeKind::ArrayElement => {
+                            let val_expr = child_node.child(0).unwrap();
+                            let op = self.lower_expression(val_expr, statements);
+                            elements.push(op);
+                        }
+                        _ => {
+                            let op = self.lower_expression(child_id, statements);
+                            elements.push(op);
+                        }
+                    }
+                }
+            }
+
+            let temp_id = self.declare_local(None, array_type);
+            self.current_instructions.push(Instruction::Assign(
+                temp_id,
+                RValue::NewArray(array_type, elements),
+            ));
+            Operand::Local(temp_id)
+        }
     }
 
     pub(super) fn lower_tuple_literal(

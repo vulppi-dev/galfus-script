@@ -123,6 +123,7 @@ fn validate_body(
                 Terminator::Break => {}
                 Terminator::Continue => {}
                 Terminator::Panic(_) => {}
+                Terminator::None => {}
                 Terminator::Call {
                     func: target_func_id,
                     args,
@@ -246,6 +247,18 @@ fn validate_rvalue_operands(
         RValue::NewArray(_, elements) => {
             for element in elements {
                 validate_operand(element, func, initialized, errors);
+            }
+        }
+        RValue::NewArrayDynamic(_, elements) => {
+            for element in elements {
+                match element {
+                    ArrayLiteralElement::Single(operand) => {
+                        validate_operand(operand, func, initialized, errors);
+                    }
+                    ArrayLiteralElement::Spread(operand) => {
+                        validate_operand(operand, func, initialized, errors);
+                    }
+                }
             }
         }
         RValue::NewTuple(_, elements) => {

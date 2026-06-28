@@ -70,14 +70,14 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
             self.lower_statement(stmt_id, &mut statements);
         }
 
-        if let Some(scope_locals) = self.scopes.pop() {
-            if !Self::is_terminated(&statements) {
-                for local_id in scope_locals {
-                    if let Some(decl) = self.locals.iter().find(|l| l.id == local_id) {
-                        if self.builder.is_owned_type(decl.ty) {
-                            self.current_instructions.push(Instruction::Drop(local_id));
-                        }
-                    }
+        if let Some(scope_locals) = self.scopes.pop()
+            && !Self::is_terminated(&statements)
+        {
+            for local_id in scope_locals {
+                if let Some(decl) = self.locals.iter().find(|l| l.id == local_id)
+                    && self.builder.is_owned_type(decl.ty)
+                {
+                    self.current_instructions.push(Instruction::Drop(local_id));
                 }
             }
         }
@@ -100,7 +100,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
             statements.push(MirBody::BasicBlock(BasicBlock {
                 id: self.builder.next_block(),
                 instructions,
-                terminator: Terminator::Return(None),
+                terminator: Terminator::None,
             }));
         }
     }
@@ -201,10 +201,10 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                         if Some(local_id) == ret_local {
                             continue;
                         }
-                        if let Some(decl) = self.locals.iter().find(|l| l.id == local_id) {
-                            if self.builder.is_owned_type(decl.ty) {
-                                self.current_instructions.push(Instruction::Drop(local_id));
-                            }
+                        if let Some(decl) = self.locals.iter().find(|l| l.id == local_id)
+                            && self.builder.is_owned_type(decl.ty)
+                        {
+                            self.current_instructions.push(Instruction::Drop(local_id));
                         }
                     }
                 }

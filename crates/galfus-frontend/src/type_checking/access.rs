@@ -131,19 +131,18 @@ impl<'a> DeclarationTypeChecker<'a> {
             return None;
         }
 
-        if let Some(member_scope) = resolution.member_scope(symbol) {
-            if let Some(member_symbol) = resolution
+        if let Some(member_scope) = resolution.member_scope(symbol)
+            && let Some(member_symbol) = resolution
                 .scope(member_scope)
                 .and_then(|scope| scope.symbol(member_name))
-            {
-                let member_symbol_data = resolution.symbol(member_symbol)?;
+        {
+            let member_symbol_data = resolution.symbol(member_symbol)?;
 
-                if member_symbol_data.kind() != SymbolKind::StructField {
-                    return None;
-                }
-
-                return self.layer.symbol_type(member_symbol);
+            if member_symbol_data.kind() != SymbolKind::StructField {
+                return None;
             }
+
+            return self.layer.symbol_type(member_symbol);
         }
 
         if symbol_data.kind() == SymbolKind::Struct {

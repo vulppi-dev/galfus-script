@@ -9,6 +9,7 @@ struct ArrayLiteralElementType {
     node: NodeId,
     ty: TypeId,
     len: u64,
+    is_dynamic: bool,
     has_error: bool,
 }
 
@@ -70,8 +71,9 @@ impl<'a> DeclarationTypeChecker<'a> {
         }
 
         let total_len = element_types.iter().map(|element| element.len).sum::<u64>();
+        let is_dynamic = element_types.iter().any(|element| element.is_dynamic);
 
-        if total_len == 0 {
+        if !is_dynamic && total_len == 0 {
             self.report_empty_array_literal(node);
 
             let error = self.layer.table_mut().error();
@@ -82,6 +84,8 @@ impl<'a> DeclarationTypeChecker<'a> {
 
         let ty = if has_error {
             self.layer.table_mut().error()
+        } else if is_dynamic {
+            self.layer.table_mut().intern_array(expected_element_type)
         } else {
             self.layer
                 .table_mut()
@@ -109,6 +113,7 @@ impl<'a> DeclarationTypeChecker<'a> {
                     node: expression,
                     ty,
                     len: 1,
+                    is_dynamic: false,
                     has_error: false,
                 })
             }
@@ -131,6 +136,7 @@ impl<'a> DeclarationTypeChecker<'a> {
                     node: element,
                     ty,
                     len: 1,
+                    is_dynamic: false,
                     has_error: false,
                 })
             }
@@ -152,19 +158,49 @@ impl<'a> DeclarationTypeChecker<'a> {
                 node: expression,
                 ty: element,
                 len,
+                is_dynamic: false,
                 has_error: false,
             }),
 
             Some(TypeKind::FixedArray { .. }) | Some(TypeKind::Array { .. }) => {
-                self.report_dynamic_spread_in_array_literal(expression, spread_type);
+                if let Some(expr_node) = self.graph.syntax().node(expression)
+                    && expr_node.kind() == SyntaxNodeKind::StringLiteral
+                {
+                    let text = self.source.slice(expr_node.span()).unwrap_or("");
+                    let val = if (text.starts_with('"') && text.ends_with('"'))
+                        || (text.starts_with('\'') && text.ends_with('\''))
+                    {
+                        &text[1..text.len() - 1]
+                    } else {
+                        text
+                    };
+                    let unescaped = unescape_string(val);
+                    let len = unescaped.len() as u64;
+                    let element = match self.layer.table().kind(resolved) {
+                        Some(TypeKind::Array { element }) => *element,
+                        _ => self.layer.table().primitive(PrimitiveType::Uint8),
+                    };
+                    return Some(ArrayLiteralElementType {
+                        node: expression,
+                        ty: element,
+                        len,
+                        is_dynamic: false,
+                        has_error: false,
+                    });
+                }
 
-                let error = self.layer.table_mut().error();
+                let element = match self.layer.table().kind(resolved) {
+                    Some(TypeKind::Array { element }) => *element,
+                    Some(TypeKind::FixedArray { element, .. }) => *element,
+                    _ => self.layer.table().primitive(PrimitiveType::Uint8),
+                };
 
                 Some(ArrayLiteralElementType {
                     node: expression,
-                    ty: error,
+                    ty: element,
                     len: 0,
-                    has_error: true,
+                    is_dynamic: true,
+                    has_error: false,
                 })
             }
 
@@ -172,6 +208,7 @@ impl<'a> DeclarationTypeChecker<'a> {
                 node: expression,
                 ty: resolved,
                 len: 0,
+                is_dynamic: false,
                 has_error: true,
             }),
 
@@ -184,9 +221,35 @@ impl<'a> DeclarationTypeChecker<'a> {
                     node: expression,
                     ty: error,
                     len: 0,
+                    is_dynamic: false,
                     has_error: true,
                 })
             }
         }
     }
+}
+
+fn unescape_string(s: &str) -> String {
+    let mut result = String::new();
+    let mut chars = s.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == '\\' {
+            match chars.next() {
+                Some('n') => result.push('\n'),
+                Some('t') => result.push('\t'),
+                Some('r') => result.push('\r'),
+                Some('"') => result.push('"'),
+                Some('\'') => result.push('\''),
+                Some('\\') => result.push('\\'),
+                Some(other) => {
+                    result.push('\\');
+                    result.push(other);
+                }
+                None => result.push('\\'),
+            }
+        } else {
+            result.push(c);
+        }
+    }
+    result
 }

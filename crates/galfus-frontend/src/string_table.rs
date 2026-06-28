@@ -48,7 +48,7 @@ impl AsNameId for &str {
 
 impl AsNameId for &&str {
     fn as_name_id(self) -> NameId {
-        NameId::intern(*self)
+        NameId::intern(self)
     }
 }
 

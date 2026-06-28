@@ -60,14 +60,14 @@ impl<'a> DeclarationTypeChecker<'a> {
         target: NodeId,
         target_type: TypeId,
     ) -> Vec<SymbolId> {
-        if let Some(symbol) = self.expression_reference_symbol(target) {
-            if let Some(function_item) = self.function_item_for_symbol(symbol) {
-                let parameters = self
-                    .declaration_symbols_in_node(function_item, &[SymbolKind::GenericParameter]);
+        if let Some(symbol) = self.expression_reference_symbol(target)
+            && let Some(function_item) = self.function_item_for_symbol(symbol)
+        {
+            let parameters =
+                self.declaration_symbols_in_node(function_item, &[SymbolKind::GenericParameter]);
 
-                if !parameters.is_empty() {
-                    return parameters;
-                }
+            if !parameters.is_empty() {
+                return parameters;
             }
         }
 

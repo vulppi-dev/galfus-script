@@ -64,13 +64,13 @@ impl<'a> MirBuilder<'a> {
                                     if let Some(func) = self.build_function(inner) {
                                         functions.push(func);
                                     }
-                                } else if let Some(inner_node) = self.graph.syntax().node(inner) {
-                                    if matches!(
+                                } else if let Some(inner_node) = self.graph.syntax().node(inner)
+                                    && matches!(
                                         inner_node.kind(),
                                         SyntaxNodeKind::VarItem | SyntaxNodeKind::ConstItem
-                                    ) {
-                                        global_items.push(inner);
-                                    }
+                                    )
+                                {
+                                    global_items.push(inner);
                                 }
                             }
                         }
@@ -145,37 +145,34 @@ impl<'a> MirBuilder<'a> {
         let syntax = builder_ctx.builder.graph.syntax();
 
         for &item in items {
-            if let Some(node) = syntax.node(item) {
-                if matches!(
+            if let Some(node) = syntax.node(item)
+                && matches!(
                     node.kind(),
                     SyntaxNodeKind::VarItem | SyntaxNodeKind::ConstItem
-                ) {
-                    if let Some(initializer) =
-                        syntax.first_child_of_kind(item, SyntaxNodeKind::Initializer)
-                    {
-                        if let Some(expr) = syntax.first_child(initializer) {
-                            let operand = builder_ctx.lower_expression(expr, &mut statements);
+                )
+                && let Some(initializer) =
+                    syntax.first_child_of_kind(item, SyntaxNodeKind::Initializer)
+                && let Some(expr) = syntax.first_child(initializer)
+            {
+                let operand = builder_ctx.lower_expression(expr, &mut statements);
 
-                            if let Some(binding) =
-                                syntax.first_child_of_kind(item, SyntaxNodeKind::BindingPattern)
-                            {
-                                let symbols = builder_ctx.collect_declaration_symbols(binding);
-                                for symbol in symbols {
-                                    let name = builder_ctx
-                                        .builder
-                                        .graph
-                                        .resolution()
-                                        .and_then(|res| res.symbol(symbol))
-                                        .map(|sym| sym.name().to_string())
-                                        .unwrap_or_default();
+                if let Some(binding) =
+                    syntax.first_child_of_kind(item, SyntaxNodeKind::BindingPattern)
+                {
+                    let symbols = builder_ctx.collect_declaration_symbols(binding);
+                    for symbol in symbols {
+                        let name = builder_ctx
+                            .builder
+                            .graph
+                            .resolution()
+                            .and_then(|res| res.symbol(symbol))
+                            .map(|sym| sym.name().to_string())
+                            .unwrap_or_default();
 
-                                    builder_ctx.flush_current_instructions(&mut statements);
-                                    builder_ctx
-                                        .current_instructions
-                                        .push(Instruction::StoreGlobal(name, operand.clone()));
-                                }
-                            }
-                        }
+                        builder_ctx.flush_current_instructions(&mut statements);
+                        builder_ctx
+                            .current_instructions
+                            .push(Instruction::StoreGlobal(name, operand.clone()));
                     }
                 }
             }

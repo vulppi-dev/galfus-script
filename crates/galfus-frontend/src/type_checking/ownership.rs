@@ -365,14 +365,13 @@ impl<'a> DeclarationTypeChecker<'a> {
             return;
         }
 
-        if syntax_node.kind() == SyntaxNodeKind::NameExpression {
-            if let Some(symbol) = self
+        if syntax_node.kind() == SyntaxNodeKind::NameExpression
+            && let Some(symbol) = self
                 .graph
                 .resolution()
                 .and_then(|resolution| resolution.reference_symbol(node))
-            {
-                references.push((node, symbol));
-            }
+        {
+            references.push((node, symbol));
         }
 
         for child in syntax_node.children() {

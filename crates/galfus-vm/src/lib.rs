@@ -1,14 +1,8 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
-
 #[cfg(test)]
-mod tests {
-    use super::*;
+mod tests;
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+pub mod error;
+pub mod runtime;
+
+pub use error::{StackFrameInfo, VmError, VmPanic};
+pub use runtime::{CallFrame, HeapObject, IoHandler, VirtualMachine};
