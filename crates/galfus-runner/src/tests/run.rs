@@ -38,6 +38,9 @@ fn test_run_single_file_success() -> Result<()> {
     )?;
 
     let result = run_project(file_path.to_str().unwrap());
+    if let Err(ref e) = result {
+        println!("test_run_single_file_success failed: {:?}", e);
+    }
     assert!(result.is_ok());
 
     fs::remove_dir_all(root)?;
@@ -131,6 +134,28 @@ fn test_run_vm_panic() -> Result<()> {
     let err_msg = result.err().unwrap().to_string();
     assert!(err_msg.contains("cause_panic"));
     assert!(err_msg.contains("VM Panic"));
+
+    fs::remove_dir_all(root)?;
+    Ok(())
+}
+
+#[test]
+fn test_run_std_io_print() -> Result<()> {
+    let root = temp_workspace()?;
+    let file_path = write_file(
+        &root,
+        "main.gfs",
+        r#"
+        import { print } from 'std/io'
+
+        fn main(): null {
+            print('Hello from test!')
+        }
+        "#,
+    )?;
+
+    let result = run_project(file_path.to_str().unwrap());
+    assert!(result.is_ok());
 
     fs::remove_dir_all(root)?;
     Ok(())

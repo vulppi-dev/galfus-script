@@ -481,6 +481,9 @@ pub fn validate_module_image(image: &ModuleImage) -> Result<(), Vec<ImageValidat
                     check_reg(dest_reg, &mut errors);
                 }
                 Instruction::TxRollback => {}
+                Instruction::Write { src } => {
+                    check_reg(src, &mut errors);
+                }
             }
         }
     }

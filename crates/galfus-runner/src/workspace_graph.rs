@@ -162,6 +162,35 @@ impl WorkspaceGraph {
         Ok(graph)
     }
 
+    pub fn for_single_file(entry_path: &Path, checked_modules: &[CheckedModule]) -> Result<Self> {
+        let mut graph = Self::default();
+
+        for (index, module) in checked_modules.iter().enumerate() {
+            let id = WorkspaceModuleId::new(index);
+            let path = module.path().to_path_buf();
+
+            graph.modules.push(WorkspaceModule {
+                id,
+                path: path.clone(),
+            });
+
+            graph.module_by_path.insert(path, id);
+        }
+
+        let entry_canonical = normalize_existing_path(entry_path)?;
+        if let Some(entry_id) = graph.module_by_path.get(&entry_canonical).copied() {
+            graph.roots.push(WorkspaceRoot {
+                kind: WorkspaceRootKind::Entry,
+                module_id: entry_id,
+                path: entry_canonical,
+            });
+        }
+
+        graph.add_import_edges(checked_modules)?;
+
+        Ok(graph)
+    }
+
     pub fn roots(&self) -> &[WorkspaceRoot] {
         self.roots.as_slice()
     }

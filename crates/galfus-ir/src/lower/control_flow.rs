@@ -177,25 +177,42 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                         args,
                         destination,
                     } => {
-                        let start_reg = self.alloc_temp();
-                        let mut temp_regs = vec![start_reg];
-                        for _ in 1..args.len() {
-                            temp_regs.push(self.alloc_temp());
+                        if self.ctx.function_names.get(func).map(|s| s.as_str())
+                            == Some("__builtin_write")
+                        {
+                            let arg_reg = self.alloc_temp();
+                            self.load_operand_to(&args[0], arg_reg);
+                            self.instructions.push(Instruction::Write { src: arg_reg });
+
+                            let null_idx =
+                                self.ctx.get_or_create_constant(&crate::mir::Constant::Null);
+                            self.instructions.push(Instruction::LoadConst {
+                                dest: Reg(destination.raw() as u16),
+                                const_idx: null_idx,
+                            });
+
+                            self.free_temps(1);
+                        } else {
+                            let start_reg = self.alloc_temp();
+                            let mut temp_regs = vec![start_reg];
+                            for _ in 1..args.len() {
+                                temp_regs.push(self.alloc_temp());
+                            }
+
+                            for (i, arg_op) in args.iter().enumerate() {
+                                self.load_operand_to(arg_op, temp_regs[i]);
+                            }
+
+                            let func_idx = self.ctx.function_map[func];
+                            self.instructions.push(Instruction::Call {
+                                dest: Reg(destination.raw() as u16),
+                                func: func_idx,
+                                args_start: start_reg,
+                                arg_count: args.len() as u8,
+                            });
+
+                            self.free_temps(args.len() as u16);
                         }
-
-                        for (i, arg_op) in args.iter().enumerate() {
-                            self.load_operand_to(arg_op, temp_regs[i]);
-                        }
-
-                        let func_idx = self.ctx.function_map[func];
-                        self.instructions.push(Instruction::Call {
-                            dest: Reg(destination.raw() as u16),
-                            func: func_idx,
-                            args_start: start_reg,
-                            arg_count: args.len() as u8,
-                        });
-
-                        self.free_temps(args.len() as u16);
                     }
                 }
             }

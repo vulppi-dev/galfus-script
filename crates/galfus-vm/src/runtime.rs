@@ -27,6 +27,36 @@ pub enum HeapObject {
     },
 }
 
+pub trait IoHandler: Send + Sync {
+    fn write(&mut self, data: &[u8]) -> Result<(), VmError>;
+    fn read(&mut self) -> Result<Option<u8>, VmError>;
+}
+
+pub struct DefaultIoHandler;
+
+impl IoHandler for DefaultIoHandler {
+    fn write(&mut self, data: &[u8]) -> Result<(), VmError> {
+        use std::io::Write;
+        std::io::stdout()
+            .write_all(data)
+            .map_err(|e| VmError::IoError(e.to_string()))?;
+        std::io::stdout()
+            .flush()
+            .map_err(|e| VmError::IoError(e.to_string()))?;
+        Ok(())
+    }
+
+    fn read(&mut self) -> Result<Option<u8>, VmError> {
+        use std::io::Read;
+        let mut buf = [0u8; 1];
+        match std::io::stdin().read_exact(&mut buf) {
+            Ok(_) => Ok(Some(buf[0])),
+            Err(ref e) if e.kind() == std::io::ErrorKind::UnexpectedEof => Ok(None),
+            Err(e) => Err(VmError::IoError(e.to_string())),
+        }
+    }
+}
+
 pub struct CallFrame {
     pub func_idx: FuncIdx,
     pub pc: usize,
@@ -40,6 +70,7 @@ pub struct VirtualMachine {
     pub heap: Vec<Option<HeapObject>>,
     pub free_slots: Vec<usize>,
     pub call_stack: Vec<CallFrame>,
+    pub io_handler: Box<dyn IoHandler>,
 }
 
 macro_rules! impl_binary_op {
@@ -144,7 +175,13 @@ impl VirtualMachine {
             heap: Vec::new(),
             free_slots: Vec::new(),
             call_stack: Vec::new(),
+            io_handler: Box::new(DefaultIoHandler),
         }
+    }
+
+    pub fn with_io_handler(mut self, io_handler: Box<dyn IoHandler>) -> Self {
+        self.io_handler = io_handler;
+        self
     }
 
     pub fn alloc(&mut self, obj: HeapObject) -> ObjectRef {
@@ -1072,6 +1109,10 @@ impl VirtualMachine {
                     let frame = self.call_stack.last_mut().ok_or(VmError::EmptyCallStack)?;
                     frame.in_transaction = false;
                 }
+                Instruction::Write { src } => {
+                    let val = self.read_reg(src)?;
+                    self.execute_write(val)?;
+                }
             }
             self.release_unreachable();
         }
@@ -1512,5 +1553,49 @@ impl VirtualMachine {
                 }
             }
         }
+    }
+
+    fn execute_write(&mut self, val: Value) -> Result<(), VmError> {
+        let mut bytes = Vec::new();
+        match val {
+            Value::Object(obj_ref) => {
+                let heap_obj = self.get_object(obj_ref)?;
+                if let HeapObject::Array { elements, .. } = heap_obj {
+                    for elem in elements {
+                        match elem {
+                            Value::Int8(b) => bytes.push(*b as u8),
+                            Value::Uint8(b) => bytes.push(*b),
+                            _ => {
+                                let s = format!("{:?}", elem);
+                                bytes.extend_from_slice(s.as_bytes());
+                            }
+                        }
+                    }
+                } else {
+                    let s = format!("{:?}", heap_obj);
+                    bytes.extend_from_slice(s.as_bytes());
+                }
+            }
+            other => match other {
+                Value::Null => bytes.extend_from_slice(b"null"),
+                Value::Bool(b) => bytes.extend_from_slice(if b { b"true" } else { b"false" }),
+                Value::Int8(b) => bytes.extend_from_slice(b.to_string().as_bytes()),
+                Value::Int16(b) => bytes.extend_from_slice(b.to_string().as_bytes()),
+                Value::Int32(b) => bytes.extend_from_slice(b.to_string().as_bytes()),
+                Value::Int64(b) => bytes.extend_from_slice(b.to_string().as_bytes()),
+                Value::Uint8(b) => bytes.extend_from_slice(b.to_string().as_bytes()),
+                Value::Uint16(b) => bytes.extend_from_slice(b.to_string().as_bytes()),
+                Value::Uint32(b) => bytes.extend_from_slice(b.to_string().as_bytes()),
+                Value::Uint64(b) => bytes.extend_from_slice(b.to_string().as_bytes()),
+                Value::Float32(b) => bytes.extend_from_slice(b.to_string().as_bytes()),
+                Value::Float64(b) => bytes.extend_from_slice(b.to_string().as_bytes()),
+                Value::Object(obj_ref) => {
+                    let s = format!("ObjectRef({})", obj_ref.raw());
+                    bytes.extend_from_slice(s.as_bytes());
+                }
+            },
+        }
+        self.io_handler.write(&bytes)?;
+        Ok(())
     }
 }

@@ -19,7 +19,11 @@ use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 fn normalize_existing_path(path: &Path) -> Result<PathBuf> {
-    Ok(path.canonicalize()?)
+    if path == Path::new("std/io") {
+        Ok(path.to_path_buf())
+    } else {
+        Ok(path.canonicalize()?)
+    }
 }
 
 fn print_check_result(result: &CheckResult) {
@@ -166,7 +170,9 @@ pub fn run_project(path: &str) -> Result<()> {
         let entry_path = path.to_path_buf();
         let ws_root = path.parent().unwrap_or_else(|| Path::new("")).to_path_buf();
         let tmp_dir = ws_root.join(".tmp");
-        (entry_path, ws_root, tmp_dir, None)
+        let graph = WorkspaceGraph::for_single_file(&entry_path, check_result.modules())?;
+        let ws_check_result = WorkspaceCheckResult::new(check_result, graph);
+        (entry_path, ws_root, tmp_dir, Some(ws_check_result))
     };
 
     std::fs::create_dir_all(&tmp_dir)?;
@@ -302,6 +308,11 @@ pub fn compile_workspace_to_gfb(
             if m_idx == mod_idx {
                 ctx.function_map.insert(func_id, global_idx);
             }
+        }
+
+        for mir_func in &mir_mod.functions {
+            ctx.function_names
+                .insert(mir_func.id, mir_func.name.clone());
         }
 
         for mir_func in &mir_mod.functions {
@@ -496,7 +507,11 @@ fn resolve_import_target(
         .find(|imp| imp.local_symbol() == symbol_id)
         && let Some(imported_name) = import.imported_name()
     {
-        let target_path = resolve_relative_import(module.path(), import.source());
+        let target_path = if import.source() == "std/io" {
+            PathBuf::from(import.source())
+        } else {
+            resolve_relative_import(module.path(), import.source())
+        };
         let target_path = normalize_existing_path(target_path.as_path()).ok()?;
         let target_idx = modules.iter().position(|m| m.path() == target_path)?;
 
@@ -528,7 +543,11 @@ fn resolve_import_target(
         let member_node_data = syntax.node(member_node)?;
         let member_span = member_node_data.span();
         let member_name = module.source().slice(member_span)?;
-        let target_path = resolve_relative_import(module.path(), import.source());
+        let target_path = if import.source() == "std/io" {
+            PathBuf::from(import.source())
+        } else {
+            resolve_relative_import(module.path(), import.source())
+        };
         let target_path = normalize_existing_path(target_path.as_path()).ok()?;
         let target_idx = modules.iter().position(|m| m.path() == target_path)?;
 
@@ -583,7 +602,11 @@ fn canonical_global_idx(
         .find(|imp| imp.local_symbol() == s.id())
         && let Some(imported_name) = import.imported_name()
     {
-        let target_path = resolve_relative_import(module.path(), import.source());
+        let target_path = if import.source() == "std/io" {
+            PathBuf::from(import.source())
+        } else {
+            resolve_relative_import(module.path(), import.source())
+        };
         if let Ok(target_path) = normalize_existing_path(target_path.as_path())
             && let Some(target_idx) = modules.iter().position(|m| m.path() == target_path)
         {

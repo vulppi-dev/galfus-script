@@ -317,4 +317,9 @@ pub enum Instruction {
         dest_reg: Reg,
     },
     TxRollback,
+
+    // Category G: Standard I/O
+    Write {
+        src: Reg,
+    },
 }

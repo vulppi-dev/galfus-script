@@ -1,1 +1,0 @@
-export fn print(txt: [int8], ...values: [[int8]]): null {}

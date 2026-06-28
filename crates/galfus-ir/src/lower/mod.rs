@@ -42,6 +42,7 @@ pub struct LowerCtx<'a> {
     pub constant_pool: ConstantPool,
     pub constants_map: HashMap<HashableConstant, ConstIdx>,
     pub function_map: HashMap<FunctionId, FuncIdx>,
+    pub function_names: HashMap<FunctionId, String>,
 }
 
 impl<'a> LowerCtx<'a> {
@@ -65,6 +66,7 @@ impl<'a> LowerCtx<'a> {
             },
             constants_map: HashMap::new(),
             function_map: HashMap::new(),
+            function_names: HashMap::new(),
         }
     }
 
@@ -601,6 +603,7 @@ pub fn lower_module(
 
     for (i, func) in mir_module.functions.iter().enumerate() {
         ctx.function_map.insert(func.id, FuncIdx(i as u16));
+        ctx.function_names.insert(func.id, func.name.clone());
     }
 
     let mut functions = Vec::new();

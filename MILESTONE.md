@@ -35,7 +35,7 @@ The MVP is not a product-distribution milestone. It does not include package pub
 Current phase:
 
 ```txt
-Local MVP Runner
+Standard I/O Builtins & Extensibility
 ```
 
 Completed:
@@ -53,12 +53,14 @@ MIR to Module Image Lowering
 .gfb Serialization & Loader
 VM Core
 Owner Graph Core Runtime
+Local MVP Runner
+Standard I/O Builtins & Extensibility
 ```
 
 Active:
 
 ```txt
-Local MVP Runner
+Completed MVP Phase
 ```
 
 Frontend MVP status:
@@ -553,6 +555,18 @@ Goal: prove the complete language surface through local `.gfs` programs.
 - [x] `.gfb` serialization
 - [x] VM execution
 - [x] Panic behavior
+
+## Milestone 16 — Standard I/O Builtins & Extensibility
+
+Goal: provide a target-agnostic and pluggable standard I/O mechanism with a removable virtual `std/io` module.
+
+- [x] Add `Write` / `Read` variants to `Instruction` in `galfus-core`
+- [x] Add `IoHandler` trait to VM with default system I/O and mock buffer I/O implementations
+- [x] Support custom target I/O handler execution inside `VirtualMachine`
+- [x] Lower calls to `__builtin_write` / `__builtin_read` directly to VM instructions in `galfus-ir`
+- [x] Resolve virtual `std/io` absolute imports in `ModuleLoader` of `galfus-runner`
+- [x] Build virtual source text for `std/io` defining print, println, and read
+- [x] Verify complete I/O end-to-end integration via runner tests
 
 ## MVP Success Criteria
 

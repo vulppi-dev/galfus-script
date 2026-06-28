@@ -53,6 +53,9 @@ pub enum VmError {
 
     #[error("Unimplemented instruction: {instruction}")]
     UnimplementedInstruction { instruction: String },
+
+    #[error("I/O error: {0}")]
+    IoError(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

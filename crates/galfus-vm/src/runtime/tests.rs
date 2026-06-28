@@ -870,3 +870,41 @@ fn test_ownership_weak_invalidation() {
         other => panic!("expected struct, got {:?}", other),
     }
 }
+
+struct BufferIoHandler {
+    buffer: std::sync::Arc<std::sync::Mutex<Vec<u8>>>,
+}
+
+impl IoHandler for BufferIoHandler {
+    fn write(&mut self, data: &[u8]) -> Result<(), VmError> {
+        let mut buf = self.buffer.lock().unwrap();
+        buf.extend_from_slice(data);
+        Ok(())
+    }
+
+    fn read(&mut self) -> Result<Option<u8>, VmError> {
+        Ok(None)
+    }
+}
+
+#[test]
+fn test_io_handler_write() {
+    let instrs = vec![
+        Instruction::LoadConst {
+            dest: Reg(1),
+            const_idx: ConstIdx(0),
+        },
+        Instruction::Write { src: Reg(1) },
+        Instruction::RetNull,
+    ];
+    let image = create_test_image(instrs, vec![Constant::Int(42)]);
+    let buffer = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let io_handler = BufferIoHandler {
+        buffer: buffer.clone(),
+    };
+    let mut vm = VirtualMachine::new(image).with_io_handler(Box::new(io_handler));
+    let res = vm.run_function(FuncIdx(0), vec![]).unwrap();
+    assert_eq!(res, Value::Null);
+    let output = buffer.lock().unwrap();
+    assert_eq!(std::str::from_utf8(&output).unwrap(), "42");
+}
