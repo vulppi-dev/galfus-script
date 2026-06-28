@@ -126,14 +126,7 @@ impl ModuleLoader {
 
         let source_id = SourceId::new(self.modules.len() as u32);
         let text = if path.to_str() == Some("std/io") {
-            r#"
-fn __builtin_write(text: [int8]): null {}
-
-export fn print(text: [int8]): null {
-    __builtin_write(text)
-}
-"#
-            .to_string()
+            include_str!("../../../rich_builtin/io.gfs").to_string()
         } else {
             fs::read_to_string(path.as_path())?
         };

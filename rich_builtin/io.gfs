@@ -1,0 +1,5 @@
+fn __builtin_write(text: [int8]): null {}
+
+export fn print(text: [int8]): null {
+    __builtin_write(text)
+}
