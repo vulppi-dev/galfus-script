@@ -391,12 +391,9 @@ impl<'a> MirBuilder<'a> {
             None => return Vec::new(),
         };
 
-        let root = self.graph.syntax().root().unwrap();
-        let struct_item = self.find_struct_item_by_name(root, struct_symbol_data.name());
-
         let mut fields = Vec::new();
-
-        if let Some(item_node) = struct_item {
+        let root = self.graph.syntax().root().unwrap();
+        if let Some(item_node) = self.find_struct_item_by_name(root, struct_symbol_data.name()) {
             let syntax = self.graph.syntax();
             let field_children = syntax
                 .first_child_of_kind(item_node, SyntaxNodeKind::StructFieldList)
@@ -405,10 +402,8 @@ impl<'a> MirBuilder<'a> {
                 .unwrap_or(&[]);
 
             for &field_child in field_children {
-                let is_struct_expansion = syntax
-                    .node(field_child)
-                    .is_some_and(|n| n.kind() == SyntaxNodeKind::StructExpansion);
-                if is_struct_expansion {
+                let node_kind = syntax.node(field_child).map(|n| n.kind());
+                if node_kind == Some(SyntaxNodeKind::StructExpansion) {
                     let target_sym = syntax
                         .child(field_child, 0)
                         .and_then(|target| self.type_result.layer().node_type(target))
@@ -422,30 +417,23 @@ impl<'a> MirBuilder<'a> {
                             }
                         }
                     }
-                }
-            }
-        }
-
-        if let Some(scope) = resolution
-            .member_scope(struct_symbol)
-            .and_then(|ms| resolution.scope(ms))
-        {
-            for (name, &symbol) in scope.symbols() {
-                let field_ty = resolution
-                    .symbol(symbol)
-                    .filter(|sd| sd.kind() == SymbolKind::StructField)
-                    .and_then(|_| self.type_result.layer().symbol_type(symbol));
-                if let Some(ty) = field_ty {
-                    let name_str = name.to_string();
-                    if let Some(existing) = fields.iter_mut().find(|(n, _)| *n == name_str) {
-                        existing.1 = ty;
-                    } else {
+                } else if node_kind == Some(SyntaxNodeKind::StructField)
+                    && let Some(ident_node) =
+                        syntax.first_child_of_kind(field_child, SyntaxNodeKind::Identifier)
+                {
+                    let name_str = self.node_text(ident_node).to_string();
+                    let field_ty = resolution
+                        .declaration_symbol(ident_node)
+                        .and_then(|sym| self.type_result.layer().symbol_type(sym))
+                        .or_else(|| self.type_result.layer().node_type(field_child));
+                    if let Some(ty) = field_ty
+                        && !fields.iter().any(|(n, _)| *n == name_str)
+                    {
                         fields.push((name_str, ty));
                     }
                 }
             }
         }
-
         fields
     }
 

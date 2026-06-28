@@ -19,4 +19,12 @@ fn main(): null {
   if user.age > 20 {
     print("\nIdade maior que 20\n")
   }
+
+  for i in 0..10 {
+    print([<uint8> (i + 48), <uint8> 10])
+  }
+  
+  for i in 0::4%2 {
+    print([<uint8> (i + 48), <uint8> 10])
+  }
 }

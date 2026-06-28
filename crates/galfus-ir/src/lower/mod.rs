@@ -78,6 +78,7 @@ impl<'a> LowerCtx<'a> {
 
         let next_idx = TypeIdx(self.types.len() as u16);
         self.type_map.insert(ty, next_idx);
+        self.types.push(ImageType::Null);
 
         let table = self.type_result.layer().table();
         let image_type = match table.kind(ty) {
@@ -120,11 +121,7 @@ impl<'a> LowerCtx<'a> {
             _ => ImageType::Null,
         };
 
-        if (next_idx.raw() as usize) < self.types.len() {
-            self.types[next_idx.raw() as usize] = image_type;
-        } else {
-            self.types.push(image_type);
-        }
+        self.types[next_idx.raw() as usize] = image_type;
         next_idx
     }
 

@@ -659,3 +659,52 @@ fn test_mir_lowering_advanced() {
     assert_eq!(shape_layout.variants[0].name, "Circle");
     assert_eq!(shape_layout.variants[1].name, "Square");
 }
+
+#[test]
+fn test_mir_builder_for_loop() {
+    let source_id = SourceId::new(0);
+    let code = r#"
+        fn test_for(): int32 {
+            var sum = 0;
+            for i in 0..10 {
+                sum = sum + i;
+            }
+            return sum;
+        }
+    "#;
+    let source = SourceFile::new(source_id, "test_for.gfs".to_string(), code.to_string());
+
+    let parse_result = parse(&source);
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    let graph = resolve_result.into_graph();
+    assert!(
+        !graph.has_errors(),
+        "Parse/Resolve error: {:?}",
+        graph.diagnostics()
+    );
+
+    let type_result = check_declaration_types(&source, &graph);
+    assert!(
+        !type_result.has_errors(),
+        "Typecheck error: {:?}",
+        type_result.diagnostics()
+    );
+
+    let mir_module = builder::MirBuilder::new(&graph, &type_result, code).build();
+
+    assert_eq!(mir_module.functions.len(), 1);
+    let func = &mir_module.functions[0];
+    assert_eq!(func.name, "test_for");
+
+    // Let's check that the body contains Loop and the loop increments
+    println!("FUNC BODY: {:#?}", func.body);
+    match &func.body {
+        MirBody::Block { statements, .. } => {
+            let has_loop = statements
+                .iter()
+                .any(|stmt| matches!(stmt, MirBody::Loop { .. }));
+            assert!(has_loop, "Expected for loop to lower to MirBody::Loop");
+        }
+        other => panic!("Expected block body, found {:?}", other),
+    }
+}
