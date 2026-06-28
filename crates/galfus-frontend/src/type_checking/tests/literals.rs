@@ -137,6 +137,17 @@ var values: [int32] = [0, ...base, 3]
 }
 
 #[test]
+fn check_accepts_string_literal_spread() {
+    let (_source, _graph, result) = check_source(
+        r#"
+var values: [uint8] = [..."Hello", ..."Galfus!", ..."\n"]
+"#,
+    );
+
+    assert!(!result.has_errors());
+}
+
+#[test]
 fn check_reports_invalid_array_literal_spread_target() {
     let source = source(
         r#"
@@ -201,30 +212,15 @@ var value: [uint8] = ""
 }
 
 #[test]
-fn check_reports_dynamic_array_literal_spread() {
-    let source = source(
+fn check_accepts_dynamic_array_literal_spread() {
+    let (_source, _graph, result) = check_source(
         r#"
 var base: [int32] = [1, 2]
 var values: [int32] = [0, ...base, 3]
 "#,
     );
 
-    let parse_result = parse(&source);
-    assert!(!parse_result.has_errors());
-
-    let resolve_result = resolve(&source, parse_result.into_graph());
-    assert!(!resolve_result.has_errors());
-
-    let graph = resolve_result.into_graph();
-    let result = check_declaration_types(&source, &graph);
-
-    assert!(result.has_errors());
-    assert!(result.diagnostics().iter().any(|diagnostic| {
-        diagnostic.code().as_str() == TypeDiagnosticCode::DynamicSpreadInArrayLiteral.as_code()
-            && diagnostic
-                .message()
-                .contains("array literal spread must have a known fixed size")
-    }));
+    assert!(!result.has_errors());
 }
 
 #[test]

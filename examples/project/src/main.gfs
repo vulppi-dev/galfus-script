@@ -1,5 +1,6 @@
 import { print } from 'std/io'
 
 fn main(): null {
-  print('Hello, Galfus!')
+  const text = [..."Hello, ", ..."Galfus!", ..."\n"]
+  print(text)
 }

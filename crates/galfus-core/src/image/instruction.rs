@@ -322,4 +322,13 @@ pub enum Instruction {
     Write {
         src: Reg,
     },
+    Len {
+        dest: Reg,
+        src: Reg,
+    },
+    CopyArray {
+        dest: Reg,
+        dest_start: Reg,
+        src: Reg,
+    },
 }

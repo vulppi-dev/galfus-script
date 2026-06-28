@@ -336,7 +336,7 @@ fn test_mir_builder_phase3() {
                 if let Instruction::Assign(_, rval) = inst {
                     match rval {
                         RValue::NewStruct { .. } => found_new_struct += 1,
-                        RValue::NewArray(..) => found_new_array += 1,
+                        RValue::NewArray(..) | RValue::NewArrayDynamic(..) => found_new_array += 1,
                         RValue::NewTuple(..) => found_new_tuple += 1,
                         RValue::MemberAccess(..) => found_member_access += 1,
                         RValue::ArrayIndex(..) => found_array_index += 1,

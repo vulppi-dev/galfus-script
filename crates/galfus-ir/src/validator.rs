@@ -248,6 +248,18 @@ fn validate_rvalue_operands(
                 validate_operand(element, func, initialized, errors);
             }
         }
+        RValue::NewArrayDynamic(_, elements) => {
+            for element in elements {
+                match element {
+                    ArrayLiteralElement::Single(operand) => {
+                        validate_operand(operand, func, initialized, errors);
+                    }
+                    ArrayLiteralElement::Spread(operand) => {
+                        validate_operand(operand, func, initialized, errors);
+                    }
+                }
+            }
+        }
         RValue::NewTuple(_, elements) => {
             for element in elements {
                 validate_operand(element, func, initialized, errors);

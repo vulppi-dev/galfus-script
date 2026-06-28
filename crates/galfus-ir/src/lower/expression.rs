@@ -227,6 +227,118 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                     self.free_temps(1);
                 }
             }
+            RValue::NewArrayDynamic(array_type, elements) => {
+                use crate::mir::ArrayLiteralElement;
+
+                let type_idx = self.ctx.lower_type(*array_type);
+
+                // 1. Calculate total length at runtime
+                let total_len_reg = self.alloc_temp();
+                let const_zero = self.ctx.get_or_create_constant(&MirConstant::Int(0));
+                self.instructions.push(Instruction::LoadConst {
+                    dest: total_len_reg,
+                    const_idx: const_zero,
+                });
+
+                let const_one = self.ctx.get_or_create_constant(&MirConstant::Int(1));
+
+                for element in elements {
+                    match element {
+                        ArrayLiteralElement::Single(_operand) => {
+                            let one_reg = self.alloc_temp();
+                            self.instructions.push(Instruction::LoadConst {
+                                dest: one_reg,
+                                const_idx: const_one,
+                            });
+                            self.instructions.push(Instruction::Add {
+                                dest: total_len_reg,
+                                lhs: total_len_reg,
+                                rhs: one_reg,
+                            });
+                            self.free_temps(1);
+                        }
+                        ArrayLiteralElement::Spread(operand) => {
+                            let operand_reg = self.operand_reg(operand);
+                            let len_reg = self.alloc_temp();
+                            self.instructions.push(Instruction::Len {
+                                dest: len_reg,
+                                src: operand_reg,
+                            });
+                            self.instructions.push(Instruction::Add {
+                                dest: total_len_reg,
+                                lhs: total_len_reg,
+                                rhs: len_reg,
+                            });
+                            self.free_temps(1);
+                            self.free_temp_if_operand(operand);
+                        }
+                    }
+                }
+
+                // 2. Allocate the new array
+                self.instructions.push(Instruction::NewArray {
+                    dest,
+                    type_idx,
+                    len_reg: total_len_reg,
+                });
+
+                // 3. Copy elements/sub-arrays
+                let offset_reg = self.alloc_temp();
+                self.instructions.push(Instruction::LoadConst {
+                    dest: offset_reg,
+                    const_idx: const_zero,
+                });
+
+                for element in elements {
+                    match element {
+                        ArrayLiteralElement::Single(operand) => {
+                            let val_reg = self.operand_reg(operand);
+                            self.instructions.push(Instruction::StoreIndex {
+                                arr: dest,
+                                idx: offset_reg,
+                                val: val_reg,
+                            });
+                            self.free_temp_if_operand(operand);
+
+                            let one_reg = self.alloc_temp();
+                            self.instructions.push(Instruction::LoadConst {
+                                dest: one_reg,
+                                const_idx: const_one,
+                            });
+                            self.instructions.push(Instruction::Add {
+                                dest: offset_reg,
+                                lhs: offset_reg,
+                                rhs: one_reg,
+                            });
+                            self.free_temps(1);
+                        }
+                        ArrayLiteralElement::Spread(operand) => {
+                            let src_reg = self.operand_reg(operand);
+                            self.instructions.push(Instruction::CopyArray {
+                                dest,
+                                dest_start: offset_reg,
+                                src: src_reg,
+                            });
+
+                            let len_reg = self.alloc_temp();
+                            self.instructions.push(Instruction::Len {
+                                dest: len_reg,
+                                src: src_reg,
+                            });
+                            self.instructions.push(Instruction::Add {
+                                dest: offset_reg,
+                                lhs: offset_reg,
+                                rhs: len_reg,
+                            });
+                            self.free_temps(1);
+                            self.free_temp_if_operand(operand);
+                        }
+                    }
+                }
+
+                // Free total_len_reg and offset_reg
+                self.free_temps(2);
+            }
             RValue::NewTuple(tuple_type, elements) => {
                 let type_idx = self.ctx.lower_type(*tuple_type);
                 let start_reg = self.alloc_temp();

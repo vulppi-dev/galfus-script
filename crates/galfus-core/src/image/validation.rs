@@ -484,6 +484,19 @@ pub fn validate_module_image(image: &ModuleImage) -> Result<(), Vec<ImageValidat
                 Instruction::Write { src } => {
                     check_reg(src, &mut errors);
                 }
+                Instruction::Len { dest, src } => {
+                    check_reg(dest, &mut errors);
+                    check_reg(src, &mut errors);
+                }
+                Instruction::CopyArray {
+                    dest,
+                    dest_start,
+                    src,
+                } => {
+                    check_reg(dest, &mut errors);
+                    check_reg(dest_start, &mut errors);
+                    check_reg(src, &mut errors);
+                }
             }
         }
     }

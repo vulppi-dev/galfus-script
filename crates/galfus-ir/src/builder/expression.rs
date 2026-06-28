@@ -37,7 +37,8 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                 } else {
                     text
                 };
-                Operand::Constant(Constant::String(val.to_string()))
+                let unescaped = unescape_string(val);
+                Operand::Constant(Constant::String(unescaped))
             }
 
             SyntaxNodeKind::BoolLiteral => {
@@ -422,4 +423,29 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
             _ => Operand::Constant(Constant::Null),
         }
     }
+}
+
+pub(crate) fn unescape_string(s: &str) -> String {
+    let mut result = String::new();
+    let mut chars = s.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == '\\' {
+            match chars.next() {
+                Some('n') => result.push('\n'),
+                Some('t') => result.push('\t'),
+                Some('r') => result.push('\r'),
+                Some('"') => result.push('"'),
+                Some('\'') => result.push('\''),
+                Some('\\') => result.push('\\'),
+                Some(other) => {
+                    result.push('\\');
+                    result.push(other);
+                }
+                None => result.push('\\'),
+            }
+        } else {
+            result.push(c);
+        }
+    }
+    result
 }

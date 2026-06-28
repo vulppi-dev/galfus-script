@@ -567,6 +567,7 @@ Goal: provide a target-agnostic and pluggable standard I/O mechanism with a remo
 - [x] Resolve virtual `std/io` absolute imports in `ModuleLoader` of `galfus-runner`
 - [x] Build virtual source text for `std/io` defining print, println, and read
 - [x] Verify complete I/O end-to-end integration via runner tests
+- [x] Support dynamic-length array spreads in compiler frontend, MIR builder, and VM runtime
 
 ## MVP Success Criteria
 

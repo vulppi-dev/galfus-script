@@ -129,12 +129,19 @@ pub enum RValue {
         storage_meta: StorageMetadata,
     },
     NewArray(TypeId, Vec<Operand>),
+    NewArrayDynamic(TypeId, Vec<ArrayLiteralElement>),
     NewTuple(TypeId, Vec<Operand>),
     MemberAccess(Operand, String),
     ArrayIndex(Operand, Operand),
     Choice(TypeId, String, Option<Operand>),
     Instanceof(Operand, TypeId),
     LoadGlobal(String),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ArrayLiteralElement {
+    Single(Operand),
+    Spread(Operand),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -328,27 +328,6 @@ impl<'a> DeclarationTypeChecker<'a> {
         ));
     }
 
-    pub(super) fn report_dynamic_spread_in_array_literal(
-        &mut self,
-        spread: NodeId,
-        spread_type: TypeId,
-    ) {
-        let span = self
-            .graph
-            .syntax()
-            .node(spread)
-            .map(|node| node.span())
-            .unwrap_or_else(|| self.source.span());
-
-        let spread_type = self.layer.table().describe(spread_type);
-
-        self.diagnostics.push(Diagnostic::error_with_message(
-            TypeDiagnosticCode::DynamicSpreadInArrayLiteral,
-            format!("array literal spread must have a known fixed size, got `{spread_type}`"),
-            span,
-        ));
-    }
-
     pub(super) fn report_unknown_struct_field(
         &mut self,
         field: NodeId,
