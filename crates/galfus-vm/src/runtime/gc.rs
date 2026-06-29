@@ -155,7 +155,16 @@ impl VirtualMachine {
                 }
             },
         }
-        self.io_handler.write(&bytes)?;
+        let result = self
+            .context
+            .target
+            .invoke(galfus_target::TargetCall::Write(bytes.as_slice()))
+            .map_err(VmError::IoError)?;
+        if !matches!(result, galfus_target::TargetResult::Success) {
+            return Err(VmError::IoError(format!(
+                "unexpected target result for write: {result:?}"
+            )));
+        }
         Ok(())
     }
 }

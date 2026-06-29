@@ -19,12 +19,118 @@ use anyhow::Result;
 use galfus_core::Diagnostic;
 use std::path::{Path, PathBuf};
 
-fn normalize_existing_path(path: &Path) -> Result<PathBuf> {
-    if path == Path::new("std/io") {
-        Ok(path.to_path_buf())
-    } else {
-        Ok(path.canonicalize()?)
+const STD_IO_MODULE: &str = "std/io";
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum ModuleSource {
+    File(PathBuf),
+    Builtin { name: String },
+}
+
+impl ModuleSource {
+    pub(crate) fn path(&self) -> PathBuf {
+        match self {
+            Self::File(path) => path.clone(),
+            Self::Builtin { name } => PathBuf::from(name),
+        }
     }
+}
+
+pub(crate) trait ModuleSourceProvider {
+    fn resolve(&self, base_module: &Path, source: &str) -> Result<Option<ModuleSource>>;
+    fn read(&self, source: &ModuleSource) -> Result<String>;
+}
+
+#[derive(Debug)]
+pub(crate) struct FileSourceProvider;
+
+impl ModuleSourceProvider for FileSourceProvider {
+    fn resolve(&self, base_module: &Path, source: &str) -> Result<Option<ModuleSource>> {
+        if !source.starts_with("./") && !source.starts_with("../") {
+            return Ok(None);
+        }
+
+        let base_dir = base_module.parent().unwrap_or_else(|| Path::new(""));
+        let mut path = base_dir.join(source);
+
+        if path.extension().is_none() {
+            path.set_extension("gfs");
+        }
+
+        Ok(Some(ModuleSource::File(normalize_existing_path(
+            path.as_path(),
+        )?)))
+    }
+
+    fn read(&self, source: &ModuleSource) -> Result<String> {
+        match source {
+            ModuleSource::File(path) => Ok(std::fs::read_to_string(path.as_path())?),
+            ModuleSource::Builtin { .. } => unreachable!("file provider received builtin source"),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct BuiltinSourceProvider;
+
+impl ModuleSourceProvider for BuiltinSourceProvider {
+    fn resolve(&self, _base_module: &Path, source: &str) -> Result<Option<ModuleSource>> {
+        if source == STD_IO_MODULE {
+            return Ok(Some(ModuleSource::Builtin {
+                name: source.to_string(),
+            }));
+        }
+
+        Ok(None)
+    }
+
+    fn read(&self, source: &ModuleSource) -> Result<String> {
+        match source {
+            ModuleSource::Builtin { name } if name == STD_IO_MODULE => {
+                Ok(galfus_builtins::STD_IO_SOURCE.to_string())
+            }
+            ModuleSource::Builtin { name } => Err(anyhow::anyhow!("unknown builtin `{name}`")),
+            ModuleSource::File(_) => unreachable!("builtin provider received file source"),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct WorkspaceResolver {
+    file: FileSourceProvider,
+    builtin: BuiltinSourceProvider,
+}
+
+impl Default for WorkspaceResolver {
+    fn default() -> Self {
+        Self {
+            file: FileSourceProvider,
+            builtin: BuiltinSourceProvider,
+        }
+    }
+}
+
+impl WorkspaceResolver {
+    pub(crate) fn resolve_import(&self, base_module: &Path, source: &str) -> Result<ModuleSource> {
+        if let Some(source) = self.builtin.resolve(base_module, source)? {
+            return Ok(source);
+        }
+        if let Some(source) = self.file.resolve(base_module, source)? {
+            return Ok(source);
+        }
+        Err(anyhow::anyhow!("unresolvable import `{source}`"))
+    }
+
+    pub(crate) fn read(&self, source: &ModuleSource) -> Result<String> {
+        match source {
+            ModuleSource::File { .. } => self.file.read(source),
+            ModuleSource::Builtin { .. } => self.builtin.read(source),
+        }
+    }
+}
+
+fn normalize_existing_path(path: &Path) -> Result<PathBuf> {
+    Ok(path.canonicalize()?)
 }
 
 fn print_check_result(result: &CheckResult) {
@@ -143,7 +249,7 @@ pub fn run_project(path: &str) -> Result<()> {
     }
 
     let is_dir = path.is_dir();
-    let (entry_path, _ws_root, tmp_dir, check_result_opt) = if is_dir {
+    let (entry_path, _ws_root, tmp_dir, check_result_opt, run_entry) = if is_dir {
         let check_result = check_workspace(path)?;
         if check_result.has_errors() {
             print_check_result(check_result.check_result());
@@ -160,7 +266,8 @@ pub fn run_project(path: &str) -> Result<()> {
 
         let ws_root = path.to_path_buf();
         let tmp_dir = ws_root.join(".tmp");
-        (entry_path, ws_root, tmp_dir, Some(check_result))
+        let run_entry = check_result.run_entry().to_string();
+        (entry_path, ws_root, tmp_dir, Some(check_result), run_entry)
     } else {
         let check_result = check_path(path)?;
         if check_result.has_errors() {
@@ -173,7 +280,13 @@ pub fn run_project(path: &str) -> Result<()> {
         let tmp_dir = ws_root.join(".tmp");
         let graph = WorkspaceGraph::for_single_file(&entry_path, check_result.modules())?;
         let ws_check_result = WorkspaceCheckResult::new(check_result, graph);
-        (entry_path, ws_root, tmp_dir, Some(ws_check_result))
+        (
+            entry_path,
+            ws_root,
+            tmp_dir,
+            Some(ws_check_result),
+            "main".to_string(),
+        )
     };
 
     std::fs::create_dir_all(&tmp_dir)?;
@@ -190,31 +303,14 @@ pub fn run_project(path: &str) -> Result<()> {
     let _ = std::fs::remove_file(&output_path);
     let _ = std::fs::remove_dir(&tmp_dir);
 
-    let mut vm = galfus_vm::VirtualMachine::new(module_image.clone());
-
-    if let Some(init_idx) = module_image.init_func_idx
-        && let Err(panic) = vm.run_function(init_idx, vec![])
-    {
-        return Err(anyhow::anyhow!("{}", panic));
-    }
-
-    let main_func_pos = module_image.functions.iter().position(|f| f.name == "main");
-
-    if let Some(pos) = main_func_pos {
-        let main_idx = galfus_image::instruction::FuncIdx(pos as u16);
-        match vm.run_function(main_idx, vec![]) {
-            Ok(val) => {
-                println!("Program exited successfully with value: {:?}", val);
-            }
-            Err(panic) => {
-                return Err(anyhow::anyhow!("{}", panic));
-            }
-        }
-    } else if module_image.init_func_idx.is_none() {
-        return Err(anyhow::anyhow!(
-            "No 'main' function or module initializer found in image"
-        ));
-    }
+    let module_name = module_image.name.clone();
+    let mut runtime =
+        galfus_runtime::Runtime::new(Box::new(galfus_target::DefaultTargetCapabilityProvider));
+    runtime.loader().load(module_image);
+    let exit_code = runtime
+        .run_entry(module_name.as_str(), run_entry.as_str(), &[])
+        .map_err(|error| anyhow::anyhow!("{error}"))?;
+    println!("Program exited successfully with code: {exit_code}");
 
     Ok(())
 }

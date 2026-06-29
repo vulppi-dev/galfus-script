@@ -9,20 +9,20 @@ pub use instruction::*;
 pub use validation::*;
 
 // =========================================================================
-// VM Runtime Value Model
+// Image Value Model
 // =========================================================================
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct ObjectRef(pub usize);
+pub struct ImageObjectRef(pub usize);
 
-impl ObjectRef {
+impl ImageObjectRef {
     pub const fn raw(&self) -> usize {
         self.0
     }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub enum Value {
+pub enum ImageValue {
     Null,
     Bool(bool),
     Int8(i8),
@@ -35,7 +35,7 @@ pub enum Value {
     Uint64(u64),
     Float32(f32),
     Float64(f64),
-    Object(ObjectRef),
+    Object(ImageObjectRef),
 }
 
 // =========================================================================
@@ -45,6 +45,9 @@ pub enum Value {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Constant {
     Bool(bool),
+    Int32(i32),
+    Int64(i64),
+    /// Legacy integer constant kept for older in-memory tests and GFB payloads.
     Int(i64),
     Float(f64),
     String(String),

@@ -2,7 +2,11 @@ use crate::error::{StackFrameInfo, VmError, VmPanic};
 use galfus_image::instruction::{
     ChoiceLayoutIdx, FuncIdx, Instruction, Reg, StructLayoutIdx, TypeIdx,
 };
-use galfus_image::{Constant, ImageType, ModuleImage, ObjectRef, OwnershipKind, Value};
+use galfus_image::{
+    Constant, ImageObjectRef as ObjectRef, ImageType, ImageValue as Value, ModuleImage,
+    OwnershipKind,
+};
+use galfus_target::{DefaultTargetCapabilityProvider, TargetCapabilityProvider};
 
 mod casts;
 mod control;
@@ -40,33 +44,16 @@ pub enum HeapObject {
     },
 }
 
-pub trait IoHandler: Send + Sync {
-    fn write(&mut self, data: &[u8]) -> Result<(), VmError>;
-    fn read(&mut self) -> Result<Option<u8>, VmError>;
+pub type VmValue = Value;
+pub type VmObjectRef = ObjectRef;
+
+pub struct VmContext {
+    pub target: Box<dyn TargetCapabilityProvider>,
 }
 
-pub struct DefaultIoHandler;
-
-impl IoHandler for DefaultIoHandler {
-    fn write(&mut self, data: &[u8]) -> Result<(), VmError> {
-        use std::io::Write;
-        std::io::stdout()
-            .write_all(data)
-            .map_err(|e| VmError::IoError(e.to_string()))?;
-        std::io::stdout()
-            .flush()
-            .map_err(|e| VmError::IoError(e.to_string()))?;
-        Ok(())
-    }
-
-    fn read(&mut self) -> Result<Option<u8>, VmError> {
-        use std::io::Read;
-        let mut buf = [0u8; 1];
-        match std::io::stdin().read_exact(&mut buf) {
-            Ok(_) => Ok(Some(buf[0])),
-            Err(ref e) if e.kind() == std::io::ErrorKind::UnexpectedEof => Ok(None),
-            Err(e) => Err(VmError::IoError(e.to_string())),
-        }
+impl VmContext {
+    pub fn new(target: Box<dyn TargetCapabilityProvider>) -> Self {
+        Self { target }
     }
 }
 
@@ -83,7 +70,7 @@ pub struct VirtualMachine {
     pub heap: Vec<Option<HeapObject>>,
     pub free_slots: Vec<usize>,
     pub call_stack: Vec<CallFrame>,
-    pub io_handler: Box<dyn IoHandler>,
+    pub context: VmContext,
 }
 
 impl VirtualMachine {
@@ -94,12 +81,17 @@ impl VirtualMachine {
             heap: Vec::new(),
             free_slots: Vec::new(),
             call_stack: Vec::new(),
-            io_handler: Box::new(DefaultIoHandler),
+            context: VmContext::new(Box::new(DefaultTargetCapabilityProvider)),
         }
     }
 
-    pub fn with_io_handler(mut self, io_handler: Box<dyn IoHandler>) -> Self {
-        self.io_handler = io_handler;
+    pub fn with_context(mut self, context: VmContext) -> Self {
+        self.context = context;
+        self
+    }
+
+    pub fn with_target(mut self, target: Box<dyn TargetCapabilityProvider>) -> Self {
+        self.context = VmContext::new(target);
         self
     }
 

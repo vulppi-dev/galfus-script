@@ -12,7 +12,6 @@ use galfus_frontend::{
 pub(crate) use references::check_path;
 use std::{
     collections::{HashMap, HashSet},
-    fs,
     path::{Path, PathBuf},
 };
 
@@ -103,6 +102,7 @@ pub(crate) struct ModuleLoader {
     module_by_path: HashMap<PathBuf, usize>,
     loading: HashSet<PathBuf>,
     pub(crate) diagnostics: DiagnosticBag,
+    resolver: WorkspaceResolver,
 }
 
 impl ModuleLoader {
@@ -117,6 +117,18 @@ impl ModuleLoader {
     }
 
     pub(crate) fn load_module(&mut self, path: PathBuf) -> Result<usize> {
+        let source = if path == Path::new(STD_IO_MODULE) {
+            ModuleSource::Builtin {
+                name: STD_IO_MODULE.to_string(),
+            }
+        } else {
+            ModuleSource::File(path)
+        };
+        self.load_module_source(source)
+    }
+
+    fn load_module_source(&mut self, source: ModuleSource) -> Result<usize> {
+        let path = source.path();
         if let Some(module) = self.module_by_path.get(path.as_path()).copied() {
             return Ok(module);
         }
@@ -128,11 +140,7 @@ impl ModuleLoader {
         self.loading.insert(path.clone());
 
         let source_id = SourceId::new(self.modules.len() as u32);
-        let text = if path.to_str() == Some("std/io") {
-            galfus_builtins::STD_IO_SOURCE.to_string()
-        } else {
-            fs::read_to_string(path.as_path())?
-        };
+        let text = self.resolver.read(&source)?;
         let source = SourceFile::new(source_id, path.display().to_string(), text);
 
         let parse_result = parse(&source);
@@ -161,19 +169,39 @@ impl ModuleLoader {
         let imports = self.import_sources(module_index);
 
         for (source, source_node) in imports {
-            if is_builtin_import(source.as_str()) {
-                let path = PathBuf::from(&source);
-                self.load_module(path)?;
+            if !is_resolvable_import(source.as_str()) {
                 continue;
             }
 
-            if !is_relative_import(source.as_str()) {
-                continue;
-            }
+            let module_source = match self
+                .resolver
+                .resolve_import(self.modules[module_index].path(), source.as_str())
+            {
+                Ok(module_source) => module_source,
+                Err(_) => {
+                    let span = self.modules[module_index]
+                        .graph()
+                        .syntax()
+                        .node(source_node)
+                        .map(|node| node.span())
+                        .unwrap_or_else(|| self.modules[module_index].source().span());
 
-            let path = resolve_relative_import(self.modules[module_index].path(), source.as_str());
+                    self.diagnostics.push(Diagnostic::error_with_message(
+                        CheckDiagnosticCode::ImportModuleNotFound,
+                        format!("import module `{source}` not found"),
+                        span,
+                    ));
+                    continue;
+                }
+            };
+            let path = module_source.path();
 
             if path.extension().and_then(|extension| extension.to_str()) != Some("gfs") {
+                if matches!(module_source, ModuleSource::Builtin { .. }) {
+                    self.load_module_source(module_source)?;
+                    continue;
+                }
+
                 let span = self.modules[module_index]
                     .graph()
                     .syntax()
@@ -190,24 +218,7 @@ impl ModuleLoader {
                 continue;
             }
 
-            if !path.exists() {
-                let span = self.modules[module_index]
-                    .graph()
-                    .syntax()
-                    .node(source_node)
-                    .map(|node| node.span())
-                    .unwrap_or_else(|| self.modules[module_index].source().span());
-
-                self.diagnostics.push(Diagnostic::error_with_message(
-                    CheckDiagnosticCode::ImportModuleNotFound,
-                    format!("import module `{source}` not found"),
-                    span,
-                ));
-                continue;
-            }
-
-            let path = normalize_existing_path(path.as_path())?;
-            self.load_module(path)?;
+            self.load_module_source(module_source)?;
         }
 
         Ok(())
@@ -235,18 +246,13 @@ impl ModuleLoader {
                     continue;
                 }
 
-                let path = if is_builtin_import(import.source.as_str()) {
-                    PathBuf::from(import.source.as_str())
-                } else {
-                    resolve_relative_import(
-                        self.modules[module_index].path(),
-                        import.source.as_str(),
-                    )
-                };
-
-                let Ok(path) = normalize_existing_path(path.as_path()) else {
+                let Ok(source) = self
+                    .resolver
+                    .resolve_import(self.modules[module_index].path(), import.source.as_str())
+                else {
                     continue;
                 };
+                let path = source.path();
 
                 let Some(target_index) = self.module_by_path.get(path.as_path()).copied() else {
                     continue;
@@ -326,11 +332,11 @@ impl ModuleLoader {
             .map(|module_index| self.imported_surface_types_for_module(module_index, &surfaces))
             .collect::<Vec<_>>();
 
-        for module_index in 0..self.modules.len() {
+        for (module_index, imported_type) in imported_types.iter().enumerate() {
             let result = check_declaration_types_with_surfaces(
                 self.modules[module_index].source(),
                 self.modules[module_index].graph(),
-                &imported_types[module_index],
+                imported_type,
             );
 
             self.diagnostics
@@ -351,17 +357,8 @@ impl ModuleLoader {
                 continue;
             }
 
-            let path = if is_builtin_import(import.source.as_str()) {
-                PathBuf::from(import.source.as_str())
-            } else {
-                resolve_relative_import(self.modules[module_index].path(), import.source.as_str())
-            };
-
-            let Ok(path) = normalize_existing_path(path.as_path()) else {
-                continue;
-            };
-
-            let Some(target_index) = self.module_by_path.get(path.as_path()).copied() else {
+            let Some(target_index) = self.import_target_index(module_index, import.source.as_str())
+            else {
                 continue;
             };
 
@@ -440,17 +437,8 @@ impl ModuleLoader {
                 continue;
             };
 
-            let target_path = if is_builtin_import(import.source.as_str()) {
-                PathBuf::from(import.source.as_str())
-            } else {
-                resolve_relative_import(self.modules[module_index].path(), import.source.as_str())
-            };
-
-            let Ok(target_path) = normalize_existing_path(target_path.as_path()) else {
-                continue;
-            };
-
-            let Some(target_index) = self.module_by_path.get(target_path.as_path()).copied() else {
+            let Some(target_index) = self.import_target_index(module_index, import.source.as_str())
+            else {
                 continue;
             };
 
@@ -462,6 +450,16 @@ impl ModuleLoader {
 
             imported_types.insert_path_type(named_type.node, imported_type);
         }
+    }
+
+    fn import_target_index(&self, module_index: usize, source: &str) -> Option<usize> {
+        let module_source = self
+            .resolver
+            .resolve_import(self.modules[module_index].path(), source)
+            .ok()?;
+        self.module_by_path
+            .get(module_source.path().as_path())
+            .copied()
     }
 }
 
@@ -476,20 +474,9 @@ fn is_relative_import(source: &str) -> bool {
 }
 
 fn is_builtin_import(source: &str) -> bool {
-    source == "std/io"
+    source == STD_IO_MODULE
 }
 
 fn is_resolvable_import(source: &str) -> bool {
     is_relative_import(source) || is_builtin_import(source)
-}
-
-fn resolve_relative_import(base_module: &Path, source: &str) -> PathBuf {
-    let base_dir = base_module.parent().unwrap_or_else(|| Path::new(""));
-    let mut path = base_dir.join(source);
-
-    if path.extension().is_none() {
-        path.set_extension("gfs");
-    }
-
-    path
 }

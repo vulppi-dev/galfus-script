@@ -1,9 +1,9 @@
 use anyhow::Result;
 use galfus_core::SymbolId;
 use std::collections::{HashMap, HashSet};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
-use crate::{CheckedModule, WorkspaceCheckResult, WorkspaceRootKind, normalize_existing_path};
+use crate::{CheckedModule, WorkspaceCheckResult, WorkspaceResolver, WorkspaceRootKind};
 
 pub fn compile_workspace_to_gfb(
     check_result: &WorkspaceCheckResult,
@@ -41,8 +41,7 @@ pub fn compile_workspace_to_gfb(
     }
 
     // 2. Resolve imported function call targets and add them to global_func_map
-    for mod_idx in 0..modules.len() {
-        let mir_mod = &mir_modules[mod_idx];
+    for (mod_idx, mir_mod) in mir_modules.iter().enumerate().take(modules.len()) {
         for func in &mir_mod.functions {
             let mut call_targets = Vec::new();
             collect_call_targets(&func.body, &mut call_targets);
@@ -294,13 +293,7 @@ fn resolve_import_target(
         .find(|imp| imp.local_symbol() == symbol_id)
         && let Some(imported_name) = import.imported_name()
     {
-        let target_path = if import.source() == "std/io" {
-            PathBuf::from(import.source())
-        } else {
-            resolve_relative_import(module.path(), import.source())
-        };
-        let target_path = normalize_existing_path(target_path.as_path()).ok()?;
-        let target_idx = modules.iter().position(|m| m.path() == target_path)?;
+        let target_idx = import_target_index(modules, mod_idx, import.source())?;
 
         let target_mod = &modules[target_idx];
         let target_resolution = target_mod.graph().resolution()?;
@@ -330,13 +323,7 @@ fn resolve_import_target(
         let member_node_data = syntax.node(member_node)?;
         let member_span = member_node_data.span();
         let member_name = module.source().slice(member_span)?;
-        let target_path = if import.source() == "std/io" {
-            PathBuf::from(import.source())
-        } else {
-            resolve_relative_import(module.path(), import.source())
-        };
-        let target_path = normalize_existing_path(target_path.as_path()).ok()?;
-        let target_idx = modules.iter().position(|m| m.path() == target_path)?;
+        let target_idx = import_target_index(modules, mod_idx, import.source())?;
 
         let target_mod = &modules[target_idx];
         let target_resolution = target_mod.graph().resolution()?;
@@ -351,17 +338,6 @@ fn resolve_import_target(
     }
 
     None
-}
-
-fn resolve_relative_import(base_module: &Path, source: &str) -> PathBuf {
-    let base_dir = base_module.parent().unwrap_or_else(|| Path::new(""));
-    let mut path = base_dir.join(source);
-
-    if path.extension().is_none() {
-        path.set_extension("gfs");
-    }
-
-    path
 }
 
 fn canonical_global_idx(
@@ -388,22 +364,14 @@ fn canonical_global_idx(
         .iter()
         .find(|imp| imp.local_symbol() == s.id())
         && let Some(imported_name) = import.imported_name()
+        && let Some(target_idx) = import_target_index(modules, mod_idx, import.source())
     {
-        let target_path = if import.source() == "std/io" {
-            PathBuf::from(import.source())
-        } else {
-            resolve_relative_import(module.path(), import.source())
-        };
-        if let Ok(target_path) = normalize_existing_path(target_path.as_path())
-            && let Some(target_idx) = modules.iter().position(|m| m.path() == target_path)
-        {
-            let key = (target_idx, imported_name.to_string());
-            return *global_var_map.entry(key).or_insert_with(|| {
-                let idx = galfus_image::instruction::GlobalIdx(*next_global_idx);
-                *next_global_idx += 1;
-                idx
-            });
-        }
+        let key = (target_idx, imported_name.to_string());
+        return *global_var_map.entry(key).or_insert_with(|| {
+            let idx = galfus_image::instruction::GlobalIdx(*next_global_idx);
+            *next_global_idx += 1;
+            idx
+        });
     }
 
     // Otherwise, s is local to mod_idx
@@ -413,6 +381,15 @@ fn canonical_global_idx(
         *next_global_idx += 1;
         idx
     })
+}
+
+fn import_target_index(modules: &[CheckedModule], mod_idx: usize, source: &str) -> Option<usize> {
+    let resolver = WorkspaceResolver::default();
+    let target = resolver
+        .resolve_import(modules[mod_idx].path(), source)
+        .ok()?
+        .path();
+    modules.iter().position(|module| module.path() == target)
 }
 
 fn rewrite_global_indices(

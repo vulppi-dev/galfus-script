@@ -12,7 +12,8 @@ mod expression;
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum HashableConstant {
     Bool(bool),
-    Int(i64),
+    Int32(i32),
+    Int64(i64),
     FloatBits(u64),
     String(String),
 }
@@ -22,7 +23,11 @@ impl HashableConstant {
         match constant {
             crate::mir::Constant::Null => None,
             crate::mir::Constant::Bool(b) => Some(Self::Bool(*b)),
-            crate::mir::Constant::Int(i) => Some(Self::Int(*i)),
+            crate::mir::Constant::Int(i) => Some(
+                i32::try_from(*i)
+                    .map(Self::Int32)
+                    .unwrap_or(Self::Int64(*i)),
+            ),
             crate::mir::Constant::Float(f) => Some(Self::FloatBits(f.to_bits())),
             crate::mir::Constant::String(s) => Some(Self::String(s.clone())),
         }
@@ -225,7 +230,9 @@ impl<'a> LowerCtx<'a> {
         let c = match constant {
             crate::mir::Constant::Null => unreachable!(),
             crate::mir::Constant::Bool(b) => Constant::Bool(*b),
-            crate::mir::Constant::Int(i) => Constant::Int(*i),
+            crate::mir::Constant::Int(i) => i32::try_from(*i)
+                .map(Constant::Int32)
+                .unwrap_or(Constant::Int64(*i)),
             crate::mir::Constant::Float(f) => Constant::Float(*f),
             crate::mir::Constant::String(s) => Constant::String(s.clone()),
         };

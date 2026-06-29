@@ -29,7 +29,7 @@ fn test_run_single_file_success() -> Result<()> {
         &root,
         "main.gfs",
         r#"
-        fn main(): int32 {
+        export fn main(args: [[uint8]]): int32 {
             var x = 10
             var y = 20
             return x + y
@@ -67,7 +67,7 @@ fn test_run_workspace_success() -> Result<()> {
         r#"
         import math from "./math"
 
-        fn main(): int32 {
+        export fn main(args: [[uint8]]): int32 {
             return math::add(5, 7)
         }
         "#,
@@ -91,13 +91,74 @@ fn test_run_workspace_success() -> Result<()> {
 }
 
 #[test]
+fn test_run_workspace_custom_entry_success() -> Result<()> {
+    let root = temp_workspace()?;
+    write_file(
+        &root,
+        "galfus.toml",
+        r#"
+        [module]
+        name = "my-app"
+        target = "app"
+        entry = "src/main.gfs"
+
+        [run]
+        entry = "start"
+        "#,
+    )?;
+
+    write_file(
+        &root,
+        "src/main.gfs",
+        r#"
+        export fn start(args: [[uint8]]): int32 {
+            return 9
+        }
+        "#,
+    )?;
+
+    let result = run_project(root.to_str().unwrap());
+    assert!(result.is_ok());
+
+    fs::remove_dir_all(root)?;
+    Ok(())
+}
+
+#[test]
+fn test_run_requires_exported_entry() -> Result<()> {
+    let root = temp_workspace()?;
+    let file_path = write_file(
+        &root,
+        "main.gfs",
+        r#"
+        fn main(args: [[uint8]]): int32 {
+            return 0
+        }
+        "#,
+    )?;
+
+    let result = run_project(file_path.to_str().unwrap());
+    assert!(result.is_err());
+    assert!(
+        result
+            .err()
+            .unwrap()
+            .to_string()
+            .contains("is not exported")
+    );
+
+    fs::remove_dir_all(root)?;
+    Ok(())
+}
+
+#[test]
 fn test_run_validation_failure() -> Result<()> {
     let root = temp_workspace()?;
     let file_path = write_file(
         &root,
         "invalid.gfs",
         r#"
-        fn main(): int32 {
+        export fn main(args: [[uint8]]): int32 {
             return "not an integer"
         }
         "#,
@@ -123,7 +184,7 @@ fn test_run_vm_panic() -> Result<()> {
             return 10 / 0
         }
 
-        fn main(): int32 {
+        export fn main(args: [[uint8]]): int32 {
             return cause_panic()
         }
         "#,
@@ -148,8 +209,9 @@ fn test_run_std_io_print() -> Result<()> {
         r#"
         import { print } from 'std/io'
 
-        fn main(): null {
+        export fn main(args: [[uint8]]): int32 {
             print('Hello from test!')
+            return 0
         }
         "#,
     )?;

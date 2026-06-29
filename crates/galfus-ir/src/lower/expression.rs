@@ -480,7 +480,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                 let prim = match constant {
                     MirConstant::Null => PrimitiveType::Null,
                     MirConstant::Bool(_) => PrimitiveType::Bool,
-                    MirConstant::Int(_) => PrimitiveType::Int64,
+                    MirConstant::Int(_) => PrimitiveType::Int32,
                     MirConstant::Float(_) => PrimitiveType::Float64,
                     MirConstant::String(_) => {
                         // Find String type in type table
@@ -490,10 +490,10 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                                 table.kind(ty_id),
                                 Some(TypeKind::Primitive(PrimitiveType::Uint8))
                             ) {
-                                // Fallback to Int64 if not found
+                                // Fallback to Int32 if not found
                             }
                         }
-                        PrimitiveType::Int64
+                        PrimitiveType::Int32
                     }
                 };
                 for i in 0..table.len() {
