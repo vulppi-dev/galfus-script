@@ -37,7 +37,7 @@ fn test_run_single_file_success() -> Result<()> {
         "#,
     )?;
 
-    let result = run_project(file_path.to_str().unwrap());
+    let result = run_project(file_path.to_str().unwrap(), &[]);
     if let Err(ref e) = result {
         println!("test_run_single_file_success failed: {:?}", e);
     }
@@ -83,7 +83,7 @@ fn test_run_workspace_success() -> Result<()> {
         "#,
     )?;
 
-    let result = run_project(root.to_str().unwrap());
+    let result = run_project(root.to_str().unwrap(), &[]);
     assert!(result.is_ok());
 
     fs::remove_dir_all(root)?;
@@ -117,7 +117,7 @@ fn test_run_workspace_custom_entry_success() -> Result<()> {
         "#,
     )?;
 
-    let result = run_project(root.to_str().unwrap());
+    let result = run_project(root.to_str().unwrap(), &[]);
     assert!(result.is_ok());
 
     fs::remove_dir_all(root)?;
@@ -137,7 +137,7 @@ fn test_run_requires_exported_entry() -> Result<()> {
         "#,
     )?;
 
-    let result = run_project(file_path.to_str().unwrap());
+    let result = run_project(file_path.to_str().unwrap(), &[]);
     assert!(result.is_err());
     assert!(
         result
@@ -164,7 +164,7 @@ fn test_run_validation_failure() -> Result<()> {
         "#,
     )?;
 
-    let result = run_project(file_path.to_str().unwrap());
+    let result = run_project(file_path.to_str().unwrap(), &[]);
     assert!(result.is_err());
     let err_msg = result.err().unwrap().to_string();
     assert!(err_msg.contains("validation failed"));
@@ -190,7 +190,7 @@ fn test_run_vm_panic() -> Result<()> {
         "#,
     )?;
 
-    let result = run_project(file_path.to_str().unwrap());
+    let result = run_project(file_path.to_str().unwrap(), &[]);
     assert!(result.is_err());
     let err_msg = result.err().unwrap().to_string();
     assert!(err_msg.contains("cause_panic"));
@@ -216,7 +216,49 @@ fn test_run_std_io_print() -> Result<()> {
         "#,
     )?;
 
-    let result = run_project(file_path.to_str().unwrap());
+    let result = run_project(file_path.to_str().unwrap(), &[]);
+    assert!(result.is_ok());
+
+    fs::remove_dir_all(root)?;
+    Ok(())
+}
+
+#[test]
+fn test_run_workspace_with_args() -> Result<()> {
+    let root = temp_workspace()?;
+    write_file(
+        &root,
+        "galfus.toml",
+        r#"
+        [module]
+        name = "my-app"
+        target = "app"
+        entry = "src/main.gfs"
+
+        [run]
+        args = ["conf"]
+        "#,
+    )?;
+
+    write_file(
+        &root,
+        "src/main.gfs",
+        r#"
+        import { println } from 'std/io'
+
+        export fn main(args: [[uint8]]): int32 {
+            for v in args {
+                println(v)
+            }
+            return 0
+        }
+        "#,
+    )?;
+
+    let result = run_project(root.to_str().unwrap(), &["prop".to_string()]);
+    if let Err(ref e) = result {
+        println!("test_run_workspace_with_args failed: {:?}", e);
+    }
     assert!(result.is_ok());
 
     fs::remove_dir_all(root)?;

@@ -427,6 +427,11 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                     self.free_temps(1);
                 }
             }
+            RValue::Len(operand) => {
+                let src = self.operand_reg(operand);
+                self.instructions.push(Instruction::Len { dest, src });
+                self.free_temp_if_operand(operand);
+            }
         }
     }
 

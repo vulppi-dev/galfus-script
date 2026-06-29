@@ -11,10 +11,20 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Command {
-    Run { file: String },
-    Check { file: String },
-    CheckWorkspace { root: String },
-    Graph { file: String },
+    Run {
+        file: String,
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Check {
+        file: String,
+    },
+    CheckWorkspace {
+        root: String,
+    },
+    Graph {
+        file: String,
+    },
     Repl,
 }
 
@@ -24,8 +34,8 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Command::Run { file } => {
-            galfus_runner::run_project(&file)?;
+        Command::Run { file, args } => {
+            galfus_runner::run_project(&file, &args)?;
         }
         Command::Check { file } => {
             galfus_runner::check_file(&file)?;

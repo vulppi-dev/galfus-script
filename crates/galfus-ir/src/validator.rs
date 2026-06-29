@@ -282,5 +282,8 @@ fn validate_rvalue_operands(
             validate_operand(operand, func, initialized, errors);
         }
         RValue::LoadGlobal(_) => {}
+        RValue::Len(operand) => {
+            validate_operand(operand, func, initialized, errors);
+        }
     }
 }

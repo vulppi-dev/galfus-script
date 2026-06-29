@@ -29,6 +29,44 @@ pub enum RuntimeError {
     TargetUnavailable,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EntryArgsType {
+    ByteArgv,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EntryReturnType {
+    Int32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct EntryAbi {
+    pub args_type: EntryArgsType,
+    pub return_type: EntryReturnType,
+}
+
+impl EntryAbi {
+    pub const fn default_app() -> Self {
+        Self {
+            args_type: EntryArgsType::ByteArgv,
+            return_type: EntryReturnType::Int32,
+        }
+    }
+
+    fn expected_param_count(self) -> u8 {
+        match self.args_type {
+            EntryArgsType::ByteArgv => 1,
+        }
+    }
+
+    fn accepts_return_type(self, ty: &galfus_image::ImageType) -> bool {
+        matches!(
+            (self.return_type, ty),
+            (EntryReturnType::Int32, galfus_image::ImageType::Int32)
+        )
+    }
+}
+
 pub struct ModuleRegistry {
     modules: HashMap<String, Arc<ModuleImage>>,
 }
@@ -140,6 +178,7 @@ impl Runtime {
         entry_name: &str,
         args: &[Vec<u8>],
     ) -> Result<i32, RuntimeError> {
+        let abi = EntryAbi::default_app();
         let image = self
             .registry
             .lock()
@@ -155,17 +194,15 @@ impl Runtime {
             .ok_or_else(|| RuntimeError::EntryNotExported(entry_name.to_string()))?;
 
         let entry_func = &image.functions[entry_idx.raw() as usize];
-        if entry_func.param_count != 1 {
+        if entry_func.param_count != abi.expected_param_count() {
             return Err(RuntimeError::EntryArityMismatch {
                 name: entry_name.to_string(),
-                expected: 1,
+                expected: abi.expected_param_count() as usize,
                 found: entry_func.param_count as usize,
             });
         }
-        if !matches!(
-            image.types.get(entry_func.return_ty.raw() as usize),
-            Some(galfus_image::ImageType::Int32)
-        ) {
+        let return_ty = image.types.get(entry_func.return_ty.raw() as usize);
+        if !return_ty.is_some_and(|ty| abi.accepts_return_type(ty)) {
             return Err(RuntimeError::EntryReturnTypeMismatch {
                 name: entry_name.to_string(),
             });

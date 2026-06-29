@@ -2,10 +2,7 @@ use crate::error::{StackFrameInfo, VmError, VmPanic};
 use galfus_image::instruction::{
     ChoiceLayoutIdx, FuncIdx, Instruction, Reg, StructLayoutIdx, TypeIdx,
 };
-use galfus_image::{
-    Constant, ImageObjectRef as ObjectRef, ImageType, ImageValue as Value, ModuleImage,
-    OwnershipKind,
-};
+use galfus_image::{Constant, ImageType, ModuleImage, OwnershipKind};
 use galfus_target::{DefaultTargetCapabilityProvider, TargetCapabilityProvider};
 
 mod casts;
@@ -23,6 +20,35 @@ pub(super) enum ExecutionStep {
     Continue,
     Return(Value),
 }
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct VmObjectRef(pub usize);
+
+impl VmObjectRef {
+    pub const fn raw(&self) -> usize {
+        self.0
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum VmValue {
+    Null,
+    Bool(bool),
+    Int8(i8),
+    Int16(i16),
+    Int32(i32),
+    Int64(i64),
+    Uint8(u8),
+    Uint16(u16),
+    Uint32(u32),
+    Uint64(u64),
+    Float32(f32),
+    Float64(f64),
+    Object(VmObjectRef),
+}
+
+type Value = VmValue;
+type ObjectRef = VmObjectRef;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum HeapObject {
@@ -43,9 +69,6 @@ pub enum HeapObject {
         payload: Value,
     },
 }
-
-pub type VmValue = Value;
-pub type VmObjectRef = ObjectRef;
 
 pub struct VmContext {
     pub target: Box<dyn TargetCapabilityProvider>,
@@ -98,11 +121,11 @@ impl VirtualMachine {
     pub fn alloc(&mut self, obj: HeapObject) -> ObjectRef {
         if let Some(idx) = self.free_slots.pop() {
             self.heap[idx] = Some(obj);
-            ObjectRef(idx)
+            VmObjectRef(idx)
         } else {
             let idx = self.heap.len();
             self.heap.push(Some(obj));
-            ObjectRef(idx)
+            VmObjectRef(idx)
         }
     }
 

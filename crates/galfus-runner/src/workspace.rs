@@ -49,6 +49,7 @@ pub struct WorkspaceConfig {
     target: ModuleTarget,
     entry: Option<PathBuf>,
     run_entry: String,
+    run_args: Vec<String>,
     exports: Vec<WorkspaceExport>,
 }
 
@@ -73,6 +74,10 @@ impl WorkspaceConfig {
         self.run_entry.as_str()
     }
 
+    pub fn run_args(&self) -> &[String] {
+        self.run_args.as_slice()
+    }
+
     pub fn exports(&self) -> &[WorkspaceExport] {
         self.exports.as_slice()
     }
@@ -83,6 +88,7 @@ pub struct WorkspaceCheckResult {
     check: CheckResult,
     graph: WorkspaceGraph,
     run_entry: String,
+    run_args: Vec<String>,
 }
 
 impl WorkspaceCheckResult {
@@ -91,11 +97,17 @@ impl WorkspaceCheckResult {
             check,
             graph,
             run_entry: "main".to_string(),
+            run_args: Vec::new(),
         }
     }
 
     pub fn with_run_entry(mut self, run_entry: impl Into<String>) -> Self {
         self.run_entry = run_entry.into();
+        self
+    }
+
+    pub fn with_run_args(mut self, run_args: Vec<String>) -> Self {
+        self.run_args = run_args;
         self
     }
 
@@ -109,6 +121,10 @@ impl WorkspaceCheckResult {
 
     pub fn run_entry(&self) -> &str {
         self.run_entry.as_str()
+    }
+
+    pub fn run_args(&self) -> &[String] {
+        self.run_args.as_slice()
     }
 
     pub fn modules(&self) -> &[crate::CheckedModule] {
@@ -143,6 +159,7 @@ struct RawModuleConfig {
 #[derive(Debug, Deserialize)]
 struct RawRunConfig {
     entry: Option<String>,
+    args: Option<Vec<String>>,
 }
 
 pub(crate) fn check_workspace(root: impl AsRef<Path>) -> Result<WorkspaceCheckResult> {
@@ -202,7 +219,9 @@ pub(crate) fn check_workspace(root: impl AsRef<Path>) -> Result<WorkspaceCheckRe
         diagnostics: loader.diagnostics,
     };
 
-    Ok(WorkspaceCheckResult::new(check, graph).with_run_entry(config.run_entry()))
+    Ok(WorkspaceCheckResult::new(check, graph)
+        .with_run_entry(config.run_entry())
+        .with_run_args(config.run_args.clone()))
 }
 
 fn parse_workspace_config(
@@ -259,8 +278,15 @@ fn parse_workspace_config(
 
     let run_entry = raw
         .run
-        .and_then(|run| run.entry)
+        .as_ref()
+        .and_then(|run| run.entry.clone())
         .unwrap_or_else(|| "main".to_string());
+
+    let run_args = raw
+        .run
+        .as_ref()
+        .and_then(|run| run.args.clone())
+        .unwrap_or_default();
 
     if run_entry.contains('.') || run_entry.contains('/') || run_entry.contains('\\') {
         diagnostics.push(Diagnostic::error_with_message(
@@ -294,6 +320,7 @@ fn parse_workspace_config(
         target,
         entry,
         run_entry,
+        run_args,
         exports,
     })
 }

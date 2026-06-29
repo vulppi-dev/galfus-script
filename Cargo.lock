@@ -712,10 +712,7 @@ dependencies = [
 name = "galfus-target"
 version = "0.0.0"
 dependencies = [
- "galfus-core",
- "galfus-image",
  "libloading",
- "thiserror 2.0.18",
  "wasmtime",
 ]
 

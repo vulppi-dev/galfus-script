@@ -242,14 +242,14 @@ pub fn load_gfb_file(path: &Path) -> Result<galfus_image::ModuleImage> {
     Ok(module_image)
 }
 
-pub fn run_project(path: &str) -> Result<()> {
+pub fn run_project(path: &str, cli_args: &[String]) -> Result<()> {
     let path = Path::new(path);
     if !path.exists() {
         return Err(anyhow::anyhow!("Path does not exist: `{}`", path.display()));
     }
 
     let is_dir = path.is_dir();
-    let (entry_path, _ws_root, tmp_dir, check_result_opt, run_entry) = if is_dir {
+    let (entry_path, _ws_root, tmp_dir, check_result_opt, run_entry, mut config_args) = if is_dir {
         let check_result = check_workspace(path)?;
         if check_result.has_errors() {
             print_check_result(check_result.check_result());
@@ -267,7 +267,15 @@ pub fn run_project(path: &str) -> Result<()> {
         let ws_root = path.to_path_buf();
         let tmp_dir = ws_root.join(".tmp");
         let run_entry = check_result.run_entry().to_string();
-        (entry_path, ws_root, tmp_dir, Some(check_result), run_entry)
+        let run_args = check_result.run_args().to_vec();
+        (
+            entry_path,
+            ws_root,
+            tmp_dir,
+            Some(check_result),
+            run_entry,
+            run_args,
+        )
     } else {
         let check_result = check_path(path)?;
         if check_result.has_errors() {
@@ -286,6 +294,7 @@ pub fn run_project(path: &str) -> Result<()> {
             tmp_dir,
             Some(ws_check_result),
             "main".to_string(),
+            Vec::new(),
         )
     };
 
@@ -307,8 +316,12 @@ pub fn run_project(path: &str) -> Result<()> {
     let mut runtime =
         galfus_runtime::Runtime::new(Box::new(galfus_target::DefaultTargetCapabilityProvider));
     runtime.loader().load(module_image);
+
+    config_args.extend(cli_args.to_vec());
+    let args_bytes: Vec<Vec<u8>> = config_args.into_iter().map(|s| s.into_bytes()).collect();
+
     let exit_code = runtime
-        .run_entry(module_name.as_str(), run_entry.as_str(), &[])
+        .run_entry(module_name.as_str(), run_entry.as_str(), &args_bytes)
         .map_err(|error| anyhow::anyhow!("{error}"))?;
     println!("Program exited successfully with code: {exit_code}");
 
