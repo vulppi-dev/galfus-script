@@ -30,6 +30,10 @@ tracing = "0.1"
 # Development / watch mode / hot reload
 notify = "8.2"
 
+# Execution engines
+libloading = "0.9"
+wasmtime = "45.0"
+
 [profile.dev]
 opt-level = 0
 

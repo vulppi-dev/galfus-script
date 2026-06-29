@@ -142,8 +142,12 @@ fn nullable_probe(value: int32 | null): int32 {
   }
 }
 
-fn main(): int32 {
+export fn main(args: [[uint8]]): int32 {
   println("== Galfus stability probe ==")
+
+  for v in args {
+    println(v)
+  }
 
   const user = new(User) {
     name: "Aventureiro",

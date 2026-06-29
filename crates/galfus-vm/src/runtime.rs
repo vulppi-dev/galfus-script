@@ -2,7 +2,8 @@ use crate::error::{StackFrameInfo, VmError, VmPanic};
 use galfus_image::instruction::{
     ChoiceLayoutIdx, FuncIdx, Instruction, Reg, StructLayoutIdx, TypeIdx,
 };
-use galfus_image::{Constant, ImageType, ModuleImage, ObjectRef, OwnershipKind, Value};
+use galfus_image::{Constant, ImageType, ModuleImage, OwnershipKind};
+use galfus_target::{DefaultTargetCapabilityProvider, TargetCapabilityProvider};
 
 mod casts;
 mod control;
@@ -19,6 +20,35 @@ pub(super) enum ExecutionStep {
     Continue,
     Return(Value),
 }
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct VmObjectRef(pub usize);
+
+impl VmObjectRef {
+    pub const fn raw(&self) -> usize {
+        self.0
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum VmValue {
+    Null,
+    Bool(bool),
+    Int8(i8),
+    Int16(i16),
+    Int32(i32),
+    Int64(i64),
+    Uint8(u8),
+    Uint16(u16),
+    Uint32(u32),
+    Uint64(u64),
+    Float32(f32),
+    Float64(f64),
+    Object(VmObjectRef),
+}
+
+type Value = VmValue;
+type ObjectRef = VmObjectRef;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum HeapObject {
@@ -40,33 +70,13 @@ pub enum HeapObject {
     },
 }
 
-pub trait IoHandler: Send + Sync {
-    fn write(&mut self, data: &[u8]) -> Result<(), VmError>;
-    fn read(&mut self) -> Result<Option<u8>, VmError>;
+pub struct VmContext {
+    pub target: Box<dyn TargetCapabilityProvider>,
 }
 
-pub struct DefaultIoHandler;
-
-impl IoHandler for DefaultIoHandler {
-    fn write(&mut self, data: &[u8]) -> Result<(), VmError> {
-        use std::io::Write;
-        std::io::stdout()
-            .write_all(data)
-            .map_err(|e| VmError::IoError(e.to_string()))?;
-        std::io::stdout()
-            .flush()
-            .map_err(|e| VmError::IoError(e.to_string()))?;
-        Ok(())
-    }
-
-    fn read(&mut self) -> Result<Option<u8>, VmError> {
-        use std::io::Read;
-        let mut buf = [0u8; 1];
-        match std::io::stdin().read_exact(&mut buf) {
-            Ok(_) => Ok(Some(buf[0])),
-            Err(ref e) if e.kind() == std::io::ErrorKind::UnexpectedEof => Ok(None),
-            Err(e) => Err(VmError::IoError(e.to_string())),
-        }
+impl VmContext {
+    pub fn new(target: Box<dyn TargetCapabilityProvider>) -> Self {
+        Self { target }
     }
 }
 
@@ -83,7 +93,7 @@ pub struct VirtualMachine {
     pub heap: Vec<Option<HeapObject>>,
     pub free_slots: Vec<usize>,
     pub call_stack: Vec<CallFrame>,
-    pub io_handler: Box<dyn IoHandler>,
+    pub context: VmContext,
 }
 
 impl VirtualMachine {
@@ -94,23 +104,28 @@ impl VirtualMachine {
             heap: Vec::new(),
             free_slots: Vec::new(),
             call_stack: Vec::new(),
-            io_handler: Box::new(DefaultIoHandler),
+            context: VmContext::new(Box::new(DefaultTargetCapabilityProvider)),
         }
     }
 
-    pub fn with_io_handler(mut self, io_handler: Box<dyn IoHandler>) -> Self {
-        self.io_handler = io_handler;
+    pub fn with_context(mut self, context: VmContext) -> Self {
+        self.context = context;
+        self
+    }
+
+    pub fn with_target(mut self, target: Box<dyn TargetCapabilityProvider>) -> Self {
+        self.context = VmContext::new(target);
         self
     }
 
     pub fn alloc(&mut self, obj: HeapObject) -> ObjectRef {
         if let Some(idx) = self.free_slots.pop() {
             self.heap[idx] = Some(obj);
-            ObjectRef(idx)
+            VmObjectRef(idx)
         } else {
             let idx = self.heap.len();
             self.heap.push(Some(obj));
-            ObjectRef(idx)
+            VmObjectRef(idx)
         }
     }
 

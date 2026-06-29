@@ -174,6 +174,48 @@ fn test_mir_lowering_basic() {
 }
 
 #[test]
+fn test_mir_lowering_defaults_integer_constants_to_int32() {
+    let source_id = SourceId::new(0);
+    let code = r#"
+        fn main(): int32 {
+            return 42
+        }
+    "#;
+    let source = SourceFile::new(
+        source_id,
+        "test_int_default.gfs".to_string(),
+        code.to_string(),
+    );
+
+    let parse_result = parse(&source);
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    let graph = resolve_result.into_graph();
+    assert!(
+        !graph.has_errors(),
+        "Parse/Resolve error: {:?}",
+        graph.diagnostics()
+    );
+
+    let type_result = check_declaration_types(&source, &graph);
+    assert!(
+        !type_result.has_errors(),
+        "Typecheck error: {:?}",
+        type_result.diagnostics()
+    );
+
+    let mir_module = crate::MirBuilder::new(&graph, &type_result, code).build();
+    let module_image = lower_module(&mir_module, &type_result, &graph, code);
+
+    assert!(
+        module_image
+            .constants
+            .constants
+            .iter()
+            .any(|constant| matches!(constant, galfus_image::Constant::Int32(42)))
+    );
+}
+
+#[test]
 fn test_mir_lowering_advanced() {
     let source_id = SourceId::new(0);
     let code = r#"

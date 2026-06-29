@@ -1,23 +1,27 @@
 use super::*;
 
-struct BufferIoHandler {
+struct BufferTarget {
     buffer: std::sync::Arc<std::sync::Mutex<Vec<u8>>>,
 }
 
-impl IoHandler for BufferIoHandler {
-    fn write(&mut self, data: &[u8]) -> Result<(), VmError> {
-        let mut buf = self.buffer.lock().unwrap();
-        buf.extend_from_slice(data);
-        Ok(())
-    }
-
-    fn read(&mut self) -> Result<Option<u8>, VmError> {
-        Ok(None)
+impl galfus_target::TargetCapabilityProvider for BufferTarget {
+    fn invoke(
+        &mut self,
+        call: galfus_target::TargetCall<'_>,
+    ) -> Result<galfus_target::TargetResult, String> {
+        match call {
+            galfus_target::TargetCall::Write(data) => {
+                let mut buf = self.buffer.lock().unwrap();
+                buf.extend_from_slice(data);
+                Ok(galfus_target::TargetResult::Success)
+            }
+            galfus_target::TargetCall::Read => Ok(galfus_target::TargetResult::ReadByte(None)),
+        }
     }
 }
 
 #[test]
-fn test_io_handler_write() {
+fn test_target_write() {
     let instrs = vec![
         Instruction::LoadConst {
             dest: Reg(1),
@@ -28,10 +32,10 @@ fn test_io_handler_write() {
     ];
     let image = create_test_image(instrs, vec![Constant::Int(42)]);
     let buffer = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
-    let io_handler = BufferIoHandler {
+    let target = BufferTarget {
         buffer: buffer.clone(),
     };
-    let mut vm = VirtualMachine::new(image).with_io_handler(Box::new(io_handler));
+    let mut vm = VirtualMachine::new(image).with_target(Box::new(target));
     let res = vm.run_function(FuncIdx(0), vec![]).unwrap();
     assert_eq!(res, Value::Null);
     let output = buffer.lock().unwrap();

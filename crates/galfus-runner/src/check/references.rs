@@ -35,17 +35,8 @@ impl ModuleLoader {
                 continue;
             };
 
-            let target_path = if is_builtin_import(import.source.as_str()) {
-                PathBuf::from(import.source.as_str())
-            } else {
-                resolve_relative_import(self.modules[module_index].path(), import.source.as_str())
-            };
-
-            let Ok(target_path) = normalize_existing_path(target_path.as_path()) else {
-                continue;
-            };
-
-            let Some(target_index) = self.module_by_path.get(target_path.as_path()).copied() else {
+            let Some(target_index) = self.import_target_index(module_index, import.source.as_str())
+            else {
                 continue;
             };
 
@@ -99,17 +90,8 @@ impl ModuleLoader {
                 continue;
             };
 
-            let target_path = if is_builtin_import(import.source.as_str()) {
-                PathBuf::from(import.source.as_str())
-            } else {
-                resolve_relative_import(self.modules[module_index].path(), import.source.as_str())
-            };
-
-            let Ok(target_path) = normalize_existing_path(target_path.as_path()) else {
-                continue;
-            };
-
-            let Some(target_index) = self.module_by_path.get(target_path.as_path()).copied() else {
+            let Some(target_index) = self.import_target_index(module_index, import.source.as_str())
+            else {
                 continue;
             };
 
@@ -360,20 +342,8 @@ impl ModuleLoader {
                     continue;
                 };
 
-                let target_path = if is_builtin_import(import.source.as_str()) {
-                    PathBuf::from(import.source.as_str())
-                } else {
-                    resolve_relative_import(
-                        self.modules[module_index].path(),
-                        import.source.as_str(),
-                    )
-                };
-
-                let Ok(target_path) = normalize_existing_path(target_path.as_path()) else {
-                    continue;
-                };
-
-                let Some(target_index) = self.module_by_path.get(target_path.as_path()).copied()
+                let Some(target_index) =
+                    self.import_target_index(module_index, import.source.as_str())
                 else {
                     continue;
                 };

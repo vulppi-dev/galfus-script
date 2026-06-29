@@ -200,3 +200,42 @@ target = "lib"
     fs::remove_dir_all(root)?;
     Ok(())
 }
+
+#[test]
+fn check_workspace_rejects_qualified_run_entry() -> Result<()> {
+    let root = temp_workspace()?;
+
+    write_file(
+        root.as_path(),
+        "galfus.toml",
+        r#"
+[module]
+name = "my-app"
+target = "app"
+entry = "src/main.gfs"
+
+[run]
+entry = "app.start"
+"#,
+    )?;
+
+    write_file(
+        root.as_path(),
+        "src/main.gfs",
+        r#"
+export fn start(args: [[uint8]]): int32 {
+  return 0
+}
+"#,
+    )?;
+
+    let result = check_workspace(root.as_path())?;
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == WorkspaceDiagnosticCode::InvalidConfig.as_code()
+    }));
+
+    fs::remove_dir_all(root)?;
+    Ok(())
+}

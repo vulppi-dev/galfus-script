@@ -80,3 +80,5 @@ impl std::fmt::Display for VmPanic {
         Ok(())
     }
 }
+
+impl std::error::Error for VmPanic {}

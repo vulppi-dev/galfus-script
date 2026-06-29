@@ -84,10 +84,10 @@ impl VirtualMachine {
                         + callee.temp_count as usize
                 ];
 
-                for i in 0..arg_count as usize {
+                for (i, dest) in callee_regs.iter_mut().enumerate().take(arg_count as usize) {
                     let src_reg = Reg(args_start.raw() + i as u16);
                     let val = self.read_reg(src_reg)?;
-                    callee_regs[i] = val;
+                    *dest = val;
                 }
 
                 // Save destination register inside call frame to write return value back

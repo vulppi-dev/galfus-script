@@ -566,10 +566,154 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                         }),
                     });
                 } else {
-                    self.lower_expression(iterable_node, statements);
+                    // Evaluate the iterable expression and store it in a local variable
+                    let iterable_operand = self.lower_expression(iterable_node, statements);
+                    let iterable_ty = self
+                        .builder
+                        .type_result
+                        .layer()
+                        .node_type(iterable_node)
+                        .unwrap_or_else(|| TypeId::new(0));
+                    let iterable_local = self.declare_local(None, iterable_ty);
+                    self.current_instructions.push(Instruction::Assign(
+                        iterable_local,
+                        RValue::Use(iterable_operand),
+                    ));
                     self.flush_current_instructions(statements);
-                    let body = Box::new(self.lower_block(body_node));
-                    statements.push(MirBody::Loop { body });
+
+                    // 1. Declare an index counter: let index = 0
+                    let int_type_id = self
+                        .builder
+                        .type_result
+                        .layer()
+                        .table()
+                        .primitive(PrimitiveType::Int32);
+                    let index_local = self.declare_local(None, int_type_id);
+                    self.current_instructions.push(Instruction::Assign(
+                        index_local,
+                        RValue::Use(Operand::Constant(Constant::Int(0))),
+                    ));
+                    self.flush_current_instructions(statements);
+
+                    // 2. Declare a length variable: let len = len(iterable)
+                    let len_local = self.declare_local(None, int_type_id);
+                    self.current_instructions.push(Instruction::Assign(
+                        len_local,
+                        RValue::Len(Operand::Local(iterable_local)),
+                    ));
+                    self.flush_current_instructions(statements);
+
+                    // Cast length to Int32 since index_local is Int32
+                    let len_cast_local = self.declare_local(None, int_type_id);
+                    self.current_instructions.push(Instruction::Assign(
+                        len_cast_local,
+                        RValue::Cast(Operand::Local(len_local), int_type_id),
+                    ));
+                    self.flush_current_instructions(statements);
+
+                    // 3. Declare the loop variable `binding`
+                    let symbols = self.collect_declaration_symbols(binding_node);
+                    let symbol = symbols.first().copied();
+                    let binding_local = if let Some(sym) = symbol {
+                        let ty = self
+                            .builder
+                            .type_result
+                            .layer()
+                            .symbol_type(sym)
+                            .unwrap_or_else(|| TypeId::new(0));
+                        self.declare_local(Some(sym), ty)
+                    } else {
+                        return;
+                    };
+
+                    // Compile the loop body statements
+                    let mut loop_body_statements = Vec::new();
+
+                    // 4. Condition check: index < len
+                    let bool_type_id = self
+                        .builder
+                        .type_result
+                        .layer()
+                        .table()
+                        .primitive(PrimitiveType::Bool);
+                    let cond_local = self.declare_local(None, bool_type_id);
+                    self.current_instructions.push(Instruction::Assign(
+                        cond_local,
+                        RValue::BinaryOp(
+                            MirBinaryOp::Less,
+                            Operand::Local(index_local),
+                            Operand::Local(len_cast_local),
+                        ),
+                    ));
+
+                    let not_cond_local = self.declare_local(None, bool_type_id);
+                    self.current_instructions.push(Instruction::Assign(
+                        not_cond_local,
+                        RValue::UnaryOp(MirUnaryOp::Not, Operand::Local(cond_local)),
+                    ));
+
+                    if !self.current_instructions.is_empty() {
+                        let instructions = std::mem::take(&mut self.current_instructions);
+                        loop_body_statements.push(MirBody::BasicBlock(BasicBlock {
+                            id: self.builder.next_block(),
+                            instructions,
+                            terminator: Terminator::None,
+                        }));
+                    }
+
+                    // Break if !condition
+                    let break_bb = MirBody::BasicBlock(BasicBlock {
+                        id: self.builder.next_block(),
+                        instructions: Vec::new(),
+                        terminator: Terminator::Break,
+                    });
+                    loop_body_statements.push(MirBody::If {
+                        cond: Operand::Local(not_cond_local),
+                        then_branch: Box::new(break_bb),
+                        else_branch: None,
+                    });
+
+                    // 5. Load the element: binding = iterable[index]
+                    let element_instructions_block_id = self.builder.next_block();
+                    let element_instructions = vec![Instruction::Assign(
+                        binding_local,
+                        RValue::ArrayIndex(
+                            Operand::Local(iterable_local),
+                            Operand::Local(index_local),
+                        ),
+                    )];
+                    loop_body_statements.push(MirBody::BasicBlock(BasicBlock {
+                        id: element_instructions_block_id,
+                        instructions: element_instructions,
+                        terminator: Terminator::None,
+                    }));
+
+                    // Loop body
+                    let lowered_body = self.lower_block(body_node);
+                    loop_body_statements.push(lowered_body);
+
+                    // 6. Increment index: index = index + 1
+                    let increment_block_id = self.builder.next_block();
+                    let increment_instructions = vec![Instruction::Assign(
+                        index_local,
+                        RValue::BinaryOp(
+                            MirBinaryOp::Add,
+                            Operand::Local(index_local),
+                            Operand::Constant(Constant::Int(1)),
+                        ),
+                    )];
+                    loop_body_statements.push(MirBody::BasicBlock(BasicBlock {
+                        id: increment_block_id,
+                        instructions: increment_instructions,
+                        terminator: Terminator::None,
+                    }));
+
+                    statements.push(MirBody::Loop {
+                        body: Box::new(MirBody::Block {
+                            locals: Vec::new(),
+                            statements: loop_body_statements,
+                        }),
+                    });
                 }
             }
 

@@ -136,6 +136,7 @@ pub enum RValue {
     Choice(TypeId, String, Option<Operand>),
     Instanceof(Operand, TypeId),
     LoadGlobal(String),
+    Len(Operand),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

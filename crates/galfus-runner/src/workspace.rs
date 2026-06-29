@@ -48,6 +48,8 @@ pub struct WorkspaceConfig {
     name: String,
     target: ModuleTarget,
     entry: Option<PathBuf>,
+    run_entry: String,
+    run_args: Vec<String>,
     exports: Vec<WorkspaceExport>,
 }
 
@@ -68,6 +70,14 @@ impl WorkspaceConfig {
         self.entry.as_deref()
     }
 
+    pub fn run_entry(&self) -> &str {
+        self.run_entry.as_str()
+    }
+
+    pub fn run_args(&self) -> &[String] {
+        self.run_args.as_slice()
+    }
+
     pub fn exports(&self) -> &[WorkspaceExport] {
         self.exports.as_slice()
     }
@@ -77,11 +87,28 @@ impl WorkspaceConfig {
 pub struct WorkspaceCheckResult {
     check: CheckResult,
     graph: WorkspaceGraph,
+    run_entry: String,
+    run_args: Vec<String>,
 }
 
 impl WorkspaceCheckResult {
     pub fn new(check: CheckResult, graph: WorkspaceGraph) -> Self {
-        Self { check, graph }
+        Self {
+            check,
+            graph,
+            run_entry: "main".to_string(),
+            run_args: Vec::new(),
+        }
+    }
+
+    pub fn with_run_entry(mut self, run_entry: impl Into<String>) -> Self {
+        self.run_entry = run_entry.into();
+        self
+    }
+
+    pub fn with_run_args(mut self, run_args: Vec<String>) -> Self {
+        self.run_args = run_args;
+        self
     }
 
     pub fn check_result(&self) -> &CheckResult {
@@ -90,6 +117,14 @@ impl WorkspaceCheckResult {
 
     pub fn graph(&self) -> &WorkspaceGraph {
         &self.graph
+    }
+
+    pub fn run_entry(&self) -> &str {
+        self.run_entry.as_str()
+    }
+
+    pub fn run_args(&self) -> &[String] {
+        self.run_args.as_slice()
     }
 
     pub fn modules(&self) -> &[crate::CheckedModule] {
@@ -108,6 +143,7 @@ impl WorkspaceCheckResult {
 #[derive(Debug, Deserialize)]
 struct RawWorkspaceConfig {
     module: Option<RawModuleConfig>,
+    run: Option<RawRunConfig>,
 
     #[serde(default)]
     exports: BTreeMap<String, String>,
@@ -118,6 +154,12 @@ struct RawModuleConfig {
     name: Option<String>,
     target: Option<String>,
     entry: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct RawRunConfig {
+    entry: Option<String>,
+    args: Option<Vec<String>>,
 }
 
 pub(crate) fn check_workspace(root: impl AsRef<Path>) -> Result<WorkspaceCheckResult> {
@@ -177,7 +219,9 @@ pub(crate) fn check_workspace(root: impl AsRef<Path>) -> Result<WorkspaceCheckRe
         diagnostics: loader.diagnostics,
     };
 
-    Ok(WorkspaceCheckResult::new(check, graph))
+    Ok(WorkspaceCheckResult::new(check, graph)
+        .with_run_entry(config.run_entry())
+        .with_run_args(config.run_args.clone()))
 }
 
 fn parse_workspace_config(
@@ -232,6 +276,27 @@ fn parse_workspace_config(
 
     let entry = module.entry.as_deref().map(|entry| root.join(entry));
 
+    let run_entry = raw
+        .run
+        .as_ref()
+        .and_then(|run| run.entry.clone())
+        .unwrap_or_else(|| "main".to_string());
+
+    let run_args = raw
+        .run
+        .as_ref()
+        .and_then(|run| run.args.clone())
+        .unwrap_or_default();
+
+    if run_entry.contains('.') || run_entry.contains('/') || run_entry.contains('\\') {
+        diagnostics.push(Diagnostic::error_with_message(
+            WorkspaceDiagnosticCode::InvalidConfig,
+            "`run.entry` must be the exported function name from the entry module".to_string(),
+            workspace_span(),
+        ));
+        return None;
+    }
+
     let exports = raw
         .exports
         .into_iter()
@@ -254,6 +319,8 @@ fn parse_workspace_config(
         name,
         target,
         entry,
+        run_entry,
+        run_args,
         exports,
     })
 }

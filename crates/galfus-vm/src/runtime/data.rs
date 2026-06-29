@@ -16,6 +16,8 @@ impl VirtualMachine {
                     .ok_or(VmError::ConstantOutOfBounds { index: const_idx })?;
                 let val = match constant {
                     Constant::Bool(b) => Value::Bool(*b),
+                    Constant::Int32(i) => Value::Int32(*i),
+                    Constant::Int64(i) => Value::Int64(*i),
                     Constant::Int(i) => Value::Int64(*i),
                     Constant::Float(f) => Value::Float64(*f),
                     Constant::String(s) => {
