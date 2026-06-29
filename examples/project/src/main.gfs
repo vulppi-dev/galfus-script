@@ -1,9 +1,4 @@
-import { print } from 'std/io'
-
-
-fn printNumber(number: uint32): null {
-  print([number, 10])
-}
+import { println } from 'std/io'
 
 
 type Bytes = [uint8]
@@ -30,14 +25,8 @@ choice MaybeInt {
   None,
 }
 
-fn line(text: Bytes): null {
-  print(text)
-  print("\n")
-  return
-}
-
 fn digit(value: int32): null {
-  print([<uint8> (value + 48), <uint8> 10])
+  println([<uint8> (value + 48)])
   return
 }
 
@@ -154,7 +143,7 @@ fn nullable_probe(value: int32 | null): int32 {
 }
 
 fn main(): int32 {
-  line("== Galfus stability probe ==")
+  println("== Galfus stability probe ==")
 
   const user = new(User) {
     name: "Aventureiro",
@@ -184,17 +173,15 @@ fn main(): int32 {
   }
 
   if total > 50 {
-    line("status: ok")
+    println("status: ok")
   } else {
-    line("status: unexpected total")
+    println("status: unexpected total")
   }
 
-  line("digits 0..9")
+  println("digits 0..9")
   for value in 0..10 {
     digit(value)
   }
-
-  printNumber(total)
 
   return total
 }

@@ -311,7 +311,8 @@ impl<'a> DeclarationTypeChecker<'a> {
     }
 
     fn check_single_call_argument_type(&mut self, expression: NodeId, expected: TypeId) {
-        let Some(actual) = self.infer_expression_type(expression) else {
+        let Some(actual) = self.infer_expression_type_with_expected(expression, Some(expected))
+        else {
             return;
         };
 
