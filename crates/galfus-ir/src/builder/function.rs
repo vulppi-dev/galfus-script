@@ -8,6 +8,7 @@ pub struct FunctionBuilder<'b, 'a> {
     pub(super) symbol_to_local: std::collections::HashMap<SymbolId, LocalId>,
     pub(super) current_instructions: Vec<Instruction>,
     pub(super) scopes: Vec<Vec<LocalId>>,
+    pub(super) return_type: TypeId,
 }
 
 impl<'b, 'a> FunctionBuilder<'b, 'a> {
@@ -136,9 +137,21 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                             .symbol_type(symbol)
                             .unwrap_or_else(|| TypeId::new(0));
 
+                        let casted_operand = if let Some(init_expr) = initializer {
+                            let init_ty = self
+                                .builder
+                                .type_result
+                                .layer()
+                                .node_type(init_expr)
+                                .unwrap_or_else(|| TypeId::new(0));
+                            self.insert_cast_if_needed(operand.clone(), init_ty, ty)
+                        } else {
+                            operand.clone()
+                        };
+
                         let local_id = self.declare_local(Some(symbol), ty);
                         self.current_instructions
-                            .push(Instruction::Assign(local_id, RValue::Use(operand.clone())));
+                            .push(Instruction::Assign(local_id, RValue::Use(casted_operand)));
                     }
                 }
             }
@@ -149,6 +162,19 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
 
                 if let (Some(target), Some(value)) = (target, value) {
                     let operand = self.lower_expression(value, statements);
+                    let target_ty = self
+                        .builder
+                        .type_result
+                        .layer()
+                        .node_type(target)
+                        .unwrap_or_else(|| TypeId::new(0));
+                    let value_ty = self
+                        .builder
+                        .type_result
+                        .layer()
+                        .node_type(value)
+                        .unwrap_or_else(|| TypeId::new(0));
+                    let casted_operand = self.insert_cast_if_needed(operand, value_ty, target_ty);
 
                     if syntax
                         .node(target)
@@ -163,8 +189,10 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                         });
                         if let Some(sym) = symbol {
                             if let Some(local_id) = self.symbol_to_local.get(&sym).copied() {
-                                self.current_instructions
-                                    .push(Instruction::Assign(local_id, RValue::Use(operand)));
+                                self.current_instructions.push(Instruction::Assign(
+                                    local_id,
+                                    RValue::Use(casted_operand),
+                                ));
                             } else {
                                 let is_global = resolution.is_some_and(|res| {
                                     matches!(
@@ -179,7 +207,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                                         .map(|s| s.name().to_string())
                                         .unwrap_or_default();
                                     self.current_instructions
-                                        .push(Instruction::StoreGlobal(name, operand));
+                                        .push(Instruction::StoreGlobal(name, casted_operand));
                                 }
                             }
                         }
@@ -189,9 +217,18 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
 
             SyntaxNodeKind::ReturnStatement => {
                 let expr = node.first_child();
-                let operand = expr.map(|e| self.lower_expression(e, statements));
+                let operand = expr.map(|e| {
+                    let op = self.lower_expression(e, statements);
+                    let expr_ty = self
+                        .builder
+                        .type_result
+                        .layer()
+                        .node_type(e)
+                        .unwrap_or_else(|| TypeId::new(0));
+                    self.insert_cast_if_needed(op, expr_ty, self.return_type)
+                });
 
-                let ret_local = match &operand {
+                let ret_local = match operand.as_ref() {
                     Some(Operand::Local(local_id)) => Some(*local_id),
                     _ => None,
                 };
@@ -416,11 +453,19 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                     let range_op_node_data = syntax.node(range_op_node).unwrap();
                     let op_kind = range_op_node_data.range_operator();
 
-                    let cond_op = match op_kind {
-                        Some(galfus_frontend::RangeOperatorKind::Exclusive) | None => {
-                            MirBinaryOp::Less
-                        }
-                        _ => MirBinaryOp::Less,
+                    let is_quantity =
+                        matches!(op_kind, Some(galfus_frontend::RangeOperatorKind::Quantity));
+
+                    let counter_local = if is_quantity {
+                        let counter_local = self.declare_local(None, end_ty);
+                        self.current_instructions.push(Instruction::Assign(
+                            counter_local,
+                            RValue::Use(Operand::Constant(Constant::Int(0))),
+                        ));
+                        self.flush_current_instructions(statements);
+                        Some(counter_local)
+                    } else {
+                        None
                     };
 
                     let bool_type_id = self
@@ -431,14 +476,31 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                         .primitive(PrimitiveType::Bool);
 
                     let cond_local = self.declare_local(None, bool_type_id);
-                    self.current_instructions.push(Instruction::Assign(
-                        cond_local,
-                        RValue::BinaryOp(
-                            cond_op,
-                            Operand::Local(binding_local),
-                            Operand::Local(end_local),
-                        ),
-                    ));
+                    if let Some(counter) = counter_local {
+                        self.current_instructions.push(Instruction::Assign(
+                            cond_local,
+                            RValue::BinaryOp(
+                                MirBinaryOp::Less,
+                                Operand::Local(counter),
+                                Operand::Local(end_local),
+                            ),
+                        ));
+                    } else {
+                        let cond_op = match op_kind {
+                            Some(galfus_frontend::RangeOperatorKind::Exclusive) | None => {
+                                MirBinaryOp::Less
+                            }
+                            _ => MirBinaryOp::Less,
+                        };
+                        self.current_instructions.push(Instruction::Assign(
+                            cond_local,
+                            RValue::BinaryOp(
+                                cond_op,
+                                Operand::Local(binding_local),
+                                Operand::Local(end_local),
+                            ),
+                        ));
+                    }
 
                     let not_cond_local = self.declare_local(None, bool_type_id);
                     self.current_instructions.push(Instruction::Assign(
@@ -473,7 +535,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
 
                     // Increment: binding = binding + step
                     let increment_block_id = self.builder.next_block();
-                    let increment_instructions = vec![Instruction::Assign(
+                    let mut increment_instructions = vec![Instruction::Assign(
                         binding_local,
                         RValue::BinaryOp(
                             MirBinaryOp::Add,
@@ -481,6 +543,16 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                             Operand::Local(step_local),
                         ),
                     )];
+                    if let Some(counter) = counter_local {
+                        increment_instructions.push(Instruction::Assign(
+                            counter,
+                            RValue::BinaryOp(
+                                MirBinaryOp::Add,
+                                Operand::Local(counter),
+                                Operand::Constant(Constant::Int(1)),
+                            ),
+                        ));
+                    }
                     loop_body_statements.push(MirBody::BasicBlock(BasicBlock {
                         id: increment_block_id,
                         instructions: increment_instructions,

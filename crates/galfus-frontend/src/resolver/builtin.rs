@@ -3,7 +3,7 @@ use galfus_core::ScopeId;
 
 const BUILTIN_TYPES: &[&str] = &[
     "null", "bool", "int8", "int16", "int32", "int64", "uint8", "uint16", "uint32", "uint64",
-    "float16", "float32", "float64",
+    "float16", "float32", "float64", "int", "float",
 ];
 
 struct BuiltinConstraint {

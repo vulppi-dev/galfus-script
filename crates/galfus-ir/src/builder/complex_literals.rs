@@ -1,7 +1,7 @@
 use super::function::FunctionBuilder;
 use crate::mir::*;
 use galfus_core::{NodeId, StorageMetadata, TypeId};
-use galfus_frontend::{SyntaxNode, SyntaxNodeKind};
+use galfus_frontend::{SyntaxNode, SyntaxNodeKind, TypeKind};
 
 impl<'b, 'a> FunctionBuilder<'b, 'a> {
     pub(super) fn lower_struct_literal(
@@ -135,6 +135,19 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
             .node_type(expr_id)
             .unwrap_or_else(|| TypeId::new(0));
 
+        let resolved_array_type = self.builder.resolve_alias_type(array_type);
+        let expected_element_type = match self
+            .builder
+            .type_result
+            .layer()
+            .table()
+            .kind(resolved_array_type)
+        {
+            Some(TypeKind::Array { element }) => Some(*element),
+            Some(TypeKind::FixedArray { element, .. }) => Some(*element),
+            _ => None,
+        };
+
         let has_spread = node.children().iter().any(|&child_id| {
             syntax
                 .node(child_id)
@@ -148,8 +161,19 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                     match child_node.kind() {
                         SyntaxNodeKind::ArrayElement => {
                             let val_expr = child_node.child(0).unwrap();
+                            let val_expr_ty = self
+                                .builder
+                                .type_result
+                                .layer()
+                                .node_type(val_expr)
+                                .unwrap_or_else(|| TypeId::new(0));
                             let op = self.lower_expression(val_expr, statements);
-                            elements.push(ArrayLiteralElement::Single(op));
+                            let casted_op = if let Some(elem_ty) = expected_element_type {
+                                self.insert_cast_if_needed(op, val_expr_ty, elem_ty)
+                            } else {
+                                op
+                            };
+                            elements.push(ArrayLiteralElement::Single(casted_op));
                         }
                         SyntaxNodeKind::SpreadArrayElement => {
                             let spread_expr = child_node.child(0).unwrap();
@@ -157,8 +181,19 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                             elements.push(ArrayLiteralElement::Spread(op));
                         }
                         _ => {
+                            let val_expr_ty = self
+                                .builder
+                                .type_result
+                                .layer()
+                                .node_type(child_id)
+                                .unwrap_or_else(|| TypeId::new(0));
                             let op = self.lower_expression(child_id, statements);
-                            elements.push(ArrayLiteralElement::Single(op));
+                            let casted_op = if let Some(elem_ty) = expected_element_type {
+                                self.insert_cast_if_needed(op, val_expr_ty, elem_ty)
+                            } else {
+                                op
+                            };
+                            elements.push(ArrayLiteralElement::Single(casted_op));
                         }
                     }
                 }
@@ -177,12 +212,34 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                     match child_node.kind() {
                         SyntaxNodeKind::ArrayElement => {
                             let val_expr = child_node.child(0).unwrap();
+                            let val_expr_ty = self
+                                .builder
+                                .type_result
+                                .layer()
+                                .node_type(val_expr)
+                                .unwrap_or_else(|| TypeId::new(0));
                             let op = self.lower_expression(val_expr, statements);
-                            elements.push(op);
+                            let casted_op = if let Some(elem_ty) = expected_element_type {
+                                self.insert_cast_if_needed(op, val_expr_ty, elem_ty)
+                            } else {
+                                op
+                            };
+                            elements.push(casted_op);
                         }
                         _ => {
+                            let val_expr_ty = self
+                                .builder
+                                .type_result
+                                .layer()
+                                .node_type(child_id)
+                                .unwrap_or_else(|| TypeId::new(0));
                             let op = self.lower_expression(child_id, statements);
-                            elements.push(op);
+                            let casted_op = if let Some(elem_ty) = expected_element_type {
+                                self.insert_cast_if_needed(op, val_expr_ty, elem_ty)
+                            } else {
+                                op
+                            };
+                            elements.push(casted_op);
                         }
                     }
                 }

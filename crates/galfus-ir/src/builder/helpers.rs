@@ -1,4 +1,5 @@
 use super::function::{FunctionBuilder, parse_int};
+use crate::mir::*;
 use galfus_core::{NodeId, SymbolId, TypeId};
 use galfus_frontend::{PathReferenceKind, SymbolKind, SyntaxNodeKind};
 
@@ -302,5 +303,28 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
             });
         }
         symbols
+    }
+
+    pub(super) fn insert_cast_if_needed(
+        &mut self,
+        operand: Operand,
+        from_ty: TypeId,
+        to_ty: TypeId,
+    ) -> Operand {
+        let from_ty = self.builder.resolve_alias_type(from_ty);
+        let to_ty = self.builder.resolve_alias_type(to_ty);
+
+        if from_ty == to_ty {
+            return operand;
+        }
+
+        if self.builder.is_assignable(to_ty, from_ty) {
+            let temp_id = self.declare_local(None, to_ty);
+            self.current_instructions
+                .push(Instruction::Assign(temp_id, RValue::Cast(operand, to_ty)));
+            Operand::Local(temp_id)
+        } else {
+            operand
+        }
     }
 }

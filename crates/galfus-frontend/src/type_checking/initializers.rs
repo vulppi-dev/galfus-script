@@ -78,7 +78,7 @@ impl<'a> DeclarationTypeChecker<'a> {
             return self.infer_inferred_struct_literal_type(expression, expected);
         }
 
-        self.infer_expression_type(expression)
+        self.infer_expression_type_with_expected(expression, Some(expected))
     }
 
     fn infer_unannotated_binding_type(&mut self, node: NodeId, expression: NodeId) {

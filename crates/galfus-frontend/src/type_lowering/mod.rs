@@ -117,6 +117,29 @@ impl<'a> TypeLowerer<'a> {
 
         let name = self.node_text(identifier);
 
+        if name == "int" {
+            let members = vec![
+                self.layer.table().primitive(PrimitiveType::Int8),
+                self.layer.table().primitive(PrimitiveType::Int16),
+                self.layer.table().primitive(PrimitiveType::Int32),
+                self.layer.table().primitive(PrimitiveType::Int64),
+                self.layer.table().primitive(PrimitiveType::Uint8),
+                self.layer.table().primitive(PrimitiveType::Uint16),
+                self.layer.table().primitive(PrimitiveType::Uint32),
+                self.layer.table().primitive(PrimitiveType::Uint64),
+            ];
+            return self.layer.table_mut().intern_union(members);
+        }
+
+        if name == "float" {
+            let members = vec![
+                self.layer.table().primitive(PrimitiveType::Float16),
+                self.layer.table().primitive(PrimitiveType::Float32),
+                self.layer.table().primitive(PrimitiveType::Float64),
+            ];
+            return self.layer.table_mut().intern_union(members);
+        }
+
         if let Some(primitive) = primitive_type_by_name(name.as_str()) {
             return self.layer.table().primitive(primitive);
         }
@@ -175,6 +198,27 @@ impl<'a> TypeLowerer<'a> {
         };
 
         if symbol_data.kind() == SymbolKind::BuiltinType {
+            if symbol_data.name() == "int" {
+                let members = vec![
+                    self.layer.table().primitive(PrimitiveType::Int8),
+                    self.layer.table().primitive(PrimitiveType::Int16),
+                    self.layer.table().primitive(PrimitiveType::Int32),
+                    self.layer.table().primitive(PrimitiveType::Int64),
+                    self.layer.table().primitive(PrimitiveType::Uint8),
+                    self.layer.table().primitive(PrimitiveType::Uint16),
+                    self.layer.table().primitive(PrimitiveType::Uint32),
+                    self.layer.table().primitive(PrimitiveType::Uint64),
+                ];
+                return self.layer.table_mut().intern_union(members);
+            }
+            if symbol_data.name() == "float" {
+                let members = vec![
+                    self.layer.table().primitive(PrimitiveType::Float16),
+                    self.layer.table().primitive(PrimitiveType::Float32),
+                    self.layer.table().primitive(PrimitiveType::Float64),
+                ];
+                return self.layer.table_mut().intern_union(members);
+            }
             if let Some(primitive) = primitive_type_by_name(symbol_data.name()) {
                 return self.layer.table().primitive(primitive);
             }

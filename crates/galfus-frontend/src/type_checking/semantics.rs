@@ -69,6 +69,13 @@ impl<'a> DeclarationTypeChecker<'a> {
             return;
         }
 
+        if !self
+            .generic_parameter_symbols_from_type(return_type)
+            .is_empty()
+        {
+            return;
+        }
+
         let Some(body) = self
             .graph
             .syntax()
