@@ -1,4 +1,5 @@
-use super::function::{FunctionBuilder, parse_int};
+use super::function::FunctionBuilder;
+use super::function_helpers::parse_int;
 use crate::mir::*;
 use galfus_core::{FunctionId, NodeId, TypeId};
 use galfus_frontend::{PathReferenceKind, SymbolKind, SyntaxNodeKind, TypeKind};
