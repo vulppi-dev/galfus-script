@@ -6,6 +6,14 @@ use super::DeclarationTypeChecker;
 
 impl<'a> DeclarationTypeChecker<'a> {
     pub(super) fn infer_expression_type(&mut self, node: NodeId) -> Option<TypeId> {
+        self.infer_expression_type_with_expected(node, None)
+    }
+
+    pub(super) fn infer_expression_type_with_expected(
+        &mut self,
+        node: NodeId,
+        expected: Option<TypeId>,
+    ) -> Option<TypeId> {
         if let Some(existing) = self.layer.node_type(node) {
             return Some(existing);
         }
@@ -27,7 +35,7 @@ impl<'a> DeclarationTypeChecker<'a> {
 
             SyntaxNodeKind::StringLiteral => self.infer_string_literal_type(node),
 
-            SyntaxNodeKind::ArrayLiteral => self.infer_array_literal_type(node),
+            SyntaxNodeKind::ArrayLiteral => self.infer_array_literal_type(node, expected),
 
             SyntaxNodeKind::StructLiteral => self.infer_struct_literal_type(node),
 
@@ -42,7 +50,7 @@ impl<'a> DeclarationTypeChecker<'a> {
 
             SyntaxNodeKind::GroupedExpression => {
                 let inner = self.graph.syntax().child(node, 0)?;
-                self.infer_expression_type(inner)
+                self.infer_expression_type_with_expected(inner, expected)
             }
 
             SyntaxNodeKind::NameExpression => self.infer_name_expression_type(node),
@@ -51,7 +59,7 @@ impl<'a> DeclarationTypeChecker<'a> {
 
             SyntaxNodeKind::GenericExpression => self.infer_generic_expression_type(node),
 
-            SyntaxNodeKind::CallExpression => self.infer_call_expression_type(node),
+            SyntaxNodeKind::CallExpression => self.infer_call_expression_type(node, expected),
 
             SyntaxNodeKind::ArrowFunctionExpression => {
                 self.infer_arrow_function_expression_type(node)
@@ -81,7 +89,7 @@ impl<'a> DeclarationTypeChecker<'a> {
 
             SyntaxNodeKind::CopyExpression => {
                 let value = self.graph.syntax().child(node, 0)?;
-                self.infer_expression_type(value)
+                self.infer_expression_type_with_expected(value, expected)
             }
 
             _ => None,

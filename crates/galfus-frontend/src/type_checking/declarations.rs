@@ -1,6 +1,6 @@
 use galfus_core::{NodeId, TypeId};
 
-use crate::{FunctionParameterType, SymbolKind, SyntaxNodeKind, TypeKind};
+use crate::{FunctionParameterType, PrimitiveType, SymbolKind, SyntaxNodeKind, TypeKind};
 
 use super::{DeclarationTypeChecker, primitive_type_by_name};
 
@@ -12,6 +12,33 @@ impl<'a> DeclarationTypeChecker<'a> {
 
         for symbol in resolution.symbols() {
             if symbol.kind() != SymbolKind::BuiltinType {
+                continue;
+            }
+
+            if symbol.name() == "int" {
+                let members = vec![
+                    self.layer.table().primitive(PrimitiveType::Int8),
+                    self.layer.table().primitive(PrimitiveType::Int16),
+                    self.layer.table().primitive(PrimitiveType::Int32),
+                    self.layer.table().primitive(PrimitiveType::Int64),
+                    self.layer.table().primitive(PrimitiveType::Uint8),
+                    self.layer.table().primitive(PrimitiveType::Uint16),
+                    self.layer.table().primitive(PrimitiveType::Uint32),
+                    self.layer.table().primitive(PrimitiveType::Uint64),
+                ];
+                let ty = self.layer.table_mut().intern_union(members);
+                self.layer.bind_symbol_type(symbol.id(), ty);
+                continue;
+            }
+
+            if symbol.name() == "float" {
+                let members = vec![
+                    self.layer.table().primitive(PrimitiveType::Float16),
+                    self.layer.table().primitive(PrimitiveType::Float32),
+                    self.layer.table().primitive(PrimitiveType::Float64),
+                ];
+                let ty = self.layer.table_mut().intern_union(members);
+                self.layer.bind_symbol_type(symbol.id(), ty);
                 continue;
             }
 

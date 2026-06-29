@@ -22,7 +22,11 @@ impl<'a> DeclarationTypeChecker<'a> {
         Some(ty)
     }
 
-    pub(super) fn infer_array_literal_type(&mut self, node: NodeId) -> Option<TypeId> {
+    pub(super) fn infer_array_literal_type(
+        &mut self,
+        node: NodeId,
+        expected: Option<TypeId>,
+    ) -> Option<TypeId> {
         let elements = self.graph.syntax().node(node)?.children().to_vec();
 
         if elements.is_empty() {
@@ -34,21 +38,35 @@ impl<'a> DeclarationTypeChecker<'a> {
             return Some(error);
         }
 
+        let expected_element_type = expected.and_then(|expected_ty| {
+            let resolved = self.resolve_alias_type(expected_ty);
+            match self.layer.table().kind(resolved) {
+                Some(TypeKind::Array { element }) => Some(*element),
+                Some(TypeKind::FixedArray { element, .. }) => Some(*element),
+                _ => None,
+            }
+        });
+
         let mut element_types = Vec::new();
 
         for element in elements {
-            let Some(element_type) = self.infer_array_literal_element_type(element) else {
+            let Some(element_type) =
+                self.infer_array_literal_element_type(element, expected_element_type)
+            else {
                 continue;
             };
 
             element_types.push(element_type);
         }
 
-        let Some(expected_element_type) = element_types
-            .iter()
-            .find(|element| !element.has_error)
-            .map(|element| element.ty)
-        else {
+        let expected_element_type = expected_element_type.or_else(|| {
+            element_types
+                .iter()
+                .find(|element| !element.has_error)
+                .map(|element| element.ty)
+        });
+
+        let Some(expected_element_type) = expected_element_type else {
             let error = self.layer.table_mut().error();
             self.layer.bind_node_type(node, error);
 
@@ -99,13 +117,15 @@ impl<'a> DeclarationTypeChecker<'a> {
     fn infer_array_literal_element_type(
         &mut self,
         element: NodeId,
+        expected_element_type: Option<TypeId>,
     ) -> Option<ArrayLiteralElementType> {
         let element_node = self.graph.syntax().node(element)?;
 
         match element_node.kind() {
             SyntaxNodeKind::ArrayElement => {
                 let expression = self.graph.syntax().child(element, 0)?;
-                let ty = self.infer_expression_type(expression)?;
+                let ty =
+                    self.infer_expression_type_with_expected(expression, expected_element_type)?;
 
                 self.layer.bind_node_type(element, ty);
 
@@ -120,7 +140,10 @@ impl<'a> DeclarationTypeChecker<'a> {
 
             SyntaxNodeKind::SpreadArrayElement => {
                 let expression = self.graph.syntax().child(element, 0)?;
-                let spread_type = self.infer_expression_type(expression)?;
+                let expected_spread_type =
+                    expected_element_type.map(|t| self.layer.table_mut().intern_array(t));
+                let spread_type =
+                    self.infer_expression_type_with_expected(expression, expected_spread_type)?;
 
                 let result = self.array_literal_spread_element_type(expression, spread_type)?;
 
@@ -130,7 +153,8 @@ impl<'a> DeclarationTypeChecker<'a> {
             }
 
             _ => {
-                let ty = self.infer_expression_type(element)?;
+                let ty =
+                    self.infer_expression_type_with_expected(element, expected_element_type)?;
 
                 Some(ArrayLiteralElementType {
                     node: element,

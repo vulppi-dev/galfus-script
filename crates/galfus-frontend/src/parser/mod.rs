@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod tests;
 
+mod advanced_expressions;
 mod decorators;
 mod expressions;
 mod helpers;
@@ -11,6 +12,7 @@ mod patterns;
 mod start;
 mod statements;
 mod syntax;
+mod syntax_types;
 
 use crate::{
     ModuleGraph, OperatorKind, ParserDiagnosticCode, SyntaxNodeKind, Token, TokenKind, lex,

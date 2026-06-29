@@ -115,7 +115,7 @@ impl<'a> DeclarationTypeChecker<'a> {
         None
     }
 
-    fn generic_parameter_symbols_from_type(&self, ty: TypeId) -> Vec<SymbolId> {
+    pub(super) fn generic_parameter_symbols_from_type(&self, ty: TypeId) -> Vec<SymbolId> {
         let mut symbols = Vec::new();
         let mut seen = HashSet::new();
 
@@ -179,7 +179,7 @@ impl<'a> DeclarationTypeChecker<'a> {
         }
     }
 
-    fn substitute_generic_expression_type(
+    pub(super) fn substitute_generic_expression_type(
         &mut self,
         ty: TypeId,
         substitution: &GenericSubstitution,

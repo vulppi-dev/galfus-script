@@ -1,9 +1,9 @@
 use super::control_flow::FnEmitter;
 use crate::mir::{Constant as MirConstant, MirBinaryOp, MirUnaryOp, Operand, RValue};
 use galfus_core::TypeId;
-use galfus_core::image::Instruction;
-use galfus_core::image::instruction::{FieldIdx, GlobalIdx, Reg};
 use galfus_frontend::{PrimitiveType, SymbolKind, TypeKind};
+use galfus_image::Instruction;
+use galfus_image::instruction::{FieldIdx, GlobalIdx, Reg};
 
 impl<'a, 'b> FnEmitter<'a, 'b> {
     pub fn emit_rvalue(&mut self, dest: Reg, rvalue: &RValue) {

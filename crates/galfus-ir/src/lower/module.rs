@@ -1,0 +1,111 @@
+use galfus_core::SymbolId;
+use galfus_frontend::{ModuleGraph, SyntaxNodeKind, TypeCheckResult};
+use galfus_image::*;
+use std::collections::HashSet;
+
+use super::{LowerCtx, control_flow};
+
+pub fn lower_module(
+    mir_module: &crate::mir::MirModule,
+    type_result: &TypeCheckResult,
+    module_graph: &ModuleGraph,
+    source_text: &str,
+) -> ModuleImage {
+    let mut ctx = LowerCtx::new(type_result, module_graph, source_text);
+
+    for (i, func) in mir_module.functions.iter().enumerate() {
+        ctx.function_map.insert(func.id, FuncIdx(i as u16));
+        ctx.function_names.insert(func.id, func.name.clone());
+    }
+
+    let mut functions = Vec::new();
+    let mut init_func_idx = None;
+
+    for (i, mir_func) in mir_module.functions.iter().enumerate() {
+        let is_init = mir_func.name == "__init_module";
+        if is_init {
+            init_func_idx = Some(FuncIdx(i as u16));
+        }
+
+        let return_ty = ctx.lower_type(mir_func.return_type);
+        for &param_ty in &mir_func.parameter_types {
+            ctx.lower_type(param_ty);
+        }
+        for local_decl in &mir_func.locals {
+            ctx.lower_type(local_decl.ty);
+        }
+        let param_count = mir_func.parameter_types.len() as u16;
+        let local_count = (mir_func.locals.len() as u16).saturating_sub(param_count);
+
+        let mut emitter =
+            control_flow::FnEmitter::new(&mut ctx, mir_func, param_count, local_count);
+        let instructions = emitter.emit();
+
+        functions.push(ImageFunction {
+            name: mir_func.name.clone(),
+            param_count: param_count.try_into().unwrap(),
+            local_count,
+            temp_count: emitter.temp_count_max,
+            return_ty,
+            instructions,
+        });
+    }
+
+    let export_symbols = collect_exports(module_graph);
+    let mut exports = Vec::new();
+    for mir_func in &mir_module.functions {
+        if mir_func.name == "__init_module" {
+            continue;
+        }
+        let sym = SymbolId::new(mir_func.id.raw());
+        if export_symbols.contains(&sym) {
+            let func_idx = ctx.function_map[&mir_func.id];
+            exports.push(ExportSlot {
+                symbol_name: mir_func.name.clone(),
+                func_idx,
+            });
+        }
+    }
+
+    ModuleImage {
+        name: module_graph.source_id().raw().to_string(),
+        constants: ctx.constant_pool,
+        functions,
+        types: ctx.types,
+        struct_layouts: ctx.struct_layouts,
+        choice_layouts: ctx.choice_layouts,
+        imports: Vec::new(),
+        exports,
+        init_func_idx,
+    }
+}
+
+fn collect_exports(graph: &ModuleGraph) -> HashSet<SymbolId> {
+    let mut exports = HashSet::new();
+    let syntax = graph.syntax();
+    let resolution = match graph.resolution() {
+        Some(res) => res,
+        None => return exports,
+    };
+    if let Some(root_node) = syntax.root().and_then(|root| syntax.node(root)) {
+        for &item in root_node.children() {
+            if let Some(node) = syntax.node(item)
+                && node.kind() == SyntaxNodeKind::ExportItem
+                && let Some(inner) = node.first_child()
+                && let Some(inner_node) = syntax.node(inner)
+            {
+                let ident_node = if inner_node.kind() == SyntaxNodeKind::FunctionItem {
+                    syntax.first_child_of_kind(inner, SyntaxNodeKind::Identifier)
+                } else {
+                    Some(inner)
+                };
+                if let Some(ident) = ident_node
+                    && let Some(sym) = resolution.declaration_symbol(ident)
+                {
+                    exports.insert(sym);
+                }
+            }
+        }
+    }
+    exports
+}

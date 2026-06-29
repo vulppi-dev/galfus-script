@@ -187,7 +187,7 @@ impl<'a> DeclarationTypeChecker<'a> {
         target_type: TypeId,
         value: NodeId,
     ) -> Option<TypeId> {
-        let value_type = self.infer_expression_type(value)?;
+        let value_type = self.infer_expression_type_with_expected(value, Some(target_type))?;
         let operator_text = self.node_text(operator);
 
         match operator_text.as_str() {

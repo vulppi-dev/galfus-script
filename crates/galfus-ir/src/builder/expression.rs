@@ -1,4 +1,5 @@
-use super::function::{FunctionBuilder, parse_int};
+use super::function::FunctionBuilder;
+use super::function_helpers::parse_int;
 use crate::mir::*;
 use galfus_core::{FunctionId, NodeId, TypeId};
 use galfus_frontend::{PathReferenceKind, SymbolKind, SyntaxNodeKind, TypeKind};
@@ -161,10 +162,43 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                 let target_node = node.child(0).unwrap();
                 let arg_list_node = node.child(1).unwrap();
 
+                let mut expected_params = None;
+                if self.is_choice_variant_call_target(target_node) {
+                    if let Some((_, _, payload_types)) =
+                        self.get_choice_variant_payload(target_node)
+                    {
+                        expected_params = Some(
+                            payload_types
+                                .into_iter()
+                                .map(|ty| (ty, false))
+                                .collect::<Vec<_>>(),
+                        );
+                    }
+                } else {
+                    let target_ty = self.builder.type_result.layer().node_type(target_node);
+                    let resolved_target_ty = target_ty.map(|t| self.builder.resolve_alias_type(t));
+                    if let Some(resolved_target_ty) = resolved_target_ty {
+                        if let Some(TypeKind::Function(f)) = self
+                            .builder
+                            .type_result
+                            .layer()
+                            .table()
+                            .kind(resolved_target_ty)
+                        {
+                            expected_params = Some(
+                                f.parameters()
+                                    .iter()
+                                    .map(|p| (p.ty(), p.is_rest()))
+                                    .collect::<Vec<_>>(),
+                            );
+                        }
+                    }
+                }
+
                 let mut args = Vec::new();
                 let mut arg_types = Vec::new();
                 if let Some(arg_list) = syntax.node(arg_list_node) {
-                    for &arg_id in arg_list.children() {
+                    for (i, &arg_id) in arg_list.children().iter().enumerate() {
                         let arg_expr = syntax
                             .node(arg_id)
                             .and_then(|n| {
@@ -177,7 +211,6 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                             .unwrap_or(arg_id);
 
                         let arg_op = self.lower_expression(arg_expr, statements);
-                        args.push(arg_op);
 
                         let arg_ty = self
                             .builder
@@ -185,6 +218,54 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                             .layer()
                             .node_type(arg_expr)
                             .unwrap_or_else(|| TypeId::new(0));
+
+                        let casted_op = if let Some(ref params) = expected_params {
+                            if let Some(&(expected_ty, is_rest)) = params.get(i) {
+                                let target_expected_ty = if is_rest {
+                                    let resolved_param_ty =
+                                        self.builder.resolve_alias_type(expected_ty);
+                                    match self
+                                        .builder
+                                        .type_result
+                                        .layer()
+                                        .table()
+                                        .kind(resolved_param_ty)
+                                    {
+                                        Some(TypeKind::Array { element }) => *element,
+                                        Some(TypeKind::FixedArray { element, .. }) => *element,
+                                        _ => expected_ty,
+                                    }
+                                } else {
+                                    expected_ty
+                                };
+                                self.insert_cast_if_needed(arg_op, arg_ty, target_expected_ty)
+                            } else if let Some(&(expected_ty, is_rest)) = params.last() {
+                                if is_rest {
+                                    let resolved_param_ty =
+                                        self.builder.resolve_alias_type(expected_ty);
+                                    let target_expected_ty = match self
+                                        .builder
+                                        .type_result
+                                        .layer()
+                                        .table()
+                                        .kind(resolved_param_ty)
+                                    {
+                                        Some(TypeKind::Array { element }) => *element,
+                                        Some(TypeKind::FixedArray { element, .. }) => *element,
+                                        _ => expected_ty,
+                                    };
+                                    self.insert_cast_if_needed(arg_op, arg_ty, target_expected_ty)
+                                } else {
+                                    arg_op
+                                }
+                            } else {
+                                arg_op
+                            }
+                        } else {
+                            arg_op
+                        };
+
+                        args.push(casted_op);
                         arg_types.push(arg_ty);
                     }
                 }

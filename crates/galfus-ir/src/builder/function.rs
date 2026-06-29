@@ -1,6 +1,6 @@
 use crate::mir::*;
 use galfus_core::{NodeId, SymbolId, TypeId};
-use galfus_frontend::SyntaxNodeKind;
+use galfus_frontend::{PrimitiveType, SyntaxNodeKind};
 
 pub struct FunctionBuilder<'b, 'a> {
     pub(super) builder: &'b mut super::MirBuilder<'a>,
@@ -8,6 +8,7 @@ pub struct FunctionBuilder<'b, 'a> {
     pub(super) symbol_to_local: std::collections::HashMap<SymbolId, LocalId>,
     pub(super) current_instructions: Vec<Instruction>,
     pub(super) scopes: Vec<Vec<LocalId>>,
+    pub(super) return_type: TypeId,
 }
 
 impl<'b, 'a> FunctionBuilder<'b, 'a> {
@@ -136,9 +137,21 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                             .symbol_type(symbol)
                             .unwrap_or_else(|| TypeId::new(0));
 
+                        let casted_operand = if let Some(init_expr) = initializer {
+                            let init_ty = self
+                                .builder
+                                .type_result
+                                .layer()
+                                .node_type(init_expr)
+                                .unwrap_or_else(|| TypeId::new(0));
+                            self.insert_cast_if_needed(operand.clone(), init_ty, ty)
+                        } else {
+                            operand.clone()
+                        };
+
                         let local_id = self.declare_local(Some(symbol), ty);
                         self.current_instructions
-                            .push(Instruction::Assign(local_id, RValue::Use(operand.clone())));
+                            .push(Instruction::Assign(local_id, RValue::Use(casted_operand)));
                     }
                 }
             }
@@ -149,6 +162,19 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
 
                 if let (Some(target), Some(value)) = (target, value) {
                     let operand = self.lower_expression(value, statements);
+                    let target_ty = self
+                        .builder
+                        .type_result
+                        .layer()
+                        .node_type(target)
+                        .unwrap_or_else(|| TypeId::new(0));
+                    let value_ty = self
+                        .builder
+                        .type_result
+                        .layer()
+                        .node_type(value)
+                        .unwrap_or_else(|| TypeId::new(0));
+                    let casted_operand = self.insert_cast_if_needed(operand, value_ty, target_ty);
 
                     if syntax
                         .node(target)
@@ -163,8 +189,10 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                         });
                         if let Some(sym) = symbol {
                             if let Some(local_id) = self.symbol_to_local.get(&sym).copied() {
-                                self.current_instructions
-                                    .push(Instruction::Assign(local_id, RValue::Use(operand)));
+                                self.current_instructions.push(Instruction::Assign(
+                                    local_id,
+                                    RValue::Use(casted_operand),
+                                ));
                             } else {
                                 let is_global = resolution.is_some_and(|res| {
                                     matches!(
@@ -179,7 +207,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                                         .map(|s| s.name().to_string())
                                         .unwrap_or_default();
                                     self.current_instructions
-                                        .push(Instruction::StoreGlobal(name, operand));
+                                        .push(Instruction::StoreGlobal(name, casted_operand));
                                 }
                             }
                         }
@@ -189,9 +217,18 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
 
             SyntaxNodeKind::ReturnStatement => {
                 let expr = node.first_child();
-                let operand = expr.map(|e| self.lower_expression(e, statements));
+                let operand = expr.map(|e| {
+                    let op = self.lower_expression(e, statements);
+                    let expr_ty = self
+                        .builder
+                        .type_result
+                        .layer()
+                        .node_type(e)
+                        .unwrap_or_else(|| TypeId::new(0));
+                    self.insert_cast_if_needed(op, expr_ty, self.return_type)
+                });
 
-                let ret_local = match &operand {
+                let ret_local = match operand.as_ref() {
                     Some(Operand::Local(local_id)) => Some(*local_id),
                     _ => None,
                 };
@@ -304,7 +341,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                     loop_body_statements.push(MirBody::BasicBlock(BasicBlock {
                         id: self.builder.next_block(),
                         instructions,
-                        terminator: Terminator::Return(None),
+                        terminator: Terminator::None,
                     }));
                 }
 
@@ -342,99 +379,201 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
             SyntaxNodeKind::ForStatement => {
                 self.flush_current_instructions(statements);
 
-                if let Some(iterable_node) = node.child(1) {
+                let binding_node = node.child(0).unwrap();
+                let iterable_node = node.child(1).unwrap();
+                let body_node = node.child(2).unwrap();
+
+                let iterable_syntax = syntax.node(iterable_node).unwrap();
+
+                if iterable_syntax.kind() == SyntaxNodeKind::RangeExpression {
+                    let start_node = iterable_syntax.child(0).unwrap();
+                    let end_node = iterable_syntax.child(2).unwrap();
+                    let step_node = iterable_syntax.child(3);
+
+                    // Declare the loop variable `binding`
+                    let symbols = self.collect_declaration_symbols(binding_node);
+                    let symbol = symbols.first().copied();
+                    let binding_local = if let Some(sym) = symbol {
+                        let ty = self
+                            .builder
+                            .type_result
+                            .layer()
+                            .symbol_type(sym)
+                            .unwrap_or_else(|| TypeId::new(0));
+                        self.declare_local(Some(sym), ty)
+                    } else {
+                        return;
+                    };
+                    let binding_type = self
+                        .builder
+                        .type_result
+                        .layer()
+                        .symbol_type(symbol.unwrap())
+                        .unwrap();
+
+                    // Evaluate and assign `start` to `binding`
+                    let start_operand = self.lower_expression(start_node, statements);
+                    self.current_instructions.push(Instruction::Assign(
+                        binding_local,
+                        RValue::Use(start_operand),
+                    ));
+                    self.flush_current_instructions(statements);
+
+                    // Evaluate and store `end` in a temporary local variable
+                    let end_operand = self.lower_expression(end_node, statements);
+                    let end_ty = self
+                        .builder
+                        .type_result
+                        .layer()
+                        .node_type(end_node)
+                        .unwrap_or_else(|| TypeId::new(0));
+                    let end_local = self.declare_local(None, end_ty);
+                    self.current_instructions
+                        .push(Instruction::Assign(end_local, RValue::Use(end_operand)));
+                    self.flush_current_instructions(statements);
+
+                    // Evaluate and store `step` in a temporary local variable
+                    let step_operand = if let Some(step_wrapper) = step_node {
+                        let step_expr_node =
+                            syntax.node(step_wrapper).unwrap().first_child().unwrap();
+                        self.lower_expression(step_expr_node, statements)
+                    } else {
+                        Operand::Constant(Constant::Int(1))
+                    };
+                    let step_ty = binding_type;
+                    let step_local = self.declare_local(None, step_ty);
+                    self.current_instructions
+                        .push(Instruction::Assign(step_local, RValue::Use(step_operand)));
+                    self.flush_current_instructions(statements);
+
+                    // Compile the loop body statements
+                    let mut loop_body_statements = Vec::new();
+
+                    let range_op_node = iterable_syntax.child(1).unwrap();
+                    let range_op_node_data = syntax.node(range_op_node).unwrap();
+                    let op_kind = range_op_node_data.range_operator();
+
+                    let is_quantity =
+                        matches!(op_kind, Some(galfus_frontend::RangeOperatorKind::Quantity));
+
+                    let counter_local = if is_quantity {
+                        let counter_local = self.declare_local(None, end_ty);
+                        self.current_instructions.push(Instruction::Assign(
+                            counter_local,
+                            RValue::Use(Operand::Constant(Constant::Int(0))),
+                        ));
+                        self.flush_current_instructions(statements);
+                        Some(counter_local)
+                    } else {
+                        None
+                    };
+
+                    let bool_type_id = self
+                        .builder
+                        .type_result
+                        .layer()
+                        .table()
+                        .primitive(PrimitiveType::Bool);
+
+                    let cond_local = self.declare_local(None, bool_type_id);
+                    if let Some(counter) = counter_local {
+                        self.current_instructions.push(Instruction::Assign(
+                            cond_local,
+                            RValue::BinaryOp(
+                                MirBinaryOp::Less,
+                                Operand::Local(counter),
+                                Operand::Local(end_local),
+                            ),
+                        ));
+                    } else {
+                        let cond_op = match op_kind {
+                            Some(galfus_frontend::RangeOperatorKind::Exclusive) | None => {
+                                MirBinaryOp::Less
+                            }
+                            _ => MirBinaryOp::Less,
+                        };
+                        self.current_instructions.push(Instruction::Assign(
+                            cond_local,
+                            RValue::BinaryOp(
+                                cond_op,
+                                Operand::Local(binding_local),
+                                Operand::Local(end_local),
+                            ),
+                        ));
+                    }
+
+                    let not_cond_local = self.declare_local(None, bool_type_id);
+                    self.current_instructions.push(Instruction::Assign(
+                        not_cond_local,
+                        RValue::UnaryOp(MirUnaryOp::Not, Operand::Local(cond_local)),
+                    ));
+
+                    if !self.current_instructions.is_empty() {
+                        let instructions = std::mem::take(&mut self.current_instructions);
+                        loop_body_statements.push(MirBody::BasicBlock(BasicBlock {
+                            id: self.builder.next_block(),
+                            instructions,
+                            terminator: Terminator::None,
+                        }));
+                    }
+
+                    // Break if !condition
+                    let break_bb = MirBody::BasicBlock(BasicBlock {
+                        id: self.builder.next_block(),
+                        instructions: Vec::new(),
+                        terminator: Terminator::Break,
+                    });
+                    loop_body_statements.push(MirBody::If {
+                        cond: Operand::Local(not_cond_local),
+                        then_branch: Box::new(break_bb),
+                        else_branch: None,
+                    });
+
+                    // Loop body
+                    let lowered_body = self.lower_block(body_node);
+                    loop_body_statements.push(lowered_body);
+
+                    // Increment: binding = binding + step
+                    let increment_block_id = self.builder.next_block();
+                    let mut increment_instructions = vec![Instruction::Assign(
+                        binding_local,
+                        RValue::BinaryOp(
+                            MirBinaryOp::Add,
+                            Operand::Local(binding_local),
+                            Operand::Local(step_local),
+                        ),
+                    )];
+                    if let Some(counter) = counter_local {
+                        increment_instructions.push(Instruction::Assign(
+                            counter,
+                            RValue::BinaryOp(
+                                MirBinaryOp::Add,
+                                Operand::Local(counter),
+                                Operand::Constant(Constant::Int(1)),
+                            ),
+                        ));
+                    }
+                    loop_body_statements.push(MirBody::BasicBlock(BasicBlock {
+                        id: increment_block_id,
+                        instructions: increment_instructions,
+                        terminator: Terminator::None,
+                    }));
+
+                    statements.push(MirBody::Loop {
+                        body: Box::new(MirBody::Block {
+                            locals: Vec::new(),
+                            statements: loop_body_statements,
+                        }),
+                    });
+                } else {
                     self.lower_expression(iterable_node, statements);
                     self.flush_current_instructions(statements);
+                    let body = Box::new(self.lower_block(body_node));
+                    statements.push(MirBody::Loop { body });
                 }
-
-                let body_node = node.child(2).unwrap();
-                let body = Box::new(self.lower_block(body_node));
-
-                statements.push(MirBody::Loop { body });
             }
 
             _ => {}
         }
-    }
-
-    pub(super) fn lower_binary_op(&self, op_node_id: NodeId) -> MirBinaryOp {
-        let syntax = self.builder.graph.syntax();
-        if let Some(op) = syntax
-            .node(op_node_id)
-            .and_then(|node| node.binary_operator())
-        {
-            return match op {
-                galfus_frontend::BinaryOperatorKind::Add => MirBinaryOp::Add,
-                galfus_frontend::BinaryOperatorKind::Subtract => MirBinaryOp::Subtract,
-                galfus_frontend::BinaryOperatorKind::Multiply => MirBinaryOp::Multiply,
-                galfus_frontend::BinaryOperatorKind::Divide => MirBinaryOp::Divide,
-                galfus_frontend::BinaryOperatorKind::Remainder => MirBinaryOp::Remainder,
-                galfus_frontend::BinaryOperatorKind::Power => MirBinaryOp::Power,
-                galfus_frontend::BinaryOperatorKind::ShiftLeft => MirBinaryOp::ShiftLeft,
-                galfus_frontend::BinaryOperatorKind::ShiftRight => MirBinaryOp::ShiftRight,
-                galfus_frontend::BinaryOperatorKind::BitwiseAnd => MirBinaryOp::BitwiseAnd,
-                galfus_frontend::BinaryOperatorKind::BitwiseOr => MirBinaryOp::BitwiseOr,
-                galfus_frontend::BinaryOperatorKind::BitwiseXor => MirBinaryOp::BitwiseXor,
-                galfus_frontend::BinaryOperatorKind::Equal => MirBinaryOp::Equal,
-                galfus_frontend::BinaryOperatorKind::NotEqual => MirBinaryOp::NotEqual,
-                galfus_frontend::BinaryOperatorKind::Less => MirBinaryOp::Less,
-                galfus_frontend::BinaryOperatorKind::LessEqual => MirBinaryOp::LessEqual,
-                galfus_frontend::BinaryOperatorKind::Greater => MirBinaryOp::Greater,
-                galfus_frontend::BinaryOperatorKind::GreaterEqual => MirBinaryOp::GreaterEqual,
-                galfus_frontend::BinaryOperatorKind::LogicalAnd => MirBinaryOp::LogicalAnd,
-                galfus_frontend::BinaryOperatorKind::LogicalOr => MirBinaryOp::LogicalOr,
-                galfus_frontend::BinaryOperatorKind::NullFallback => MirBinaryOp::NullFallback,
-            };
-        }
-        MirBinaryOp::Add
-    }
-
-    pub(super) fn lower_unary_op(&self, op_node_id: NodeId) -> MirUnaryOp {
-        let syntax = self.builder.graph.syntax();
-        if let Some(op) = syntax
-            .node(op_node_id)
-            .and_then(|node| node.unary_operator())
-        {
-            return match op {
-                galfus_frontend::UnaryOperatorKind::Negate => MirUnaryOp::Negate,
-                galfus_frontend::UnaryOperatorKind::Not => MirUnaryOp::Not,
-                galfus_frontend::UnaryOperatorKind::BitwiseNot => MirUnaryOp::BitwiseNot,
-            };
-        }
-        MirUnaryOp::Negate
-    }
-
-    pub(super) fn struct_symbol_for_type(&self, ty: TypeId) -> Option<SymbolId> {
-        self.builder.struct_symbol_for_type(ty)
-    }
-
-    pub(super) fn find_struct_field_default_expr(
-        &self,
-        struct_symbol: SymbolId,
-        field_name: &str,
-    ) -> Option<NodeId> {
-        self.builder
-            .find_struct_field_default_expr(struct_symbol, field_name)
-    }
-
-    pub(super) fn get_struct_fields(&self, struct_symbol: SymbolId) -> Vec<(String, TypeId)> {
-        self.builder.get_struct_fields(struct_symbol)
-    }
-
-    pub(super) fn find_tuple_type(&self, elements: &[TypeId]) -> TypeId {
-        self.builder.find_tuple_type(elements)
-    }
-}
-
-pub(super) fn parse_int(text: &str) -> Option<i64> {
-    let clean = text.trim();
-    if clean.starts_with("0x") || clean.starts_with("0X") {
-        i64::from_str_radix(&clean[2..].replace('_', ""), 16).ok()
-    } else if clean.starts_with("0o") || clean.starts_with("0O") {
-        i64::from_str_radix(&clean[2..].replace('_', ""), 8).ok()
-    } else if clean.starts_with("0b") || clean.starts_with("0B") {
-        i64::from_str_radix(&clean[2..].replace('_', ""), 2).ok()
-    } else {
-        clean.replace('_', "").parse::<i64>().ok()
     }
 }

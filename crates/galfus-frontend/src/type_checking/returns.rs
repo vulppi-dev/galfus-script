@@ -45,10 +45,12 @@ impl<'a> DeclarationTypeChecker<'a> {
         };
 
         let actual = match self.graph.syntax().child(return_statement, 0) {
-            Some(expression) => match self.infer_expression_type(expression) {
-                Some(actual) => actual,
-                None => return,
-            },
+            Some(expression) => {
+                match self.infer_expression_type_with_expected(expression, Some(expected)) {
+                    Some(actual) => actual,
+                    None => return,
+                }
+            }
 
             None => self.layer.table().primitive(PrimitiveType::Null),
         };

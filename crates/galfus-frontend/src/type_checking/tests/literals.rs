@@ -248,3 +248,26 @@ var values: [int32; 2] = [1, 2, 3]
                 .contains("expected `[int32; 2]`, got `[int32; 3]`")
     }));
 }
+
+#[test]
+fn check_accepts_builtin_int_and_float_union_arrays() {
+    let (_source, _graph, result) = check_source(
+        r#"
+var ints: [int] = [1, 2, 3]
+var floats: [float] = [1.0, 2.0, 3.0]
+"#,
+    );
+
+    assert!(!result.has_errors());
+}
+
+#[test]
+fn check_accepts_union_array_literal_with_expected_type() {
+    let (_source, _graph, result) = check_source(
+        r#"
+var values: [int32] = [1, 2, 3]
+"#,
+    );
+
+    assert!(!result.has_errors());
+}
