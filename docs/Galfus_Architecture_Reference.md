@@ -616,32 +616,22 @@ Rich operations belong to modules.
 
 ## 18. Builtin Modules
 
-Builtin modules are modules provided by the Galfus distribution. They are not mandatory runtime parts.
+Builtin modules are provided by the Galfus distribution and are split into two tiers:
 
-Examples of possible builtin modules:
+1. **`std/*` (Thin Target Standard Surface)**: Low-level modules (such as `std/io`, `std/fs`, `std/net`, `std/time`, `std/env`, `std/random`, and `std/process`) that interface directly with host capabilities.
+2. **Rich Utility Modules**: Platform-agnostic, developer-friendly modules (such as `text`, `format`, `json`, `regex`, `math`, `path`, `http`, `collections`, and `crypto`) built on top of `std/*` or implementing pure algorithms.
 
-```txt
-collection
-regex
-text/string
-math
-io
-fs
-net
-crypto
-time
-platform
-compiler
-```
+Detailed specifications for builtins are documented in [Galfus Builtins Reference](Galfus_Builtins_Reference.md).
 
 The rule is:
 
 ```txt
 Builtin does not mean mandatory.
 Builtin means provided by Galfus and included only when used.
+Access to std/* requires explicit permission in configuration.
 ```
 
-There is no `array` module. Arrays are core data forms. Rich collection behavior belongs to `collection`.
+There is no `array` module. Arrays are core data forms. Rich collection behavior belongs to `collections`.
 
 Regular expressions are not syntax or core runtime. They belong to a module.
 
@@ -876,6 +866,8 @@ host capabilities:
 
 Sandbox behavior is configuration, not a runtime profile.
 
+By default, a Galfus program runs in a closed sandbox where access to any host-connected `std/*` standard surface is blocked. Access must be explicitly granted via permission configuration in the module or workspace descriptor.
+
 Sandbox configuration may define:
 
 ```txt
@@ -886,6 +878,7 @@ allowed adapters
 allowed host capabilities
 allowed external payloads
 resource limits
+std/* permissions (e.g. read/write scopes, network hosts)
 ```
 
 This is primarily useful for:

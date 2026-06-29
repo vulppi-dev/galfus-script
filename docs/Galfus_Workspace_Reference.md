@@ -758,18 +758,12 @@ math-core/vector
 
 ## 25. Builtins and Standard Modules
 
-Builtins are modules provided by the Galfus distribution. They are not mandatory runtime components.
+Builtins are modules provided by the Galfus distribution. They are not mandatory runtime components, and are split into:
 
-Examples may include:
+- **`std/*` (Thin Target Standard Surface)**: Low-level modules (such as `std/io`, `std/fs`, `std/net`, `std/time`, `std/env`, `std/random`, and `std/process`) that interface directly with host capabilities. Access is restricted under a closed sandbox by default.
+- **Rich Utility Modules**: Target-agnostic modules (such as `text`, `format`, `json`, `regex`, `math`, `path`, `http`, `collections`, and `crypto`) that compile to target-agnostic instructions or wrap low-level `std/*` calls.
 
-```txt
-collection
-compiler
-regex
-text
-math
-platform
-```
+Detailed specifications for builtins are documented in [Galfus Builtins Reference](Galfus_Builtins_Reference.md).
 
 Builtin modules are included only if used/reached, or if an explicit target/policy requires them.
 
@@ -944,15 +938,21 @@ metadata
 
 ## 32. Sandbox Configuration
 
-Sandboxing is configuration, not a runtime profile.
+Sandboxing is configuration, not a runtime profile. By default, a Galfus program runs in a closed sandbox. Access to host resources via `std/*` modules is blocked unless explicit permission is granted in configuration.
 
-Example:
+Example `galfus.toml` configuration:
 
 ```toml
 [sandbox]
 max_memory = "64mb"
 max_stack = "1mb"
 max_steps = 10000000
+
+[permissions]
+"std/fs" = { read = ["/data/public", "./assets"], write = ["/data/temp"] }
+"std/net" = { connect = ["api.example.com:443", "localhost:8080"] }
+"std/env" = { allow_args = true, env_keys = ["PATH", "LANG"] }
+"std/process" = { allow_exit = true }
 ```
 
 Sandbox configuration may define:
@@ -964,6 +964,7 @@ step/fuel limits
 allowed adapters
 allowed capabilities
 host resource limits
+std/* permissions (e.g. filesystem scopes, network hosts, environment keys)
 ```
 
 These limits are especially useful for servers, playgrounds, REPLs, CI, and untrusted execution.
