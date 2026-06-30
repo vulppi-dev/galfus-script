@@ -1,7 +1,7 @@
 use super::function::FunctionBuilder;
 use crate::mir::*;
 use galfus_core::{NodeId, StorageMetadata, TypeId};
-use galfus_frontend::{SyntaxNode, SyntaxNodeKind, TypeKind};
+use galfus_frontend::{ArraySize, SyntaxNode, SyntaxNodeKind, TypeKind};
 
 impl<'b, 'a> FunctionBuilder<'b, 'a> {
     pub(super) fn lower_struct_literal(
@@ -290,9 +290,12 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
 
     /// Lower `new([T; N])` / `new([T; N], shared)`.
     ///
-    /// child 0 — `FixedArrayType` or `ArrayType` node  
-    /// child 1 — optional storage-tag `Identifier` (e.g. `shared`), currently stored
-    ///            in `StorageMetadata` but not yet acted upon by the VM.
+    /// child 0: `FixedArrayType` node
+    /// child 1: optional storage-tag `Identifier`, for example `shared`.
+    ///
+    /// Runtime-sized `[T]` allocation is intentionally not handled here.
+    /// That will be introduced later through `std/buffer`, where the length
+    /// comes from a runtime value.
     pub(super) fn lower_new_array_expression(
         &mut self,
         expr_id: NodeId,
@@ -301,29 +304,30 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
     ) -> Operand {
         let type_layer = self.builder.type_result.layer();
 
-        // The full array type (FixedArray TypeId) — used as the RValue's type tag.
+        let Some(type_node) = node.child(0) else {
+            return Operand::Constant(Constant::Null);
+        };
+
         let array_type = type_layer
-            .node_type(expr_id)
+            .node_type(type_node)
+            .or_else(|| type_layer.node_type(expr_id))
             .unwrap_or_else(|| TypeId::new(0));
 
-        // Resolve element type and static size from FixedArrayType.
-        let resolved = self.builder.resolve_alias_type(array_type);
-        let (element_type, size) =
-            match type_layer.table().kind(resolved) {
-                Some(TypeKind::FixedArray { element, size: galfus_frontend::ArraySize::Known(n) }) => {
-                    (*element, *n as usize)
-                }
-                Some(TypeKind::Array { element }) => {
-                    // Dynamic array — size 0; caller must rely on runtime resize.
-                    (*element, 0)
-                }
-                _ => return Operand::Constant(Constant::Null),
-            };
+        let resolved_array_type = self.builder.resolve_alias_type(array_type);
 
-        // Optional second child: storage tag identifier (e.g. `shared`).
+        let (element_type, size) = match type_layer.table().kind(resolved_array_type) {
+            Some(TypeKind::FixedArray {
+                element,
+                size: ArraySize::Known(size),
+            }) => (*element, *size as usize),
+
+            _ => return Operand::Constant(Constant::Null),
+        };
+
         let storage = if node.child_count() > 1 {
             let storage_ident = node.child(1).unwrap();
             let tag = self.builder.node_text(storage_ident);
+
             if tag == "shared" {
                 StorageMetadata::Shared
             } else {
@@ -334,6 +338,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
         };
 
         let temp_id = self.declare_local(None, array_type);
+
         self.current_instructions.push(Instruction::Assign(
             temp_id,
             RValue::NewArrayZeroed {
@@ -343,6 +348,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                 storage,
             },
         ));
+
         Operand::Local(temp_id)
     }
 }

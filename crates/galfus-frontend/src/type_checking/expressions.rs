@@ -204,8 +204,9 @@ impl<'a> DeclarationTypeChecker<'a> {
         // The type resolver processes all type nodes in the graph before expression
         // inference runs, so node_type should already be populated.
         // Fall back to first_type_child for safety (e.g. if child 0 is a wrapper).
-        self.layer
-            .node_type(type_node)
-            .or_else(|| self.first_type_child(node).and_then(|n| self.layer.node_type(n)))
+        self.layer.node_type(type_node).or_else(|| {
+            self.first_type_child(node)
+                .and_then(|n| self.layer.node_type(n))
+        })
     }
 }

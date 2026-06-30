@@ -433,26 +433,34 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                 self.free_temp_if_operand(operand);
             }
             RValue::NewArrayZeroed {
-                element_type,
-                size,
-                ..
+                array_type, size, ..
             } => {
-                // Emit: LoadConst(len) + NewArray(element_type, len_reg).
-                // The VM will zero-initialise elements in NewArray.
-                let type_idx = self.ctx.lower_type(*element_type);
+                // Emit:
+                //   len_reg = const(size)
+                //   dest = NewArray(array_type, len_reg)
+                //
+                // `array_type` must lower to ImageType::Array or ImageType::FixedArray.
+                // The VM extracts the element type from that image type and then
+                // zero-initialises the backing buffer.
+                let type_idx = self.ctx.lower_type(*array_type);
+
                 let size_const = self
                     .ctx
                     .get_or_create_constant(&MirConstant::Int(*size as i64));
+
                 let len_reg = self.alloc_temp();
+
                 self.instructions.push(Instruction::LoadConst {
                     dest: len_reg,
                     const_idx: size_const,
                 });
+
                 self.instructions.push(Instruction::NewArray {
                     dest,
                     type_idx,
                     len_reg,
                 });
+
                 self.free_temps(1);
             }
         }
