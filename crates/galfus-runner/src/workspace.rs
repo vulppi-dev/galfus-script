@@ -162,7 +162,7 @@ struct RawRunConfig {
     args: Option<Vec<String>>,
 }
 
-pub(crate) fn check_workspace(root: impl AsRef<Path>) -> Result<WorkspaceCheckResult> {
+pub fn check_workspace(root: impl AsRef<Path>) -> Result<WorkspaceCheckResult> {
     let root = root.as_ref();
 
     let root = if root.is_file() {

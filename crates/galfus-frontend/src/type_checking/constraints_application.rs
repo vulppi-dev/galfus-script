@@ -376,8 +376,12 @@ impl<'a> DeclarationTypeChecker<'a> {
         let target_name = self.node_text(constraint_type);
 
         match self.constraint_application(constraint_type) {
-            Ok(_) => {}
+            Ok(_) => (),
             Err(ConstraintApplicationError::InvalidTarget) => {
+                if self.is_valid_generic_bound_type(constraint_type) {
+                    return;
+                }
+
                 self.report_invalid_satisfies_target(constraint_type, target_name.as_str());
             }
             Err(ConstraintApplicationError::GenericArgumentCountMismatch {
@@ -395,6 +399,193 @@ impl<'a> DeclarationTypeChecker<'a> {
         }
     }
 
+    pub(super) fn check_generic_parameter_bounds(&mut self, node: NodeId) {
+        let Some(syntax_node) = self.graph.syntax().node(node) else {
+            return;
+        };
+
+        if syntax_node.kind() == SyntaxNodeKind::FunctionItem {
+            for parameter in self.direct_generic_parameters(node) {
+                let has_constraint = self
+                    .graph
+                    .syntax()
+                    .first_child_of_kind(parameter, SyntaxNodeKind::GenericParameterConstraint)
+                    .is_some();
+
+                if has_constraint {
+                    continue;
+                }
+
+                let name = self
+                    .graph
+                    .syntax()
+                    .first_child_of_kind(parameter, SyntaxNodeKind::Identifier)
+                    .map(|identifier| self.node_text(identifier))
+                    .unwrap_or_else(|| "T".to_string());
+
+                self.report_missing_generic_parameter_bound(parameter, name.as_str());
+            }
+        }
+
+        for child in syntax_node.children() {
+            self.check_generic_parameter_bounds(*child);
+        }
+    }
+
+    fn direct_generic_parameters(&self, node: NodeId) -> Vec<NodeId> {
+        let Some(generic_list) = self
+            .graph
+            .syntax()
+            .first_child_of_kind(node, SyntaxNodeKind::GenericParameterList)
+        else {
+            return Vec::new();
+        };
+
+        self.graph
+            .syntax()
+            .node(generic_list)
+            .map(|node| node.children().to_vec())
+            .unwrap_or_default()
+    }
+
+    fn is_valid_generic_bound_type(&mut self, type_node: NodeId) -> bool {
+        let Some(ty) = self.layer.node_type(type_node) else {
+            return false;
+        };
+
+        self.is_valid_generic_bound_type_id(ty)
+    }
+
+    fn is_valid_generic_bound_type_id(&mut self, ty: TypeId) -> bool {
+        let ty = self.resolve_alias_type(ty);
+
+        match self.layer.table().kind(ty).cloned() {
+            Some(TypeKind::Primitive(_)) => true,
+            Some(TypeKind::Array { element }) => self.is_valid_generic_bound_type_id(element),
+            Some(TypeKind::FixedArray { element, .. }) => {
+                self.is_valid_generic_bound_type_id(element)
+            }
+            Some(TypeKind::Union { members }) => members
+                .into_iter()
+                .all(|member| self.is_valid_generic_bound_type_id(member)),
+            Some(TypeKind::Named { symbol }) => self
+                .graph
+                .resolution()
+                .and_then(|resolution| resolution.symbol(symbol))
+                .is_some_and(|symbol| symbol.kind() == SymbolKind::Constraint),
+            Some(TypeKind::GenericInstance { .. }) => false,
+            Some(TypeKind::Error) => true,
+            _ => false,
+        }
+    }
+
+    pub(super) fn validate_generic_substitution_bounds(
+        &mut self,
+        target: NodeId,
+        substitution: &TypeSubstitution,
+    ) {
+        for (&parameter, &argument) in substitution {
+            if self.generic_argument_satisfies_bound(parameter, argument) {
+                continue;
+            }
+
+            let parameter_name = self
+                .symbol_name(parameter)
+                .unwrap_or_else(|| "T".to_string());
+            let bound = self
+                .generic_parameter_bound_type(parameter)
+                .unwrap_or_else(|| self.layer.table_mut().error());
+
+            self.report_generic_argument_bound_mismatch(
+                target,
+                parameter_name.as_str(),
+                bound,
+                argument,
+            );
+        }
+    }
+
+    fn generic_argument_satisfies_bound(&mut self, parameter: SymbolId, argument: TypeId) -> bool {
+        let Some(bound_node) = self.generic_parameter_bound_type_node(parameter) else {
+            return false;
+        };
+
+        if let Ok(application) = self.constraint_application(bound_node) {
+            return self
+                .satisfied_constraint_application(argument, application.constraint_name.as_str())
+                .is_some();
+        }
+
+        let Some(bound) = self.layer.node_type(bound_node) else {
+            return false;
+        };
+
+        self.type_satisfies_generic_bound(argument, bound)
+    }
+
+    pub(super) fn type_satisfies_generic_bound(&mut self, argument: TypeId, bound: TypeId) -> bool {
+        let bound = self.resolve_alias_type(bound);
+
+        match self.layer.table().kind(bound).cloned() {
+            Some(TypeKind::Union { members }) => members
+                .into_iter()
+                .any(|member| self.type_satisfies_generic_bound(argument, member)),
+            Some(TypeKind::Named { symbol }) if self.is_constraint_symbol(symbol) => {
+                let Some(constraint_name) = self.symbol_name(symbol) else {
+                    return false;
+                };
+
+                self.satisfied_constraint_application(argument, constraint_name.as_str())
+                    .is_some()
+            }
+            Some(TypeKind::Error) => true,
+            _ => self.is_assignable(bound, argument),
+        }
+    }
+
+    pub(super) fn is_constraint_symbol(&self, symbol: SymbolId) -> bool {
+        self.graph
+            .resolution()
+            .and_then(|resolution| resolution.symbol(symbol))
+            .is_some_and(|symbol| symbol.kind() == SymbolKind::Constraint)
+    }
+
+    pub(super) fn generic_parameter_bound_type(&mut self, parameter: SymbolId) -> Option<TypeId> {
+        let bound_node = self.generic_parameter_bound_type_node(parameter)?;
+        self.layer.node_type(bound_node)
+    }
+
+    fn generic_parameter_bound_type_node(&self, parameter: SymbolId) -> Option<NodeId> {
+        let root = self.graph.syntax().root()?;
+        self.find_generic_parameter_bound_type_node(root, parameter)
+    }
+
+    fn find_generic_parameter_bound_type_node(
+        &self,
+        node: NodeId,
+        parameter: SymbolId,
+    ) -> Option<NodeId> {
+        let syntax_node = self.graph.syntax().node(node)?;
+
+        if syntax_node.kind() == SyntaxNodeKind::GenericParameter
+            && self.direct_identifier_symbol(node, SymbolKind::GenericParameter) == Some(parameter)
+        {
+            let constraint = self
+                .graph
+                .syntax()
+                .first_child_of_kind(node, SyntaxNodeKind::GenericParameterConstraint)?;
+            return self.first_constraint_type_child(constraint);
+        }
+
+        for child in syntax_node.children() {
+            if let Some(found) = self.find_generic_parameter_bound_type_node(*child, parameter) {
+                return Some(found);
+            }
+        }
+
+        None
+    }
+
     fn first_constraint_type_child(&self, node: NodeId) -> Option<NodeId> {
         let syntax_node = self.graph.syntax().node(node)?;
 
@@ -405,7 +596,13 @@ impl<'a> DeclarationTypeChecker<'a> {
 
             if matches!(
                 child_node.kind(),
-                SyntaxNodeKind::NamedType | SyntaxNodeKind::Path | SyntaxNodeKind::GenericType
+                SyntaxNodeKind::NamedType
+                    | SyntaxNodeKind::Path
+                    | SyntaxNodeKind::GenericType
+                    | SyntaxNodeKind::ArrayType
+                    | SyntaxNodeKind::FixedArrayType
+                    | SyntaxNodeKind::UnionType
+                    | SyntaxNodeKind::TypeNull
             ) {
                 return Some(*child);
             }

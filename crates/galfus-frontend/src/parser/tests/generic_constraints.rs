@@ -49,66 +49,6 @@ fn parse_generic_parameter_constraint_identifier() {
 }
 
 #[test]
-fn parse_generic_parameter_constraint_struct() {
-    let source = source("fn frozen<T: struct>(target: T): T {\n  return target\n}");
-
-    let result = parse(&source);
-
-    assert!(!result.has_errors());
-
-    let syntax = result.graph().syntax();
-
-    let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().first_child().unwrap();
-    let function_node = syntax.node(function).unwrap();
-
-    let generics = function_node.child(1).unwrap();
-    let parameter = syntax.node(generics).unwrap().first_child().unwrap();
-    let parameter_node = syntax.node(parameter).unwrap();
-
-    let constraint = parameter_node.child(1).unwrap();
-    let constraint_node = syntax.node(constraint).unwrap();
-
-    let child = constraint_node.first_child().unwrap();
-    let child_node = syntax.node(child).unwrap();
-
-    assert_eq!(child_node.kind(), SyntaxNodeKind::BasicConstraint);
-    assert_eq!(source.slice(child_node.span()), Some("struct"));
-}
-
-#[test]
-fn parse_generic_parameter_constraint_enum() {
-    let source = source("fn useEnum<T: enum>(value: T): T {\n  return value\n}");
-
-    let result = parse(&source);
-
-    assert!(!result.has_errors());
-
-    let syntax = result.graph().syntax();
-
-    let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().first_child().unwrap();
-    let function_node = syntax.node(function).unwrap();
-
-    let generics = function_node.child(1).unwrap();
-    let parameter = syntax.node(generics).unwrap().first_child().unwrap();
-    let parameter_node = syntax.node(parameter).unwrap();
-
-    let constraint = parameter_node.child(1).unwrap();
-    let child = syntax.node(constraint).unwrap().first_child().unwrap();
-
-    assert_eq!(
-        syntax.node(child).unwrap().kind(),
-        SyntaxNodeKind::BasicConstraint
-    );
-
-    assert_eq!(
-        source.slice(syntax.node(child).unwrap().span()),
-        Some("enum")
-    );
-}
-
-#[test]
 fn parse_generic_parameter_constraint_function_type() {
     let source = source("fn call<T: fn (): null>(callback: T): T {\n  return callback\n}");
 
@@ -203,7 +143,7 @@ fn parse_generic_parameter_constraint_generic_type() {
 
 #[test]
 fn parse_multiple_generic_parameter_constraints() {
-    let source = source("fn pair<T: int, U: struct>(first: T, second: U): T {\n  return first\n}");
+    let source = source("fn pair<T: int, U: bool>(first: T, second: U): T {\n  return first\n}");
 
     let result = parse(&source);
 
@@ -229,7 +169,7 @@ fn parse_multiple_generic_parameter_constraints() {
     );
     assert_eq!(
         source.slice(syntax.node(second).unwrap().span()),
-        Some("U: struct")
+        Some("U: bool")
     );
 }
 

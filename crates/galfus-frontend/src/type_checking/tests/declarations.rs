@@ -163,7 +163,7 @@ struct User {
 fn check_binds_generic_parameter_symbol_type() {
     let (_source, graph, result) = check_source(
         r#"
-fn identity<T>(value: T): T {
+fn identity<T: int>(value: T): T {
   return value
 }
 "#,

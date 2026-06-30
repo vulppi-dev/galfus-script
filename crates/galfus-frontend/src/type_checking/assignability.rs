@@ -74,45 +74,9 @@ impl<'a> DeclarationTypeChecker<'a> {
                 if expected_primitive == actual_primitive {
                     true
                 } else {
-                    let is_expected_int = matches!(
-                        expected_primitive,
-                        crate::PrimitiveType::Int8
-                            | crate::PrimitiveType::Int16
-                            | crate::PrimitiveType::Int32
-                            | crate::PrimitiveType::Int64
-                            | crate::PrimitiveType::Uint8
-                            | crate::PrimitiveType::Uint16
-                            | crate::PrimitiveType::Uint32
-                            | crate::PrimitiveType::Uint64
-                    );
-                    let is_actual_int = matches!(
-                        actual_primitive,
-                        crate::PrimitiveType::Int8
-                            | crate::PrimitiveType::Int16
-                            | crate::PrimitiveType::Int32
-                            | crate::PrimitiveType::Int64
-                            | crate::PrimitiveType::Uint8
-                            | crate::PrimitiveType::Uint16
-                            | crate::PrimitiveType::Uint32
-                            | crate::PrimitiveType::Uint64
-                    );
-                    if is_expected_int && is_actual_int {
-                        true
-                    } else {
-                        let is_expected_float = matches!(
-                            expected_primitive,
-                            crate::PrimitiveType::Float16
-                                | crate::PrimitiveType::Float32
-                                | crate::PrimitiveType::Float64
-                        );
-                        let is_actual_float = matches!(
-                            actual_primitive,
-                            crate::PrimitiveType::Float16
-                                | crate::PrimitiveType::Float32
-                                | crate::PrimitiveType::Float64
-                        );
-                        is_expected_float && is_actual_float
-                    }
+                    (expected_primitive.is_int() && actual_primitive.is_int())
+                        || (expected_primitive.is_uint() && actual_primitive.is_uint())
+                        || (expected_primitive.is_float() && actual_primitive.is_float())
                 }
             }
 

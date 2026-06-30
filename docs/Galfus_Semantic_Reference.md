@@ -31,13 +31,14 @@ This document defines the current semantic model of Galfus Script. It explains h
 25. [Control flow](#25-control-flow)
 26. [`match`](#26-match)
 27. [`instanceof`](#27-instanceof)
-28. [Ownership model](#28-ownership-model)
-29. [Weak fields](#29-weak-fields)
-30. [Module initialization and cycles](#30-module-initialization-and-cycles)
-31. [Runtime panic semantics](#31-runtime-panic-semantics)
-32. [Data forms and behavior](#32-data-forms-and-behavior)
-33. [Lowering and artifact metadata](#33-lowering-and-artifact-metadata)
-34. [Semantic exclusions](#34-semantic-exclusions)
+28. [`typeof`](#28-typeof)
+29. [Ownership model](#29-ownership-model)
+30. [Weak fields](#30-weak-fields)
+31. [Module initialization and cycles](#31-module-initialization-and-cycles)
+32. [Runtime panic semantics](#32-runtime-panic-semantics)
+33. [Data forms and behavior](#33-data-forms-and-behavior)
+34. [Lowering and artifact metadata](#34-lowering-and-artifact-metadata)
+35. [Semantic exclusions](#35-semantic-exclusions)
 
 ---
 
@@ -219,6 +220,16 @@ float16
 float32
 float64
 ```
+
+The names `int`, `uint`, and `float` are primitive type families:
+
+- `int` means `int8 | int16 | int32 | int64`;
+- `uint` means `uint8 | uint16 | uint32 | uint64`;
+- `float` means `float16 | float32 | float64`.
+
+They are compact type-union names for type positions such as generic bounds.
+They are not behavioral constraints and primitives do not satisfy user-defined
+constraints.
 
 There is no core dynamic top type such as `any` or `unknown`.
 
@@ -943,10 +954,40 @@ fn(stamp) Vec2::lengthSq(self: Vec2): float32 {
 Generics are resolved and instantiated by the checker/lowering pipeline.
 
 ```galfus
-fn identity<T>(value: T): T {
+fn identity<T: int>(value: T): T {
   return value
 }
 ```
+
+Function generic parameters require explicit bounds. A bound may be a primitive
+type family, a concrete primitive, an array type, a union, or a named
+constraint:
+
+```galfus
+constraint Stringable {
+  fn toString(): [uint8]
+}
+
+fn stringify(value: int | uint | float | bool | null | [uint8] | Stringable): [uint8] {
+  return instanceof value {
+    [uint8] text => text,
+    Stringable item => item::stringify(),
+    _ => "<value>",
+  }
+}
+
+fn parse<T: int | uint | float | bool | null | [uint8]>(text: [uint8]): T {
+  return typeof T {
+    [uint8] => text,
+    null => null,
+    _ => <T>0,
+  }
+}
+```
+
+There is no implicit `Any` universe. `struct`, `enum`, `tuple`, and `array` are
+not builtin generic constraints. Struct behavior is represented by named
+constraints, while arrays are represented by direct array types.
 
 ### Constraint semantics
 
@@ -957,6 +998,10 @@ constraint Comparable<T> {
   fn compare(self: T, other: T): int32
 }
 ```
+
+Constraint functions are anchored behavior requirements. A struct satisfies them
+with anchored functions such as `fn User::toString()`, and a constrained value
+invokes them through anchor access, for example `value::toString()`.
 
 ### `satisfies`
 
@@ -1196,7 +1241,32 @@ If no branch matches and no default branch exists, the result is `null`.
 
 ---
 
-## 28. Ownership model
+## 28. `typeof`
+
+`typeof` is an expression that dispatches over a specified type, not over a
+value. Its subject is a type expression:
+
+```galfus
+var result = typeof T {
+  int => parseInt(text),
+  uint => parseUint(text),
+  [uint8] => text,
+  User => userText,
+}
+```
+
+When the subject is a generic parameter, each arm pattern must be compatible
+with that parameter's bound. Inside a matching arm, the generic parameter is
+narrowed to the arm type, so values typed as `T` are checked as that concrete
+branch type.
+
+`match` dispatches on value patterns, `instanceof` dispatches on the runtime
+type of a value, and `typeof` dispatches on a type known to the checker/lowering
+pipeline.
+
+---
+
+## 29. Ownership model
 
 Galfus uses an ownership model based on anchors, edges, and weak observers.
 
@@ -1238,7 +1308,7 @@ It prepares compact ownership metadata for lowering.
 
 ---
 
-## 29. Weak fields
+## 30. Weak fields
 
 A weak field does not preserve the lifetime of the referenced value:
 
@@ -1263,7 +1333,7 @@ The frontend records weak field metadata for later ownership validation and lowe
 
 ---
 
-## 30. Module initialization and cycles
+## 31. Module initialization and cycles
 
 Top-level module initialization occurs according to the resolved module graph.
 
@@ -1275,7 +1345,7 @@ Invalid initialization cycles are semantic errors.
 
 ---
 
-## 31. Runtime panic semantics
+## 32. Runtime panic semantics
 
 Runtime failures produce panic.
 
@@ -1294,7 +1364,7 @@ Numeric casts are not panic-producing checked conversions; they are total runtim
 
 ---
 
-## 32. Data forms and behavior
+## 33. Data forms and behavior
 
 The core data forms do not provide built-in behavior.
 
@@ -1312,7 +1382,7 @@ Behavior such as collection helpers, rich text operations, regexp matching, form
 
 ---
 
-## 33. Lowering and artifact metadata
+## 34. Lowering and artifact metadata
 
 The semantic layer produces compact lowering decisions for `.gfb` generation.
 
@@ -1335,7 +1405,7 @@ Alias symbols, enum symbols, source paths, debug names, and rich source reconstr
 
 ---
 
-## 34. Semantic exclusions
+## 35. Semantic exclusions
 
 The semantic model does not include:
 

@@ -80,16 +80,14 @@ Example configuration:
 Basic console and standard input/output stream interaction.
 
 ```galfus
-# Write raw bytes to standard output or standard error (specified by file descriptor id)
-# Returns the number of bytes written, or a negative error code
-fn write(fd: int32, data: [uint8]): int32
+# Read all available bytes from standard input until EOF.
+fn read(): [uint8]
 
-# Read raw bytes from standard input (specified by fd) into the target buffer
-# Returns the number of bytes read, or a negative error code
-fn read(fd: int32, buffer: [uint8]): int32
+# Write raw UTF-8 bytes to standard output.
+fn print(text: [uint8]): null
 
-# Log helper for diagnostic output; logs directly to the target environment's logger/sink
-fn log(message: [uint8]): null
+# Write raw UTF-8 bytes followed by a newline to standard output.
+fn println(text: [uint8]): null
 ```
 
 ### `std/fs`
@@ -198,21 +196,37 @@ These modules do not interact with the host OS directly unless using a configure
 
 ### `text`
 
-Comprehensive text and string utility operations. (Since Galfus strings are UTF-8 `[uint8]` arrays, `text` provides UTF-8 validation and parsing).
+Byte-level text utilities for UTF-8 `[uint8]` arrays. Operations that inspect
+characters currently operate on ASCII byte ranges.
 
-- `fn length(s: [uint8]): int32` - Returns the UTF-8 character length (as opposed to raw byte count).
-- `fn substring(s: [uint8], start: int32, len: int32): [uint8]` - Extract slice based on character offsets.
-- `fn split(s: [uint8], separator: [uint8]): [[uint8]]` - Split a byte array string by a separator.
-- `fn join(parts: [[uint8]], separator: [uint8]): [uint8]` - Join elements with a separator.
-- `fn toUpper(s: [uint8]): [uint8]` / `fn toLower(s: [uint8]): [uint8]` - Case mapping.
+- `fn length(s: [uint8]): int32` - Returns the byte length.
+- `fn concat(a: [uint8], b: [uint8]): [uint8]` - Concatenates two byte arrays.
+- `fn slice(s: [uint8], start: int32, count: int32): [uint8]` - Extracts a byte range.
+- `fn repeat(s: [uint8], n: int32): [uint8]` - Repeats a byte array.
+- `fn startsWith(s: [uint8], prefix: [uint8]): bool` - Checks a byte prefix.
+- `fn endsWith(s: [uint8], suffix: [uint8]): bool` - Checks a byte suffix.
+- `fn trimStart(s: [uint8]): [uint8]` / `fn trimEnd(s: [uint8]): [uint8]` / `fn trim(s: [uint8]): [uint8]` - Trims ASCII whitespace.
+- `fn toUpper(s: [uint8]): [uint8]` / `fn toLower(s: [uint8]): [uint8]` - ASCII case mapping.
 
 ### `format`
 
-String templates, printf formatting, and base-level string conversion.
+Base-level deterministic string conversion.
 
-- `fn sprint(template: [uint8], args: [Any]): [uint8]` - Returns a formatted string.
-- `fn parseInt(s: [uint8]): int64` / `fn parseFloat(s: [uint8]): float64` - Convert text representation to numeric types.
-- `fn toString(val: Any): [uint8]` - Convert standard types to their string representation.
+```galfus
+constraint Stringable {
+  fn stringify(): [uint8],
+}
+
+fn stringify(value: int | uint | float | bool | null | [uint8] | Stringable): [uint8]
+fn parse<T: int | uint | float | bool | null | [uint8]>(s: [uint8]): T
+```
+
+`stringify` returns compact bytes for booleans, `null`, raw `[uint8]`, concrete
+integer widths, and structs that implement the anchored `Stringable` function.
+Float formatting is currently a deterministic placeholder until decimal float
+formatting exists in the rich builtin layer. `parse` currently exposes the
+generic surface and uses `typeof T`; full numeric parsing depends on generic
+specialization and richer format helpers.
 
 ### `json`
 

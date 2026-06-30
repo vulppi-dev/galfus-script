@@ -117,7 +117,8 @@ impl VirtualMachine {
                         });
                     }
                 };
-                let elements = vec![Value::Null; len];
+                let zero = self.zero_value_for_type(element_ty)?;
+                let elements = vec![zero; len];
                 let obj_ref = self.alloc(HeapObject::Array {
                     element_ty,
                     elements,
@@ -268,5 +269,31 @@ impl VirtualMachine {
         }
 
         Ok(ExecutionStep::Continue)
+    }
+
+    /// Returns the zero/default `Value` for a given element `TypeIdx`.
+    /// Used by `NewArray` to fill the backing buffer instead of `Value::Null`.
+    fn zero_value_for_type(&self, type_idx: TypeIdx) -> Result<Value, VmError> {
+        let ty = self
+            .image
+            .types
+            .get(type_idx.raw() as usize)
+            .ok_or(VmError::TypeOutOfBounds { index: type_idx })?;
+
+        Ok(match ty {
+            ImageType::Bool => Value::Bool(false),
+            ImageType::Int8 => Value::Int8(0),
+            ImageType::Int16 => Value::Int16(0),
+            ImageType::Int32 => Value::Int32(0),
+            ImageType::Int64 => Value::Int64(0),
+            ImageType::Uint8 => Value::Uint8(0),
+            ImageType::Uint16 => Value::Uint16(0),
+            ImageType::Uint32 => Value::Uint32(0),
+            ImageType::Uint64 => Value::Uint64(0),
+            ImageType::Float32 => Value::Float32(0.0),
+            ImageType::Float64 => Value::Float64(0.0),
+            // For complex/unknown types fall back to Null.
+            _ => Value::Null,
+        })
     }
 }

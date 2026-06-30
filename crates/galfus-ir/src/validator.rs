@@ -285,5 +285,8 @@ fn validate_rvalue_operands(
         RValue::Len(operand) => {
             validate_operand(operand, func, initialized, errors);
         }
+        RValue::NewArrayZeroed { .. } => {
+            // No operands — size and types are compile-time constants.
+        }
     }
 }

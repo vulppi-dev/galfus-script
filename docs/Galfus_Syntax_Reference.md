@@ -21,7 +21,7 @@ This document defines the current syntax surface of Galfus Script. It describes 
 15. [Choices](#15-choices)
 16. [Functions](#16-functions)
 17. [Stamped functions](#17-stamped-functions)
-18. [Parameters, defaults, rest, and spread](#18-parameters-defaults-rest-and-spread)
+18. [Parameters, defaults and rest](#18-parameters-defaults-and-rest)
 19. [Arrow functions](#19-arrow-functions)
 20. [Anchor functions](#20-anchor-functions)
 21. [Generics](#21-generics)
@@ -35,9 +35,10 @@ This document defines the current syntax surface of Galfus Script. It describes 
 29. [Control flow](#29-control-flow)
 30. [`match`](#30-match)
 31. [`instanceof`](#31-instanceof)
-32. [Weak fields](#32-weak-fields)
-33. [Core exclusions](#33-core-exclusions)
-34. [Integrated example](#34-integrated-example)
+32. [`typeof`](#32-typeof)
+33. [Weak fields](#33-weak-fields)
+34. [Core exclusions](#34-core-exclusions)
+35. [Integrated example](#35-integrated-example)
 
 ---
 
@@ -72,8 +73,8 @@ choice Result<V, F> {
   Err(F),
 }
 
-constraint Stringable<T> {
-  fn toString(self: T): [uint8]
+constraint Stringable {
+  fn toString(): [uint8]
 }
 
 fn main(): null {
@@ -185,8 +186,8 @@ export choice Result<V, F> {
   Err(F),
 }
 
-export constraint Stringable<T> {
-  fn toString(self: T): [uint8]
+export constraint Stringable {
+  fn toString(): [uint8]
 }
 
 export fn sum(a: int32, b: int32): int32 {
@@ -263,6 +264,18 @@ float16
 float32
 float64
 ```
+
+Primitive type families:
+
+```galfus
+int
+uint
+float
+```
+
+`int`, `uint`, and `float` are compact type-family names. They are most useful
+as generic bounds and mean `int8 | int16 | int32 | int64`,
+`uint8 | uint16 | uint32 | uint64`, and `float16 | float32 | float64`.
 
 Boolean and null:
 
@@ -792,7 +805,7 @@ log("hello")
 Generic function:
 
 ```galfus
-fn identity<T>(value: T): T {
+fn identity<T: int>(value: T): T {
   return value
 }
 ```
@@ -958,7 +971,7 @@ struct Box<T> {
 Generic function:
 
 ```galfus
-fn identity<T>(value: T): T {
+fn identity<T: int>(value: T): T {
   return value
 }
 ```
@@ -980,6 +993,35 @@ fn add<T: int>(a: T, b: T): T {
 }
 ```
 
+Function generic parameters must have an explicit bound. Bounds may be primitive
+type families, concrete types, arrays, unions, or named behavioral constraints:
+
+```galfus
+constraint Stringable {
+  fn toString(): [uint8]
+}
+
+fn stringify(value: int | uint | float | bool | null | [uint8] | Stringable): [uint8] {
+  return instanceof value {
+    [uint8] text => text,
+    Stringable item => item::stringify(),
+    _ => "<value>",
+  }
+}
+
+fn parse<T: int | uint | float | bool | null | [uint8]>(text: [uint8]): T {
+  return typeof T {
+    [uint8] => text,
+    null => null,
+    _ => <T>0,
+  }
+}
+```
+
+There is no `Any` bound. `struct`, `enum`, `tuple`, and `array` are not generic
+constraint keywords. Use a named constraint for struct behavior and direct array
+types such as `[uint8]` or `[T]` for arrays.
+
 ---
 
 ## 22. Constraints
@@ -995,8 +1037,22 @@ constraint Identifiable<T> {
 Function requirement:
 
 ```galfus
-constraint Stringable<T> {
-  fn toString(self: T): [uint8]
+constraint Stringable {
+  fn toString(): [uint8]
+}
+```
+
+Constraint functions are anchored behavior requirements. Implementing structs
+provide them through anchored functions, and constrained values call them with
+anchor access:
+
+```galfus
+fn User::toString(): [uint8] {
+  return "user"
+}
+
+fn show(value: Stringable): [uint8] {
+  return value::toString()
 }
 ```
 
@@ -1382,7 +1438,27 @@ instanceof value {
 
 ---
 
-## 32. Weak fields
+## 32. `typeof`
+
+`typeof` selects a branch from a specified type instead of from a runtime value:
+
+```galfus
+typeof T {
+  int => parseInt(text),
+  uint => parseUint(text),
+  [uint8] => text,
+  User => userText,
+  _ => fallback,
+}
+```
+
+The subject after `typeof` is a type. It may be a generic parameter, primitive
+family, array type, struct, enum, choice, or constraint. Type patterns must be
+compatible with the specified type or with the generic parameter bound.
+
+---
+
+## 33. Weak fields
 
 Weak field shape:
 
@@ -1404,7 +1480,7 @@ struct Node {
 
 ---
 
-## 33. Core exclusions
+## 34. Core exclusions
 
 The following syntax does not exist:
 
@@ -1422,7 +1498,7 @@ Tuples, choices, enums, arrays, structs, and string literals are data forms. Ric
 
 ---
 
-## 34. Integrated example
+## 35. Integrated example
 
 ```galfus
 import text from "text"
@@ -1438,8 +1514,8 @@ export struct User {
   age: int32 = 0,
 }
 
-constraint Stringable<T> {
-  fn toString(self: T): [uint8]
+constraint Stringable {
+  fn toString(): [uint8]
 }
 
 fn User::toString(self: User): [uint8] {

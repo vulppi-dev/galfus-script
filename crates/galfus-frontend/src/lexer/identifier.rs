@@ -21,6 +21,7 @@ impl Lexer<'_> {
             "satisfies" => TokenKind::Satisfies,
             "match" => TokenKind::Match,
             "instanceof" => TokenKind::Instanceof,
+            "typeof" => TokenKind::Typeof,
             "if" => TokenKind::If,
             "else" => TokenKind::Else,
             "for" => TokenKind::For,

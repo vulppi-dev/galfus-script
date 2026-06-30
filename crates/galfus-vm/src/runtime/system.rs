@@ -78,6 +78,10 @@ impl VirtualMachine {
                 let val = self.read_reg(src)?;
                 self.execute_write(val)?;
             }
+            Instruction::Read { dest } => {
+                let value = self.execute_read()?;
+                self.write_reg(dest, value)?;
+            }
             Instruction::Len { dest, src } => {
                 let val = self.read_reg(src)?;
                 if let Value::Object(obj_ref) = val {

@@ -81,6 +81,8 @@ impl<'a> DeclarationTypeChecker<'a> {
                 }
             }
 
+            self.validate_generic_substitution_bounds(node, &substitutions);
+
             let substituted_type =
                 self.substitute_generic_expression_type(target_type, &substitutions);
             match self.layer.table().kind(substituted_type).cloned() {

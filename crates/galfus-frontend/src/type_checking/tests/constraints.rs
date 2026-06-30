@@ -174,6 +174,61 @@ fn User::name(): [uint8] {
 }
 
 #[test]
+fn check_accepts_constraint_function_value_anchor_call() {
+    let (_source, _graph, result) = check_source(
+        r#"
+constraint Stringable {
+  fn stringify(): [uint8],
+}
+
+struct User satisfies Stringable {
+  name: [uint8],
+}
+
+fn User::stringify(): [uint8] {
+  return "Ana"
+}
+
+fn show(value: Stringable): [uint8] {
+  return value::stringify()
+}
+"#,
+    );
+
+    assert!(!result.has_errors());
+}
+
+#[test]
+fn check_reports_constraint_function_dot_call_as_unknown_member() {
+    let source = source(
+        r#"
+constraint Stringable {
+  fn stringify(): [uint8],
+}
+
+fn show(value: Stringable): [uint8] {
+  return value.stringify()
+}
+"#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.into_graph();
+    let result = check_declaration_types(&source, &graph);
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::UnknownMember.as_code()
+            && diagnostic.message().contains("has no member `stringify`")
+    }));
+}
+
+#[test]
 fn check_reports_missing_constraint_function() {
     let source = source(
         r#"

@@ -322,6 +322,9 @@ pub enum Instruction {
     Write {
         src: Reg,
     },
+    Read {
+        dest: Reg,
+    },
     Len {
         dest: Reg,
         src: Reg,

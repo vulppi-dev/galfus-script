@@ -287,4 +287,62 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
             .push(Instruction::Assign(temp_id, RValue::NewTuple(ty, elements)));
         Operand::Local(temp_id)
     }
+
+    /// Lower `new([T; N])` / `new([T; N], shared)`.
+    ///
+    /// child 0 — `FixedArrayType` or `ArrayType` node  
+    /// child 1 — optional storage-tag `Identifier` (e.g. `shared`), currently stored
+    ///            in `StorageMetadata` but not yet acted upon by the VM.
+    pub(super) fn lower_new_array_expression(
+        &mut self,
+        expr_id: NodeId,
+        node: &SyntaxNode,
+        _statements: &mut Vec<MirBody>,
+    ) -> Operand {
+        let type_layer = self.builder.type_result.layer();
+
+        // The full array type (FixedArray TypeId) — used as the RValue's type tag.
+        let array_type = type_layer
+            .node_type(expr_id)
+            .unwrap_or_else(|| TypeId::new(0));
+
+        // Resolve element type and static size from FixedArrayType.
+        let resolved = self.builder.resolve_alias_type(array_type);
+        let (element_type, size) =
+            match type_layer.table().kind(resolved) {
+                Some(TypeKind::FixedArray { element, size: galfus_frontend::ArraySize::Known(n) }) => {
+                    (*element, *n as usize)
+                }
+                Some(TypeKind::Array { element }) => {
+                    // Dynamic array — size 0; caller must rely on runtime resize.
+                    (*element, 0)
+                }
+                _ => return Operand::Constant(Constant::Null),
+            };
+
+        // Optional second child: storage tag identifier (e.g. `shared`).
+        let storage = if node.child_count() > 1 {
+            let storage_ident = node.child(1).unwrap();
+            let tag = self.builder.node_text(storage_ident);
+            if tag == "shared" {
+                StorageMetadata::Shared
+            } else {
+                StorageMetadata::Local
+            }
+        } else {
+            StorageMetadata::Local
+        };
+
+        let temp_id = self.declare_local(None, array_type);
+        self.current_instructions.push(Instruction::Assign(
+            temp_id,
+            RValue::NewArrayZeroed {
+                array_type,
+                element_type,
+                size,
+                storage,
+            },
+        ));
+        Operand::Local(temp_id)
+    }
 }

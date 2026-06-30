@@ -33,6 +33,8 @@ impl<'a> DeclarationTypeChecker<'a> {
             .zip(argument_types)
             .collect::<GenericSubstitution>();
 
+        self.validate_generic_substitution_bounds(node, &substitution);
+
         Some(self.substitute_generic_expression_type(target_type, &substitution))
     }
 

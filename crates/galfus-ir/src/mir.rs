@@ -130,6 +130,16 @@ pub enum RValue {
     },
     NewArray(TypeId, Vec<Operand>),
     NewArrayDynamic(TypeId, Vec<ArrayLiteralElement>),
+    /// Zero-initialised allocation: `new([T; N])` or `new([T; N], shared)`.
+    /// `array_type` is the full `FixedArray` or `Array` TypeId.
+    /// `element_type` is the element TypeId (for zero-value generation).
+    /// `size` is the known compile-time length.
+    NewArrayZeroed {
+        array_type: TypeId,
+        element_type: TypeId,
+        size: usize,
+        storage: StorageMetadata,
+    },
     NewTuple(TypeId, Vec<Operand>),
     MemberAccess(Operand, String),
     ArrayIndex(Operand, Operand),

@@ -9,7 +9,7 @@ impl Parser {
         self.skip_newlines();
 
         if self.at(&TokenKind::LeftParen) {
-            return self.parse_typed_struct_literal_after_new(new_token);
+            return self.parse_typed_new_after_paren(new_token);
         }
 
         let fields = self.parse_struct_literal_field_list()?;
@@ -20,18 +20,54 @@ impl Parser {
         Some(self.add_node(SyntaxNodeKind::InferredStructLiteral, span, vec![fields]))
     }
 
-    pub(super) fn parse_typed_struct_literal_after_new(
-        &mut self,
-        new_token: Token,
-    ) -> Option<NodeId> {
+    /// Dispatches after seeing `new(` — produces either a `StructLiteral` or a
+    /// `NewArrayExpression` depending on what type was parsed.
+    pub(super) fn parse_typed_new_after_paren(&mut self, new_token: Token) -> Option<NodeId> {
         self.expect(TokenKind::LeftParen)?;
 
         self.skip_newlines();
 
-        let target = self.parse_named_type_or_path()?;
+        let type_node = self.parse_type()?;
 
         self.skip_newlines();
 
+        // Check if this is an array / fixed-array type — if so, produce
+        // `NewArrayExpression` instead of a struct literal.
+        let type_kind = self
+            .graph
+            .syntax()
+            .node(type_node)
+            .map(|n| n.kind())
+            .unwrap_or(SyntaxNodeKind::NamedType);
+
+        if matches!(
+            type_kind,
+            SyntaxNodeKind::ArrayType | SyntaxNodeKind::FixedArrayType
+        ) {
+            // Optional second argument: storage tag (e.g. `shared`)
+            let storage = if self.at(&TokenKind::Comma) {
+                self.bump();
+                self.skip_newlines();
+                Some(self.parse_identifier()?)
+            } else {
+                None
+            };
+
+            self.skip_newlines();
+
+            let close = self.expect(TokenKind::RightParen)?;
+
+            let span = Span::cover(new_token.span(), close.span()).unwrap_or(new_token.span());
+
+            let mut children = vec![type_node];
+            if let Some(storage_ident) = storage {
+                children.push(storage_ident);
+            }
+
+            return Some(self.add_node(SyntaxNodeKind::NewArrayExpression, span, children));
+        }
+
+        // Struct path: existing behaviour.
         self.expect(TokenKind::RightParen)?;
 
         self.skip_newlines();
@@ -41,7 +77,7 @@ impl Parser {
         let span =
             Span::cover(new_token.span(), self.node_span(fields)).unwrap_or(new_token.span());
 
-        Some(self.add_node(SyntaxNodeKind::StructLiteral, span, vec![target, fields]))
+        Some(self.add_node(SyntaxNodeKind::StructLiteral, span, vec![type_node, fields]))
     }
 
     pub(super) fn parse_arrow_function_expression(&mut self) -> Option<NodeId> {
@@ -246,5 +282,22 @@ impl Parser {
             span,
             vec![subject, arms],
         ))
+    }
+
+    pub(super) fn parse_typeof_expression(&mut self) -> Option<NodeId> {
+        let typeof_token = self.expect(TokenKind::Typeof)?;
+
+        self.skip_newlines();
+
+        let subject = self.parse_type()?;
+
+        self.skip_newlines();
+
+        let arms = self.parse_typeof_arm_list()?;
+
+        let span =
+            Span::cover(typeof_token.span(), self.node_span(arms)).unwrap_or(typeof_token.span());
+
+        Some(self.add_node(SyntaxNodeKind::TypeofExpression, span, vec![subject, arms]))
     }
 }

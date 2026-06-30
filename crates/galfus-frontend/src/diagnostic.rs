@@ -124,6 +124,8 @@ pub enum TypeDiagnosticCode {
     IncompatibleMatchArmType,
     InvalidInstanceofPatternType,
     IncompatibleInstanceofArmType,
+    InvalidTypeofPatternType,
+    IncompatibleTypeofArmType,
     InvalidSatisfiesTarget,
     MissingConstraintField,
     ConstraintFieldTypeMismatch,
@@ -193,6 +195,8 @@ impl DiagnosticCodeKind for TypeDiagnosticCode {
             Self::InvalidStructExpansionTarget => "T0043",
             Self::InvalidStructSpreadTarget => "T0044",
             Self::RestrictedBuiltinSymbol => "T0045",
+            Self::InvalidTypeofPatternType => "T0046",
+            Self::IncompatibleTypeofArmType => "T0047",
         }
     }
 
@@ -224,6 +228,8 @@ impl DiagnosticCodeKind for TypeDiagnosticCode {
             Self::IncompatibleMatchArmType => "incompatible match arm type",
             Self::InvalidInstanceofPatternType => "invalid instanceof pattern type",
             Self::IncompatibleInstanceofArmType => "incompatible instanceof arm type",
+            Self::InvalidTypeofPatternType => "invalid typeof pattern type",
+            Self::IncompatibleTypeofArmType => "incompatible typeof arm type",
             Self::InvalidSatisfiesTarget => "invalid satisfies target",
             Self::MissingConstraintField => "missing constraint field",
             Self::ConstraintFieldTypeMismatch => "constraint field type mismatch",

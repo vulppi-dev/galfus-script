@@ -2,6 +2,7 @@ use super::*;
 
 struct BufferTarget {
     buffer: std::sync::Arc<std::sync::Mutex<Vec<u8>>>,
+    input: std::sync::Arc<std::sync::Mutex<Vec<u8>>>,
 }
 
 impl galfus_target::TargetCapabilityProvider for BufferTarget {
@@ -15,7 +16,14 @@ impl galfus_target::TargetCapabilityProvider for BufferTarget {
                 buf.extend_from_slice(data);
                 Ok(galfus_target::TargetResult::Success)
             }
-            galfus_target::TargetCall::Read => Ok(galfus_target::TargetResult::ReadByte(None)),
+            galfus_target::TargetCall::Read => {
+                let mut input = self.input.lock().unwrap();
+                if input.is_empty() {
+                    Ok(galfus_target::TargetResult::ReadByte(None))
+                } else {
+                    Ok(galfus_target::TargetResult::ReadByte(Some(input.remove(0))))
+                }
+            }
         }
     }
 }
@@ -34,12 +42,43 @@ fn test_target_write() {
     let buffer = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
     let target = BufferTarget {
         buffer: buffer.clone(),
+        input: std::sync::Arc::new(std::sync::Mutex::new(Vec::new())),
     };
     let mut vm = VirtualMachine::new(image).with_target(Box::new(target));
     let res = vm.run_function(FuncIdx(0), vec![]).unwrap();
     assert_eq!(res, Value::Null);
     let output = buffer.lock().unwrap();
     assert_eq!(std::str::from_utf8(&output).unwrap(), "42");
+}
+
+#[test]
+fn test_target_read() {
+    let instrs = vec![
+        Instruction::Read { dest: Reg(1) },
+        Instruction::Ret { src: Reg(1) },
+    ];
+    let image = create_test_image(instrs, vec![]);
+    let input = std::sync::Arc::new(std::sync::Mutex::new(b"abc".to_vec()));
+    let target = BufferTarget {
+        buffer: std::sync::Arc::new(std::sync::Mutex::new(Vec::new())),
+        input,
+    };
+    let mut vm = VirtualMachine::new(image).with_target(Box::new(target));
+    let res = vm.run_function(FuncIdx(0), vec![]).unwrap();
+    let arr_ref = match res {
+        Value::Object(r) => r,
+        other => panic!("expected object, got {:?}", other),
+    };
+    let arr_obj = vm.get_object(arr_ref).unwrap();
+    match arr_obj {
+        HeapObject::Array { elements, .. } => {
+            assert_eq!(
+                elements,
+                &vec![Value::Uint8(b'a'), Value::Uint8(b'b'), Value::Uint8(b'c')]
+            );
+        }
+        other => panic!("expected array, got {:?}", other),
+    }
 }
 
 #[test]

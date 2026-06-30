@@ -1,0 +1,136 @@
+// text - pure Galfus byte-level string utilities.
+// All strings are UTF-8 byte arrays.
+
+export fn length(s: [uint8]): int32 {
+  var i: int32 = 0
+  for byte in s {
+    i += 1
+  }
+  return i
+}
+
+export fn concat(a: [uint8], b: [uint8]): [uint8] {
+  var result: [uint8] = ""
+  for byte in a {
+    result = [...result, byte]
+  }
+  for byte in b {
+    result = [...result, byte]
+  }
+  return result
+}
+
+export fn slice(s: [uint8], start: int32, count: int32): [uint8] {
+  var result: [uint8] = ""
+  var len = length(s)
+  var index: int32 = 0
+  var end = start + count
+
+  for byte in s {
+    if index >= start && index < end && index < len {
+      result = [...result, byte]
+    }
+    index += 1
+  }
+
+  return result
+}
+
+export fn repeat(s: [uint8], n: int32): [uint8] {
+  var result: [uint8] = ""
+  var i: int32 = 0
+  while i < n {
+    result = concat(result, s)
+    i += 1
+  }
+  return result
+}
+
+export fn startsWith(s: [uint8], prefix: [uint8]): bool {
+  var prefixLen = length(prefix)
+  if prefixLen == 0 {
+    return true
+  }
+  if length(s) < prefixLen {
+    return false
+  }
+  return slice(s, 0, prefixLen) == prefix
+}
+
+export fn endsWith(s: [uint8], suffix: [uint8]): bool {
+  var suffixLen = length(suffix)
+  if suffixLen == 0 {
+    return true
+  }
+
+  var len = length(s)
+  if len < suffixLen {
+    return false
+  }
+
+  return slice(s, len - suffixLen, suffixLen) == suffix
+}
+
+fn isAsciiSpace(byte: uint8): bool {
+  var code = <int32>byte
+  return code == 32 || code == 9 || code == 10 || code == 13
+}
+
+export fn trimStart(s: [uint8]): [uint8] {
+  var start: int32 = 0
+  var scanning = true
+
+  for byte in s {
+    if scanning && isAsciiSpace(byte) {
+      start += 1
+    } else {
+      scanning = false
+    }
+  }
+
+  return slice(s, start, length(s) - start)
+}
+
+export fn trimEnd(s: [uint8]): [uint8] {
+  var end: int32 = 0
+  var index: int32 = 0
+
+  for byte in s {
+    if !isAsciiSpace(byte) {
+      end = index + 1
+    }
+    index += 1
+  }
+
+  return slice(s, 0, end)
+}
+
+export fn trim(s: [uint8]): [uint8] {
+  return trimEnd(trimStart(s))
+}
+
+export fn toUpper(s: [uint8]): [uint8] {
+  var result: [uint8] = ""
+  for byte in s {
+    var code = <int32>byte
+    if code >= 97 && code <= 122 {
+      result = [...result, <uint8>(code - 32)]
+    } else {
+      result = [...result, byte]
+    }
+  }
+  return result
+}
+
+export fn toLower(s: [uint8]): [uint8] {
+  var result: [uint8] = ""
+  for byte in s {
+    var code = <int32>byte
+    if code >= 65 && code <= 90 {
+      result = [...result, <uint8>(code + 32)]
+    } else {
+      result = [...result, byte]
+    }
+  }
+  return result
+}

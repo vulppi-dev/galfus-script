@@ -1,6 +1,6 @@
 use galfus_core::{NodeId, SymbolId, TypeId};
 
-use crate::{PathReferenceKind, SymbolKind, SyntaxNodeKind};
+use crate::{PathReferenceKind, SymbolKind, SyntaxNodeKind, TypeKind};
 
 use super::DeclarationTypeChecker;
 
@@ -14,12 +14,15 @@ struct VariantPayload {
 impl<'a> DeclarationTypeChecker<'a> {
     pub(super) fn infer_path_variant_expression_type(&mut self, node: NodeId) -> Option<TypeId> {
         let resolution = self.graph.resolution()?;
-        let kind = resolution.path_reference_kind(node)?;
+        let Some(kind) = resolution.path_reference_kind(node) else {
+            return self.infer_value_anchor_path_type(node);
+        };
 
         match kind {
             PathReferenceKind::EnumVariant => self.infer_enum_variant_path_type(node),
             PathReferenceKind::ChoiceVariant => self.infer_choice_variant_path_type(node),
             PathReferenceKind::AnchorFunction => self.infer_anchor_function_path_type(node),
+            PathReferenceKind::ConstraintMember => self.infer_constraint_member_path_type(node),
             _ => None,
         }
     }
@@ -113,6 +116,57 @@ impl<'a> DeclarationTypeChecker<'a> {
 
         self.layer.bind_node_type(node, ty);
         Some(ty)
+    }
+
+    fn infer_constraint_member_path_type(&mut self, node: NodeId) -> Option<TypeId> {
+        let resolution = self.graph.resolution()?;
+        let member_symbol = resolution.path_reference_symbol(node)?;
+        let ty = self.layer.symbol_type(member_symbol)?;
+
+        self.layer.bind_node_type(node, ty);
+        Some(ty)
+    }
+
+    fn infer_value_anchor_path_type(&mut self, node: NodeId) -> Option<TypeId> {
+        let target = self.graph.syntax().child(node, 0)?;
+        let member = self.graph.syntax().child(node, 1)?;
+        let target_type = self.infer_expression_type(target)?;
+        let member_name = self.node_text(member);
+        let member_type =
+            self.constraint_function_type_for_value_anchor(target_type, member_name.as_str())?;
+
+        self.layer.bind_node_type(node, member_type);
+        Some(member_type)
+    }
+
+    fn constraint_function_type_for_value_anchor(
+        &self,
+        target_type: TypeId,
+        member_name: &str,
+    ) -> Option<TypeId> {
+        let target_type = self.resolve_alias_type(target_type);
+        let TypeKind::Named { symbol } = self.layer.table().kind(target_type)? else {
+            return None;
+        };
+
+        let resolution = self.graph.resolution()?;
+        let symbol_data = resolution.symbol(*symbol)?;
+
+        if symbol_data.kind() != SymbolKind::Constraint {
+            return None;
+        }
+
+        let member_scope = resolution.member_scope(*symbol)?;
+        let member_symbol = resolution
+            .scope(member_scope)
+            .and_then(|scope| scope.symbol(member_name))?;
+        let member_symbol_data = resolution.symbol(member_symbol)?;
+
+        if member_symbol_data.kind() != SymbolKind::ConstraintFunction {
+            return None;
+        }
+
+        self.layer.symbol_type(member_symbol)
     }
 
     fn choice_variant_payload(&mut self, node: NodeId) -> Option<VariantPayload> {

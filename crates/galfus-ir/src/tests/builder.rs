@@ -85,6 +85,44 @@ fn test_mir_serialization() {
 }
 
 #[test]
+fn test_mir_builder_lowers_concrete_typeof_branch() {
+    let source_id = SourceId::new(0);
+    let code = r#"
+        fn label(): [uint8] {
+            return typeof int32 {
+                int => "number",
+                _ => "other",
+            }
+        }
+    "#;
+    let source = SourceFile::new(source_id, "test.gfs".to_string(), code.to_string());
+
+    let parse_result = parse(&source);
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    let graph = resolve_result.into_graph();
+
+    assert!(!graph.has_errors(), "Parse or resolve errors occurred");
+
+    let type_result = check_declaration_types(&source, &graph);
+    assert!(!type_result.has_errors(), "Typecheck errors occurred");
+
+    let builder = builder::MirBuilder::new(&graph, &type_result, code);
+    let mir_module = builder.build();
+
+    let func = &mir_module.functions[0];
+
+    match &func.body {
+        MirBody::BasicBlock(bb) => match &bb.terminator {
+            Terminator::Return(Some(Operand::Constant(Constant::String(value)))) => {
+                assert_eq!(value, "number");
+            }
+            other => panic!("Unexpected terminator: {:?}", other),
+        },
+        other => panic!("Expected basic block body, found {:?}", other),
+    }
+}
+
+#[test]
 fn test_mir_builder_phase1() {
     let source_id = SourceId::new(0);
     let code = r#"

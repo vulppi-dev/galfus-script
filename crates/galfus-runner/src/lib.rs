@@ -20,6 +20,9 @@ use galfus_core::Diagnostic;
 use std::path::{Path, PathBuf};
 
 const STD_IO_MODULE: &str = "std/io";
+const TEXT_MODULE: &str = "text";
+const FORMAT_MODULE: &str = "format";
+const FORMAT_ANSI_MODULE: &str = "format/ansi";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum ModuleSource {
@@ -75,19 +78,33 @@ pub(crate) struct BuiltinSourceProvider;
 
 impl ModuleSourceProvider for BuiltinSourceProvider {
     fn resolve(&self, _base_module: &Path, source: &str) -> Result<Option<ModuleSource>> {
-        if source == STD_IO_MODULE {
-            return Ok(Some(ModuleSource::Builtin {
-                name: source.to_string(),
-            }));
+        match source {
+            s if s == STD_IO_MODULE
+                || s == TEXT_MODULE
+                || s == FORMAT_MODULE
+                || s == FORMAT_ANSI_MODULE =>
+            {
+                Ok(Some(ModuleSource::Builtin {
+                    name: source.to_string(),
+                }))
+            }
+            _ => Ok(None),
         }
-
-        Ok(None)
     }
 
     fn read(&self, source: &ModuleSource) -> Result<String> {
         match source {
             ModuleSource::Builtin { name } if name == STD_IO_MODULE => {
                 Ok(galfus_builtins::STD_IO_SOURCE.to_string())
+            }
+            ModuleSource::Builtin { name } if name == TEXT_MODULE => {
+                Ok(galfus_builtins::TEXT_SOURCE.to_string())
+            }
+            ModuleSource::Builtin { name } if name == FORMAT_MODULE => {
+                Ok(galfus_builtins::FORMAT_SOURCE.to_string())
+            }
+            ModuleSource::Builtin { name } if name == FORMAT_ANSI_MODULE => {
+                Ok(galfus_builtins::FORMAT_ANSI_SOURCE.to_string())
             }
             ModuleSource::Builtin { name } => Err(anyhow::anyhow!("unknown builtin `{name}`")),
             ModuleSource::File(_) => unreachable!("builtin provider received file source"),
@@ -313,8 +330,7 @@ pub fn run_project(path: &str, cli_args: &[String]) -> Result<()> {
     let _ = std::fs::remove_dir(&tmp_dir);
 
     let module_name = module_image.name.clone();
-    let mut runtime =
-        galfus_runtime::Runtime::new(Box::new(galfus_target::DefaultTargetCapabilityProvider));
+    let mut runtime = galfus_runtime::Runtime::new(Box::new(galfus_target::NativeTarget));
     runtime.loader().load(module_image);
 
     config_args.extend(cli_args.to_vec());

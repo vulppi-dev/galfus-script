@@ -117,9 +117,13 @@ impl ModuleLoader {
     }
 
     pub(crate) fn load_module(&mut self, path: PathBuf) -> Result<usize> {
-        let source = if path == Path::new(STD_IO_MODULE) {
+        let source = if path == Path::new(STD_IO_MODULE)
+            || path == Path::new(TEXT_MODULE)
+            || path == Path::new(FORMAT_MODULE)
+            || path == Path::new(FORMAT_ANSI_MODULE)
+        {
             ModuleSource::Builtin {
-                name: STD_IO_MODULE.to_string(),
+                name: path.to_string_lossy().to_string(),
             }
         } else {
             ModuleSource::File(path)
@@ -475,6 +479,9 @@ fn is_relative_import(source: &str) -> bool {
 
 fn is_builtin_import(source: &str) -> bool {
     source == STD_IO_MODULE
+        || source == TEXT_MODULE
+        || source == FORMAT_MODULE
+        || source == FORMAT_ANSI_MODULE
 }
 
 fn is_resolvable_import(source: &str) -> bool {

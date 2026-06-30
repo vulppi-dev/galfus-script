@@ -53,6 +53,52 @@ impl<'a> DeclarationTypeChecker<'a> {
         ));
     }
 
+    pub(super) fn report_invalid_typeof_pattern_type(
+        &mut self,
+        pattern: NodeId,
+        expected: TypeId,
+        actual: TypeId,
+    ) {
+        let span = self
+            .graph
+            .syntax()
+            .node(pattern)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        let expected = self.layer.table().describe(expected);
+        let actual = self.layer.table().describe(actual);
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+            TypeDiagnosticCode::InvalidTypeofPatternType,
+            format!("typeof pattern must be compatible with `{expected}`, got `{actual}`"),
+            span,
+        ));
+    }
+
+    pub(super) fn report_incompatible_typeof_arm_type(
+        &mut self,
+        body: NodeId,
+        expected: TypeId,
+        actual: TypeId,
+    ) {
+        let span = self
+            .graph
+            .syntax()
+            .node(body)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        let expected = self.layer.table().describe(expected);
+        let actual = self.layer.table().describe(actual);
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+            TypeDiagnosticCode::IncompatibleTypeofArmType,
+            format!("typeof arm body must be compatible with `{expected}`, got `{actual}`"),
+            span,
+        ));
+    }
+
     pub(super) fn report_invalid_satisfies_target(&mut self, target: NodeId, target_name: &str) {
         let span = self
             .graph
@@ -231,6 +277,51 @@ impl<'a> DeclarationTypeChecker<'a> {
         self.diagnostics.push(Diagnostic::error_with_message(
             TypeDiagnosticCode::GenericArgumentCountMismatch,
             format!("expected {expected} generic argument(s), got {actual}"),
+            span,
+        ));
+    }
+
+    pub(super) fn report_missing_generic_parameter_bound(
+        &mut self,
+        parameter: NodeId,
+        parameter_name: &str,
+    ) {
+        let span = self
+            .graph
+            .syntax()
+            .node(parameter)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+            TypeDiagnosticCode::CannotInferType,
+            format!("generic parameter `{parameter_name}` requires an explicit bound"),
+            span,
+        ));
+    }
+
+    pub(super) fn report_generic_argument_bound_mismatch(
+        &mut self,
+        target: NodeId,
+        parameter_name: &str,
+        bound: TypeId,
+        actual: TypeId,
+    ) {
+        let span = self
+            .graph
+            .syntax()
+            .node(target)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        let bound = self.describe_type_for_diagnostic(bound);
+        let actual = self.describe_type_for_diagnostic(actual);
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+            TypeDiagnosticCode::TypeMismatch,
+            format!(
+                "generic argument for `{parameter_name}` must satisfy `{bound}`, got `{actual}`"
+            ),
             span,
         ));
     }

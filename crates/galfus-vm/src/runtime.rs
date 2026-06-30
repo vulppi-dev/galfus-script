@@ -3,16 +3,17 @@ use galfus_image::instruction::{
     ChoiceLayoutIdx, FuncIdx, Instruction, Reg, StructLayoutIdx, TypeIdx,
 };
 use galfus_image::{Constant, ImageType, ModuleImage, OwnershipKind};
-use galfus_target::{DefaultTargetCapabilityProvider, TargetCapabilityProvider};
+use galfus_target::{NativeTarget, TargetCapabilityProvider};
 
 mod casts;
 mod control;
 mod data;
-mod gc;
+mod graph_release;
 mod heap;
 mod objects;
 mod operators;
 mod system;
+mod target_io;
 #[cfg(test)]
 mod tests;
 
@@ -104,7 +105,7 @@ impl VirtualMachine {
             heap: Vec::new(),
             free_slots: Vec::new(),
             call_stack: Vec::new(),
-            context: VmContext::new(Box::new(DefaultTargetCapabilityProvider)),
+            context: VmContext::new(Box::new(NativeTarget)),
         }
     }
 
@@ -277,6 +278,7 @@ impl VirtualMachine {
                 | Instruction::TxCommit { .. }
                 | Instruction::TxRollback
                 | Instruction::Write { .. }
+                | Instruction::Read { .. }
                 | Instruction::Len { .. }
                 | Instruction::CopyArray { .. } => self.execute_system_instruction(instr)?,
             };

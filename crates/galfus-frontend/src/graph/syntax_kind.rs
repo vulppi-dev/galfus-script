@@ -138,6 +138,10 @@ pub enum SyntaxNodeKind {
     InstanceofExpression,
     InstanceofArmList,
     InstanceofArm,
+    TypeofExpression,
+    TypeofArmList,
+    TypeofArm,
+    NewArrayExpression,
 
     // Operators
     UnaryOperator,
@@ -224,6 +228,8 @@ impl SyntaxNodeKind {
                 | SyntaxNodeKind::NullSafeMemberExpression
                 | SyntaxNodeKind::MatchExpression
                 | SyntaxNodeKind::InstanceofExpression
+                | SyntaxNodeKind::TypeofExpression
+                | SyntaxNodeKind::NewArrayExpression
         )
     }
 

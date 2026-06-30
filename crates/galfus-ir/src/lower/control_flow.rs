@@ -178,9 +178,8 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                         args,
                         destination,
                     } => {
-                        if self.ctx.function_names.get(func).map(|s| s.as_str())
-                            == Some("__builtin_write")
-                        {
+                        let builtin_name = self.ctx.function_names.get(func).map(|s| s.as_str());
+                        if builtin_name == Some("__builtin_write") {
                             let arg_reg = self.alloc_temp();
                             self.load_operand_to(&args[0], arg_reg);
                             self.instructions.push(Instruction::Write { src: arg_reg });
@@ -193,6 +192,10 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                             });
 
                             self.free_temps(1);
+                        } else if builtin_name == Some("__builtin_read") {
+                            self.instructions.push(Instruction::Read {
+                                dest: Reg(destination.raw() as u16),
+                            });
                         } else {
                             let start_reg = self.alloc_temp();
                             let mut temp_regs = vec![start_reg];

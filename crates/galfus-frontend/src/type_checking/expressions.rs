@@ -69,6 +69,8 @@ impl<'a> DeclarationTypeChecker<'a> {
 
             SyntaxNodeKind::InstanceofExpression => self.infer_instanceof_expression_type(node),
 
+            SyntaxNodeKind::TypeofExpression => self.infer_typeof_expression_type(node, expected),
+
             SyntaxNodeKind::MemberExpression => self.infer_member_expression_type(node, false),
 
             SyntaxNodeKind::NullSafeMemberExpression => {
@@ -92,8 +94,12 @@ impl<'a> DeclarationTypeChecker<'a> {
                 self.infer_expression_type_with_expected(value, expected)
             }
 
+            SyntaxNodeKind::NewArrayExpression => self.infer_new_array_expression_type(node),
+
             _ => None,
         }?;
+
+        let ty = self.apply_active_type_substitutions(ty);
 
         self.layer.bind_node_type(node, ty);
         Some(ty)
@@ -114,6 +120,7 @@ impl<'a> DeclarationTypeChecker<'a> {
         self.layer
             .symbol_type(symbol)
             .or_else(|| self.infer_unbound_symbol_type(symbol))
+            .map(|ty| self.apply_active_type_substitutions(ty))
     }
 
     fn infer_unbound_symbol_type(&mut self, symbol: SymbolId) -> Option<TypeId> {
@@ -188,5 +195,17 @@ impl<'a> DeclarationTypeChecker<'a> {
     fn infer_cast_expression_type(&mut self, node: NodeId) -> Option<TypeId> {
         let type_node = self.first_type_child(node)?;
         self.layer.node_type(type_node)
+    }
+
+    fn infer_new_array_expression_type(&mut self, node: NodeId) -> Option<TypeId> {
+        // child 0 is the type node ([T] or [T; N]); child 1 (if present) is the
+        // storage identifier — not relevant for the type of the expression.
+        let type_node = self.graph.syntax().child(node, 0)?;
+        // The type resolver processes all type nodes in the graph before expression
+        // inference runs, so node_type should already be populated.
+        // Fall back to first_type_child for safety (e.g. if child 0 is a wrapper).
+        self.layer
+            .node_type(type_node)
+            .or_else(|| self.first_type_child(node).and_then(|n| self.layer.node_type(n)))
     }
 }

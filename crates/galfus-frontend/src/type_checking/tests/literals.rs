@@ -254,6 +254,7 @@ fn check_accepts_builtin_int_and_float_union_arrays() {
     let (_source, _graph, result) = check_source(
         r#"
 var ints: [int] = [1, 2, 3]
+var uints: [uint] = [<uint32>1, <uint32>2, <uint32>3]
 var floats: [float] = [1.0, 2.0, 3.0]
 "#,
     );

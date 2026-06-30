@@ -410,38 +410,12 @@ impl Parser {
         Some(self.add_node(SyntaxNodeKind::GenericParameter, span, children))
     }
 
-    pub(super) fn parse_basic_constraint(&mut self) -> Option<NodeId> {
-        if self.at(&TokenKind::Struct)
-            || self.at(&TokenKind::Enum)
-            || self.at(&TokenKind::Fn)
-            || self.at(&TokenKind::Stamp)
-        {
-            let token = self.bump();
-
-            return Some(self.add_node(SyntaxNodeKind::BasicConstraint, token.span(), Vec::new()));
-        }
-
-        let found = self.bump();
-
-        self.graph.push_diagnostic(Diagnostic::error_with_message(
-            ParserDiagnosticCode::ExpectedType,
-            format!("expected constraint, found `{:?}`", found.kind()),
-            found.span(),
-        ));
-
-        None
-    }
-
     pub(super) fn parse_generic_parameter_constraint(&mut self) -> Option<NodeId> {
         let colon = self.expect(TokenKind::Colon)?;
 
         self.skip_newlines();
 
-        let constraint = if self.at(&TokenKind::Struct) || self.at(&TokenKind::Enum) {
-            self.parse_basic_constraint()?
-        } else {
-            self.parse_type()?
-        };
+        let constraint = self.parse_type()?;
 
         let span = Span::cover(colon.span(), self.node_span(constraint)).unwrap_or(colon.span());
 

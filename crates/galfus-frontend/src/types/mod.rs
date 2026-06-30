@@ -55,6 +55,21 @@ impl PrimitiveType {
             Self::Float64 => "float64",
         }
     }
+
+    pub fn is_int(self) -> bool {
+        matches!(self, Self::Int8 | Self::Int16 | Self::Int32 | Self::Int64)
+    }
+
+    pub fn is_uint(self) -> bool {
+        matches!(
+            self,
+            Self::Uint8 | Self::Uint16 | Self::Uint32 | Self::Uint64
+        )
+    }
+
+    pub fn is_float(self) -> bool {
+        matches!(self, Self::Float16 | Self::Float32 | Self::Float64)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -220,6 +235,29 @@ impl TypeTable {
             .primitive_types
             .get(&primitive)
             .expect("primitive type must be pre-interned")
+    }
+
+    pub fn primitive_family(&mut self, name: &str) -> Option<TypeId> {
+        let members = match name {
+            "int" => PrimitiveType::ALL
+                .into_iter()
+                .filter(|primitive| primitive.is_int())
+                .map(|primitive| self.primitive(primitive))
+                .collect::<Vec<_>>(),
+            "uint" => PrimitiveType::ALL
+                .into_iter()
+                .filter(|primitive| primitive.is_uint())
+                .map(|primitive| self.primitive(primitive))
+                .collect::<Vec<_>>(),
+            "float" => PrimitiveType::ALL
+                .into_iter()
+                .filter(|primitive| primitive.is_float())
+                .map(|primitive| self.primitive(primitive))
+                .collect::<Vec<_>>(),
+            _ => return None,
+        };
+
+        Some(self.intern_union(members))
     }
 
     pub fn intern(&mut self, kind: TypeKind) -> TypeId {

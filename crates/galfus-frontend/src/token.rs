@@ -50,6 +50,7 @@ pub enum TokenKind {
     Satisfies,
     Match,
     Instanceof,
+    Typeof,
     If,
     Else,
     For,

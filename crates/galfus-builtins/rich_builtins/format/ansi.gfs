@@ -1,0 +1,175 @@
+// format/ansi — chalk-style fluent ANSI escape sequence builder
+// Pure Galfus byte construction. No target dependency.
+//
+// Usage:
+//   import ansi from "format/ansi"
+//   import io from "std/io"
+//   io::println(ansi::red()::bold()::apply("Error!"))
+//   io::println(ansi::style()::rgb(255, 140, 0)::apply("Warning"))
+
+struct Style {
+  _bold: bool,
+  _dim: bool,
+  _has_fg: bool,
+  _fg_r: uint8,
+  _fg_g: uint8,
+  _fg_b: uint8,
+  _has_bg: bool,
+  _bg_r: uint8,
+  _bg_g: uint8,
+  _bg_b: uint8,
+}
+
+// Create a blank style with no attributes.
+export fn style(): Style {
+  return new(Style) {
+    _bold: false,
+    _dim: false,
+    _has_fg: false,
+    _fg_r: 0,
+    _fg_g: 0,
+    _fg_b: 0,
+    _has_bg: false,
+    _bg_r: 0,
+    _bg_g: 0,
+    _bg_b: 0,
+  }
+}
+
+export fn Style::bold(self: Style): Style {
+  self._bold = true
+  return self
+}
+
+export fn Style::dim(self: Style): Style {
+  self._dim = true
+  return self
+}
+
+export fn Style::rgb(self: Style, r: uint8, g: uint8, b: uint8): Style {
+  self._has_fg = true
+  self._fg_r = r
+  self._fg_g = g
+  self._fg_b = b
+  return self
+}
+
+export fn Style::bg(self: Style, r: uint8, g: uint8, b: uint8): Style {
+  self._has_bg = true
+  self._bg_r = r
+  self._bg_g = g
+  self._bg_b = b
+  return self
+}
+
+// Append decimal bytes for an uint8 value into a byte array.
+fn appendDecimal(buf: [uint8], n: uint8): [uint8] {
+  var val = <int32>n
+  if val >= 100 {
+    buf = [...buf, <uint8>(val / 100 + 48)]
+    buf = [...buf, <uint8>(val / 10 % 10 + 48)]
+    buf = [...buf, <uint8>(val % 10 + 48)]
+  } else if val >= 10 {
+    buf = [...buf, <uint8>(val / 10 + 48)]
+    buf = [...buf, <uint8>(val % 10 + 48)]
+  } else {
+    buf = [...buf, <uint8>(val + 48)]
+  }
+  return buf
+}
+
+// Wrap `text` with the ANSI escape codes described by `self`, then reset.
+export fn Style::apply(self: Style, text: [uint8]): [uint8] {
+  // ESC = 27, '[' = 91, 'm' = 109, ';' = 59
+  var codes: [uint8] = [27, 91]  // ESC [
+
+  var first = true
+
+  if self._bold {
+    if !first { codes = [...codes, 59] }
+    codes = [...codes, 49]  // '1'
+    first = false
+  }
+
+  if self._dim {
+    if !first { codes = [...codes, 59] }
+    codes = [...codes, 50]  // '2'
+    first = false
+  }
+
+  if self._has_fg {
+    if !first { codes = [...codes, 59] }
+    // 38;2;R;G;B
+    codes = [...codes, 51, 56, 59, 50, 59]
+    codes = appendDecimal(codes, self._fg_r)
+    codes = [...codes, 59]
+    codes = appendDecimal(codes, self._fg_g)
+    codes = [...codes, 59]
+    codes = appendDecimal(codes, self._fg_b)
+    first = false
+  }
+
+  if self._has_bg {
+    if !first { codes = [...codes, 59] }
+    // 48;2;R;G;B
+    codes = [...codes, 52, 56, 59, 50, 59]
+    codes = appendDecimal(codes, self._bg_r)
+    codes = [...codes, 59]
+    codes = appendDecimal(codes, self._bg_g)
+    codes = [...codes, 59]
+    codes = appendDecimal(codes, self._bg_b)
+    first = false
+  }
+
+  if first {
+    // No attributes — skip escape prefix entirely
+    return text
+  }
+
+  codes = [...codes, 109]  // 'm'
+
+  // Reset sequence: ESC[0m
+  var reset: [uint8] = [27, 91, 48, 109]
+
+  var result: [uint8] = ""
+  for byte in codes {
+    result = [...result, byte]
+  }
+  for byte in text {
+    result = [...result, byte]
+  }
+  for byte in reset {
+    result = [...result, byte]
+  }
+  return result
+}
+
+// ── Colour shortcuts ───────────────────────────────────────────────────────────
+
+export fn red(): Style {
+  return style()::rgb(220, 38, 38)
+}
+
+export fn green(): Style {
+  return style()::rgb(34, 197, 94)
+}
+
+export fn yellow(): Style {
+  return style()::rgb(234, 179, 8)
+}
+
+export fn blue(): Style {
+  return style()::rgb(59, 130, 246)
+}
+
+export fn cyan(): Style {
+  return style()::rgb(6, 182, 212)
+}
+
+export fn magenta(): Style {
+  return style()::rgb(168, 85, 247)
+}
+
+export fn white(): Style {
+  return style()::rgb(248, 250, 252)
+}

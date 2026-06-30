@@ -1,0 +1,24 @@
+[package]
+name = "galfus-playground"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Galfus playground API — run Galfus source in-process and capture output"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+galfus-runner = { path = "../galfus-runner" }
+galfus-runtime = { path = "../galfus-runtime" }
+galfus-target = { path = "../galfus-target" }
+galfus-image = { path = "../galfus-image" }
+anyhow = { workspace = true }
+
+# Optional wasm feature
+wasm-bindgen = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
+
+[features]
+default = []
+wasm = ["dep:wasm-bindgen", "dep:serde_json"]

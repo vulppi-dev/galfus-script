@@ -31,6 +31,7 @@ mod returns;
 mod semantics;
 mod structs;
 mod support;
+mod typeof_expressions;
 mod variants;
 
 use std::collections::HashMap;
@@ -55,6 +56,7 @@ struct DeclarationTypeChecker<'a> {
     imported_path_constraints: HashMap<NodeId, LoweredImportedConstraint>,
     imported_symbol_choices: HashMap<SymbolId, LoweredImportedChoice>,
     imported_path_choices: HashMap<NodeId, LoweredImportedChoice>,
+    active_type_substitutions: Vec<HashMap<SymbolId, TypeId>>,
 }
 
 #[derive(Debug, Clone)]
@@ -95,6 +97,7 @@ impl<'a> DeclarationTypeChecker<'a> {
             imported_path_constraints: HashMap::new(),
             imported_symbol_choices: HashMap::new(),
             imported_path_choices: HashMap::new(),
+            active_type_substitutions: Vec::new(),
         }
     }
 
@@ -124,6 +127,7 @@ impl<'a> DeclarationTypeChecker<'a> {
         self.check_return_types(root, None);
         self.check_assignment_types(root);
         self.check_constraint_satisfies(root);
+        self.check_generic_parameter_bounds(root);
         self.check_function_stamps(root);
         self.check_semantic_rules(root);
         self.check_ownership_metadata(root);

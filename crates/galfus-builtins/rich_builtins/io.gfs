@@ -1,4 +1,11 @@
 fn __builtin_write(text: [uint8]): null {}
+fn __builtin_read(): [uint8] {
+  return ""
+}
+
+export fn read(): [uint8] {
+  return __builtin_read()
+}
 
 export fn print(text: [uint8]): null {
   __builtin_write(text)
@@ -6,6 +13,5 @@ export fn print(text: [uint8]): null {
 
 export fn println(text: [uint8]): null {
   __builtin_write(text)
-  __builtin_write([10])
+  __builtin_write([<uint8>10])
 }
-

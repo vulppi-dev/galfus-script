@@ -1,0 +1,82 @@
+// format - pure Galfus formatting helpers.
+
+export choice Result<V, E> {
+  Ok(V),
+  Err(E),
+}
+
+export constraint Stringable {
+  fn stringify(): [uint8],
+}
+
+fn append(a: [uint8], b: [uint8]): [uint8] {
+  var result: [uint8] = ""
+  for byte in a {
+    result = [...result, byte]
+  }
+  for byte in b {
+    result = [...result, byte]
+  }
+  return result
+}
+
+fn stringifyUint64(value: uint64): [uint8] {
+  if value == <uint64>0 {
+    return "0"
+  }
+
+  var n = value
+  var digits: [uint8] = ""
+  while n > <uint64>0 {
+    var digit = <uint8>(n % <uint64>10 + <uint64>48)
+    digits = [digit, ...digits]
+    n = n / <uint64>10
+  }
+  return digits
+}
+
+fn stringifyInt64(value: int64): [uint8] {
+  if value < <int64>0 {
+    return append("-", stringifyUint64(<uint64>-value))
+  }
+  return stringifyUint64(<uint64>value)
+}
+
+fn stringifyFloat64(value: float64): [uint8] {
+  return "<float>"
+}
+
+fn stringifyBool(value: bool): [uint8] {
+  if value {
+    return "true"
+  }
+  return "false"
+}
+
+export fn stringify(value: int | uint | float | bool | null | [uint8] | Stringable): [uint8] {
+  return instanceof value {
+    [uint8] text => text,
+    bool flag => stringifyBool(flag),
+    null => "null",
+    int8 n => stringifyInt64(<int64>n),
+    int16 n => stringifyInt64(<int64>n),
+    int32 n => stringifyInt64(<int64>n),
+    int64 n => stringifyInt64(n),
+    uint8 n => stringifyUint64(<uint64>n),
+    uint16 n => stringifyUint64(<uint64>n),
+    uint32 n => stringifyUint64(<uint64>n),
+    uint64 n => stringifyUint64(n),
+    float16 n => stringifyFloat64(<float64>n),
+    float32 n => stringifyFloat64(<float64>n),
+    float64 n => stringifyFloat64(n),
+    Stringable item => item::stringify(),
+  }
+}
+
+export fn parse<T: int | uint | float | bool | null | [uint8]>(s: [uint8]): T {
+  return typeof T {
+    [uint8] => s,
+    null => null,
+    _ => <T>0,
+  }
+}

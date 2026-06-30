@@ -149,7 +149,7 @@ fn User::label(): Bytes {
   return "user"
 }
 
-fn identity<T>(value: T): T {
+fn identity<T: int | [uint8]>(value: T): T {
   return value
 }
 
