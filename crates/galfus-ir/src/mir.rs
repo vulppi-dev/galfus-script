@@ -84,6 +84,18 @@ pub enum Instruction {
     Assign(LocalId, RValue),
     Drop(LocalId),
     StoreGlobal(String, Operand),
+
+    /// Store a value into an indexed aggregate:
+    ///
+    /// `array[index] = value`
+    ///
+    /// This is a statement-level side effect, not an RValue, because it does
+    /// not produce a value. It lowers directly to bytecode `StoreIndex`.
+    StoreIndex {
+        arr: Operand,
+        idx: Operand,
+        val: Operand,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

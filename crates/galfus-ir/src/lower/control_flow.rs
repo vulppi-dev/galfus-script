@@ -145,6 +145,21 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                             });
                             self.free_temp_if_operand(operand);
                         }
+                        crate::mir::Instruction::StoreIndex { arr, idx, val } => {
+                            let arr_reg = self.operand_reg(arr);
+                            let idx_reg = self.operand_reg(idx);
+                            let val_reg = self.operand_reg(val);
+
+                            self.instructions.push(Instruction::StoreIndex {
+                                arr: arr_reg,
+                                idx: idx_reg,
+                                val: val_reg,
+                            });
+
+                            self.free_temp_if_operand(val);
+                            self.free_temp_if_operand(idx);
+                            self.free_temp_if_operand(arr);
+                        }
                     }
                 }
 

@@ -1,6 +1,6 @@
 use crate::mir::*;
 use galfus_core::{NodeId, SymbolId, TypeId};
-use galfus_frontend::{PrimitiveType, SyntaxNodeKind};
+use galfus_frontend::{PrimitiveType, SyntaxNodeKind, TypeKind};
 
 pub struct FunctionBuilder<'b, 'a> {
     pub(super) builder: &'b mut super::MirBuilder<'a>,
@@ -106,6 +106,82 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
         }
     }
 
+    fn index_assignment_value_type(&self, target: NodeId) -> Option<TypeId> {
+        let syntax = self.builder.graph.syntax();
+        let target_node = syntax.node(target)?;
+
+        if target_node.kind() != SyntaxNodeKind::IndexExpression {
+            return None;
+        }
+
+        let array_node = target_node.child(0)?;
+        let array_type = self.builder.type_result.layer().node_type(array_node)?;
+        let resolved_array_type = self.builder.resolve_alias_type(array_type);
+
+        match self
+            .builder
+            .type_result
+            .layer()
+            .table()
+            .kind(resolved_array_type)
+        {
+            Some(TypeKind::Array { element }) => Some(*element),
+            Some(TypeKind::FixedArray { element, .. }) => Some(*element),
+            _ => self.builder.type_result.layer().node_type(target),
+        }
+    }
+
+    fn lower_index_assignment(
+        &mut self,
+        target: NodeId,
+        value: NodeId,
+        statements: &mut Vec<MirBody>,
+    ) -> bool {
+        let syntax = self.builder.graph.syntax();
+
+        let Some(target_node) = syntax.node(target) else {
+            return false;
+        };
+
+        if target_node.kind() != SyntaxNodeKind::IndexExpression {
+            return false;
+        }
+
+        let Some(array_node) = target_node.child(0) else {
+            return true;
+        };
+
+        let Some(index_node) = target_node.child(1) else {
+            return true;
+        };
+
+        let array_operand = self.lower_expression(array_node, statements);
+        let index_operand = self.lower_expression(index_node, statements);
+        let value_operand = self.lower_expression(value, statements);
+
+        let value_type = self
+            .builder
+            .type_result
+            .layer()
+            .node_type(value)
+            .unwrap_or_else(|| TypeId::new(0));
+
+        let expected_value_type = self
+            .index_assignment_value_type(target)
+            .unwrap_or_else(|| TypeId::new(0));
+
+        let casted_value =
+            self.insert_cast_if_needed(value_operand, value_type, expected_value_type);
+
+        self.current_instructions.push(Instruction::StoreIndex {
+            arr: array_operand,
+            idx: index_operand,
+            val: casted_value,
+        });
+
+        true
+    }
+
     pub(super) fn lower_statement(&mut self, stmt_id: NodeId, statements: &mut Vec<MirBody>) {
         let syntax = self.builder.graph.syntax();
         let Some(node) = syntax.node(stmt_id) else {
@@ -161,6 +237,10 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                 let value = node.child(2);
 
                 if let (Some(target), Some(value)) = (target, value) {
+                    if self.lower_index_assignment(target, value, statements) {
+                        return;
+                    }
+
                     let operand = self.lower_expression(value, statements);
                     let target_ty = self
                         .builder

@@ -111,6 +111,11 @@ fn validate_body(
 
                         validate_operand(operand, func, initialized, errors);
                     }
+                    Instruction::StoreIndex { arr, idx, val } => {
+                        validate_operand(arr, func, initialized, errors);
+                        validate_operand(idx, func, initialized, errors);
+                        validate_operand(val, func, initialized, errors);
+                    }
                 }
             }
 
