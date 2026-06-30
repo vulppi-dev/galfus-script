@@ -202,11 +202,11 @@ fn test_len_and_copy_array() {
     match arr_obj {
         HeapObject::Array { elements, .. } => {
             assert_eq!(elements.len(), 5);
-            assert_eq!(elements[0], Value::Null);
+            assert_eq!(elements[0], Value::Int64(0));
             assert_eq!(elements[1], Value::Int64(10));
             assert_eq!(elements[2], Value::Int64(20));
             assert_eq!(elements[3], Value::Int64(30));
-            assert_eq!(elements[4], Value::Null);
+            assert_eq!(elements[4], Value::Int64(0));
         }
         other => panic!("expected array, got {:?}", other),
     }
