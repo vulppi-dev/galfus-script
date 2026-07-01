@@ -286,30 +286,8 @@ fn resolve_import_target(
     let module = &modules[mod_idx];
     let resolution = module.graph().resolution()?;
     let symbol_id = SymbolId::new(func_id.raw());
+    let node_id = path_call_target_node(func_id).unwrap_or_else(|| NodeId::new(func_id.raw()));
 
-    // 1. Check if symbol_id is a Named Import
-    if let Some(import) = resolution
-        .imports()
-        .iter()
-        .find(|imp| imp.local_symbol() == symbol_id)
-        && let Some(imported_name) = import.imported_name()
-    {
-        let target_idx = import_target_index(modules, mod_idx, import.source())?;
-
-        let target_mod = &modules[target_idx];
-        let target_resolution = target_mod.graph().resolution()?;
-        for export in target_resolution.exports() {
-            if export.name() == imported_name {
-                return Some((
-                    target_idx,
-                    galfus_core::FunctionId::new(export.symbol().raw()),
-                ));
-            }
-        }
-    }
-
-    // 2. Check if func_id is a Namespace Import call target (e.g. NodeId of a PathExpression)
-    let node_id = NodeId::new(func_id.raw());
     if let Some(syntax_node) = module.graph().syntax().node(node_id)
         && syntax_node.kind() == SyntaxNodeKind::PathExpression
         && let Some(root_node) = syntax_node.first_child()
@@ -330,6 +308,28 @@ fn resolve_import_target(
         let target_resolution = target_mod.graph().resolution()?;
         for export in target_resolution.exports() {
             if export.name() == member_name {
+                return Some((
+                    target_idx,
+                    galfus_core::FunctionId::new(export.symbol().raw()),
+                ));
+            }
+        }
+    }
+
+    // Check if symbol_id is a Named Import after PathExpression handling. NodeId
+    // based call targets may numerically collide with imported SymbolIds.
+    if let Some(import) = resolution
+        .imports()
+        .iter()
+        .find(|imp| imp.local_symbol() == symbol_id)
+        && let Some(imported_name) = import.imported_name()
+    {
+        let target_idx = import_target_index(modules, mod_idx, import.source())?;
+
+        let target_mod = &modules[target_idx];
+        let target_resolution = target_mod.graph().resolution()?;
+        for export in target_resolution.exports() {
+            if export.name() == imported_name {
                 return Some((
                     target_idx,
                     galfus_core::FunctionId::new(export.symbol().raw()),
@@ -398,7 +398,7 @@ fn resolve_local_call_target(
     func_id: galfus_core::FunctionId,
 ) -> Option<galfus_core::FunctionId> {
     let module = &modules[mod_idx];
-    let node_id = galfus_core::NodeId::new(func_id.raw());
+    let node_id = path_call_target_node(func_id)?;
     let node = module.graph().syntax().node(node_id)?;
     if node.kind() != SyntaxNodeKind::PathExpression {
         return None;
@@ -421,6 +421,13 @@ fn resolve_local_call_target(
     }
 
     None
+}
+
+const PATH_CALL_TARGET_TAG: u32 = 0x8000_0000;
+
+fn path_call_target_node(func_id: galfus_core::FunctionId) -> Option<galfus_core::NodeId> {
+    let raw = func_id.raw();
+    (raw & PATH_CALL_TARGET_TAG != 0).then(|| galfus_core::NodeId::new(raw & !PATH_CALL_TARGET_TAG))
 }
 
 fn canonical_global_idx(

@@ -28,6 +28,7 @@ fn create_dummy_image(instructions: Vec<Instruction>) -> ModuleImage {
                 offset: 0,
                 ownership: OwnershipKind::Value,
             }],
+            constraints: vec![],
         }],
         choice_layouts: vec![ChoiceLayout {
             name: "Option".to_string(),

@@ -98,21 +98,95 @@ impl VirtualMachine {
                     in_transaction: false,
                 });
             }
+            Instruction::CallMethod {
+                dest: _,
+                obj,
+                name_const,
+                args_start,
+                arg_count,
+            } => {
+                // Resolve method name from constant pool.
+                let method_name = match self
+                    .image
+                    .constants
+                    .constants
+                    .get(name_const.raw() as usize)
+                    .ok_or(VmError::ConstantOutOfBounds { index: name_const })?
+                {
+                    Constant::String(s) => s.clone(),
+                    other => {
+                        return Err(VmError::TypeMismatch {
+                            expected: "string constant for method name".to_string(),
+                            found: format!("{:?}", other),
+                        });
+                    }
+                };
+
+                // Look up a function whose name matches the method name exactly
+                // or ends with `::<method_name>`.
+                let func_idx = self
+                    .image
+                    .functions
+                    .iter()
+                    .position(|f| {
+                        f.name == method_name || f.name.ends_with(&format!("::{method_name}"))
+                    })
+                    .map(|i| FuncIdx(i as u16))
+                    .ok_or_else(|| VmError::TypeMismatch {
+                        expected: format!("function named '{method_name}'"),
+                        found: "no matching function in image".to_string(),
+                    })?;
+
+                let callee = &self.image.functions[func_idx.raw() as usize];
+                if arg_count != callee.param_count {
+                    return Err(VmError::TypeMismatch {
+                        expected: format!("{} arguments", callee.param_count),
+                        found: format!("{} arguments", arg_count),
+                    });
+                }
+
+                let mut callee_regs = vec![
+                    Value::Null;
+                    callee.param_count as usize
+                        + callee.local_count as usize
+                        + callee.temp_count as usize
+                ];
+
+                for (i, dest) in callee_regs.iter_mut().enumerate().take(arg_count as usize) {
+                    // First arg is obj, then args_start + 1, +2, ...
+                    let src_reg = if i == 0 {
+                        obj
+                    } else {
+                        Reg(args_start.raw() + i as u16)
+                    };
+                    *dest = self.read_reg(src_reg)?;
+                }
+
+                self.call_stack.push(CallFrame {
+                    func_idx,
+                    pc: 0,
+                    registers: callee_regs,
+                    in_transaction: false,
+                });
+            }
+
             Instruction::Ret { src } => {
                 let val = self.read_reg(src)?;
                 self.call_stack.pop();
                 if self.call_stack.is_empty() {
                     return Ok(ExecutionStep::Return(val));
                 } else {
-                    // The callee PC was already advanced by 1 in Call,
-                    // so we need to fetch the Call instruction to know where the destination register is!
+                    // The callee PC was already advanced by 1 in Call/CallMethod,
+                    // so we fetch the call instruction to know the destination register.
                     let frame = self.call_stack.last().ok_or(VmError::EmptyCallStack)?;
                     let func = &self.image.functions[frame.func_idx.raw() as usize];
                     let call_pc = frame.pc - 1;
-                    if let Some(Instruction::Call { dest, .. }) = func.instructions.get(call_pc) {
-                        self.write_reg(*dest, val)?;
-                    } else {
-                        return Err(VmError::InvalidJumpTarget { pc });
+                    match func.instructions.get(call_pc) {
+                        Some(Instruction::Call { dest, .. })
+                        | Some(Instruction::CallMethod { dest, .. }) => {
+                            self.write_reg(*dest, val)?;
+                        }
+                        _ => return Err(VmError::InvalidJumpTarget { pc }),
                     }
                 }
             }
@@ -124,10 +198,12 @@ impl VirtualMachine {
                     let frame = self.call_stack.last().ok_or(VmError::EmptyCallStack)?;
                     let func = &self.image.functions[frame.func_idx.raw() as usize];
                     let call_pc = frame.pc - 1;
-                    if let Some(Instruction::Call { dest, .. }) = func.instructions.get(call_pc) {
-                        self.write_reg(*dest, Value::Null)?;
-                    } else {
-                        return Err(VmError::InvalidJumpTarget { pc });
+                    match func.instructions.get(call_pc) {
+                        Some(Instruction::Call { dest, .. })
+                        | Some(Instruction::CallMethod { dest, .. }) => {
+                            self.write_reg(*dest, Value::Null)?;
+                        }
+                        _ => return Err(VmError::InvalidJumpTarget { pc }),
                     }
                 }
             }

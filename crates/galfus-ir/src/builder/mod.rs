@@ -35,7 +35,7 @@ impl<'a> MirBuilder<'a> {
             source_text,
             next_local_id: 0,
             next_block_id: 0,
-            next_specialized_function_id: u32::MAX - 1,
+            next_specialized_function_id: 0x7FFF_FFFF,
             specialisations: HashMap::new(),
             specialized_functions: Vec::new(),
             active_specialisations: HashSet::new(),

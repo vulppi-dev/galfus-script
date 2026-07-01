@@ -160,6 +160,24 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                             self.free_temp_if_operand(idx);
                             self.free_temp_if_operand(arr);
                         }
+                        crate::mir::Instruction::StoreField {
+                            obj,
+                            field_name,
+                            val,
+                        } => {
+                            let obj_reg = self.operand_reg(obj);
+                            let val_reg = self.operand_reg(val);
+                            let field = self.field_idx_for_member(obj, field_name);
+
+                            self.instructions.push(Instruction::StoreField {
+                                obj: obj_reg,
+                                field,
+                                val: val_reg,
+                            });
+
+                            self.free_temp_if_operand(val);
+                            self.free_temp_if_operand(obj);
+                        }
                     }
                 }
 
@@ -186,6 +204,40 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                             .ctx
                             .get_or_create_constant(&crate::mir::Constant::String(msg.clone()));
                         self.instructions.push(Instruction::Panic { const_idx });
+                    }
+                    Terminator::ConstraintCall {
+                        method_name,
+                        obj,
+                        args,
+                        destination,
+                    } => {
+                        // Allocate contiguous registers: obj first, then extra args.
+                        let obj_reg = self.alloc_temp();
+                        self.load_operand_to(obj, obj_reg);
+
+                        let mut extra_regs: Vec<Reg> = Vec::with_capacity(args.len());
+                        for _ in 0..args.len() {
+                            extra_regs.push(self.alloc_temp());
+                        }
+                        for (i, arg_op) in args.iter().enumerate() {
+                            self.load_operand_to(arg_op, extra_regs[i]);
+                        }
+
+                        let name_const =
+                            self.ctx
+                                .get_or_create_constant(&crate::mir::Constant::String(
+                                    method_name.clone(),
+                                ));
+
+                        self.instructions.push(Instruction::CallMethod {
+                            dest: Reg(destination.raw() as u16),
+                            obj: obj_reg,
+                            name_const,
+                            args_start: obj_reg,
+                            arg_count: (1 + args.len()) as u8,
+                        });
+
+                        self.free_temps(1 + extra_regs.len() as u16);
                     }
                     Terminator::None => {}
                     Terminator::Call {

@@ -206,6 +206,43 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
         true
     }
 
+    fn lower_member_assignment(
+        &mut self,
+        target: NodeId,
+        value: NodeId,
+        statements: &mut Vec<MirBody>,
+    ) -> bool {
+        let syntax = self.builder.graph.syntax();
+        let Some(target_node) = syntax.node(target) else {
+            return false;
+        };
+        if target_node.kind() != SyntaxNodeKind::MemberExpression {
+            return false;
+        }
+
+        let Some(obj_node) = target_node.child(0) else {
+            return false;
+        };
+        let Some(member_node) = target_node.child(1) else {
+            return false;
+        };
+
+        let obj_operand = self.lower_expression(obj_node, statements);
+        let value_operand = self.lower_expression(value, statements);
+        let target_ty = self.node_type(target).unwrap_or_else(|| TypeId::new(0));
+        let value_ty = self.node_type(value).unwrap_or_else(|| TypeId::new(0));
+        let casted_value = self.insert_cast_if_needed(value_operand, value_ty, target_ty);
+        let field_name = self.builder.node_text(member_node).to_string();
+
+        self.current_instructions.push(Instruction::StoreField {
+            obj: obj_operand,
+            field_name,
+            val: casted_value,
+        });
+
+        true
+    }
+
     pub(super) fn lower_statement(&mut self, stmt_id: NodeId, statements: &mut Vec<MirBody>) {
         let syntax = self.builder.graph.syntax();
         let Some(node) = syntax.node(stmt_id) else {
@@ -253,6 +290,9 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
 
                 if let (Some(target), Some(value)) = (target, value) {
                     if self.lower_index_assignment(target, value, statements) {
+                        return;
+                    }
+                    if self.lower_member_assignment(target, value, statements) {
                         return;
                     }
 

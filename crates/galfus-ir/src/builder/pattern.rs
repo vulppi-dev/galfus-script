@@ -39,6 +39,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
         let mut bindings = Vec::new();
         let cond_op =
             self.lower_pattern_check(pattern_node, subject, &mut check_statements, &mut bindings);
+        self.flush_current_instructions(&mut check_statements);
 
         let mut then_statements = Vec::new();
         then_statements.extend(bindings);

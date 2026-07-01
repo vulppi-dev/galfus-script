@@ -267,6 +267,29 @@ pub fn validate_module_image(image: &ModuleImage) -> Result<(), Vec<ImageValidat
                         }
                     }
                 }
+                Instruction::CallMethod {
+                    dest,
+                    obj,
+                    name_const,
+                    args_start,
+                    arg_count,
+                } => {
+                    check_reg(dest, &mut errors);
+                    check_reg(obj, &mut errors);
+                    check_const(name_const, &mut errors);
+                    if arg_count > 1 {
+                        check_reg(args_start, &mut errors);
+                        let end_reg = args_start.raw() as u32 + arg_count as u32 - 1;
+                        if end_reg >= max_regs as u32 {
+                            errors.push(ImageValidationError::InvalidRegister {
+                                func_name: func_name.clone(),
+                                instr_idx,
+                                reg: Reg(end_reg as u16),
+                                max_allowed: max_regs,
+                            });
+                        }
+                    }
+                }
                 Instruction::Ret { src } => {
                     check_reg(src, &mut errors);
                 }

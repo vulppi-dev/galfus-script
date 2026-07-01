@@ -490,14 +490,21 @@ fn test_mir_builder_phase3() {
     // Let's check that test_matches contains an If statement/body
     match &match_func.body {
         MirBody::Block { statements, .. } => {
-            let has_if = statements
-                .iter()
-                .any(|stmt| matches!(stmt, MirBody::If { .. }));
+            let has_if = statements.iter().any(contains_if_body);
             assert!(
                 has_if,
                 "Expected match expression to lower to nested If branches"
             );
         }
         other => panic!("Expected block body, found {:?}", other),
+    }
+}
+
+fn contains_if_body(body: &MirBody) -> bool {
+    match body {
+        MirBody::If { .. } => true,
+        MirBody::Block { statements, .. } => statements.iter().any(contains_if_body),
+        MirBody::Loop { body } => contains_if_body(body),
+        MirBody::BasicBlock(_) => false,
     }
 }

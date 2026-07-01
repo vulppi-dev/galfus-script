@@ -255,6 +255,7 @@ impl VirtualMachine {
                 | Instruction::JumpFalse { .. }
                 | Instruction::JumpNull { .. }
                 | Instruction::Call { .. }
+                | Instruction::CallMethod { .. }
                 | Instruction::Ret { .. }
                 | Instruction::RetNull
                 | Instruction::Panic { .. } => self.execute_control_instruction(instr, pc)?,

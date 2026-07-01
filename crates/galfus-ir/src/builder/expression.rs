@@ -125,10 +125,14 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
             }
 
             SyntaxNodeKind::CastExpression => {
+                let type_node = node.child(0).unwrap();
                 let val_node = node.child(1).unwrap();
                 let operand = self.lower_expression(val_node, statements);
 
-                let ty = self.node_type(expr_id).unwrap_or_else(|| TypeId::new(0));
+                let ty = self
+                    .node_type(expr_id)
+                    .or_else(|| self.node_type(type_node))
+                    .unwrap_or_else(|| TypeId::new(0));
 
                 let temp_id = self.declare_local(None, ty);
                 self.current_instructions
@@ -313,9 +317,113 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                     is_namespace_call = true;
                 }
 
-                let target_symbol = self.call_target_symbol(target_node);
-                let mut func_id = if is_namespace_call || anchored_receiver.is_some() {
-                    FunctionId::new(target_node.raw())
+                let target_symbol = self.call_target_symbol(target_node).or_else(|| {
+                    anchored_receiver
+                        .and_then(|receiver| self.anchored_function_symbol(receiver, target_node))
+                });
+
+                // Detect constraint method call: receiver is of a constraint type.
+                // Example: `item::stringify()` where `item: Stringable`.
+                // The receiver is child(0) of the PathExpression; its type resolves to
+                // a Named type whose symbol has SymbolKind::Constraint.
+                let is_constraint_method = syntax
+                    .node(target_node)
+                    .and_then(|target| {
+                        if target.kind() != SyntaxNodeKind::PathExpression {
+                            return None;
+                        }
+                        let receiver_node = target.child(0)?;
+                        // receiver must be a name expression (local variable), not a module namespace
+                        let receiver_kind = syntax.node(receiver_node)?.kind();
+                        if !matches!(
+                            receiver_kind,
+                            SyntaxNodeKind::NameExpression | SyntaxNodeKind::Identifier
+                        ) {
+                            return None;
+                        }
+                        // Look up the type of the receiver
+                        let receiver_ty =
+                            self.builder.type_result.layer().node_type(receiver_node)?;
+                        let receiver_ty = self.builder.resolve_alias_type(receiver_ty);
+                        // Check if the type is Named and its symbol is a Constraint
+                        if let Some(TypeKind::Named { symbol }) =
+                            self.builder.type_result.layer().table().kind(receiver_ty)
+                        {
+                            let sym_data = self.builder.graph.resolution()?.symbol(*symbol)?;
+                            if sym_data.kind() == SymbolKind::Constraint {
+                                return Some(());
+                            }
+                        }
+                        None
+                    })
+                    .is_some();
+
+                if is_constraint_method {
+                    // Extract method name from the PathExpression member node (child 1).
+                    let method_name = syntax
+                        .node(target_node)
+                        .and_then(|n| n.child(1))
+                        .and_then(|member_node| {
+                            syntax.node(member_node).map(|mn| {
+                                let span = mn.span();
+                                if (span.start() as usize) < self.builder.source_text.len()
+                                    && (span.end() as usize) <= self.builder.source_text.len()
+                                {
+                                    self.builder.source_text
+                                        [span.start() as usize..span.end() as usize]
+                                        .to_string()
+                                } else {
+                                    String::new()
+                                }
+                            })
+                        })
+                        .unwrap_or_default();
+
+                    // For `item::stringify()`, the receiver `item` is child(0) of the
+                    // PathExpression. `anchored_receiver` is None (item is NameExpression),
+                    // so args is empty. We must lower the receiver node directly.
+                    let obj = if !args.is_empty() {
+                        // Receiver was already lowered as args[0] (anchored_receiver case).
+                        args[0].clone()
+                    } else if let Some(receiver_node) =
+                        syntax.node(target_node).and_then(|n| n.child(0))
+                    {
+                        self.lower_expression(receiver_node, statements)
+                    } else {
+                        Operand::Constant(Constant::Null)
+                    };
+                    // Extra args (beyond the receiver) are args[1..] or all of args if
+                    // no receiver was pre-lowered.
+                    let extra_args = if !args.is_empty() {
+                        args[1..].to_vec()
+                    } else {
+                        vec![]
+                    };
+
+                    let ty = self.node_type(expr_id).unwrap_or_else(|| TypeId::new(0));
+                    let temp_id = self.declare_local(None, ty);
+
+                    let instructions = std::mem::take(&mut self.current_instructions);
+                    statements.push(MirBody::BasicBlock(BasicBlock {
+                        id: self.builder.next_block(),
+                        instructions,
+                        terminator: Terminator::ConstraintCall {
+                            method_name,
+                            obj,
+                            args: extra_args,
+                            destination: temp_id,
+                        },
+                    }));
+
+                    return Operand::Local(temp_id);
+                }
+
+                let mut func_id = if is_namespace_call {
+                    path_call_function_id(target_node)
+                } else if anchored_receiver.is_some() {
+                    target_symbol
+                        .map(|sym| FunctionId::new(sym.raw()))
+                        .unwrap_or_else(|| path_call_function_id(target_node))
                 } else {
                     target_symbol
                         .map(|sym| FunctionId::new(sym.raw()))
@@ -590,6 +698,35 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
         }
     }
 
+    fn anchored_function_symbol(&self, receiver: NodeId, target: NodeId) -> Option<SymbolId> {
+        let syntax = self.builder.graph.syntax();
+        let resolution = self.builder.graph.resolution()?;
+        let member = syntax.child(target, 1)?;
+        let member_name = self.builder.node_text(member);
+
+        let receiver_ty = self.node_type(receiver)?;
+        let receiver_ty = self.builder.resolve_alias_type(receiver_ty);
+        let TypeKind::Named { symbol } =
+            self.builder.type_result.layer().table().kind(receiver_ty)?
+        else {
+            return None;
+        };
+
+        let receiver_symbol = resolution.symbol(*symbol)?;
+        if receiver_symbol.kind() != SymbolKind::Struct {
+            return None;
+        }
+
+        let function_name = format!("{}::{}", receiver_symbol.name(), member_name);
+        resolution
+            .symbols()
+            .iter()
+            .find(|symbol| {
+                symbol.kind() == SymbolKind::Function && symbol.name() == function_name.as_str()
+            })
+            .map(|symbol| symbol.id())
+    }
+
     fn specialize_generic_call(
         &mut self,
         symbol: SymbolId,
@@ -762,6 +899,12 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
             _ => {}
         }
     }
+}
+
+const PATH_CALL_TARGET_TAG: u32 = 0x8000_0000;
+
+fn path_call_function_id(node: NodeId) -> FunctionId {
+    FunctionId::new(PATH_CALL_TARGET_TAG | node.raw())
 }
 
 pub(crate) fn unescape_string(s: &str) -> String {

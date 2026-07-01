@@ -224,6 +224,33 @@ fn test_run_std_io_print() -> Result<()> {
 }
 
 #[test]
+fn test_run_format_stringify_core_values() -> Result<()> {
+    let root = temp_workspace()?;
+    let file_path = write_file(
+        &root,
+        "main.gfs",
+        r#"
+        import { println } from 'std/io'
+        import { stringify } from 'format'
+
+        export fn main(args: [[uint8]]): int32 {
+            println(stringify(2548))
+            println(stringify(10.42))
+            println(stringify(true))
+            println(stringify(null))
+            return 0
+        }
+        "#,
+    )?;
+
+    let result = run_project(file_path.to_str().unwrap(), &[]);
+    assert!(result.is_ok());
+
+    fs::remove_dir_all(root)?;
+    Ok(())
+}
+
+#[test]
 fn test_run_workspace_with_args() -> Result<()> {
     let root = temp_workspace()?;
     write_file(
@@ -259,6 +286,31 @@ fn test_run_workspace_with_args() -> Result<()> {
     if let Err(ref e) = result {
         println!("test_run_workspace_with_args failed: {:?}", e);
     }
+    assert!(result.is_ok());
+
+    fs::remove_dir_all(root)?;
+    Ok(())
+}
+
+#[test]
+fn test_run_ansi_apply_with_stringify_string() -> Result<()> {
+    let root = temp_workspace()?;
+    let file_path = write_file(
+        &root,
+        "main.gfs",
+        r#"
+        import { println } from 'std/io'
+        import { stringify } from 'format'
+        import { red } from 'format/ansi'
+
+        export fn main(args: [[uint8]]): int32 {
+            println(red()::apply(stringify("Hello")))
+            return 0
+        }
+        "#,
+    )?;
+
+    let result = run_project(file_path.to_str().unwrap(), &[]);
     assert!(result.is_ok());
 
     fs::remove_dir_all(root)?;

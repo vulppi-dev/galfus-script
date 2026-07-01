@@ -100,6 +100,12 @@ impl<'a> LowerCtx<'a> {
                         let layout_idx = self.get_or_create_choice_layout(*symbol);
                         ImageType::Choice(layout_idx)
                     }
+                    Some(SymbolKind::Constraint) => ImageType::Constraint(
+                        resolution
+                            .symbol(*symbol)
+                            .map(|symbol| symbol.name().to_string())
+                            .unwrap_or_default(),
+                    ),
                     _ => ImageType::Null,
                 }
             }
@@ -177,9 +183,79 @@ impl<'a> LowerCtx<'a> {
         self.struct_layouts.push(StructLayout {
             name: struct_name,
             fields,
+            constraints: self.get_struct_constraints(struct_symbol),
         });
 
         next_idx
+    }
+
+    fn get_struct_constraints(&self, struct_symbol: SymbolId) -> Vec<String> {
+        let Some(struct_item) = self.type_item_for_symbol(struct_symbol) else {
+            return Vec::new();
+        };
+        let syntax = self.graph.syntax();
+        let resolution = self.graph.resolution();
+        let Some(satisfies) =
+            syntax.first_child_of_kind(struct_item, SyntaxNodeKind::SatisfiesClause)
+        else {
+            return Vec::new();
+        };
+
+        syntax
+            .node(satisfies)
+            .map(|node| node.children().to_vec())
+            .unwrap_or_default()
+            .into_iter()
+            .filter_map(|constraint_type| {
+                let base = self.constraint_type_base_node(constraint_type)?;
+                resolution
+                    .and_then(|res| res.reference_symbol(base))
+                    .or_else(|| resolution.and_then(|res| res.type_reference_symbol(base)))
+                    .or_else(|| resolution.and_then(|res| res.type_path_reference_symbol(base)))
+                    .and_then(|symbol| resolution.and_then(|res| res.symbol(symbol)))
+                    .filter(|symbol| symbol.kind() == SymbolKind::Constraint)
+                    .map(|symbol| symbol.name().to_string())
+            })
+            .collect()
+    }
+
+    fn type_item_for_symbol(&self, symbol: SymbolId) -> Option<NodeId> {
+        let resolution = self.graph.resolution()?;
+        let member_scope = resolution.member_scope(symbol)?;
+        let scope = resolution.scope(member_scope)?;
+        scope.owner()
+    }
+
+    fn constraint_type_base_node(&self, type_node: NodeId) -> Option<NodeId> {
+        let syntax = self.graph.syntax();
+        let generic_type = self.find_generic_type_node(type_node);
+
+        if let Some(generic_type) = generic_type {
+            let node = syntax.node(generic_type)?;
+            return node.children().iter().copied().find(|child| {
+                syntax
+                    .node(*child)
+                    .is_some_and(|child_node| child_node.kind() != SyntaxNodeKind::TypeArgumentList)
+            });
+        }
+
+        Some(type_node)
+    }
+
+    fn find_generic_type_node(&self, node: NodeId) -> Option<NodeId> {
+        let syntax_node = self.graph.syntax().node(node)?;
+
+        if syntax_node.kind() == SyntaxNodeKind::GenericType {
+            return Some(node);
+        }
+
+        for child in syntax_node.children() {
+            if let Some(found) = self.find_generic_type_node(*child) {
+                return Some(found);
+            }
+        }
+
+        None
     }
 
     pub fn get_or_create_choice_layout(&mut self, choice_symbol: SymbolId) -> ChoiceLayoutIdx {

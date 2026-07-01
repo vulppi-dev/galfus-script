@@ -134,7 +134,7 @@ impl VirtualMachine {
             }
             (Value::Object(obj_ref), ImageType::Array(expected_el_ty)) => {
                 if let Ok(HeapObject::Array { element_ty, .. }) = self.get_object(*obj_ref) {
-                    element_ty == expected_el_ty
+                    self.type_idx_matches(*element_ty, *expected_el_ty)
                 } else {
                     false
                 }
@@ -145,7 +145,8 @@ impl VirtualMachine {
                     elements,
                 }) = self.get_object(*obj_ref)
                 {
-                    element_ty == expected_el_ty && elements.len() == *expected_len
+                    self.type_idx_matches(*element_ty, *expected_el_ty)
+                        && elements.len() == *expected_len
                 } else {
                     false
                 }
@@ -171,7 +172,64 @@ impl VirtualMachine {
                     false
                 }
             }
+            (Value::Object(obj_ref), ImageType::Constraint(expected_constraint)) => {
+                if let Ok(HeapObject::Struct { layout_idx, .. }) = self.get_object(*obj_ref) {
+                    self.image
+                        .struct_layouts
+                        .get(layout_idx.raw() as usize)
+                        .is_some_and(|layout| layout.constraints.contains(expected_constraint))
+                } else {
+                    false
+                }
+            }
             _ => false,
+        }
+    }
+
+    fn type_idx_matches(&self, actual: TypeIdx, expected: TypeIdx) -> bool {
+        self.type_idx_matches_inner(actual, expected, &mut std::collections::HashSet::new())
+    }
+
+    fn type_idx_matches_inner(
+        &self,
+        actual: TypeIdx,
+        expected: TypeIdx,
+        seen: &mut std::collections::HashSet<(u16, u16)>,
+    ) -> bool {
+        if actual == expected {
+            return true;
+        }
+        if !seen.insert((actual.raw(), expected.raw())) {
+            return true;
+        }
+
+        let Some(actual_ty) = self.image.types.get(actual.raw() as usize) else {
+            return false;
+        };
+        let Some(expected_ty) = self.image.types.get(expected.raw() as usize) else {
+            return false;
+        };
+
+        match (actual_ty, expected_ty) {
+            (ImageType::Array(actual_el), ImageType::Array(expected_el)) => {
+                self.type_idx_matches_inner(*actual_el, *expected_el, seen)
+            }
+            (
+                ImageType::FixedArray(actual_el, actual_len),
+                ImageType::FixedArray(expected_el, expected_len),
+            ) => {
+                actual_len == expected_len
+                    && self.type_idx_matches_inner(*actual_el, *expected_el, seen)
+            }
+            (ImageType::Tuple(actual_elements), ImageType::Tuple(expected_elements)) => {
+                actual_elements.len() == expected_elements.len()
+                    && actual_elements.iter().zip(expected_elements.iter()).all(
+                        |(&actual_el, &expected_el)| {
+                            self.type_idx_matches_inner(actual_el, expected_el, seen)
+                        },
+                    )
+            }
+            _ => actual_ty == expected_ty,
         }
     }
 }

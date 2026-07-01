@@ -229,6 +229,17 @@ pub enum Instruction {
         args_start: Reg,
         arg_count: u8,
     },
+    /// Dynamic method call resolved at runtime by name. Looks up a function
+    /// whose name matches `name_const` (a string constant) and calls it with
+    /// `obj` as the first argument followed by `arg_count - 1` extra args
+    /// starting at `args_start`. The `dest` is written by the callee's `Ret`.
+    CallMethod {
+        dest: Reg,
+        obj: Reg,
+        name_const: ConstIdx,
+        args_start: Reg,
+        arg_count: u8,
+    },
     Ret {
         src: Reg,
     },

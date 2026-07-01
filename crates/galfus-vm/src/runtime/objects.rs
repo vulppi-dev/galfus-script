@@ -162,6 +162,18 @@ impl VirtualMachine {
                 let index = self.to_array_index(idx_val)?;
                 let val_to_store = self.read_reg(val)?;
                 if let Value::Object(obj_ref) = arr_val {
+                    let val_to_store = match self.get_object(obj_ref)? {
+                        HeapObject::Array { element_ty, .. } => {
+                            self.cast_value(&val_to_store, *element_ty)?
+                        }
+                        HeapObject::Tuple { .. } => val_to_store,
+                        heap_obj => {
+                            return Err(VmError::TypeMismatch {
+                                expected: "Array or Tuple object".to_string(),
+                                found: format!("{:?}", heap_obj),
+                            });
+                        }
+                    };
                     let heap_obj = self.get_object_mut(obj_ref)?;
                     match heap_obj {
                         HeapObject::Array { elements, .. } | HeapObject::Tuple { elements } => {

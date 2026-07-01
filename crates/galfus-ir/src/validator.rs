@@ -116,6 +116,10 @@ fn validate_body(
                         validate_operand(idx, func, initialized, errors);
                         validate_operand(val, func, initialized, errors);
                     }
+                    Instruction::StoreField { obj, val, .. } => {
+                        validate_operand(obj, func, initialized, errors);
+                        validate_operand(val, func, initialized, errors);
+                    }
                 }
             }
 
@@ -158,6 +162,31 @@ fn validate_body(
                         });
                     }
 
+                    initialized.insert(*destination);
+                }
+                Terminator::ConstraintCall {
+                    obj,
+                    args,
+                    destination,
+                    ..
+                } => {
+                    // Receiver and extra args must be initialized.
+                    validate_operand(obj, func, initialized, errors);
+                    for arg in args {
+                        validate_operand(arg, func, initialized, errors);
+                    }
+
+                    // Destination must be declared.
+                    if !func.locals.iter().any(|decl| decl.id == *destination) {
+                        errors.push(ValidationError {
+                            message: format!(
+                                "Function '{}': ConstraintCall destination to undeclared local ID {:?}",
+                                func.name, destination
+                            ),
+                        });
+                    }
+
+                    // The callee is resolved by name at runtime — no static check here.
                     initialized.insert(*destination);
                 }
             }

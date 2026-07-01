@@ -96,6 +96,11 @@ pub enum Instruction {
         idx: Operand,
         val: Operand,
     },
+    StoreField {
+        obj: Operand,
+        field_name: String,
+        val: Operand,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -174,6 +179,15 @@ pub enum Terminator {
     Continue,
     Call {
         func: FunctionId,
+        args: Vec<Operand>,
+        destination: LocalId,
+    },
+    /// Virtual constraint method call. Resolved at runtime by method name.
+    /// `obj` is the receiver (satisfies the constraint); `method_name` is the
+    /// name of the constraint function to call.
+    ConstraintCall {
+        method_name: String,
+        obj: Operand,
         args: Vec<Operand>,
         destination: LocalId,
     },

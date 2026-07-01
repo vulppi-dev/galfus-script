@@ -373,27 +373,12 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
             }
             RValue::MemberAccess(obj_operand, field_name) => {
                 let obj = self.operand_reg(obj_operand);
-                let obj_type = self.get_operand_type(obj_operand);
-                let table = self.ctx.type_result.layer().table();
-                let resolved_type = self.ctx.resolve_alias_type(obj_type);
-
-                let field_idx = if matches!(table.kind(resolved_type), Some(TypeKind::Tuple { .. }))
-                {
-                    field_name.parse::<u16>().unwrap_or(0)
-                } else if let Some(symbol) = self.struct_symbol_for_type(obj_type) {
-                    let struct_fields = self.ctx.get_struct_fields(symbol);
-                    struct_fields
-                        .iter()
-                        .position(|(name, _)| name == field_name)
-                        .unwrap_or(0) as u16
-                } else {
-                    0
-                };
+                let field_idx = self.field_idx_for_member(obj_operand, field_name);
 
                 self.instructions.push(Instruction::LoadField {
                     dest,
                     obj,
-                    field: FieldIdx(field_idx),
+                    field: field_idx,
                 });
                 self.free_temp_if_operand(obj_operand);
             }
@@ -466,16 +451,43 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
         }
     }
 
+    pub fn field_idx_for_member(&self, obj_operand: &Operand, field_name: &str) -> FieldIdx {
+        let obj_type = self.get_operand_type(obj_operand);
+        let table = self.ctx.type_result.layer().table();
+        let resolved_type = self.ctx.resolve_alias_type(obj_type);
+
+        let field_idx = if matches!(table.kind(resolved_type), Some(TypeKind::Tuple { .. })) {
+            field_name.parse::<u16>().unwrap_or(0)
+        } else if let Some(symbol) = self.struct_symbol_for_type(obj_type) {
+            let struct_fields = self.ctx.get_struct_fields(symbol);
+            struct_fields
+                .iter()
+                .position(|(name, _)| name == field_name)
+                .unwrap_or(0) as u16
+        } else {
+            0
+        };
+
+        FieldIdx(field_idx)
+    }
+
     pub fn operand_reg(&mut self, operand: &Operand) -> Reg {
         match operand {
             Operand::Local(local_id) => Reg(local_id.raw() as u16),
             Operand::Constant(constant) => {
-                let const_idx = self.ctx.get_or_create_constant(constant);
                 let temp = self.alloc_temp();
-                self.instructions.push(Instruction::LoadConst {
-                    dest: temp,
-                    const_idx,
-                });
+                match constant {
+                    MirConstant::Null => {
+                        self.instructions.push(Instruction::LoadNull { dest: temp })
+                    }
+                    _ => {
+                        let const_idx = self.ctx.get_or_create_constant(constant);
+                        self.instructions.push(Instruction::LoadConst {
+                            dest: temp,
+                            const_idx,
+                        });
+                    }
+                }
                 temp
             }
         }
@@ -489,11 +501,14 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                     self.instructions.push(Instruction::Move { dest, src });
                 }
             }
-            Operand::Constant(constant) => {
-                let const_idx = self.ctx.get_or_create_constant(constant);
-                self.instructions
-                    .push(Instruction::LoadConst { dest, const_idx });
-            }
+            Operand::Constant(constant) => match constant {
+                MirConstant::Null => self.instructions.push(Instruction::LoadNull { dest }),
+                _ => {
+                    let const_idx = self.ctx.get_or_create_constant(constant);
+                    self.instructions
+                        .push(Instruction::LoadConst { dest, const_idx });
+                }
+            },
         }
     }
 

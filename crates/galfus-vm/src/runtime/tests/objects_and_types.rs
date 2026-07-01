@@ -184,6 +184,33 @@ fn test_instanceof() {
 }
 
 #[test]
+fn test_instanceof_constraint_satisfied_by_struct_layout() {
+    let instrs = vec![
+        Instruction::AllocLocal {
+            dest: Reg(1),
+            type_idx: TypeIdx(3), // Struct(Point)
+        },
+        Instruction::Instanceof {
+            dest: Reg(2),
+            src: Reg(1),
+            type_idx: TypeIdx(8), // Constraint(Stringable)
+        },
+        Instruction::Ret { src: Reg(2) },
+    ];
+    let mut image = create_test_image(instrs, vec![]);
+    image
+        .types
+        .push(ImageType::Constraint("Stringable".to_string()));
+    image.struct_layouts[0]
+        .constraints
+        .push("Stringable".to_string());
+
+    let mut vm = VirtualMachine::new(image);
+    let res = vm.run_function(FuncIdx(0), vec![]).unwrap();
+    assert_eq!(res, Value::Bool(true));
+}
+
+#[test]
 fn test_division_by_zero_panic() {
     let instrs = vec![
         Instruction::LoadConst {

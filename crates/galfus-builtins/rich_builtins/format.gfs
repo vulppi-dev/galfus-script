@@ -43,7 +43,25 @@ fn stringifyInt64(value: int64): [uint8] {
 }
 
 fn stringifyFloat64(value: float64): [uint8] {
-  return "<float>"
+  if value < <float64>0 {
+    return append("-", stringifyFloat64(<float64>-value))
+  }
+
+  var whole = <uint64>value
+  var fraction = value - <float64>whole
+  var cents = <uint64>(fraction * <float64>100 + <float64>0.5)
+
+  if cents == <uint64>100 {
+    whole = whole + <uint64>1
+    cents = <uint64>0
+  }
+
+  var decimals = stringifyUint64(cents)
+  if cents < <uint64>10 {
+    decimals = append("0", decimals)
+  }
+
+  return append(append(stringifyUint64(whole), "."), decimals)
 }
 
 fn stringifyBool(value: bool): [uint8] {

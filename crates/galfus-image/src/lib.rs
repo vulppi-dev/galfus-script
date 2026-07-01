@@ -82,6 +82,7 @@ pub enum ImageType {
     FixedArray(TypeIdx, usize),
     Tuple(Vec<TypeIdx>),
     Choice(ChoiceLayoutIdx),
+    Constraint(String),
     Function { params: Vec<TypeIdx>, ret: TypeIdx },
 }
 
@@ -104,6 +105,7 @@ pub struct FieldLayout {
 pub struct StructLayout {
     pub name: String,
     pub fields: Vec<FieldLayout>,
+    pub constraints: Vec<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
