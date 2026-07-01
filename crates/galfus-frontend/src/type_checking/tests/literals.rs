@@ -12,6 +12,26 @@ var values: [int32] = [1, 2, 3]
 }
 
 #[test]
+fn check_contextual_integer_array_element_type() {
+    let (source, graph, result) = check_source(
+        r#"
+var bytes: [uint8] = [27, 91]
+"#,
+    );
+
+    assert!(!result.has_errors());
+
+    let literal =
+        find_node_by_kind_and_text(&source, &graph, SyntaxNodeKind::IntegerLiteral, "27").unwrap();
+    let ty = result.layer().node_type(literal).unwrap();
+
+    assert_eq!(
+        result.layer().table().kind(ty),
+        Some(&TypeKind::Primitive(PrimitiveType::Uint8))
+    );
+}
+
+#[test]
 fn check_binds_array_literal_type() {
     let (source, graph, result) = check_source(
         r#"
@@ -122,6 +142,33 @@ var point: (int32, bool) = (1, true)
     );
 
     assert!(!result.has_errors());
+}
+
+#[test]
+fn check_contextual_integer_tuple_element_type() {
+    let (source, graph, result) = check_source(
+        r#"
+var pair: (uint8, uint16) = (27, 300)
+"#,
+    );
+
+    assert!(!result.has_errors());
+
+    let first =
+        find_node_by_kind_and_text(&source, &graph, SyntaxNodeKind::IntegerLiteral, "27").unwrap();
+    let first_ty = result.layer().node_type(first).unwrap();
+    assert_eq!(
+        result.layer().table().kind(first_ty),
+        Some(&TypeKind::Primitive(PrimitiveType::Uint8))
+    );
+
+    let second =
+        find_node_by_kind_and_text(&source, &graph, SyntaxNodeKind::IntegerLiteral, "300").unwrap();
+    let second_ty = result.layer().node_type(second).unwrap();
+    assert_eq!(
+        result.layer().table().kind(second_ty),
+        Some(&TypeKind::Primitive(PrimitiveType::Uint16))
+    );
 }
 
 #[test]

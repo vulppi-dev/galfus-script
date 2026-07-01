@@ -1,6 +1,7 @@
 use crate::mir::*;
 use galfus_core::{FunctionId, NodeId, SymbolId, TypeId};
 use galfus_frontend::{ModuleGraph, SymbolKind, SyntaxNodeKind, TypeCheckResult, TypeKind};
+use std::collections::{HashMap, HashSet};
 
 pub mod complex_literals;
 pub mod expression;
@@ -16,6 +17,10 @@ pub struct MirBuilder<'a> {
     pub(super) source_text: &'a str,
     pub(super) next_local_id: u32,
     pub(super) next_block_id: u32,
+    pub(super) next_specialized_function_id: u32,
+    pub(super) specialisations: HashMap<(FunctionId, Vec<TypeId>), FunctionId>,
+    pub(super) specialized_functions: Vec<MirFunction>,
+    pub(super) active_specialisations: HashSet<(FunctionId, Vec<TypeId>)>,
 }
 
 impl<'a> MirBuilder<'a> {
@@ -30,6 +35,10 @@ impl<'a> MirBuilder<'a> {
             source_text,
             next_local_id: 0,
             next_block_id: 0,
+            next_specialized_function_id: u32::MAX - 1,
+            specialisations: HashMap::new(),
+            specialized_functions: Vec::new(),
+            active_specialisations: HashSet::new(),
         }
     }
 
@@ -116,6 +125,8 @@ impl<'a> MirBuilder<'a> {
             functions.push(init_func);
         }
 
+        functions.append(&mut self.specialized_functions);
+
         MirModule { functions, globals }
     }
 
@@ -142,6 +153,7 @@ impl<'a> MirBuilder<'a> {
             current_instructions: Vec::new(),
             scopes: vec![Vec::new()],
             return_type: TypeId::new(0),
+            type_substitutions: HashMap::new(),
         };
 
         let mut statements = Vec::new();

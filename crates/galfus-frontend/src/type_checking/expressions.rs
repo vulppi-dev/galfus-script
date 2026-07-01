@@ -21,9 +21,10 @@ impl<'a> DeclarationTypeChecker<'a> {
         let syntax_node = self.graph.syntax().node(node)?;
 
         let ty = match syntax_node.kind() {
-            SyntaxNodeKind::IntegerLiteral => {
-                Some(self.layer.table().primitive(PrimitiveType::Int32))
-            }
+            SyntaxNodeKind::IntegerLiteral => Some(
+                self.expected_integer_literal_type(expected)
+                    .unwrap_or_else(|| self.layer.table().primitive(PrimitiveType::Int32)),
+            ),
 
             SyntaxNodeKind::FloatLiteral => {
                 Some(self.layer.table().primitive(PrimitiveType::Float64))
@@ -85,7 +86,7 @@ impl<'a> DeclarationTypeChecker<'a> {
 
             SyntaxNodeKind::RangeExpression => self.infer_range_expression_type(node),
 
-            SyntaxNodeKind::TupleExpression => self.infer_tuple_expression_type(node),
+            SyntaxNodeKind::TupleExpression => self.infer_tuple_expression_type(node, expected),
 
             SyntaxNodeKind::CastExpression => self.infer_cast_expression_type(node),
 
@@ -121,6 +122,18 @@ impl<'a> DeclarationTypeChecker<'a> {
             .symbol_type(symbol)
             .or_else(|| self.infer_unbound_symbol_type(symbol))
             .map(|ty| self.apply_active_type_substitutions(ty))
+    }
+
+    fn expected_integer_literal_type(&self, expected: Option<TypeId>) -> Option<TypeId> {
+        let expected = self.resolve_alias_type(expected?);
+        match self.layer.table().kind(expected) {
+            Some(crate::TypeKind::Primitive(primitive))
+                if primitive.is_int() || primitive.is_uint() =>
+            {
+                Some(expected)
+            }
+            _ => None,
+        }
     }
 
     fn infer_unbound_symbol_type(&mut self, symbol: SymbolId) -> Option<TypeId> {
@@ -175,16 +188,30 @@ impl<'a> DeclarationTypeChecker<'a> {
         None
     }
 
-    fn infer_tuple_expression_type(&mut self, node: NodeId) -> Option<TypeId> {
-        let elements = self
-            .graph
-            .syntax()
-            .node(node)?
-            .children()
-            .to_vec()
-            .into_iter()
-            .map(|child| self.infer_expression_type(child))
-            .collect::<Option<Vec<_>>>()?;
+    fn infer_tuple_expression_type(
+        &mut self,
+        node: NodeId,
+        expected: Option<TypeId>,
+    ) -> Option<TypeId> {
+        let expected_elements = expected.and_then(|expected_ty| {
+            let resolved = self.resolve_alias_type(expected_ty);
+            match self.layer.table().kind(resolved) {
+                Some(crate::TypeKind::Tuple { elements }) => Some(elements.clone()),
+                _ => None,
+            }
+        });
+
+        let children = self.graph.syntax().node(node)?.children().to_vec();
+        let mut elements = Vec::with_capacity(children.len());
+
+        for (index, child) in children.into_iter().enumerate() {
+            let expected_element = expected_elements
+                .as_ref()
+                .and_then(|elements| elements.get(index))
+                .copied();
+            let ty = self.infer_expression_type_with_expected(child, expected_element)?;
+            elements.push(ty);
+        }
 
         let ty = self.layer.table_mut().intern_tuple(elements);
         self.layer.bind_node_type(node, ty);

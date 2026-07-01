@@ -1,6 +1,7 @@
 use crate::mir::*;
 use galfus_core::{NodeId, SymbolId, TypeId};
 use galfus_frontend::{PrimitiveType, SyntaxNodeKind, TypeKind};
+use std::collections::HashMap;
 
 pub struct FunctionBuilder<'b, 'a> {
     pub(super) builder: &'b mut super::MirBuilder<'a>,
@@ -9,9 +10,37 @@ pub struct FunctionBuilder<'b, 'a> {
     pub(super) current_instructions: Vec<Instruction>,
     pub(super) scopes: Vec<Vec<LocalId>>,
     pub(super) return_type: TypeId,
+    pub(super) type_substitutions: HashMap<SymbolId, TypeId>,
 }
 
 impl<'b, 'a> FunctionBuilder<'b, 'a> {
+    pub(super) fn node_type(&self, node: NodeId) -> Option<TypeId> {
+        self.builder
+            .type_result
+            .layer()
+            .node_type(node)
+            .map(|ty| self.substitute_type(ty))
+    }
+
+    pub(super) fn symbol_type(&self, symbol: SymbolId) -> Option<TypeId> {
+        self.builder
+            .type_result
+            .layer()
+            .symbol_type(symbol)
+            .map(|ty| self.substitute_type(ty))
+    }
+
+    pub(super) fn substitute_type(&self, ty: TypeId) -> TypeId {
+        let ty = self.builder.resolve_alias_type(ty);
+
+        match self.builder.type_result.layer().table().kind(ty) {
+            Some(TypeKind::GenericParameter { symbol }) => {
+                self.type_substitutions.get(symbol).copied().unwrap_or(ty)
+            }
+            _ => ty,
+        }
+    }
+
     pub(super) fn declare_local(&mut self, symbol: Option<SymbolId>, ty: TypeId) -> LocalId {
         let local_id = self.builder.next_local();
         self.locals.push(LocalDecl { id: local_id, ty });
@@ -115,7 +144,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
         }
 
         let array_node = target_node.child(0)?;
-        let array_type = self.builder.type_result.layer().node_type(array_node)?;
+        let array_type = self.node_type(array_node)?;
         let resolved_array_type = self.builder.resolve_alias_type(array_type);
 
         match self
@@ -127,7 +156,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
         {
             Some(TypeKind::Array { element }) => Some(*element),
             Some(TypeKind::FixedArray { element, .. }) => Some(*element),
-            _ => self.builder.type_result.layer().node_type(target),
+            _ => self.node_type(target),
         }
     }
 
@@ -159,12 +188,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
         let index_operand = self.lower_expression(index_node, statements);
         let value_operand = self.lower_expression(value, statements);
 
-        let value_type = self
-            .builder
-            .type_result
-            .layer()
-            .node_type(value)
-            .unwrap_or_else(|| TypeId::new(0));
+        let value_type = self.node_type(value).unwrap_or_else(|| TypeId::new(0));
 
         let expected_value_type = self
             .index_assignment_value_type(target)
@@ -206,20 +230,11 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
 
                     let symbols = self.collect_declaration_symbols(binding);
                     for symbol in symbols {
-                        let ty = self
-                            .builder
-                            .type_result
-                            .layer()
-                            .symbol_type(symbol)
-                            .unwrap_or_else(|| TypeId::new(0));
+                        let ty = self.symbol_type(symbol).unwrap_or_else(|| TypeId::new(0));
 
                         let casted_operand = if let Some(init_expr) = initializer {
-                            let init_ty = self
-                                .builder
-                                .type_result
-                                .layer()
-                                .node_type(init_expr)
-                                .unwrap_or_else(|| TypeId::new(0));
+                            let init_ty =
+                                self.node_type(init_expr).unwrap_or_else(|| TypeId::new(0));
                             self.insert_cast_if_needed(operand.clone(), init_ty, ty)
                         } else {
                             operand.clone()
@@ -242,18 +257,8 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                     }
 
                     let operand = self.lower_expression(value, statements);
-                    let target_ty = self
-                        .builder
-                        .type_result
-                        .layer()
-                        .node_type(target)
-                        .unwrap_or_else(|| TypeId::new(0));
-                    let value_ty = self
-                        .builder
-                        .type_result
-                        .layer()
-                        .node_type(value)
-                        .unwrap_or_else(|| TypeId::new(0));
+                    let target_ty = self.node_type(target).unwrap_or_else(|| TypeId::new(0));
+                    let value_ty = self.node_type(value).unwrap_or_else(|| TypeId::new(0));
                     let casted_operand = self.insert_cast_if_needed(operand, value_ty, target_ty);
 
                     if syntax
@@ -299,12 +304,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                 let expr = node.first_child();
                 let operand = expr.map(|e| {
                     let op = self.lower_expression(e, statements);
-                    let expr_ty = self
-                        .builder
-                        .type_result
-                        .layer()
-                        .node_type(e)
-                        .unwrap_or_else(|| TypeId::new(0));
+                    let expr_ty = self.node_type(e).unwrap_or_else(|| TypeId::new(0));
                     self.insert_cast_if_needed(op, expr_ty, self.return_type)
                 });
 
@@ -402,12 +402,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
 
                 let cond = self.lower_expression(cond_node, &mut loop_body_statements);
 
-                let bool_ty = self
-                    .builder
-                    .type_result
-                    .layer()
-                    .node_type(cond_node)
-                    .unwrap_or_else(|| TypeId::new(0));
+                let bool_ty = self.node_type(cond_node).unwrap_or_else(|| TypeId::new(0));
 
                 let temp_id = self.declare_local(None, bool_ty);
                 self.current_instructions.push(Instruction::Assign(
@@ -474,22 +469,12 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                     let symbols = self.collect_declaration_symbols(binding_node);
                     let symbol = symbols.first().copied();
                     let binding_local = if let Some(sym) = symbol {
-                        let ty = self
-                            .builder
-                            .type_result
-                            .layer()
-                            .symbol_type(sym)
-                            .unwrap_or_else(|| TypeId::new(0));
+                        let ty = self.symbol_type(sym).unwrap_or_else(|| TypeId::new(0));
                         self.declare_local(Some(sym), ty)
                     } else {
                         return;
                     };
-                    let binding_type = self
-                        .builder
-                        .type_result
-                        .layer()
-                        .symbol_type(symbol.unwrap())
-                        .unwrap();
+                    let binding_type = self.symbol_type(symbol.unwrap()).unwrap();
 
                     // Evaluate and assign `start` to `binding`
                     let start_operand = self.lower_expression(start_node, statements);
@@ -501,12 +486,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
 
                     // Evaluate and store `end` in a temporary local variable
                     let end_operand = self.lower_expression(end_node, statements);
-                    let end_ty = self
-                        .builder
-                        .type_result
-                        .layer()
-                        .node_type(end_node)
-                        .unwrap_or_else(|| TypeId::new(0));
+                    let end_ty = self.node_type(end_node).unwrap_or_else(|| TypeId::new(0));
                     let end_local = self.declare_local(None, end_ty);
                     self.current_instructions
                         .push(Instruction::Assign(end_local, RValue::Use(end_operand)));
@@ -649,9 +629,6 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                     // Evaluate the iterable expression and store it in a local variable
                     let iterable_operand = self.lower_expression(iterable_node, statements);
                     let iterable_ty = self
-                        .builder
-                        .type_result
-                        .layer()
                         .node_type(iterable_node)
                         .unwrap_or_else(|| TypeId::new(0));
                     let iterable_local = self.declare_local(None, iterable_ty);
@@ -695,12 +672,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                     let symbols = self.collect_declaration_symbols(binding_node);
                     let symbol = symbols.first().copied();
                     let binding_local = if let Some(sym) = symbol {
-                        let ty = self
-                            .builder
-                            .type_result
-                            .layer()
-                            .symbol_type(sym)
-                            .unwrap_or_else(|| TypeId::new(0));
+                        let ty = self.symbol_type(sym).unwrap_or_else(|| TypeId::new(0));
                         self.declare_local(Some(sym), ty)
                     } else {
                         return;

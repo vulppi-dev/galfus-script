@@ -50,17 +50,22 @@ impl<'a> DeclarationTypeChecker<'a> {
             let call_arguments = self.call_arguments(arguments);
             let parameters = function.parameters();
             for (i, &arg) in call_arguments.iter().enumerate() {
-                if let CallArgument::Provided { expression } = arg {
-                    if let Some(param) = parameters.get(i) {
-                        let expected_param_ty = param.ty();
-                        if let Some(actual_arg_ty) = self.infer_expression_type(expression) {
-                            self.infer_substitutions_from_types(
-                                &generic_params,
-                                expected_param_ty,
-                                actual_arg_ty,
-                                &mut substitutions,
-                            );
-                        }
+                if let CallArgument::Provided { expression } = arg
+                    && let Some(param) = parameters.get(i)
+                {
+                    let expected_param_ty = param.ty();
+                    let contextual_param_ty =
+                        self.substitute_generic_expression_type(expected_param_ty, &substitutions);
+
+                    if let Some(actual_arg_ty) = self
+                        .infer_expression_type_with_expected(expression, Some(contextual_param_ty))
+                    {
+                        self.infer_substitutions_from_types(
+                            &generic_params,
+                            expected_param_ty,
+                            actual_arg_ty,
+                            &mut substitutions,
+                        );
                     }
                 }
             }

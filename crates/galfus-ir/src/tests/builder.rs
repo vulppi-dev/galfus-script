@@ -1,4 +1,5 @@
 use super::*;
+use galfus_core::FunctionId;
 
 #[test]
 fn test_mir_builder_basic() {
@@ -119,6 +120,82 @@ fn test_mir_builder_lowers_concrete_typeof_branch() {
             other => panic!("Unexpected terminator: {:?}", other),
         },
         other => panic!("Expected basic block body, found {:?}", other),
+    }
+}
+
+#[test]
+fn test_mir_builder_specializes_generic_typeof_call() {
+    let source_id = SourceId::new(0);
+    let code = r#"
+        fn label<T: int32 | bool>(): [uint8] {
+            return typeof T {
+                int32 => "number",
+                bool => "flag",
+            }
+        }
+
+        fn main(): [uint8] {
+            return label<int32>()
+        }
+    "#;
+    let source = SourceFile::new(source_id, "test.gfs".to_string(), code.to_string());
+
+    let parse_result = parse(&source);
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    let graph = resolve_result.into_graph();
+
+    assert!(!graph.has_errors(), "Parse or resolve errors occurred");
+
+    let type_result = check_declaration_types(&source, &graph);
+    assert!(
+        !type_result.has_errors(),
+        "Typecheck errors occurred: {:?}",
+        type_result.diagnostics()
+    );
+
+    let builder = builder::MirBuilder::new(&graph, &type_result, code);
+    let mir_module = builder.build();
+
+    let main = mir_module
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main function should be lowered");
+    let call_id = first_call_function_id(&main.body).expect("main should call label");
+
+    let specialized = mir_module
+        .functions
+        .iter()
+        .find(|function| function.id == call_id)
+        .expect("specialized function should be emitted");
+
+    assert!(specialized.name.starts_with("label#"));
+
+    match &specialized.body {
+        MirBody::BasicBlock(bb) => match &bb.terminator {
+            Terminator::Return(Some(Operand::Constant(Constant::String(value)))) => {
+                assert_eq!(value, "number");
+            }
+            other => panic!("Unexpected terminator: {:?}", other),
+        },
+        other => panic!("Expected specialized function body to be a basic block, found {other:?}"),
+    }
+}
+
+fn first_call_function_id(body: &MirBody) -> Option<FunctionId> {
+    match body {
+        MirBody::BasicBlock(block) => match block.terminator {
+            Terminator::Call { func, .. } => Some(func),
+            _ => None,
+        },
+        MirBody::Block { statements, .. } => statements.iter().find_map(first_call_function_id),
+        MirBody::If {
+            then_branch,
+            else_branch,
+            ..
+        } => first_call_function_id(then_branch)
+            .or_else(|| else_branch.as_deref().and_then(first_call_function_id)),
+        MirBody::Loop { body } => first_call_function_id(body),
     }
 }
 

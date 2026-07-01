@@ -20,6 +20,32 @@ var user: User = new(User) {
 }
 
 #[test]
+fn check_contextual_integer_struct_field_type() {
+    let (source, graph, result) = check_source(
+        r#"
+struct Color {
+  r: uint8,
+}
+
+var color: Color = new(Color) {
+  r: 220,
+}
+"#,
+    );
+
+    assert!(!result.has_errors());
+
+    let literal =
+        find_node_by_kind_and_text(&source, &graph, SyntaxNodeKind::IntegerLiteral, "220").unwrap();
+    let ty = result.layer().node_type(literal).unwrap();
+
+    assert_eq!(
+        result.layer().table().kind(ty),
+        Some(&TypeKind::Primitive(PrimitiveType::Uint8))
+    );
+}
+
+#[test]
 fn check_binds_struct_literal_type() {
     let (_, graph, result) = check_source(
         r#"

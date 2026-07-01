@@ -12,6 +12,26 @@ var age: int32 = 10
 }
 
 #[test]
+fn check_contextual_integer_initializer_type() {
+    let (source, graph, result) = check_source(
+        r#"
+var byte: uint8 = 27
+"#,
+    );
+
+    assert!(!result.has_errors());
+
+    let literal =
+        find_node_by_kind_and_text(&source, &graph, SyntaxNodeKind::IntegerLiteral, "27").unwrap();
+    let ty = result.layer().node_type(literal).unwrap();
+
+    assert_eq!(
+        result.layer().table().kind(ty),
+        Some(&TypeKind::Primitive(PrimitiveType::Uint8))
+    );
+}
+
+#[test]
 fn check_reports_var_initializer_type_mismatch() {
     let source = source(
         r#"

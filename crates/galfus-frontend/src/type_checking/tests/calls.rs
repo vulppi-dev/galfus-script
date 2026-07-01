@@ -16,6 +16,30 @@ var value: int32 = add(1, 2)
 }
 
 #[test]
+fn check_contextual_integer_call_argument_type() {
+    let (source, graph, result) = check_source(
+        r#"
+fn push(byte: uint8): null {
+  return
+}
+
+var value = push(27)
+"#,
+    );
+
+    assert!(!result.has_errors());
+
+    let literal =
+        find_node_by_kind_and_text(&source, &graph, SyntaxNodeKind::IntegerLiteral, "27").unwrap();
+    let ty = result.layer().node_type(literal).unwrap();
+
+    assert_eq!(
+        result.layer().table().kind(ty),
+        Some(&TypeKind::Primitive(PrimitiveType::Uint8))
+    );
+}
+
+#[test]
 fn check_binds_call_expression_return_type() {
     let (_source, graph, result) = check_source(
         r#"

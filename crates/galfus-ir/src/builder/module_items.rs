@@ -1,7 +1,17 @@
 use super::*;
+use std::collections::HashMap;
 
 impl<'a> MirBuilder<'a> {
     pub(super) fn build_function(&mut self, item: NodeId) -> Option<MirFunction> {
+        self.build_function_with_substitutions(item, None, HashMap::new())
+    }
+
+    pub(super) fn build_function_with_substitutions(
+        &mut self,
+        item: NodeId,
+        specialized_id: Option<FunctionId>,
+        type_substitutions: HashMap<SymbolId, TypeId>,
+    ) -> Option<MirFunction> {
         let syntax = self.graph.syntax();
         let resolution = self.graph.resolution()?;
 
@@ -12,7 +22,7 @@ impl<'a> MirBuilder<'a> {
         // Get function symbol and type
         let symbol = resolution.declaration_symbol(name_node)?;
         let func_type = self.type_result.layer().symbol_type(symbol)?;
-        let func_id = FunctionId::new(symbol.raw());
+        let func_id = specialized_id.unwrap_or_else(|| FunctionId::new(symbol.raw()));
 
         // Parameters
         let mut parameter_types = Vec::new();
@@ -34,6 +44,7 @@ impl<'a> MirBuilder<'a> {
                     .or_else(|| self.type_result.layer().node_type(param_node));
 
                 if let Some(ty) = param_ty {
+                    let ty = self.substitute_type(ty, &type_substitutions);
                     parameter_types.push(ty);
                     param_symbols.push((param_symbol, ty));
                 }
@@ -42,7 +53,9 @@ impl<'a> MirBuilder<'a> {
 
         // Return Type derived from function signature in the TypeTable
         let return_type = match self.type_result.layer().table().kind(func_type) {
-            Some(galfus_frontend::TypeKind::Function(f)) => f.return_type(),
+            Some(galfus_frontend::TypeKind::Function(f)) => {
+                self.substitute_type(f.return_type(), &type_substitutions)
+            }
             _ => func_type,
         };
 
@@ -56,6 +69,7 @@ impl<'a> MirBuilder<'a> {
             current_instructions: Vec::new(),
             scopes: vec![Vec::new()],
             return_type,
+            type_substitutions,
         };
 
         // Declare parameters as locals
@@ -83,6 +97,84 @@ impl<'a> MirBuilder<'a> {
             locals: builder_ctx.locals,
             body,
         })
+    }
+
+    pub(super) fn function_item_for_symbol(&self, symbol: SymbolId) -> Option<NodeId> {
+        let root = self.graph.syntax().root()?;
+        self.find_function_item_for_symbol(root, symbol)
+    }
+
+    fn find_function_item_for_symbol(&self, node: NodeId, symbol: SymbolId) -> Option<NodeId> {
+        let syntax_node = self.graph.syntax().node(node)?;
+
+        if syntax_node.kind() == SyntaxNodeKind::FunctionItem {
+            let name_node = self
+                .graph
+                .syntax()
+                .first_child_of_kind(node, SyntaxNodeKind::Identifier)?;
+            if self
+                .graph
+                .resolution()
+                .and_then(|res| res.declaration_symbol(name_node))
+                == Some(symbol)
+            {
+                return Some(node);
+            }
+        }
+
+        for child in syntax_node.children() {
+            if let Some(found) = self.find_function_item_for_symbol(*child, symbol) {
+                return Some(found);
+            }
+        }
+
+        None
+    }
+
+    pub(super) fn generic_parameters_for_function_item(&self, item: NodeId) -> Vec<SymbolId> {
+        let syntax = self.graph.syntax();
+        let Some(generic_list) =
+            syntax.first_child_of_kind(item, SyntaxNodeKind::GenericParameterList)
+        else {
+            return Vec::new();
+        };
+
+        let Some(generic_node) = syntax.node(generic_list) else {
+            return Vec::new();
+        };
+
+        generic_node
+            .children()
+            .iter()
+            .filter_map(|parameter| {
+                let identifier =
+                    syntax.first_child_of_kind(*parameter, SyntaxNodeKind::Identifier)?;
+                self.graph
+                    .resolution()
+                    .and_then(|res| res.declaration_symbol(identifier))
+            })
+            .collect()
+    }
+
+    pub(super) fn substitute_type(
+        &self,
+        ty: TypeId,
+        substitutions: &std::collections::HashMap<SymbolId, TypeId>,
+    ) -> TypeId {
+        let ty = self.resolve_alias_type(ty);
+
+        match self.type_result.layer().table().kind(ty) {
+            Some(TypeKind::GenericParameter { symbol }) => {
+                substitutions.get(symbol).copied().unwrap_or(ty)
+            }
+            _ => ty,
+        }
+    }
+
+    pub(super) fn next_specialized_function_id(&mut self) -> FunctionId {
+        let id = self.next_specialized_function_id;
+        self.next_specialized_function_id = self.next_specialized_function_id.saturating_sub(1);
+        FunctionId::new(id)
     }
 
     pub(super) fn next_local(&mut self) -> LocalId {

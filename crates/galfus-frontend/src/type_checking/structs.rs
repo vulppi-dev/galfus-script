@@ -95,7 +95,7 @@ impl<'a> DeclarationTypeChecker<'a> {
             };
 
             let Some((value_node, actual)) =
-                self.struct_literal_field_value_type(field, field_name.as_str())
+                self.struct_literal_field_value_type(field, expected_field.ty)
             else {
                 continue;
             };
@@ -443,14 +443,14 @@ impl<'a> DeclarationTypeChecker<'a> {
     fn struct_literal_field_value_type(
         &mut self,
         field: NodeId,
-        _field_name: &str,
+        expected: TypeId,
     ) -> Option<(NodeId, TypeId)> {
         let field_node = self.graph.syntax().node(field)?;
 
         match field_node.kind() {
             SyntaxNodeKind::StructLiteralField => {
                 let value = *field_node.children().get(1)?;
-                let ty = self.infer_expression_type(value)?;
+                let ty = self.infer_expression_type_with_expected(value, Some(expected))?;
 
                 Some((value, ty))
             }

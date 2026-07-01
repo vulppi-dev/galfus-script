@@ -97,6 +97,41 @@ export fn create(): null {
 }
 
 #[test]
+fn check_path_accepts_rich_builtin_namespace_imports() -> Result<()> {
+    let root = temp_project()?;
+
+    let main = write_file(
+        root.as_path(),
+        "main.gfs",
+        r#"
+import text from "text"
+import format from "format"
+import ansi from "format/ansi"
+
+var joined: [uint8] = text::concat("a", "b")
+var rendered: [uint8] = format::stringify(42)
+var parsed: int32 = format::parse<int32>("42")
+var styled: [uint8] = ansi::red()::apply("error")
+
+fn main(): null {
+  return
+}
+"#,
+    )?;
+
+    let result = check_path(main.as_path())?;
+
+    assert!(
+        !result.has_errors(),
+        "rich builtin imports should check: {:?}",
+        result.diagnostics()
+    );
+
+    fs::remove_dir_all(root)?;
+    Ok(())
+}
+
+#[test]
 fn check_path_typechecks_namespace_imported_function_call() -> Result<()> {
     let root = temp_project()?;
     let main = write_file(

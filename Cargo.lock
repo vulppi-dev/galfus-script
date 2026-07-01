@@ -608,6 +608,7 @@ name = "galfus-builtins"
 version = "0.0.0"
 dependencies = [
  "galfus-core",
+ "galfus-frontend",
  "galfus-runtime",
  "galfus-target",
  "thiserror 2.0.18",
