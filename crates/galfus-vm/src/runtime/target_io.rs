@@ -68,6 +68,7 @@ impl VirtualMachine {
                 .invoke(galfus_target::TargetCall::Read)
                 .map_err(VmError::IoError)?;
             match result {
+                galfus_target::TargetResult::ReadByte(Some(b'\n')) => break,
                 galfus_target::TargetResult::ReadByte(Some(byte)) => bytes.push(byte),
                 galfus_target::TargetResult::ReadByte(None) => break,
                 galfus_target::TargetResult::Success => {
@@ -76,6 +77,10 @@ impl VirtualMachine {
                     ));
                 }
             }
+        }
+        // Strip trailing `\r` to handle Windows-style line endings.
+        if bytes.last() == Some(&b'\r') {
+            bytes.pop();
         }
         Ok(self.bytes_to_uint8_array(bytes))
     }
