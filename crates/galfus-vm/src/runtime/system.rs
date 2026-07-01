@@ -88,10 +88,10 @@ impl VirtualMachine {
                     let heap_obj = self.get_object(obj_ref)?;
                     match heap_obj {
                         HeapObject::Array { elements, .. } => {
-                            self.write_reg(dest, Value::Int64(elements.len() as i64))?;
+                            self.write_reg(dest, Value::Int32(elements.len() as i32))?;
                         }
                         HeapObject::Tuple { elements, .. } => {
-                            self.write_reg(dest, Value::Int64(elements.len() as i64))?;
+                            self.write_reg(dest, Value::Int32(elements.len() as i32))?;
                         }
                         _ => {
                             return Err(VmError::TypeMismatch {

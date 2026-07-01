@@ -41,10 +41,7 @@ fn run_source_inner(code: &str, args: &[&str]) -> Result<PlaygroundResult> {
         });
     }
 
-    let image_path = workspace.root().join(".tmp").join("playground.gfb");
-    fs::create_dir_all(image_path.parent().unwrap())?;
-    galfus_runner::compile_workspace_to_gfb(&check_result, image_path.as_path())?;
-    let module_image = galfus_runner::load_gfb_file(image_path.as_path())?;
+    let module_image = galfus_runner::compile_workspace_to_image(&check_result)?;
     let module_name = module_image.name.clone();
 
     let target = WebTarget::new();

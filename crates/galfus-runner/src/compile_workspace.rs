@@ -1,5 +1,10 @@
 use anyhow::Result;
 use galfus_core::SymbolId;
+use galfus_frontend::SyntaxNodeKind;
+use galfus_image::{
+    ConstantPool, ImageFunction, ImageType, ModuleImage,
+    instruction::{FuncIdx, Instruction, Reg, TypeIdx},
+};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
@@ -9,12 +14,16 @@ pub fn compile_workspace_to_gfb(
     check_result: &WorkspaceCheckResult,
     output_path: &Path,
 ) -> Result<()> {
-    use galfus_image::{
-        ConstantPool, ImageFunction, ImageType, ModuleImage,
-        instruction::{FuncIdx, Instruction, Reg, TypeIdx},
-    };
-    use std::fs;
+    let module_image = compile_workspace_to_image(check_result)?;
+    let gfb_bytes = galfus_image::gfb::serialize_to_gfb(&module_image)
+        .map_err(|error| anyhow::anyhow!("Serialization error: {}", error))?;
 
+    std::fs::write(output_path, gfb_bytes)?;
+
+    Ok(())
+}
+
+pub fn compile_workspace_to_image(check_result: &WorkspaceCheckResult) -> Result<ModuleImage> {
     let modules = check_result.modules();
     let mut mir_modules = Vec::new();
     for module in modules {
@@ -47,6 +56,12 @@ pub fn compile_workspace_to_gfb(
             collect_call_targets(&func.body, &mut call_targets);
             for func_id in call_targets {
                 if !mir_mod.functions.iter().any(|f| f.id == func_id)
+                    && let Some(local_func_id) =
+                        resolve_local_call_target(modules, mod_idx, mir_mod, func_id)
+                    && let Some(&global_idx) = global_func_map.get(&(mod_idx, local_func_id))
+                {
+                    global_func_map.insert((mod_idx, func_id), global_idx);
+                } else if !mir_mod.functions.iter().any(|f| f.id == func_id)
                     && let Some((target_mod_idx, target_func_id)) =
                         resolve_import_target(modules, mod_idx, func_id)
                     && let Some(&global_idx) =
@@ -62,9 +77,6 @@ pub fn compile_workspace_to_gfb(
     let mut types = Vec::new();
     let mut struct_layouts = Vec::new();
     let mut choice_layouts = Vec::new();
-    let mut type_map = HashMap::new();
-    let mut struct_map = HashMap::new();
-    let mut choice_map = HashMap::new();
     let mut constant_pool = ConstantPool::default();
     let mut constants_map = HashMap::new();
 
@@ -84,9 +96,6 @@ pub fn compile_workspace_to_gfb(
         ctx.types = std::mem::take(&mut types);
         ctx.struct_layouts = std::mem::take(&mut struct_layouts);
         ctx.choice_layouts = std::mem::take(&mut choice_layouts);
-        ctx.type_map = std::mem::take(&mut type_map);
-        ctx.struct_map = std::mem::take(&mut struct_map);
-        ctx.choice_map = std::mem::take(&mut choice_map);
         ctx.constant_pool = std::mem::take(&mut constant_pool);
         ctx.constants_map = std::mem::take(&mut constants_map);
 
@@ -151,9 +160,6 @@ pub fn compile_workspace_to_gfb(
         types = std::mem::take(&mut ctx.types);
         struct_layouts = std::mem::take(&mut ctx.struct_layouts);
         choice_layouts = std::mem::take(&mut ctx.choice_layouts);
-        type_map = std::mem::take(&mut ctx.type_map);
-        struct_map = std::mem::take(&mut ctx.struct_map);
-        choice_map = std::mem::take(&mut ctx.choice_map);
         constant_pool = std::mem::take(&mut ctx.constant_pool);
         constants_map = std::mem::take(&mut ctx.constants_map);
     }
@@ -235,12 +241,7 @@ pub fn compile_workspace_to_gfb(
         ));
     }
 
-    let gfb_bytes = galfus_image::gfb::serialize_to_gfb(&module_image)
-        .map_err(|e| anyhow::anyhow!("Serialization error: {}", e))?;
-
-    fs::write(output_path, gfb_bytes)?;
-
-    Ok(())
+    Ok(module_image)
 }
 
 fn collect_call_targets(
@@ -280,7 +281,7 @@ fn resolve_import_target(
     func_id: galfus_core::FunctionId,
 ) -> Option<(usize, galfus_core::FunctionId)> {
     use galfus_core::{NodeId, SymbolId};
-    use galfus_frontend::SyntaxNodeKind;
+    use galfus_frontend::SymbolKind;
 
     let module = &modules[mod_idx];
     let resolution = module.graph().resolution()?;
@@ -337,6 +338,88 @@ fn resolve_import_target(
         }
     }
 
+    if let Some(syntax_node) = module.graph().syntax().node(node_id)
+        && syntax_node.kind() == SyntaxNodeKind::PathExpression
+        && let Some(member_node) = syntax_node.child(1)
+        && let Some(member_node_data) = module.graph().syntax().node(member_node)
+        && let Some(member_name) = module.source().slice(member_node_data.span())
+        && let Some(receiver) = syntax_node.child(0)
+        && let Some(source) = import_source_for_expression(module, receiver)
+        && let Some(target_idx) = import_target_index(modules, mod_idx, source)
+        && let Some(target_resolution) = modules[target_idx].graph().resolution()
+    {
+        let mut candidates = target_resolution.exports().iter().filter_map(|export| {
+            let matches_member = export.name() == member_name
+                || export.name().ends_with(&format!("::{member_name}"));
+            (export.kind() == SymbolKind::Function && matches_member).then_some((
+                target_idx,
+                galfus_core::FunctionId::new(export.symbol().raw()),
+            ))
+        });
+        let first = candidates.next();
+        if first.is_some() && candidates.next().is_none() {
+            return first;
+        }
+    }
+
+    let mut candidates = modules[mod_idx]
+        .graph()
+        .resolution()?
+        .imports()
+        .iter()
+        .filter_map(|import| {
+            let target_idx = import_target_index(modules, mod_idx, import.source())?;
+            let target_resolution = modules[target_idx].graph().resolution()?;
+            target_resolution
+                .exports()
+                .iter()
+                .find(|export| {
+                    export.kind() == SymbolKind::Function && export.symbol().raw() == func_id.raw()
+                })
+                .map(|export| {
+                    (
+                        target_idx,
+                        galfus_core::FunctionId::new(export.symbol().raw()),
+                    )
+                })
+        });
+    let first = candidates.next();
+    if first.is_some() && candidates.next().is_none() {
+        return first;
+    }
+
+    None
+}
+
+fn resolve_local_call_target(
+    modules: &[CheckedModule],
+    mod_idx: usize,
+    mir_mod: &galfus_ir::mir::MirModule,
+    func_id: galfus_core::FunctionId,
+) -> Option<galfus_core::FunctionId> {
+    let module = &modules[mod_idx];
+    let node_id = galfus_core::NodeId::new(func_id.raw());
+    let node = module.graph().syntax().node(node_id)?;
+    if node.kind() != SyntaxNodeKind::PathExpression {
+        return None;
+    }
+    if let Some(symbol) = module.graph().resolution()?.path_reference_symbol(node_id) {
+        return Some(galfus_core::FunctionId::new(symbol.raw()));
+    }
+
+    let member_node = node.child(1)?;
+    let member_node_data = module.graph().syntax().node(member_node)?;
+    let member_name = module.source().slice(member_node_data.span())?;
+    let mut candidates = mir_mod.functions.iter().filter_map(|function| {
+        let matches_member =
+            function.name == member_name || function.name.ends_with(&format!("::{member_name}"));
+        matches_member.then_some(function.id)
+    });
+    let first = candidates.next();
+    if first.is_some() && candidates.next().is_none() {
+        return first;
+    }
+
     None
 }
 
@@ -390,6 +473,35 @@ fn import_target_index(modules: &[CheckedModule], mod_idx: usize, source: &str) 
         .ok()?
         .path();
     modules.iter().position(|module| module.path() == target)
+}
+
+fn import_source_for_expression(module: &CheckedModule, expr: galfus_core::NodeId) -> Option<&str> {
+    let syntax = module.graph().syntax();
+    let resolution = module.graph().resolution()?;
+    let node = syntax.node(expr)?;
+
+    match node.kind() {
+        SyntaxNodeKind::CallExpression | SyntaxNodeKind::GenericExpression => {
+            let target = node.child(0)?;
+            import_source_for_expression(module, target)
+        }
+        SyntaxNodeKind::PathExpression => {
+            let root = node.child(0)?;
+            import_source_for_expression(module, root)
+        }
+        SyntaxNodeKind::NameExpression | SyntaxNodeKind::Identifier => {
+            let symbol = resolution.reference_symbol(expr).or_else(|| {
+                let ident = syntax.first_child_of_kind(expr, SyntaxNodeKind::Identifier)?;
+                resolution.reference_symbol(ident)
+            })?;
+            resolution
+                .imports()
+                .iter()
+                .find(|import| import.local_symbol() == symbol)
+                .map(|import| import.source())
+        }
+        _ => None,
+    }
 }
 
 fn rewrite_global_indices(

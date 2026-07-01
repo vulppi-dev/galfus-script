@@ -6,4 +6,6 @@
 
 - **TargetCall**: Explicit low-level system call commands (e.g., standard input/output).
 - **TargetCapabilityProvider**: Trait to run custom system call providers, allowing virtualization or sandboxing of the virtual machine environment.
-- **DefaultTargetCapabilityProvider**: A concrete implementation forwarding calls to standard system I/O streams.
+- **NativeTarget**: Desktop/server implementation backed by standard input and output.
+- **WebTarget**: In-memory implementation for playground and wasm use, capturing writes and returning EOF for reads.
+- **DefaultTargetCapabilityProvider**: Backwards-compatible alias for `NativeTarget`.

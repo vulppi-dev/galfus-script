@@ -7,7 +7,7 @@
 //   io::println(ansi::red()::bold()::apply("Error!"))
 //   io::println(ansi::style()::rgb(255, 140, 0)::apply("Warning"))
 
-struct Style {
+export struct Style {
   _bold: bool,
   _dim: bool,
   _has_fg: bool,

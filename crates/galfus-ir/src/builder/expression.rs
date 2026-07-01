@@ -147,6 +147,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
             SyntaxNodeKind::CallExpression => {
                 let target_node = node.child(0).unwrap();
                 let arg_list_node = node.child(1).unwrap();
+                let anchored_receiver = self.anchored_call_receiver(target_node);
 
                 let mut expected_params = None;
                 if self.is_choice_variant_call_target(target_node) {
@@ -182,6 +183,25 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
 
                 let mut args = Vec::new();
                 let mut arg_types = Vec::new();
+                let parameter_offset = if let Some(receiver_node) = anchored_receiver {
+                    let receiver_op = self.lower_expression(receiver_node, statements);
+                    let receiver_ty = self
+                        .node_type(receiver_node)
+                        .unwrap_or_else(|| TypeId::new(0));
+                    let casted_receiver = if let Some(ref params) = expected_params
+                        && let Some(&(expected_ty, _)) = params.first()
+                    {
+                        self.insert_cast_if_needed(receiver_op, receiver_ty, expected_ty)
+                    } else {
+                        receiver_op
+                    };
+                    args.push(casted_receiver);
+                    arg_types.push(receiver_ty);
+                    1
+                } else {
+                    0
+                };
+
                 if let Some(arg_list) = syntax.node(arg_list_node) {
                     for (i, &arg_id) in arg_list.children().iter().enumerate() {
                         let arg_expr = syntax
@@ -200,7 +220,8 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                         let arg_ty = self.node_type(arg_expr).unwrap_or_else(|| TypeId::new(0));
 
                         let casted_op = if let Some(ref params) = expected_params {
-                            if let Some(&(expected_ty, is_rest)) = params.get(i) {
+                            let parameter_index = i + parameter_offset;
+                            if let Some(&(expected_ty, is_rest)) = params.get(parameter_index) {
                                 let target_expected_ty = if is_rest {
                                     let resolved_param_ty =
                                         self.builder.resolve_alias_type(expected_ty);
@@ -293,7 +314,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                 }
 
                 let target_symbol = self.call_target_symbol(target_node);
-                let mut func_id = if is_namespace_call {
+                let mut func_id = if is_namespace_call || anchored_receiver.is_some() {
                     FunctionId::new(target_node.raw())
                 } else {
                     target_symbol
@@ -547,6 +568,25 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                 .child(target, 0)
                 .and_then(|inner| self.call_target_symbol(inner)),
             _ => None,
+        }
+    }
+
+    fn anchored_call_receiver(&self, target: NodeId) -> Option<NodeId> {
+        let syntax = self.builder.graph.syntax();
+        let node = syntax.node(target)?;
+        if node.kind() != SyntaxNodeKind::PathExpression {
+            return None;
+        }
+
+        let receiver = node.child(0)?;
+        let receiver_kind = syntax.node(receiver)?.kind();
+        if matches!(
+            receiver_kind,
+            SyntaxNodeKind::NameExpression | SyntaxNodeKind::Identifier | SyntaxNodeKind::Path
+        ) {
+            None
+        } else {
+            Some(receiver)
         }
     }
 
