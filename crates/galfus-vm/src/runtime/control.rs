@@ -4,7 +4,6 @@ impl VirtualMachine {
     pub(super) fn execute_control_instruction(
         &mut self,
         instr: Instruction,
-        pc: usize,
     ) -> Result<ExecutionStep, VmError> {
         match instr {
             // Category C: Control Flow & Subroutines
@@ -60,7 +59,7 @@ impl VirtualMachine {
                 }
             }
             Instruction::Call {
-                dest: _,
+                dest,
                 func: func_idx,
                 args_start,
                 arg_count,
@@ -95,11 +94,12 @@ impl VirtualMachine {
                     func_idx,
                     pc: 0,
                     registers: callee_regs,
+                    return_dest: Some(dest),
                     in_transaction: false,
                 });
             }
             Instruction::CallMethod {
-                dest: _,
+                dest,
                 obj,
                 name_const,
                 args_start,
@@ -166,44 +166,33 @@ impl VirtualMachine {
                     func_idx,
                     pc: 0,
                     registers: callee_regs,
+                    return_dest: Some(dest),
                     in_transaction: false,
                 });
             }
 
             Instruction::Ret { src } => {
                 let val = self.read_reg(src)?;
-                self.call_stack.pop();
-                if self.call_stack.is_empty() {
-                    return Ok(ExecutionStep::Return(val));
-                } else {
-                    // The callee PC was already advanced by 1 in Call/CallMethod,
-                    // so we fetch the call instruction to know the destination register.
-                    let frame = self.call_stack.last().ok_or(VmError::EmptyCallStack)?;
-                    let func = &self.image.functions[frame.func_idx.raw() as usize];
-                    let call_pc = frame.pc - 1;
-                    match func.instructions.get(call_pc) {
-                        Some(Instruction::Call { dest, .. })
-                        | Some(Instruction::CallMethod { dest, .. }) => {
-                            self.write_reg(*dest, val)?;
-                        }
-                        _ => return Err(VmError::InvalidJumpTarget { pc }),
+                let completed_frame = self.call_stack.pop().ok_or(VmError::EmptyCallStack)?;
+
+                match completed_frame.return_dest {
+                    Some(dest) => {
+                        self.write_reg(dest, val)?;
+                    }
+                    None => {
+                        return Ok(ExecutionStep::Return(val));
                     }
                 }
             }
             Instruction::RetNull => {
-                self.call_stack.pop();
-                if self.call_stack.is_empty() {
-                    return Ok(ExecutionStep::Return(Value::Null));
-                } else {
-                    let frame = self.call_stack.last().ok_or(VmError::EmptyCallStack)?;
-                    let func = &self.image.functions[frame.func_idx.raw() as usize];
-                    let call_pc = frame.pc - 1;
-                    match func.instructions.get(call_pc) {
-                        Some(Instruction::Call { dest, .. })
-                        | Some(Instruction::CallMethod { dest, .. }) => {
-                            self.write_reg(*dest, Value::Null)?;
-                        }
-                        _ => return Err(VmError::InvalidJumpTarget { pc }),
+                let completed_frame = self.call_stack.pop().ok_or(VmError::EmptyCallStack)?;
+
+                match completed_frame.return_dest {
+                    Some(dest) => {
+                        self.write_reg(dest, Value::Null)?;
+                    }
+                    None => {
+                        return Ok(ExecutionStep::Return(Value::Null));
                     }
                 }
             }

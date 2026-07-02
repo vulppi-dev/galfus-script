@@ -85,6 +85,7 @@ pub struct CallFrame {
     pub func_idx: FuncIdx,
     pub pc: usize,
     pub registers: Vec<Value>,
+    pub return_dest: Option<Reg>,
     pub in_transaction: bool,
 }
 
@@ -180,6 +181,7 @@ impl VirtualMachine {
             func_idx,
             pc: 0,
             registers,
+            return_dest: None,
             in_transaction: false,
         });
 
@@ -209,16 +211,15 @@ impl VirtualMachine {
 
     fn execute_loop(&mut self) -> Result<Value, VmError> {
         loop {
-            let (instr, pc) = {
+            let instr = {
                 let frame = self.call_stack.last_mut().ok_or(VmError::EmptyCallStack)?;
                 let func = &self.image.functions[frame.func_idx.raw() as usize];
                 if frame.pc >= func.instructions.len() {
                     return Err(VmError::InstructionPointerOutOfBounds { pc: frame.pc });
                 }
                 let instr = func.instructions[frame.pc];
-                let pc = frame.pc;
                 frame.pc += 1;
-                (instr, pc)
+                instr
             };
 
             let step = match instr {
@@ -258,7 +259,7 @@ impl VirtualMachine {
                 | Instruction::CallMethod { .. }
                 | Instruction::Ret { .. }
                 | Instruction::RetNull
-                | Instruction::Panic { .. } => self.execute_control_instruction(instr, pc)?,
+                | Instruction::Panic { .. } => self.execute_control_instruction(instr)?,
 
                 Instruction::AllocLocal { .. }
                 | Instruction::AllocShared { .. }
