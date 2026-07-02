@@ -128,18 +128,15 @@ impl VirtualMachine {
             Instruction::LoadIndex { dest, arr, idx } => {
                 let arr_val = self.read_reg(arr)?;
                 let idx_val = self.read_reg(idx)?;
-                let index = self.to_array_index(idx_val)?;
+
                 if let Value::Object(obj_ref) = arr_val {
                     let heap_obj = self.get_object(obj_ref)?;
                     let val = match heap_obj {
                         HeapObject::Array { elements, .. } | HeapObject::Tuple { elements } => {
-                            elements
-                                .get(index)
-                                .cloned()
-                                .ok_or(VmError::IndexOutOfBounds {
-                                    index,
-                                    len: elements.len(),
-                                })?
+                            match self.resolve_array_index(idx_val, elements.len())? {
+                                Some(index) => elements[index].clone(),
+                                None => Value::Null,
+                            }
                         }
                         _ => {
                             return Err(VmError::TypeMismatch {
@@ -148,6 +145,7 @@ impl VirtualMachine {
                             });
                         }
                     };
+
                     self.write_reg(dest, val)?;
                 } else {
                     return Err(VmError::TypeMismatch {
@@ -159,34 +157,54 @@ impl VirtualMachine {
             Instruction::StoreIndex { arr, idx, val } => {
                 let arr_val = self.read_reg(arr)?;
                 let idx_val = self.read_reg(idx)?;
-                let index = self.to_array_index(idx_val)?;
+                let raw_index = self.to_raw_array_index(idx_val)?;
                 let val_to_store = self.read_reg(val)?;
+
                 if let Value::Object(obj_ref) = arr_val {
-                    let val_to_store = match self.get_object(obj_ref)? {
-                        HeapObject::Array { element_ty, .. } => {
-                            self.cast_value(&val_to_store, *element_ty)?
-                        }
-                        HeapObject::Tuple { .. } => val_to_store,
-                        heap_obj => {
-                            return Err(VmError::TypeMismatch {
-                                expected: "Array or Tuple object".to_string(),
-                                found: format!("{:?}", heap_obj),
-                            });
-                        }
-                    };
-                    let heap_obj = self.get_object_mut(obj_ref)?;
-                    match heap_obj {
-                        HeapObject::Array { elements, .. } | HeapObject::Tuple { elements } => {
-                            if index < elements.len() {
-                                elements[index] = val_to_store;
-                            } else {
-                                return Err(VmError::IndexOutOfBounds {
-                                    index,
-                                    len: elements.len(),
+                    let (index, val_to_store) = {
+                        let heap_obj = self.get_object(obj_ref)?;
+
+                        match heap_obj {
+                            HeapObject::Array {
+                                element_ty,
+                                elements,
+                            } => {
+                                let index = self
+                                    .resolve_raw_array_index(raw_index, elements.len())
+                                    .ok_or(VmError::IndexOutOfBounds {
+                                        index: raw_index,
+                                        len: elements.len(),
+                                    })?;
+
+                                let val_to_store = self.cast_value(&val_to_store, *element_ty)?;
+                                (index, val_to_store)
+                            }
+                            HeapObject::Tuple { elements } => {
+                                let index = self
+                                    .resolve_raw_array_index(raw_index, elements.len())
+                                    .ok_or(VmError::IndexOutOfBounds {
+                                        index: raw_index,
+                                        len: elements.len(),
+                                    })?;
+
+                                (index, val_to_store)
+                            }
+                            heap_obj => {
+                                return Err(VmError::TypeMismatch {
+                                    expected: "Array or Tuple object".to_string(),
+                                    found: format!("{:?}", heap_obj),
                                 });
                             }
                         }
-                        _ => {
+                    };
+
+                    let heap_obj = self.get_object_mut(obj_ref)?;
+
+                    match heap_obj {
+                        HeapObject::Array { elements, .. } | HeapObject::Tuple { elements } => {
+                            elements[index] = val_to_store;
+                        }
+                        heap_obj => {
                             return Err(VmError::TypeMismatch {
                                 expected: "Array or Tuple object".to_string(),
                                 found: format!("{:?}", heap_obj),

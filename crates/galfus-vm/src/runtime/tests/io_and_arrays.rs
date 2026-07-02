@@ -211,3 +211,213 @@ fn test_len_and_copy_array() {
         other => panic!("expected array, got {:?}", other),
     }
 }
+
+#[test]
+fn test_load_index_accepts_negative_index() {
+    let instrs = vec![
+        Instruction::LoadConst {
+            dest: Reg(1),
+            const_idx: ConstIdx(0),
+        },
+        Instruction::NewArray {
+            dest: Reg(2),
+            type_idx: TypeIdx(4),
+            len_reg: Reg(1),
+        },
+        Instruction::LoadConst {
+            dest: Reg(3),
+            const_idx: ConstIdx(1),
+        },
+        Instruction::LoadConst {
+            dest: Reg(4),
+            const_idx: ConstIdx(2),
+        },
+        Instruction::StoreIndex {
+            arr: Reg(2),
+            idx: Reg(4),
+            val: Reg(3),
+        },
+        Instruction::LoadConst {
+            dest: Reg(3),
+            const_idx: ConstIdx(3),
+        },
+        Instruction::LoadConst {
+            dest: Reg(4),
+            const_idx: ConstIdx(4),
+        },
+        Instruction::StoreIndex {
+            arr: Reg(2),
+            idx: Reg(4),
+            val: Reg(3),
+        },
+        Instruction::LoadConst {
+            dest: Reg(3),
+            const_idx: ConstIdx(5),
+        },
+        Instruction::LoadConst {
+            dest: Reg(4),
+            const_idx: ConstIdx(6),
+        },
+        Instruction::StoreIndex {
+            arr: Reg(2),
+            idx: Reg(4),
+            val: Reg(3),
+        },
+        Instruction::LoadConst {
+            dest: Reg(4),
+            const_idx: ConstIdx(7),
+        },
+        Instruction::LoadIndex {
+            dest: Reg(5),
+            arr: Reg(2),
+            idx: Reg(4),
+        },
+        Instruction::Ret { src: Reg(5) },
+    ];
+
+    let image = create_test_image(
+        instrs,
+        vec![
+            Constant::Int(3),
+            Constant::Int(10),
+            Constant::Int(0),
+            Constant::Int(20),
+            Constant::Int(1),
+            Constant::Int(30),
+            Constant::Int(2),
+            Constant::Int(-1),
+        ],
+    );
+
+    let mut vm = VirtualMachine::new(image);
+    let res = vm.run_function(FuncIdx(0), vec![]).unwrap();
+
+    assert_eq!(res, Value::Int64(30));
+}
+
+#[test]
+fn test_load_index_out_of_bounds_returns_null() {
+    let instrs = vec![
+        Instruction::LoadConst {
+            dest: Reg(1),
+            const_idx: ConstIdx(0),
+        },
+        Instruction::NewArray {
+            dest: Reg(2),
+            type_idx: TypeIdx(4),
+            len_reg: Reg(1),
+        },
+        Instruction::LoadConst {
+            dest: Reg(3),
+            const_idx: ConstIdx(1),
+        },
+        Instruction::LoadIndex {
+            dest: Reg(4),
+            arr: Reg(2),
+            idx: Reg(3),
+        },
+        Instruction::Ret { src: Reg(4) },
+    ];
+
+    let image = create_test_image(instrs, vec![Constant::Int(3), Constant::Int(99)]);
+
+    let mut vm = VirtualMachine::new(image);
+    let res = vm.run_function(FuncIdx(0), vec![]).unwrap();
+
+    assert_eq!(res, Value::Null);
+}
+
+#[test]
+fn test_store_index_accepts_negative_index() {
+    let instrs = vec![
+        Instruction::LoadConst {
+            dest: Reg(1),
+            const_idx: ConstIdx(0),
+        },
+        Instruction::NewArray {
+            dest: Reg(2),
+            type_idx: TypeIdx(4),
+            len_reg: Reg(1),
+        },
+        Instruction::LoadConst {
+            dest: Reg(3),
+            const_idx: ConstIdx(1),
+        },
+        Instruction::LoadConst {
+            dest: Reg(4),
+            const_idx: ConstIdx(2),
+        },
+        Instruction::StoreIndex {
+            arr: Reg(2),
+            idx: Reg(4),
+            val: Reg(3),
+        },
+        Instruction::LoadConst {
+            dest: Reg(4),
+            const_idx: ConstIdx(3),
+        },
+        Instruction::LoadIndex {
+            dest: Reg(5),
+            arr: Reg(2),
+            idx: Reg(4),
+        },
+        Instruction::Ret { src: Reg(5) },
+    ];
+
+    let image = create_test_image(
+        instrs,
+        vec![
+            Constant::Int(3),
+            Constant::Int(99),
+            Constant::Int(-1),
+            Constant::Int(2),
+        ],
+    );
+
+    let mut vm = VirtualMachine::new(image);
+    let res = vm.run_function(FuncIdx(0), vec![]).unwrap();
+
+    assert_eq!(res, Value::Int64(99));
+}
+
+#[test]
+fn test_store_index_out_of_bounds_returns_error() {
+    let instrs = vec![
+        Instruction::LoadConst {
+            dest: Reg(1),
+            const_idx: ConstIdx(0),
+        },
+        Instruction::NewArray {
+            dest: Reg(2),
+            type_idx: TypeIdx(4),
+            len_reg: Reg(1),
+        },
+        Instruction::LoadConst {
+            dest: Reg(3),
+            const_idx: ConstIdx(1),
+        },
+        Instruction::LoadConst {
+            dest: Reg(4),
+            const_idx: ConstIdx(2),
+        },
+        Instruction::StoreIndex {
+            arr: Reg(2),
+            idx: Reg(4),
+            val: Reg(3),
+        },
+        Instruction::RetNull,
+    ];
+
+    let image = create_test_image(
+        instrs,
+        vec![Constant::Int(3), Constant::Int(99), Constant::Int(3)],
+    );
+
+    let mut vm = VirtualMachine::new(image);
+    let err = vm.run_function(FuncIdx(0), vec![]).unwrap_err();
+
+    assert!(matches!(
+        err.error,
+        VmError::IndexOutOfBounds { index: 3, len: 3 }
+    ));
+}

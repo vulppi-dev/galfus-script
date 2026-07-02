@@ -41,21 +41,45 @@ impl VirtualMachine {
         }
     }
 
-    pub(super) fn to_array_index(&self, val: Value) -> Result<usize, VmError> {
+    pub(super) fn to_raw_array_index(&self, val: Value) -> Result<i128, VmError> {
         match val {
-            Value::Int8(x) if x >= 0 => Ok(x as usize),
-            Value::Int16(x) if x >= 0 => Ok(x as usize),
-            Value::Int32(x) if x >= 0 => Ok(x as usize),
-            Value::Int64(x) if x >= 0 => Ok(x as usize),
-            Value::Uint8(x) => Ok(x as usize),
-            Value::Uint16(x) => Ok(x as usize),
-            Value::Uint32(x) => Ok(x as usize),
-            Value::Uint64(x) => Ok(x as usize),
+            Value::Int8(x) => Ok(i128::from(x)),
+            Value::Int16(x) => Ok(i128::from(x)),
+            Value::Int32(x) => Ok(i128::from(x)),
+            Value::Int64(x) => Ok(i128::from(x)),
+            Value::Uint8(x) => Ok(i128::from(x)),
+            Value::Uint16(x) => Ok(i128::from(x)),
+            Value::Uint32(x) => Ok(i128::from(x)),
+            Value::Uint64(x) => Ok(i128::from(x)),
             x => Err(VmError::TypeMismatch {
-                expected: "valid non-negative array index".to_string(),
+                expected: "integer array index".to_string(),
                 found: format!("{:?}", x),
             }),
         }
+    }
+
+    pub(super) fn resolve_array_index(
+        &self,
+        val: Value,
+        len: usize,
+    ) -> Result<Option<usize>, VmError> {
+        let raw_index = self.to_raw_array_index(val)?;
+        Ok(self.resolve_raw_array_index(raw_index, len))
+    }
+
+    pub(super) fn resolve_raw_array_index(&self, raw_index: i128, len: usize) -> Option<usize> {
+        let len = len as i128;
+        let resolved = if raw_index < 0 {
+            len + raw_index
+        } else {
+            raw_index
+        };
+
+        if resolved < 0 || resolved >= len {
+            return None;
+        }
+
+        Some(resolved as usize)
     }
 
     pub(super) fn pow_values(&self, lhs: Value, rhs: Value) -> Result<Value, VmError> {

@@ -151,7 +151,7 @@ impl VirtualMachine {
                     if let HeapObject::Array { elements, .. } = dest_obj {
                         if start_idx + src_elements.len() > elements.len() {
                             return Err(VmError::IndexOutOfBounds {
-                                index: start_idx + src_elements.len() - 1,
+                                index: (start_idx + src_elements.len() - 1) as i128,
                                 len: elements.len(),
                             });
                         }
