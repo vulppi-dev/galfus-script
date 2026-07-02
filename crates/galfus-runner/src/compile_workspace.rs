@@ -54,21 +54,38 @@ pub fn compile_workspace_to_image(check_result: &WorkspaceCheckResult) -> Result
         for func in &mir_mod.functions {
             let mut call_targets = Vec::new();
             collect_call_targets(&func.body, &mut call_targets);
+
             for func_id in call_targets {
-                if !mir_mod.functions.iter().any(|f| f.id == func_id)
-                    && let Some(local_func_id) =
-                        resolve_local_call_target(modules, mod_idx, mir_mod, func_id)
-                    && let Some(&global_idx) = global_func_map.get(&(mod_idx, local_func_id))
-                {
-                    global_func_map.insert((mod_idx, func_id), global_idx);
-                } else if !mir_mod.functions.iter().any(|f| f.id == func_id)
-                    && let Some((target_mod_idx, target_func_id)) =
-                        resolve_import_target(modules, mod_idx, func_id)
+                if let Some((target_mod_idx, target_func_id)) =
+                    resolve_import_target(modules, mod_idx, func_id)
                     && let Some(&global_idx) =
                         global_func_map.get(&(target_mod_idx, target_func_id))
                 {
                     global_func_map.insert((mod_idx, func_id), global_idx);
+                    continue;
                 }
+
+                if let Some(local_func_id) =
+                    resolve_local_call_target(modules, mod_idx, mir_mod, func_id)
+                    && let Some(&global_idx) = global_func_map.get(&(mod_idx, local_func_id))
+                {
+                    global_func_map.insert((mod_idx, func_id), global_idx);
+                    continue;
+                }
+
+                if mir_mod
+                    .functions
+                    .iter()
+                    .any(|local_func| local_func.id == func_id)
+                {
+                    continue;
+                }
+
+                return Err(anyhow::anyhow!(
+                    "could not resolve function call target `{}` in module `{}`",
+                    func_id.raw(),
+                    modules[mod_idx].path().display()
+                ));
             }
         }
     }
@@ -81,7 +98,7 @@ pub fn compile_workspace_to_image(check_result: &WorkspaceCheckResult) -> Result
     let mut constants_map = HashMap::new();
 
     let mut functions = Vec::new();
-    let mut init_funcs = Vec::new();
+    let mut init_funcs = HashMap::new();
 
     let mut next_global_idx = 0u16;
     let mut global_var_map = HashMap::new();
@@ -115,7 +132,7 @@ pub fn compile_workspace_to_image(check_result: &WorkspaceCheckResult) -> Result
             let global_idx = global_func_map[&(mod_idx, mir_func.id)];
 
             if is_init {
-                init_funcs.push(global_idx);
+                init_funcs.insert(mod_idx, global_idx);
             }
 
             let return_ty = ctx.lower_type(mir_func.return_type);
@@ -127,7 +144,7 @@ pub fn compile_workspace_to_image(check_result: &WorkspaceCheckResult) -> Result
             }
 
             let param_count = mir_func.parameter_types.len() as u16;
-            let local_count = (mir_func.locals.len() as u16).saturating_sub(param_count);
+            let local_count = image_local_count(mir_func, param_count);
 
             let mut emitter = galfus_ir::lower::control_flow::FnEmitter::new(
                 &mut ctx,
@@ -143,7 +160,7 @@ pub fn compile_workspace_to_image(check_result: &WorkspaceCheckResult) -> Result
                 mod_idx,
                 &mut global_var_map,
                 &mut next_global_idx,
-            );
+            )?;
 
             let img_func = ImageFunction {
                 name: mir_func.name.clone(),
@@ -179,11 +196,14 @@ pub fn compile_workspace_to_image(check_result: &WorkspaceCheckResult) -> Result
 
     let entry_mir = &mir_modules[entry_idx];
 
-    let init_func_idx = if init_funcs.is_empty() {
+    let ordered_init_funcs = order_workspace_init_funcs(modules, entry_idx, &init_funcs);
+
+    let init_func_idx = if ordered_init_funcs.is_empty() {
         None
     } else {
         let mut init_instructions = Vec::new();
-        for &init_idx in &init_funcs {
+
+        for init_idx in ordered_init_funcs {
             init_instructions.push(Instruction::Call {
                 dest: Reg(0),
                 func: init_idx,
@@ -273,6 +293,54 @@ fn collect_call_targets(
             collect_call_targets(body, targets);
         }
     }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum InitVisitState {
+    Visiting,
+    Visited,
+}
+
+fn order_workspace_init_funcs(
+    modules: &[CheckedModule],
+    entry_idx: usize,
+    init_funcs: &HashMap<usize, FuncIdx>,
+) -> Vec<FuncIdx> {
+    let mut states = HashMap::new();
+    let mut module_order = Vec::new();
+
+    visit_init_dependencies(modules, entry_idx, &mut states, &mut module_order);
+
+    module_order
+        .into_iter()
+        .filter_map(|module_idx| init_funcs.get(&module_idx).copied())
+        .collect()
+}
+
+fn visit_init_dependencies(
+    modules: &[CheckedModule],
+    module_idx: usize,
+    states: &mut HashMap<usize, InitVisitState>,
+    module_order: &mut Vec<usize>,
+) {
+    match states.get(&module_idx).copied() {
+        Some(InitVisitState::Visited) => return,
+        Some(InitVisitState::Visiting) => return,
+        None => {}
+    }
+
+    states.insert(module_idx, InitVisitState::Visiting);
+
+    if let Some(resolution) = modules[module_idx].graph().resolution() {
+        for import in resolution.imports() {
+            if let Some(target_idx) = import_target_index(modules, module_idx, import.source()) {
+                visit_init_dependencies(modules, target_idx, states, module_order);
+            }
+        }
+    }
+
+    states.insert(module_idx, InitVisitState::Visited);
+    module_order.push(module_idx);
 }
 
 fn resolve_import_target(
@@ -436,41 +504,67 @@ fn canonical_global_idx(
     local_pos: u16,
     global_var_map: &mut HashMap<(usize, String), galfus_image::instruction::GlobalIdx>,
     next_global_idx: &mut u16,
-) -> galfus_image::instruction::GlobalIdx {
-    let module = &modules[mod_idx];
-    let resolution = match module.graph().resolution() {
-        Some(res) => res,
-        None => return galfus_image::instruction::GlobalIdx(0),
-    };
-    let symbols = resolution.symbols();
-    let s = match symbols.get(local_pos as usize) {
-        Some(sym) => sym,
-        None => return galfus_image::instruction::GlobalIdx(0),
-    };
+) -> Result<galfus_image::instruction::GlobalIdx> {
+    let module = modules
+        .get(mod_idx)
+        .ok_or_else(|| anyhow::anyhow!("invalid module index `{mod_idx}` during global rewrite"))?;
 
-    // If s is an import, resolve it
+    let resolution = module.graph().resolution().ok_or_else(|| {
+        anyhow::anyhow!(
+            "missing resolver output for module `{}` during global rewrite",
+            module.path().display()
+        )
+    })?;
+
+    let symbols = resolution.symbols();
+    let symbol = symbols.get(local_pos as usize).ok_or_else(|| {
+        anyhow::anyhow!(
+            "missing local/global symbol at position `{local_pos}` in module `{}`",
+            module.path().display()
+        )
+    })?;
+
     if let Some(import) = resolution
         .imports()
         .iter()
-        .find(|imp| imp.local_symbol() == s.id())
-        && let Some(imported_name) = import.imported_name()
-        && let Some(target_idx) = import_target_index(modules, mod_idx, import.source())
+        .find(|import| import.local_symbol() == symbol.id())
     {
+        let imported_name = import.imported_name().ok_or_else(|| {
+            anyhow::anyhow!(
+                "module import `{}` in `{}` cannot be used as a global value directly",
+                import.source(),
+                module.path().display()
+            )
+        })?;
+
+        let target_idx =
+            import_target_index(modules, mod_idx, import.source()).ok_or_else(|| {
+                anyhow::anyhow!(
+                    "could not resolve import `{}` from module `{}` while rewriting global `{}`",
+                    import.source(),
+                    module.path().display(),
+                    imported_name
+                )
+            })?;
+
         let key = (target_idx, imported_name.to_string());
-        return *global_var_map.entry(key).or_insert_with(|| {
+        let idx = *global_var_map.entry(key).or_insert_with(|| {
             let idx = galfus_image::instruction::GlobalIdx(*next_global_idx);
             *next_global_idx += 1;
             idx
         });
+
+        return Ok(idx);
     }
 
-    // Otherwise, s is local to mod_idx
-    let key = (mod_idx, s.name().to_string());
-    *global_var_map.entry(key).or_insert_with(|| {
+    let key = (mod_idx, symbol.name().to_string());
+    let idx = *global_var_map.entry(key).or_insert_with(|| {
         let idx = galfus_image::instruction::GlobalIdx(*next_global_idx);
         *next_global_idx += 1;
         idx
-    })
+    });
+
+    Ok(idx)
 }
 
 fn import_target_index(modules: &[CheckedModule], mod_idx: usize, source: &str) -> Option<usize> {
@@ -517,8 +611,9 @@ fn rewrite_global_indices(
     mod_idx: usize,
     global_var_map: &mut HashMap<(usize, String), galfus_image::instruction::GlobalIdx>,
     next_global_idx: &mut u16,
-) {
+) -> Result<()> {
     use galfus_image::instruction::Instruction;
+
     for instr in instructions {
         match instr {
             Instruction::LoadGlobal {
@@ -531,7 +626,7 @@ fn rewrite_global_indices(
                     global_idx.raw(),
                     global_var_map,
                     next_global_idx,
-                );
+                )?;
             }
             Instruction::StoreGlobal { global_idx, src: _ } => {
                 *global_idx = canonical_global_idx(
@@ -540,11 +635,13 @@ fn rewrite_global_indices(
                     global_idx.raw(),
                     global_var_map,
                     next_global_idx,
-                );
+                )?;
             }
             _ => {}
         }
     }
+
+    Ok(())
 }
 
 fn collect_entry_exports(
@@ -577,4 +674,16 @@ fn collect_entry_exports(
         }
     }
     exports
+}
+
+fn image_local_count(mir_func: &galfus_ir::mir::MirFunction, param_count: u16) -> u16 {
+    let max_local_id = mir_func
+        .locals
+        .iter()
+        .map(|local| local.id.raw() as u16)
+        .max()
+        .map(|max_id| max_id + 1)
+        .unwrap_or(param_count);
+
+    max_local_id.saturating_sub(param_count)
 }
