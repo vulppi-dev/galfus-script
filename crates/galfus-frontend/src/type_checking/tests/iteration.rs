@@ -560,3 +560,74 @@ fn check_accepts_for_over_quantity_range() {
 
     assert!(!result.has_errors());
 }
+
+#[test]
+fn check_accepts_ignored_for_binding() {
+    let (_source, _graph, result) = check_source(
+        r#"
+fn main(values: [int32]): null {
+  for _ in values {
+    var copied: int32 = 1
+  }
+
+  return
+}
+"#,
+    );
+
+    assert!(!result.has_errors());
+}
+
+#[test]
+fn check_binds_for_index_as_int32() {
+    let (source, graph, result) = check_source(
+        r#"
+fn main(values: [int32]): null {
+  for value, index in values {
+    var copied: int32 = value
+    var position: int32 = index
+  }
+
+  return
+}
+"#,
+    );
+
+    let index =
+        find_node_by_kind_and_text(&source, &graph, SyntaxNodeKind::Identifier, "index").unwrap();
+
+    let ty = result.layer().node_type(index).unwrap();
+
+    assert_eq!(
+        result.layer().table().kind(ty),
+        Some(&TypeKind::Primitive(PrimitiveType::Int32))
+    );
+}
+
+#[test]
+fn check_ignored_for_binding_does_not_create_referenceable_symbol() {
+    let source = source(
+        r#"
+fn main(values: [int32]): null {
+  for _ in values {
+    var copied: int32 = 1
+  }
+
+  return
+}
+"#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+
+    assert!(resolve_result.has_errors());
+    assert!(
+        resolve_result
+            .diagnostics()
+            .iter()
+            .any(|diagnostic| { diagnostic.message().contains("unresolved name `_`") })
+    );
+}

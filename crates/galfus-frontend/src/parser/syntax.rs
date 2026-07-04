@@ -2,7 +2,17 @@ use super::*;
 
 impl Parser {
     pub(super) fn parse_identifier(&mut self) -> Option<NodeId> {
-        let token = self.expect(TokenKind::Identifier)?;
+        let token = if self.at(&TokenKind::Identifier) || self.at(&TokenKind::Underscore) {
+            self.bump()
+        } else {
+            let found = self.current().clone();
+            self.graph.push_diagnostic(Diagnostic::error_with_message(
+                ParserDiagnosticCode::ExpectedToken,
+                format!("expected `Identifier`, found `{:?}`", found.kind()),
+                found.span(),
+            ));
+            return None;
+        };
 
         Some(self.add_node(SyntaxNodeKind::Identifier, token.span(), Vec::new()))
     }

@@ -14,11 +14,27 @@ impl<'a> DeclarationTypeChecker<'a> {
         node: NodeId,
         expected: Option<TypeId>,
     ) -> Option<TypeId> {
+        let syntax_node = self.graph.syntax().node(node)?;
+
         if let Some(existing) = self.layer.node_type(node) {
+            match syntax_node.kind() {
+                SyntaxNodeKind::IntegerLiteral => {
+                    if let Some(expected) = self.expected_integer_literal_type(expected) {
+                        self.layer.bind_node_type(node, expected);
+                        return Some(expected);
+                    }
+                }
+                SyntaxNodeKind::FloatLiteral => {
+                    if let Some(expected) = self.expected_float_literal_type(expected) {
+                        self.layer.bind_node_type(node, expected);
+                        return Some(expected);
+                    }
+                }
+                _ => {}
+            }
+
             return Some(existing);
         }
-
-        let syntax_node = self.graph.syntax().node(node)?;
 
         let ty = match syntax_node.kind() {
             SyntaxNodeKind::IntegerLiteral => Some(
@@ -26,9 +42,10 @@ impl<'a> DeclarationTypeChecker<'a> {
                     .unwrap_or_else(|| self.layer.table().primitive(PrimitiveType::Int32)),
             ),
 
-            SyntaxNodeKind::FloatLiteral => {
-                Some(self.layer.table().primitive(PrimitiveType::Float64))
-            }
+            SyntaxNodeKind::FloatLiteral => Some(
+                self.expected_float_literal_type(expected)
+                    .unwrap_or_else(|| self.layer.table().primitive(PrimitiveType::Float32)),
+            ),
 
             SyntaxNodeKind::BoolLiteral => Some(self.layer.table().primitive(PrimitiveType::Bool)),
 
@@ -80,7 +97,7 @@ impl<'a> DeclarationTypeChecker<'a> {
 
             SyntaxNodeKind::IndexExpression => self.infer_index_expression_type(node),
 
-            SyntaxNodeKind::BinaryExpression => self.infer_binary_expression_type(node),
+            SyntaxNodeKind::BinaryExpression => self.infer_binary_expression_type(node, expected),
 
             SyntaxNodeKind::UnaryExpression => self.infer_unary_expression_type(node),
 
@@ -126,12 +143,32 @@ impl<'a> DeclarationTypeChecker<'a> {
 
     fn expected_integer_literal_type(&self, expected: Option<TypeId>) -> Option<TypeId> {
         let expected = self.resolve_alias_type(expected?);
+
         match self.layer.table().kind(expected) {
-            Some(crate::TypeKind::Primitive(primitive))
-                if primitive.is_int() || primitive.is_uint() =>
-            {
-                Some(expected)
-            }
+            Some(crate::TypeKind::Primitive(
+                PrimitiveType::Int8
+                | PrimitiveType::Int16
+                | PrimitiveType::Int32
+                | PrimitiveType::Int64
+                | PrimitiveType::Uint8
+                | PrimitiveType::Uint16
+                | PrimitiveType::Uint32
+                | PrimitiveType::Uint64
+                | PrimitiveType::Float16
+                | PrimitiveType::Float32
+                | PrimitiveType::Float64,
+            )) => Some(expected),
+            _ => None,
+        }
+    }
+
+    fn expected_float_literal_type(&self, expected: Option<TypeId>) -> Option<TypeId> {
+        let expected = self.resolve_alias_type(expected?);
+
+        match self.layer.table().kind(expected) {
+            Some(crate::TypeKind::Primitive(
+                PrimitiveType::Float16 | PrimitiveType::Float32 | PrimitiveType::Float64,
+            )) => Some(expected),
             _ => None,
         }
     }

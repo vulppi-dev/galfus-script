@@ -213,10 +213,25 @@ impl Parser {
     }
 
     pub(super) fn parse_for_binding(&mut self) -> Option<NodeId> {
-        let name = self.parse_identifier()?;
-        let span = self.node_span(name);
+        let value_name = self.parse_identifier()?;
+        let mut children = vec![value_name];
+        let mut end_span = self.node_span(value_name);
 
-        Some(self.add_node(SyntaxNodeKind::ForBinding, span, vec![name]))
+        self.skip_newlines();
+
+        if self.at(&TokenKind::Comma) {
+            self.bump();
+            self.skip_newlines();
+
+            let index_name = self.parse_identifier()?;
+            end_span = self.node_span(index_name);
+            children.push(index_name);
+        }
+
+        let span = Span::cover(self.node_span(value_name), end_span)
+            .unwrap_or_else(|| self.node_span(value_name));
+
+        Some(self.add_node(SyntaxNodeKind::ForBinding, span, children))
     }
 
     pub(super) fn parse_for_statement(&mut self) -> Option<NodeId> {

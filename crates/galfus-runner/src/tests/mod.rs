@@ -1,8 +1,10 @@
 mod check;
+mod format_parse;
 mod gfb;
 mod graph;
 mod import_call_resolution;
 mod module_init;
 mod mvp_validation;
+mod reserved_builtins;
 mod run;
 mod workspace;

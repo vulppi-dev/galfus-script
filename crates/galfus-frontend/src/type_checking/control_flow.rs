@@ -1,6 +1,6 @@
 use galfus_core::{NodeId, TypeId};
 
-use crate::{PrimitiveType, SymbolKind, SyntaxNodeKind, TypeKind};
+use crate::{PrimitiveType, SyntaxNodeKind, TypeKind};
 
 use super::DeclarationTypeChecker;
 
@@ -139,10 +139,41 @@ impl<'a> DeclarationTypeChecker<'a> {
     }
 
     fn bind_for_binding_type(&mut self, binding: NodeId, element_type: TypeId) {
-        let symbols = self.declaration_symbols_in_node(binding, &[SymbolKind::ForBinding]);
+        let Some(binding_node) = self.graph.syntax().node(binding) else {
+            return;
+        };
 
-        for symbol in symbols {
-            self.layer.bind_symbol_type(symbol, element_type);
+        let index_type = self.layer.table().primitive(PrimitiveType::Int32);
+
+        for (position, child) in binding_node.children().iter().copied().enumerate() {
+            let Some(child_node) = self.graph.syntax().node(child) else {
+                continue;
+            };
+
+            if child_node.kind() != SyntaxNodeKind::Identifier {
+                continue;
+            }
+
+            let binding_type = if position == 0 {
+                element_type
+            } else {
+                index_type
+            };
+
+            self.layer.bind_node_type(child, binding_type);
+
+            if self.node_text(child) == "_" {
+                continue;
+            }
+
+            let symbol = self
+                .graph
+                .resolution()
+                .and_then(|resolution| resolution.declaration_symbol(child));
+
+            if let Some(symbol) = symbol {
+                self.layer.bind_symbol_type(symbol, binding_type);
+            }
         }
 
         self.layer.bind_node_type(binding, element_type);

@@ -1,39 +1,36 @@
 use galfus_core::{NodeId, TypeId};
 
-use crate::{PrimitiveType, TypeKind};
+use crate::{PrimitiveType, SyntaxNodeKind, TypeKind};
 
 use super::DeclarationTypeChecker;
 
 impl<'a> DeclarationTypeChecker<'a> {
-    pub(super) fn infer_binary_expression_type(&mut self, node: NodeId) -> Option<TypeId> {
+    pub(super) fn infer_binary_expression_type(
+        &mut self,
+        node: NodeId,
+        expected: Option<TypeId>,
+    ) -> Option<TypeId> {
         let left = self.graph.syntax().child(node, 0)?;
         let operator = self.graph.syntax().child(node, 1)?;
         let right = self.graph.syntax().child(node, 2)?;
-
-        let left_type = self.infer_expression_type(left)?;
-        let right_type = self.infer_expression_type(right)?;
-
         let operator_text = self.node_text(operator);
+
+        let (left_type, right_type) =
+            self.infer_binary_operand_types(left, right, expected, operator_text.as_str())?;
 
         let ty = match operator_text.as_str() {
             "+" | "-" | "*" | "/" | "%" | "**" => {
                 self.check_numeric_binary_operator(operator, left_type, right_type)?
             }
-
             "<" | "<=" | ">" | ">=" => {
                 self.check_numeric_comparison_operator(operator, left_type, right_type)?
             }
-
             "==" | "!=" => self.check_equality_operator(operator, left_type, right_type)?,
-
             "&&" | "||" => self.check_bool_binary_operator(operator, left_type, right_type)?,
-
             "&" | "|" | "^" => {
                 self.check_integer_binary_operator(operator, left_type, right_type)?
             }
-
             "<<" | ">>" => self.check_shift_operator(operator, left_type, right_type)?,
-
             _ => {
                 self.report_unsupported_operator(operator, operator_text.as_str());
                 self.layer.table_mut().error()
@@ -66,6 +63,62 @@ impl<'a> DeclarationTypeChecker<'a> {
 
         self.layer.bind_node_type(node, ty);
         Some(ty)
+    }
+
+    fn infer_binary_operand_types(
+        &mut self,
+        left: NodeId,
+        right: NodeId,
+        expected: Option<TypeId>,
+        operator_text: &str,
+    ) -> Option<(TypeId, TypeId)> {
+        let expected = self.expected_binary_result_type(expected, operator_text);
+
+        let left_is_number_literal = self.is_number_literal_node(left);
+        let right_is_number_literal = self.is_number_literal_node(right);
+
+        match (left_is_number_literal, right_is_number_literal) {
+            (true, true) => {
+                let left_type = self.infer_expression_type_with_expected(left, expected)?;
+                let right_type =
+                    self.infer_expression_type_with_expected(right, Some(left_type))?;
+                Some((left_type, right_type))
+            }
+            (true, false) => {
+                let right_type = self.infer_expression_type_with_expected(right, expected)?;
+                let left_type = self.infer_expression_type_with_expected(left, Some(right_type))?;
+                Some((left_type, right_type))
+            }
+            (false, true) => {
+                let left_type = self.infer_expression_type_with_expected(left, expected)?;
+                let right_type =
+                    self.infer_expression_type_with_expected(right, Some(left_type))?;
+                Some((left_type, right_type))
+            }
+            (false, false) => {
+                let left_type = self.infer_expression_type_with_expected(left, expected)?;
+                let right_type = self.infer_expression_type_with_expected(right, expected)?;
+                Some((left_type, right_type))
+            }
+        }
+    }
+
+    fn expected_binary_result_type(
+        &self,
+        expected: Option<TypeId>,
+        operator_text: &str,
+    ) -> Option<TypeId> {
+        match operator_text {
+            "+" | "-" | "*" | "/" | "%" | "**" | "&" | "|" | "^" | "<<" | ">>" => expected,
+            _ => None,
+        }
+    }
+
+    fn is_number_literal_node(&self, node: NodeId) -> bool {
+        matches!(
+            self.graph.syntax().node(node).map(|node| node.kind()),
+            Some(SyntaxNodeKind::IntegerLiteral | SyntaxNodeKind::FloatLiteral)
+        )
     }
 
     fn check_numeric_binary_operator(

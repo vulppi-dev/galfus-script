@@ -188,12 +188,35 @@ impl<'a> Resolver<'a> {
             .syntax
             .first_child_of_kind(statement, SyntaxNodeKind::ForBinding)
         {
-            let symbol_name = self.node_text(binding);
-            self.declare_symbol(symbol_name, SymbolKind::ForBinding, binding, for_scope);
+            self.declare_for_binding(binding, for_scope);
         }
 
         if let Some(body) = self.syntax.child(statement, 2) {
             self.resolve_block(body, for_scope);
+        }
+    }
+
+    fn declare_for_binding(&mut self, binding: NodeId, scope: ScopeId) {
+        let Some(node) = self.syntax.node(binding) else {
+            return;
+        };
+
+        for child in node.children() {
+            let Some(child_node) = self.syntax.node(*child) else {
+                continue;
+            };
+
+            if child_node.kind() != SyntaxNodeKind::Identifier {
+                continue;
+            }
+
+            let symbol_name = self.node_text(*child);
+
+            if symbol_name == "_" {
+                continue;
+            }
+
+            self.declare_symbol(symbol_name, SymbolKind::ForBinding, *child, scope);
         }
     }
 
