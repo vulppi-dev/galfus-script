@@ -44,7 +44,10 @@ fn bytesEqual(a: [uint8], b: [uint8]): bool {
 
   var index = 0
 
-  while index < lenA {
+  loop {
+    if index >= lenA {
+      break
+    }
     if a[index] != b[index] {
       return false
     }
@@ -63,7 +66,10 @@ fn stringifyUint64(value: uint64): [uint8] {
   var n = value
   var digits: [uint8] = ""
 
-  while n > 0 {
+  loop {
+    if n <= 0 {
+      break
+    }
     var digit = <uint8> ((n % 10) + 48)
     digits = [digit, ...digits]
     n = n / 10
@@ -325,22 +331,23 @@ fn parseNull(s: [uint8]): ParseResult<null> {
 }
 
 export fn parse<T: Parsed>(s: [uint8]): ParseResult<T> {
-  return typeof T {
-    int8 => parseInt8(s),
-    int16 => parseInt16(s),
-    int32 => parseInt32(s),
-    int64 => parseInt64(s),
+  var dummy = new([T; 1])[0]
+  return instanceof dummy {
+    int8 => <ParseResult<T> > parseInt8(s),
+    int16 => <ParseResult<T> > parseInt16(s),
+    int32 => <ParseResult<T> > parseInt32(s),
+    int64 => <ParseResult<T> > parseInt64(s),
 
-    uint8 => parseUint8(s),
-    uint16 => parseUint16(s),
-    uint32 => parseUint32(s),
-    uint64 => parseUint64(s),
+    uint8 => <ParseResult<T> > parseUint8(s),
+    uint16 => <ParseResult<T> > parseUint16(s),
+    uint32 => <ParseResult<T> > parseUint32(s),
+    uint64 => <ParseResult<T> > parseUint64(s),
 
-    float16 => parseFloat16(s),
-    float32 => parseFloat32(s),
-    float64 => parseFloat64(s),
+    float16 => <ParseResult<T> > parseFloat16(s),
+    float32 => <ParseResult<T> > parseFloat32(s),
+    float64 => <ParseResult<T> > parseFloat64(s),
 
-    bool => parseBool(s),
+    bool => <ParseResult<T> > parseBool(s),
     null => parseNull(s),
   }
 }

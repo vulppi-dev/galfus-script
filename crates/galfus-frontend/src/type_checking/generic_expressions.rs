@@ -14,11 +14,21 @@ impl<'a> DeclarationTypeChecker<'a> {
         let arguments = self.graph.syntax().child(node, 1)?;
 
         let target_type = self.infer_expression_type(target);
+        println!(
+            "TARGET_TYPE: target={:?}, kind={:?}, type={:?}",
+            target,
+            self.graph.syntax().node(target).map(|n| n.kind()),
+            target_type
+        );
 
         let target_type = target_type?;
         let argument_types = self.generic_expression_argument_types(arguments)?;
 
         let parameters = self.generic_expression_parameter_symbols(target, target_type);
+        println!(
+            "INFER_GENERIC_EXPR: target_type={:?}, argument_types={:?}, parameters={:?}",
+            target_type, argument_types, parameters
+        );
 
         if parameters.len() != argument_types.len() {
             self.report_generic_argument_count_mismatch(

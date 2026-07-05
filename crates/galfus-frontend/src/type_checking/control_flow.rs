@@ -15,10 +15,6 @@ impl<'a> DeclarationTypeChecker<'a> {
                 self.check_if_statement_control_flow(node, loop_depth);
             }
 
-            SyntaxNodeKind::WhileStatement => {
-                self.check_while_statement_control_flow(node, loop_depth);
-            }
-
             SyntaxNodeKind::LoopStatement => {
                 self.check_loop_statement_control_flow(node, loop_depth);
             }
@@ -65,18 +61,6 @@ impl<'a> DeclarationTypeChecker<'a> {
 
         for child in children.into_iter().skip(1) {
             self.check_control_flow(child, loop_depth);
-        }
-    }
-
-    fn check_while_statement_control_flow(&mut self, node: NodeId, loop_depth: usize) {
-        let Some(condition) = self.graph.syntax().child(node, 0) else {
-            return;
-        };
-
-        self.check_bool_condition(condition);
-
-        if let Some(body) = self.graph.syntax().child(node, 1) {
-            self.check_control_flow(body, loop_depth + 1);
         }
     }
 

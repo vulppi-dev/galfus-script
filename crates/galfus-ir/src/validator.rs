@@ -273,6 +273,9 @@ fn validate_rvalue_operands(
         RValue::Cast(operand, _) => {
             validate_operand(operand, func, initialized, errors);
         }
+        RValue::Copy(operand) => {
+            validate_operand(operand, func, initialized, errors);
+        }
         RValue::NewStruct { fields, .. } => {
             for field in fields {
                 validate_operand(field, func, initialized, errors);

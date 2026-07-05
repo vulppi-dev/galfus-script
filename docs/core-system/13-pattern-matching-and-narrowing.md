@@ -14,8 +14,6 @@ Galfus has one narrowing expression:
 instanceof
 ```
 
-`typeof` does not exist.
-
 `match` handles value/data-pattern matching.
 
 `instanceof` handles type, null, union, generic known-set, nominal, and facade narrowing.
@@ -308,7 +306,6 @@ Wildcard before the final arm is an error.
 
 The checker MUST:
 
-- Reject `typeof`.
 - Use `instanceof` for all narrowing.
 - Require `match` and `instanceof` expressions to be exhaustive.
 - Require `_` to be the final arm when present.

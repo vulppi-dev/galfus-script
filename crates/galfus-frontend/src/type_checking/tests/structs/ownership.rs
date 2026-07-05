@@ -263,3 +263,32 @@ struct Child {
 
     assert!(result.ownership_metadata().cycles().is_empty());
 }
+
+#[test]
+fn check_reports_copy_of_fieldless_struct() {
+    let source = source(
+        r#"
+struct RuntimeToken {}
+
+var token: RuntimeToken = new(RuntimeToken) {}
+var cloned: RuntimeToken = copy token
+"#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.into_graph();
+    let result = check_declaration_types(&source, &graph);
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::InvalidCopyTarget.as_code()
+            && diagnostic
+                .message()
+                .contains("fieldless structs are not copyable")
+    }));
+}

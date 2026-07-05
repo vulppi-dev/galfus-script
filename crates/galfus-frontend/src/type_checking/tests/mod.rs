@@ -24,7 +24,6 @@ mod operators;
 mod returns;
 mod structs;
 mod type_aliases;
-mod typeof_expressions;
 mod variants;
 
 fn source(text: &str) -> SourceFile {

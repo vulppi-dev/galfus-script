@@ -19,12 +19,12 @@ var UserName = "Bia"
 
 Recommended style:
 
-| Kind | Style |
-|---|---|
-| Type, struct, enum, choice, constraint | `PascalCase` |
-| Function, variable, field, import binding | `camelCase` |
-| Generic parameter | `PascalCase` or short uppercase such as `T` |
-| Rust implementation internals | `snake_case` |
+| Kind                                      | Style                                       |
+| ----------------------------------------- | ------------------------------------------- |
+| Type, struct, enum, choice, constraint    | `PascalCase`                                |
+| Function, variable, field, import binding | `camelCase`                                 |
+| Generic parameter                         | `PascalCase` or short uppercase such as `T` |
+| Rust implementation internals             | `snake_case`                                |
 
 ## 1.2 Reserved Words
 
@@ -76,8 +76,6 @@ typeof
 ```
 
 `commit` is not a keyword because transaction commit is implicit when a transaction block completes without `rollback`.
-
-`typeof` is removed. All narrowing is done by `instanceof`.
 
 ## 1.3 Primitive Type Names
 
@@ -280,7 +278,6 @@ The lexer and parser MUST:
 - Preserve case-sensitive identifiers.
 - Reject reserved words in normal identifier positions.
 - Treat metadata names as ordinary identifiers outside metadata positions.
-- Reject `typeof` as invalid syntax.
 - Treat `_` as wildcard only in supported positions.
 - Reject `_` as a readable expression.
 - Recognize `copy` as a reserved expression keyword.

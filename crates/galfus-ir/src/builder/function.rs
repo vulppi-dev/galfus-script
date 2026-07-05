@@ -430,56 +430,6 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                 });
             }
 
-            SyntaxNodeKind::WhileStatement => {
-                self.flush_current_instructions(statements);
-
-                let cond_node = node.child(0).unwrap();
-                let body_node = node.child(1).unwrap();
-
-                let mut loop_body_statements = Vec::new();
-
-                let cond = self.lower_expression(cond_node, &mut loop_body_statements);
-
-                let bool_ty = self.node_type(cond_node).unwrap_or_else(|| TypeId::new(0));
-
-                let temp_id = self.declare_local(None, bool_ty);
-                self.current_instructions.push(Instruction::Assign(
-                    temp_id,
-                    RValue::UnaryOp(MirUnaryOp::Not, cond),
-                ));
-                let not_cond = Operand::Local(temp_id);
-
-                if !self.current_instructions.is_empty() {
-                    let instructions = std::mem::take(&mut self.current_instructions);
-                    loop_body_statements.push(MirBody::BasicBlock(BasicBlock {
-                        id: self.builder.next_block(),
-                        instructions,
-                        terminator: Terminator::None,
-                    }));
-                }
-
-                let break_bb = MirBody::BasicBlock(BasicBlock {
-                    id: self.builder.next_block(),
-                    instructions: Vec::new(),
-                    terminator: Terminator::Break,
-                });
-                loop_body_statements.push(MirBody::If {
-                    cond: not_cond,
-                    then_branch: Box::new(break_bb),
-                    else_branch: None,
-                });
-
-                let lowered_body = self.lower_block(body_node);
-                loop_body_statements.push(lowered_body);
-
-                statements.push(MirBody::Loop {
-                    body: Box::new(MirBody::Block {
-                        locals: Vec::new(),
-                        statements: loop_body_statements,
-                    }),
-                });
-            }
-
             SyntaxNodeKind::LoopStatement => {
                 self.flush_current_instructions(statements);
 

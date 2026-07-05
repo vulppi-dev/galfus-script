@@ -283,21 +283,4 @@ impl Parser {
             vec![subject, arms],
         ))
     }
-
-    pub(super) fn parse_typeof_expression(&mut self) -> Option<NodeId> {
-        let typeof_token = self.expect(TokenKind::Typeof)?;
-
-        self.skip_newlines();
-
-        let subject = self.parse_type()?;
-
-        self.skip_newlines();
-
-        let arms = self.parse_typeof_arm_list()?;
-
-        let span =
-            Span::cover(typeof_token.span(), self.node_span(arms)).unwrap_or(typeof_token.span());
-
-        Some(self.add_node(SyntaxNodeKind::TypeofExpression, span, vec![subject, arms]))
-    }
 }

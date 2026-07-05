@@ -85,7 +85,6 @@ impl<'a> Resolver<'a> {
             }
 
             SyntaxNodeKind::IfStatement
-            | SyntaxNodeKind::WhileStatement
             | SyntaxNodeKind::LoopStatement
             | SyntaxNodeKind::ReturnStatement
             | SyntaxNodeKind::ExpressionStatement => {

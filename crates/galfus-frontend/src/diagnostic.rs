@@ -124,8 +124,6 @@ pub enum TypeDiagnosticCode {
     IncompatibleMatchArmType,
     InvalidInstanceofPatternType,
     IncompatibleInstanceofArmType,
-    InvalidTypeofPatternType,
-    IncompatibleTypeofArmType,
     InvalidSatisfiesTarget,
     MissingConstraintField,
     ConstraintFieldTypeMismatch,
@@ -145,6 +143,7 @@ pub enum TypeDiagnosticCode {
     InvalidStructExpansionTarget,
     InvalidStructSpreadTarget,
     RestrictedBuiltinSymbol,
+    InvalidCopyTarget,
 }
 
 impl DiagnosticCodeKind for TypeDiagnosticCode {
@@ -195,8 +194,7 @@ impl DiagnosticCodeKind for TypeDiagnosticCode {
             Self::InvalidStructExpansionTarget => "T0043",
             Self::InvalidStructSpreadTarget => "T0044",
             Self::RestrictedBuiltinSymbol => "T0045",
-            Self::InvalidTypeofPatternType => "T0046",
-            Self::IncompatibleTypeofArmType => "T0047",
+            Self::InvalidCopyTarget => "T0046",
         }
     }
 
@@ -228,8 +226,6 @@ impl DiagnosticCodeKind for TypeDiagnosticCode {
             Self::IncompatibleMatchArmType => "incompatible match arm type",
             Self::InvalidInstanceofPatternType => "invalid instanceof pattern type",
             Self::IncompatibleInstanceofArmType => "incompatible instanceof arm type",
-            Self::InvalidTypeofPatternType => "invalid typeof pattern type",
-            Self::IncompatibleTypeofArmType => "incompatible typeof arm type",
             Self::InvalidSatisfiesTarget => "invalid satisfies target",
             Self::MissingConstraintField => "missing constraint field",
             Self::ConstraintFieldTypeMismatch => "constraint field type mismatch",
@@ -251,6 +247,7 @@ impl DiagnosticCodeKind for TypeDiagnosticCode {
             Self::InvalidStructExpansionTarget => "invalid struct expansion target",
             Self::InvalidStructSpreadTarget => "invalid struct spread target",
             Self::RestrictedBuiltinSymbol => "restricted builtin symbol usage",
+            Self::InvalidCopyTarget => "invalid copy target",
         }
     }
 }

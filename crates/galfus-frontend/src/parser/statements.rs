@@ -36,10 +36,6 @@ impl Parser {
             return self.parse_for_statement();
         }
 
-        if self.at(&TokenKind::While) {
-            return self.parse_while_statement();
-        }
-
         if self.at(&TokenKind::Loop) {
             return self.parse_loop_statement();
         }
@@ -297,23 +293,6 @@ impl Parser {
             Span::cover(loop_token.span(), self.node_span(body)).unwrap_or(loop_token.span());
 
         Some(self.add_node(SyntaxNodeKind::LoopStatement, span, vec![body]))
-    }
-
-    pub(super) fn parse_while_statement(&mut self) -> Option<NodeId> {
-        let while_token = self.expect(TokenKind::While)?;
-
-        self.skip_newlines();
-
-        let condition = self.parse_expression_before_block()?;
-
-        self.skip_newlines();
-
-        let body = self.parse_block()?;
-
-        let span =
-            Span::cover(while_token.span(), self.node_span(body)).unwrap_or(while_token.span());
-
-        Some(self.add_node(SyntaxNodeKind::WhileStatement, span, vec![condition, body]))
     }
 
     pub(super) fn parse_match_statement(&mut self) -> Option<NodeId> {

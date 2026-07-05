@@ -80,6 +80,17 @@ impl<'a> LowerCtx<'a> {
 
     pub fn lower_type(&mut self, ty: TypeId) -> TypeIdx {
         let ty = self.resolve_alias_type(ty);
+        let table = self.type_result.layer().table();
+        if self.source_text.contains("export fn main") {
+            for id in 0..table.len() {
+                let ty_id = TypeId::new(id as u32);
+                println!(
+                    "MAIN_TYPE_TABLE_ENTRY: id={:?}, kind={:?}",
+                    ty_id,
+                    table.kind(ty_id)
+                );
+            }
+        }
         if let Some(&idx) = self.type_map.get(&ty) {
             return idx;
         }
@@ -103,6 +114,16 @@ impl<'a> LowerCtx<'a> {
                         let layout_idx = self.get_or_create_choice_layout(*symbol);
                         ImageType::Choice(layout_idx)
                     }
+                    Some(SymbolKind::ChoiceVariant) => {
+                        if let Some((choice_symbol, variant_idx)) =
+                            self.find_choice_for_variant(*symbol)
+                        {
+                            let layout_idx = self.get_or_create_choice_layout(choice_symbol);
+                            ImageType::ChoiceVariant(layout_idx, variant_idx as u16)
+                        } else {
+                            ImageType::Null
+                        }
+                    }
                     Some(SymbolKind::Constraint) => ImageType::Constraint(
                         resolution
                             .symbol(*symbol)
@@ -110,6 +131,37 @@ impl<'a> LowerCtx<'a> {
                             .unwrap_or_default(),
                     ),
                     _ => ImageType::Null,
+                }
+            }
+            Some(TypeKind::Path { root: _, segments }) => {
+                if segments.len() == 1 {
+                    if let Some(choice) = self.find_imported_choice_for_type(ty) {
+                        let layout_idx = self.get_or_create_imported_choice_layout(&choice);
+                        ImageType::Choice(layout_idx)
+                    } else {
+                        ImageType::Null
+                    }
+                } else if segments.len() == 2 {
+                    let choice_name = &segments[0];
+                    let variant_name = &segments[1];
+                    let choice = self
+                        .type_result
+                        .imported_path_choices
+                        .values()
+                        .find(|c| c.name == *choice_name);
+                    if let Some(choice) = choice {
+                        let layout_idx = self.get_or_create_imported_choice_layout(choice);
+                        let variant_idx = choice
+                            .variants
+                            .iter()
+                            .position(|v| v.name == *variant_name)
+                            .unwrap_or(0);
+                        ImageType::ChoiceVariant(layout_idx, variant_idx as u16)
+                    } else {
+                        ImageType::Null
+                    }
+                } else {
+                    ImageType::Null
                 }
             }
             Some(TypeKind::Array { element }) => {
@@ -135,6 +187,13 @@ impl<'a> LowerCtx<'a> {
             _ => ImageType::Null,
         };
 
+        println!(
+            "LOWER_TYPE: ty_id={:?}, kind={:?}, resolved_image_type={:?}, index={:?}",
+            ty,
+            table.kind(ty),
+            image_type,
+            next_idx
+        );
         self.types[next_idx.raw() as usize] = image_type.clone();
 
         next_idx
@@ -674,5 +733,95 @@ impl<'a> LowerCtx<'a> {
             }
         }
         TypeId::new(0)
+    }
+
+    fn find_choice_for_variant(&self, variant_symbol: SymbolId) -> Option<(SymbolId, usize)> {
+        let resolution = self.graph.resolution()?;
+        let variant_data = resolution.symbol(variant_symbol)?;
+        let variant_name = variant_data.name();
+
+        let root = self.graph.syntax().root()?;
+        let syntax = self.graph.syntax();
+
+        let mut stack = vec![root];
+        while let Some(node_id) = stack.pop() {
+            let node = syntax.node(node_id)?;
+            if node.kind() == SyntaxNodeKind::ChoiceItem {
+                if let Some(ident) = syntax.first_child_of_kind(node_id, SyntaxNodeKind::Identifier)
+                {
+                    if let Some(choice_symbol) = resolution.declaration_symbol(ident) {
+                        let variants = self.get_choice_variants(choice_symbol);
+                        if let Some(idx) =
+                            variants.iter().position(|(name, _)| name == variant_name)
+                        {
+                            return Some((choice_symbol, idx));
+                        }
+                    }
+                }
+            }
+            stack.extend(node.children().iter().copied().rev());
+        }
+        None
+    }
+
+    pub fn find_imported_choice_for_type(
+        &self,
+        ty: TypeId,
+    ) -> Option<galfus_frontend::LoweredImportedChoice> {
+        let table = self.type_result.layer().table();
+        let (_root, segments) = match table.kind(ty) {
+            Some(TypeKind::Path { root, segments }) => (*root, segments),
+            _ => return None,
+        };
+        if segments.len() != 1 {
+            return None;
+        }
+        let choice_name = &segments[0];
+        self.type_result
+            .imported_path_choices
+            .values()
+            .find(|c| c.name == *choice_name)
+            .cloned()
+    }
+
+    pub fn get_or_create_imported_choice_layout(
+        &mut self,
+        choice: &galfus_frontend::LoweredImportedChoice,
+    ) -> ChoiceLayoutIdx {
+        if let Some(pos) = self
+            .choice_layouts
+            .iter()
+            .position(|c| c.name == choice.name)
+        {
+            return ChoiceLayoutIdx(pos as u16);
+        }
+
+        let next_idx = ChoiceLayoutIdx(self.choice_layouts.len() as u16);
+
+        self.choice_layouts.push(ChoiceLayout {
+            name: choice.name.clone(),
+            variants: Vec::new(),
+        });
+
+        let variants = choice
+            .variants
+            .iter()
+            .map(|v| {
+                let payload_idx = if v.payload_types.is_empty() {
+                    None
+                } else if v.payload_types.len() == 1 {
+                    Some(self.lower_type(v.payload_types[0]))
+                } else {
+                    Some(self.lower_type(self.find_tuple_type(&v.payload_types)))
+                };
+                ChoiceVariantLayout {
+                    name: v.name.clone(),
+                    payload_ty: payload_idx,
+                }
+            })
+            .collect();
+
+        self.choice_layouts[next_idx.raw() as usize].variants = variants;
+        next_idx
     }
 }

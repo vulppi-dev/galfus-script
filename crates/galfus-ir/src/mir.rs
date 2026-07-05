@@ -140,6 +140,7 @@ pub enum RValue {
     UnaryOp(MirUnaryOp, Operand),
     BinaryOp(MirBinaryOp, Operand, Operand),
     Cast(Operand, TypeId),
+    Copy(Operand),
     NewStruct {
         struct_type: TypeId,
         fields: Vec<Operand>,

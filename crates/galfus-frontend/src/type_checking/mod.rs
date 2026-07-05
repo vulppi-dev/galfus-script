@@ -41,7 +41,6 @@ mod returns;
 mod semantics;
 mod structs;
 mod support;
-mod typeof_expressions;
 mod variants;
 
 mod model;
@@ -58,6 +57,7 @@ struct DeclarationTypeChecker<'a> {
     imported_symbol_choices: HashMap<SymbolId, LoweredImportedChoice>,
     imported_path_choices: HashMap<NodeId, LoweredImportedChoice>,
     active_type_substitutions: Vec<HashMap<SymbolId, TypeId>>,
+    imported_generic_params: HashMap<SymbolId, SymbolId>,
 }
 
 #[derive(Debug, Clone)]
@@ -74,17 +74,6 @@ struct LoweredImportedConstraintMember {
     ty: TypeId,
 }
 
-#[derive(Debug, Clone)]
-struct LoweredImportedChoice {
-    variants: Vec<LoweredImportedChoiceVariant>,
-}
-
-#[derive(Debug, Clone)]
-struct LoweredImportedChoiceVariant {
-    name: String,
-    payload_types: Vec<TypeId>,
-}
-
 impl<'a> DeclarationTypeChecker<'a> {
     fn new(source: &'a SourceFile, graph: &'a ModuleGraph, layer: TypeLayer) -> Self {
         Self {
@@ -99,6 +88,7 @@ impl<'a> DeclarationTypeChecker<'a> {
             imported_symbol_choices: HashMap::new(),
             imported_path_choices: HashMap::new(),
             active_type_substitutions: Vec::new(),
+            imported_generic_params: HashMap::new(),
         }
     }
 
@@ -107,6 +97,8 @@ impl<'a> DeclarationTypeChecker<'a> {
             self.layer,
             self.diagnostics,
             self.ownership_metadata,
+            self.imported_symbol_choices,
+            self.imported_path_choices,
         )
     }
 
@@ -234,7 +226,15 @@ impl<'a> DeclarationTypeChecker<'a> {
         &mut self,
         imported_choice: &ImportedChoiceSurface,
     ) -> LoweredImportedChoice {
+        let generic_parameters = imported_choice
+            .generic_parameters()
+            .iter()
+            .filter_map(|parameter| self.lower_imported_generic_parameter(parameter))
+            .collect();
+
         LoweredImportedChoice {
+            name: imported_choice.name().to_string(),
+            generic_parameters,
             variants: imported_choice
                 .variants()
                 .iter()
@@ -248,6 +248,23 @@ impl<'a> DeclarationTypeChecker<'a> {
                 })
                 .collect(),
         }
+    }
+
+    fn lower_imported_generic_parameter(
+        &mut self,
+        imported_type: &ImportedType,
+    ) -> Option<SymbolId> {
+        let ImportedType::GenericParameter { symbol } = imported_type else {
+            return None;
+        };
+
+        let next_id = 1_000_000 + self.imported_generic_params.len() as u32;
+        Some(
+            *self
+                .imported_generic_params
+                .entry(*symbol)
+                .or_insert_with(|| SymbolId::new(next_id)),
+        )
     }
 
     fn lower_imported_type(&mut self, imported_type: &ImportedType) -> TypeId {
@@ -320,6 +337,33 @@ impl<'a> DeclarationTypeChecker<'a> {
                 self.layer
                     .table_mut()
                     .intern_function(parameters, return_type)
+            }
+
+            ImportedType::LocalPath { name } => self.layer.table_mut().intern_path(
+                SymbolId::new(0),
+                name.split("::").map(str::to_string).collect(),
+            ),
+
+            ImportedType::GenericParameter { symbol } => {
+                let next_id = 1_000_000 + self.imported_generic_params.len() as u32;
+                let mapped_symbol = *self
+                    .imported_generic_params
+                    .entry(*symbol)
+                    .or_insert_with(|| SymbolId::new(next_id));
+                self.layer
+                    .table_mut()
+                    .intern_generic_parameter(mapped_symbol)
+            }
+
+            ImportedType::GenericInstance { base, arguments } => {
+                let base = self.lower_imported_type(base);
+                let arguments = arguments
+                    .iter()
+                    .map(|arg| self.lower_imported_type(arg))
+                    .collect::<Vec<_>>();
+                self.layer
+                    .table_mut()
+                    .intern_generic_instance(base, arguments)
             }
         }
     }

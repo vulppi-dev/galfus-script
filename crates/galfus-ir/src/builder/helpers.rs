@@ -316,11 +316,29 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
         let from_ty = self.builder.resolve_alias_type(from_ty);
         let to_ty = self.builder.resolve_alias_type(to_ty);
 
-        if from_ty == to_ty {
+        let actual_from_ty = match &operand {
+            Operand::Constant(Constant::Int(val)) => {
+                let prim = if i32::try_from(*val).is_ok() {
+                    galfus_frontend::PrimitiveType::Int32
+                } else {
+                    galfus_frontend::PrimitiveType::Int64
+                };
+                self.builder.type_result.layer().table().primitive(prim)
+            }
+            Operand::Constant(Constant::Float(_)) => self
+                .builder
+                .type_result
+                .layer()
+                .table()
+                .primitive(galfus_frontend::PrimitiveType::Float64),
+            _ => from_ty,
+        };
+
+        if actual_from_ty == to_ty {
             return operand;
         }
 
-        if self.builder.is_assignable(to_ty, from_ty) {
+        if self.builder.is_assignable(to_ty, actual_from_ty) {
             let temp_id = self.declare_local(None, to_ty);
             self.current_instructions
                 .push(Instruction::Assign(temp_id, RValue::Cast(operand, to_ty)));

@@ -442,4 +442,42 @@ impl<'a> DeclarationTypeChecker<'a> {
             _ => false,
         }
     }
+
+    pub(super) fn is_fieldless_struct_type(&self, ty: TypeId) -> bool {
+        let ty = self.resolve_alias_type(ty);
+
+        let Some(TypeKind::Named { symbol }) = self.layer.table().kind(ty) else {
+            return false;
+        };
+
+        let Some(symbol_data) = self
+            .graph
+            .resolution()
+            .and_then(|resolution| resolution.symbol(*symbol))
+        else {
+            return false;
+        };
+
+        if symbol_data.kind() != SymbolKind::Struct {
+            return false;
+        }
+
+        let Some(resolution) = self.graph.resolution() else {
+            return false;
+        };
+
+        let Some(member_scope) = resolution.member_scope(*symbol) else {
+            return true;
+        };
+
+        let Some(scope) = resolution.scope(member_scope) else {
+            return true;
+        };
+
+        !scope.symbols().values().any(|field_symbol| {
+            resolution
+                .symbol(*field_symbol)
+                .is_some_and(|field| field.kind() == SymbolKind::StructField)
+        })
+    }
 }

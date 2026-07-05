@@ -316,8 +316,6 @@ nominal struct narrowing
 facade/concrete narrowing
 ```
 
-`typeof` does not exist.
-
 `_` must be final when present.
 
 Unreachable non-wildcard patterns are warnings.

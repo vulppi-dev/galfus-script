@@ -204,6 +204,11 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                 });
                 self.free_temp_if_operand(operand);
             }
+            RValue::Copy(operand) => {
+                let src = self.operand_reg(operand);
+                self.instructions.push(Instruction::Copy { dest, src });
+                self.free_temp_if_operand(operand);
+            }
             RValue::Instanceof(operand, ty) => {
                 let src = self.operand_reg(operand);
                 let type_idx = self.ctx.lower_type(*ty);
@@ -243,7 +248,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                     .push(Instruction::AllocLocal { dest, type_idx });
 
                 // Find fields list to map field names to indices
-                let _struct_symbol = self.struct_symbol_for_type(*struct_type).unwrap();
+                let _struct_symbol = self.struct_symbol_for_type(*struct_type);
 
                 for (i, val_operand) in fields.iter().enumerate() {
                     let val_reg = self.operand_reg(val_operand);
@@ -448,12 +453,23 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
             }
             RValue::Choice(choice_type, variant_name, payload_operand) => {
                 let type_idx = self.ctx.lower_type(*choice_type);
-                let choice_symbol = self.struct_symbol_for_type(*choice_type).unwrap();
-                let variants = self.ctx.get_choice_variants(choice_symbol);
-                let variant_idx = variants
-                    .iter()
-                    .position(|(name, _)| name == variant_name)
-                    .unwrap_or(0);
+                let variant_idx = if let Some(choice_symbol) =
+                    self.struct_symbol_for_type(*choice_type)
+                {
+                    let variants = self.ctx.get_choice_variants(choice_symbol);
+                    variants
+                        .iter()
+                        .position(|(name, _)| name == variant_name)
+                        .unwrap_or(0)
+                } else if let Some(choice) = self.ctx.find_imported_choice_for_type(*choice_type) {
+                    choice
+                        .variants
+                        .iter()
+                        .position(|v| v.name == *variant_name)
+                        .unwrap_or(0)
+                } else {
+                    0
+                };
 
                 let payload_reg = if let Some(op) = payload_operand {
                     self.operand_reg(op)

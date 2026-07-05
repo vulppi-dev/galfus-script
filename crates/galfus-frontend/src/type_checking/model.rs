@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use galfus_core::{DiagnosticBag, NodeId, SymbolId};
+use galfus_core::{DiagnosticBag, NodeId, SymbolId, TypeId};
 
 use crate::{ArraySize, PrimitiveType, TypeLayer};
 
@@ -83,6 +83,71 @@ pub enum ImportedType {
         parameters: Vec<ImportedFunctionParameterType>,
         return_type: Box<ImportedType>,
     },
+    LocalPath {
+        name: String,
+    },
+    GenericParameter {
+        symbol: SymbolId,
+    },
+    GenericInstance {
+        base: Box<ImportedType>,
+        arguments: Vec<ImportedType>,
+    },
+}
+
+impl ImportedType {
+    pub fn relocate(&self, namespace: SymbolId) -> Self {
+        match self {
+            Self::Primitive(primitive) => Self::Primitive(*primitive),
+            Self::NamedLocal { symbol } => Self::NamedLocal { symbol: *symbol },
+            Self::SurfacePath {
+                namespace: ns,
+                name,
+            } => Self::SurfacePath {
+                namespace: *ns,
+                name: name.clone(),
+            },
+            Self::LocalPath { name } => Self::SurfacePath {
+                namespace,
+                name: name.clone(),
+            },
+            Self::Array { element } => Self::Array {
+                element: Box::new(element.relocate(namespace)),
+            },
+            Self::FixedArray { element, size } => Self::FixedArray {
+                element: Box::new(element.relocate(namespace)),
+                size: *size,
+            },
+            Self::Range { element } => Self::Range {
+                element: Box::new(element.relocate(namespace)),
+            },
+            Self::Tuple { elements } => Self::Tuple {
+                elements: elements.iter().map(|e| e.relocate(namespace)).collect(),
+            },
+            Self::Union { members } => Self::Union {
+                members: members.iter().map(|m| m.relocate(namespace)).collect(),
+            },
+            Self::Function {
+                parameters,
+                return_type,
+            } => Self::Function {
+                parameters: parameters
+                    .iter()
+                    .map(|p| ImportedFunctionParameterType {
+                        ty: p.ty.relocate(namespace),
+                        is_rest: p.is_rest,
+                        has_default: p.has_default,
+                    })
+                    .collect(),
+                return_type: Box::new(return_type.relocate(namespace)),
+            },
+            Self::GenericParameter { symbol } => Self::GenericParameter { symbol: *symbol },
+            Self::GenericInstance { base, arguments } => Self::GenericInstance {
+                base: Box::new(base.relocate(namespace)),
+                arguments: arguments.iter().map(|a| a.relocate(namespace)).collect(),
+            },
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -172,11 +237,20 @@ impl ImportedChoiceVariant {
 pub struct ImportedChoiceSurface {
     name: String,
     variants: Vec<ImportedChoiceVariant>,
+    generic_parameters: Vec<ImportedType>,
 }
 
 impl ImportedChoiceSurface {
-    pub fn new(name: String, variants: Vec<ImportedChoiceVariant>) -> Self {
-        Self { name, variants }
+    pub fn new(
+        name: String,
+        variants: Vec<ImportedChoiceVariant>,
+        generic_parameters: Vec<ImportedType>,
+    ) -> Self {
+        Self {
+            name,
+            variants,
+            generic_parameters,
+        }
     }
 
     pub fn name(&self) -> &str {
@@ -185,6 +259,10 @@ impl ImportedChoiceSurface {
 
     pub fn variants(&self) -> &[ImportedChoiceVariant] {
         self.variants.as_slice()
+    }
+
+    pub fn generic_parameters(&self) -> &[ImportedType] {
+        self.generic_parameters.as_slice()
     }
 }
 
@@ -305,26 +383,51 @@ impl ImportedSurfaceTypes {
 }
 
 #[derive(Debug, Clone)]
+pub struct LoweredImportedChoice {
+    pub name: String,
+    pub variants: Vec<LoweredImportedChoiceVariant>,
+    pub generic_parameters: Vec<SymbolId>,
+}
+
+#[derive(Debug, Clone)]
+pub struct LoweredImportedChoiceVariant {
+    pub name: String,
+    pub payload_types: Vec<TypeId>,
+}
+
+#[derive(Debug, Clone)]
 pub struct TypeCheckResult {
     layer: TypeLayer,
     diagnostics: DiagnosticBag,
     ownership_metadata: OwnershipMetadata,
+    pub imported_symbol_choices: HashMap<SymbolId, LoweredImportedChoice>,
+    pub imported_path_choices: HashMap<NodeId, LoweredImportedChoice>,
 }
 
 impl TypeCheckResult {
     pub fn new(layer: TypeLayer, diagnostics: DiagnosticBag) -> Self {
-        Self::with_ownership_metadata(layer, diagnostics, OwnershipMetadata::default())
+        Self::with_ownership_metadata(
+            layer,
+            diagnostics,
+            OwnershipMetadata::default(),
+            HashMap::new(),
+            HashMap::new(),
+        )
     }
 
     pub(super) fn with_ownership_metadata(
         layer: TypeLayer,
         diagnostics: DiagnosticBag,
         ownership_metadata: OwnershipMetadata,
+        imported_symbol_choices: HashMap<SymbolId, LoweredImportedChoice>,
+        imported_path_choices: HashMap<NodeId, LoweredImportedChoice>,
     ) -> Self {
         Self {
             layer,
             diagnostics,
             ownership_metadata,
+            imported_symbol_choices,
+            imported_path_choices,
         }
     }
 

@@ -299,6 +299,10 @@ pub enum Instruction {
         src: Reg,
         type_idx: TypeIdx,
     },
+    Copy {
+        dest: Reg,
+        src: Reg,
+    },
     Instanceof {
         dest: Reg,
         src: Reg,

@@ -5,6 +5,8 @@ impl VirtualMachine {
     pub fn release_unreachable(&mut self) {
         use std::collections::{HashSet, VecDeque};
 
+        self.allocations_since_release = 0;
+
         let mut roots = VecDeque::new();
         let mut reachable = HashSet::new();
 

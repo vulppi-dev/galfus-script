@@ -13,8 +13,8 @@ impl<'a> DeclarationTypeChecker<'a> {
             return true;
         }
 
-        let expected_kind = self.layer.table().kind(expected).cloned();
-        let actual_kind = self.layer.table().kind(actual).cloned();
+        let expected_kind = self.layer.table().kind(expected);
+        let actual_kind = self.layer.table().kind(actual);
 
         if matches!(expected_kind, Some(TypeKind::Error)) {
             return true;
@@ -42,7 +42,7 @@ impl<'a> DeclarationTypeChecker<'a> {
                 Some(TypeKind::Array {
                     element: actual_element,
                 }),
-            ) => self.is_assignable(expected_element, actual_element),
+            ) => self.is_assignable(*expected_element, *actual_element),
 
             (
                 Some(TypeKind::Array {
@@ -52,7 +52,7 @@ impl<'a> DeclarationTypeChecker<'a> {
                     element: actual_element,
                     ..
                 }),
-            ) => self.is_assignable(expected_element, actual_element),
+            ) => self.is_assignable(*expected_element, *actual_element),
 
             (
                 Some(TypeKind::FixedArray {
@@ -64,7 +64,8 @@ impl<'a> DeclarationTypeChecker<'a> {
                     size: actual_size,
                 }),
             ) => {
-                expected_size == actual_size && self.is_assignable(expected_element, actual_element)
+                expected_size == actual_size
+                    && self.is_assignable(*expected_element, *actual_element)
             }
 
             (
@@ -83,7 +84,7 @@ impl<'a> DeclarationTypeChecker<'a> {
             (
                 Some(TypeKind::Function(expected_function)),
                 Some(TypeKind::Function(actual_function)),
-            ) => self.is_function_type_assignable(&expected_function, &actual_function),
+            ) => self.is_function_type_assignable(expected_function, actual_function),
 
             _ => false,
         }

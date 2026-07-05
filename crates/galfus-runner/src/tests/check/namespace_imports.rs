@@ -110,7 +110,7 @@ import ansi from "format/ansi"
 
 var joined: [uint8] = text::concat("a", "b")
 var rendered: [uint8] = format::stringify(42)
-var parsed: int32 = format::parse<int32>("42")
+var parsed: format::ParseResult<int32> = format::parse<int32>("42")
 var styled: [uint8] = ansi::red()::apply("error")
 
 fn main(): null {

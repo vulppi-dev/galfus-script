@@ -91,19 +91,19 @@ Control flow uses relative bytecode jumps. Jumps are offset by instructions/byte
 
 Handles allocation on both Local and Shared heaps, object instantiations, and property/index reads/writes.
 
-| Opcode             | Hex    | Arguments                                                            | Behavior                                                     |
-| :----------------- | :----- | :------------------------------------------------------------------- | :----------------------------------------------------------- |
-| **`ALLOC_LOCAL`**  | `0x40` | `dest: Reg`, `type_idx: TypeIdx`                                     | Allocate a struct on the **Local Heap**.                     |
-| **`ALLOC_SHARED`** | `0x41` | `dest: Reg`, `type_idx: TypeIdx`                                     | Allocate a struct on the **Shared Heap** (future-proof).     |
-| **`LOAD_FIELD`**   | `0x42` | `dest: Reg`, `obj: Reg`, `field: FieldIdx`                           | Read field from a local struct/object.                       |
-| **`STORE_FIELD`**  | `0x43` | `obj: Reg`, `field: FieldIdx`, `val: Reg`                            | Write value to local struct/object field.                    |
-| **`NEW_ARRAY`**    | `0x44` | `dest: Reg`, `type_idx: TypeIdx`, `len_reg: Reg`                     | Create array of length `len_reg`.                            |
-| **`LOAD_INDEX`**   | `0x45` | `dest: Reg`, `arr: Reg`, `idx: Reg`                                  | Read element `arr[idx]`. Returns `null` if out of bounds.    |
-| **`STORE_INDEX`**  | `0x46` | `arr: Reg`, `idx: Reg`, `val: Reg`                                   | Write `arr[idx] = val`. NOP if out of bounds.                |
-| **`NEW_TUPLE`**    | `0x47` | `dest: Reg`, `type_idx: TypeIdx`, `start: Reg`, `count: u8`          | Create tuple from contiguous registers.                      |
-| **`NEW_CHOICE`**   | `0x48` | `dest: Reg`, `type_idx: TypeIdx`, `variant_idx: u16`, `payload: Reg` | Create choice (tagged union) variant. payload can be `null`. |
-| **`CAST`**         | `0x49` | `dest: Reg`, `src: Reg`, `type_idx: TypeIdx`                         | Safe type cast. Panics if types are incompatible.            |
-| **`INSTANCEOF`**   | `0x4A` | `dest: Reg`, `src: Reg`, `type_idx: TypeIdx`                         | Sets `dest` to `true` if `src` matches type, else `false`.   |
+| Opcode             | Hex    | Arguments                                                            | Behavior                                                       |
+| :----------------- | :----- | :------------------------------------------------------------------- | :------------------------------------------------------------- |
+| **`ALLOC_LOCAL`**  | `0x40` | `dest: Reg`, `type_idx: TypeIdx`                                     | Allocate a struct on the **Local Heap**.                       |
+| **`ALLOC_SHARED`** | `0x41` | `dest: Reg`, `type_idx: TypeIdx`                                     | Allocate a struct on the **Shared Heap** (future-proof).       |
+| **`LOAD_FIELD`**   | `0x42` | `dest: Reg`, `obj: Reg`, `field: FieldIdx`                           | Read field from a local struct/object.                         |
+| **`STORE_FIELD`**  | `0x43` | `obj: Reg`, `field: FieldIdx`, `val: Reg`                            | Write value to local struct/object field.                      |
+| **`NEW_ARRAY`**    | `0x44` | `dest: Reg`, `type_idx: TypeIdx`, `len_reg: Reg`                     | Create array of length `len_reg`.                              |
+| **`LOAD_INDEX`**   | `0x45` | `dest: Reg`, `arr: Reg`, `idx: Reg`                                  | Read element `arr[idx]`. Panics/throws error if out of bounds. |
+| **`STORE_INDEX`**  | `0x46` | `arr: Reg`, `idx: Reg`, `val: Reg`                                   | Write `arr[idx] = val`. Panics/throws error if out of bounds.  |
+| **`NEW_TUPLE`**    | `0x47` | `dest: Reg`, `type_idx: TypeIdx`, `start: Reg`, `count: u8`          | Create tuple from contiguous registers.                        |
+| **`NEW_CHOICE`**   | `0x48` | `dest: Reg`, `type_idx: TypeIdx`, `variant_idx: u16`, `payload: Reg` | Create choice (tagged union) variant. payload can be `null`.   |
+| **`CAST`**         | `0x49` | `dest: Reg`, `src: Reg`, `type_idx: TypeIdx`                         | Safe type cast. Panics if types are incompatible.              |
+| **`INSTANCEOF`**   | `0x4A` | `dest: Reg`, `src: Reg`, `type_idx: TypeIdx`                         | Sets `dest` to `true` if `src` matches type, else `false`.     |
 
 ---
 

@@ -84,6 +84,7 @@ pub enum ImageType {
     Choice(ChoiceLayoutIdx),
     Constraint(String),
     Function { params: Vec<TypeIdx>, ret: TypeIdx },
+    ChoiceVariant(ChoiceLayoutIdx, u16),
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]

@@ -51,6 +51,8 @@ pub enum VmValue {
 type Value = VmValue;
 type ObjectRef = VmObjectRef;
 
+const RELEASE_ALLOCATION_THRESHOLD: usize = 64;
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum HeapObject {
     Struct {
@@ -96,6 +98,7 @@ pub struct VirtualMachine {
     pub free_slots: Vec<usize>,
     pub call_stack: Vec<CallFrame>,
     pub context: VmContext,
+    allocations_since_release: usize,
 }
 
 impl VirtualMachine {
@@ -107,6 +110,7 @@ impl VirtualMachine {
             free_slots: Vec::new(),
             call_stack: Vec::new(),
             context: VmContext::new(Box::new(NativeTarget)),
+            allocations_since_release: 0,
         }
     }
 
@@ -121,6 +125,8 @@ impl VirtualMachine {
     }
 
     pub fn alloc(&mut self, obj: HeapObject) -> ObjectRef {
+        self.allocations_since_release += 1;
+
         if let Some(idx) = self.free_slots.pop() {
             self.heap[idx] = Some(obj);
             VmObjectRef(idx)
@@ -271,6 +277,7 @@ impl VirtualMachine {
                 | Instruction::NewTuple { .. }
                 | Instruction::NewChoice { .. }
                 | Instruction::Cast { .. }
+                | Instruction::Copy { .. }
                 | Instruction::Instanceof { .. } => self.execute_object_instruction(instr)?,
 
                 Instruction::Drop { .. }
@@ -286,9 +293,17 @@ impl VirtualMachine {
             };
 
             match step {
-                ExecutionStep::Continue => self.release_unreachable(),
+                ExecutionStep::Continue => self.release_unreachable_if_needed(instr),
                 ExecutionStep::Return(value) => return Ok(value),
             }
+        }
+    }
+
+    fn release_unreachable_if_needed(&mut self, instr: Instruction) {
+        if matches!(instr, Instruction::Drop { .. })
+            || self.allocations_since_release >= RELEASE_ALLOCATION_THRESHOLD
+        {
+            self.release_unreachable();
         }
     }
 }

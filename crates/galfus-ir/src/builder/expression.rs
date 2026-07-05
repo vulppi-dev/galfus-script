@@ -140,6 +140,16 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                 Operand::Local(temp_id)
             }
 
+            SyntaxNodeKind::CopyExpression => {
+                let value_node = node.child(0).unwrap();
+                let operand = self.lower_expression(value_node, statements);
+                let ty = self.node_type(expr_id).unwrap_or_else(|| TypeId::new(0));
+                let temp_id = self.declare_local(None, ty);
+                self.current_instructions
+                    .push(Instruction::Assign(temp_id, RValue::Copy(operand)));
+                Operand::Local(temp_id)
+            }
+
             SyntaxNodeKind::GroupedExpression => {
                 if let Some(inner) = node.first_child() {
                     self.lower_expression(inner, statements)
@@ -597,77 +607,12 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                 Operand::Local(match_result)
             }
 
-            SyntaxNodeKind::TypeofExpression => {
-                let subject_node = node.child(0).unwrap();
-                let arms_node = node.child(1).unwrap();
-
-                let subject_type = self
-                    .node_type(subject_node)
-                    .unwrap_or_else(|| TypeId::new(0));
-
-                let selected_body = syntax
-                    .node(arms_node)
-                    .and_then(|arms| self.select_typeof_arm_body(arms.children(), subject_type));
-
-                if let Some(body) = selected_body {
-                    if syntax
-                        .node(body)
-                        .is_some_and(|body_node| body_node.kind() == SyntaxNodeKind::Block)
-                    {
-                        self.flush_current_instructions(statements);
-                        statements.push(self.lower_block(body));
-                        return Operand::Constant(Constant::Null);
-                    }
-
-                    return self.lower_expression(body, statements);
-                }
-
-                Operand::Constant(Constant::Null)
-            }
-
             SyntaxNodeKind::NewArrayExpression => {
                 self.lower_new_array_expression(expr_id, node, statements)
             }
 
             _ => Operand::Constant(Constant::Null),
         }
-    }
-
-    fn select_typeof_arm_body(&self, arms: &[NodeId], subject_type: TypeId) -> Option<NodeId> {
-        let mut fallback = None;
-
-        for arm in arms {
-            let pattern = self.builder.graph.syntax().child(*arm, 0)?;
-            let body = self.builder.graph.syntax().child(*arm, 1)?;
-
-            let Some(pattern_node) = self.builder.graph.syntax().node(pattern) else {
-                continue;
-            };
-
-            if pattern_node.kind() == SyntaxNodeKind::WildcardPattern {
-                fallback = Some(body);
-                continue;
-            }
-
-            let Some(type_node) = self.first_type_child(pattern) else {
-                continue;
-            };
-
-            let Some(pattern_type) = self.node_type(type_node) else {
-                continue;
-            };
-
-            if self.builder.is_assignable(pattern_type, subject_type)
-                || self.builder.is_assignable(subject_type, pattern_type)
-            {
-                return Some(body);
-            }
-        }
-
-        fallback.or_else(|| {
-            arms.first()
-                .and_then(|arm| self.builder.graph.syntax().child(*arm, 1))
-        })
     }
 
     fn call_target_symbol(&self, target: NodeId) -> Option<SymbolId> {

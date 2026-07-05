@@ -39,7 +39,10 @@ export fn slice(s: [uint8], start: int32, count: int32): [uint8] {
 export fn repeat(s: [uint8], n: int32): [uint8] {
   var result: [uint8] = ""
   var i: int32 = 0
-  while i < n {
+  loop {
+    if i >= n {
+      break
+    }
     result = concat(result, s)
     i += 1
   }

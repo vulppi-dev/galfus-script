@@ -106,6 +106,23 @@ impl<'a> DeclarationTypeChecker<'a> {
         ));
     }
 
+    pub(super) fn report_invalid_copy_target(&mut self, expression: NodeId, ty: TypeId) {
+        let span = self
+            .graph
+            .syntax()
+            .node(expression)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        let ty = self.describe_type_for_diagnostic(ty);
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+            TypeDiagnosticCode::InvalidCopyTarget,
+            format!("cannot copy `{ty}` because fieldless structs are not copyable"),
+            span,
+        ));
+    }
+
     pub(super) fn report_assignment_to_immutable(&mut self, target: NodeId, name: &str) {
         let span = self
             .graph

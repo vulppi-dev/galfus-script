@@ -14,6 +14,11 @@ struct VariantPayload {
 impl<'a> DeclarationTypeChecker<'a> {
     pub(super) fn infer_path_variant_expression_type(&mut self, node: NodeId) -> Option<TypeId> {
         let resolution = self.graph.resolution()?;
+        println!(
+            "PATH_EXPR: node={:?}, path_reference_kind={:?}",
+            node,
+            resolution.path_reference_kind(node)
+        );
         let Some(kind) = resolution.path_reference_kind(node) else {
             return self.infer_value_anchor_path_type(node);
         };
@@ -23,7 +28,22 @@ impl<'a> DeclarationTypeChecker<'a> {
             PathReferenceKind::ChoiceVariant => self.infer_choice_variant_path_type(node),
             PathReferenceKind::AnchorFunction => self.infer_anchor_function_path_type(node),
             PathReferenceKind::ConstraintMember => self.infer_constraint_member_path_type(node),
-            _ => None,
+            PathReferenceKind::LocalMember => {
+                let target = self.graph.syntax().child(node, 0)?;
+                let member = self.graph.syntax().child(node, 1)?;
+                println!(
+                    "LOCAL_MEMBER: target={:?} kind={:?}",
+                    target,
+                    self.graph.syntax().node(target).map(|n| n.kind())
+                );
+                let target_type = self.infer_expression_type(target);
+                println!("LOCAL_MEMBER: target_type={:?}", target_type);
+                let target_type = target_type?;
+                let member_name = self.node_text(member);
+                let res = self.member_type_for_target_type(target_type, member_name.as_str());
+                println!("LOCAL_MEMBER: member_name={:?}, res={:?}", member_name, res);
+                res
+            }
         }
     }
 

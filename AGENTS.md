@@ -62,6 +62,7 @@
 - Variables that hold ownership and are no longer used afterward must always receive the `_` prefix (e.g., `let _guard = lock.write();`).
 - If variables are unused and do not hold ownership/side-effects, they must be removed.
 - Unused functions must also be removed.
+- The project does not use a garbage collector. We use an ownership graph, where resource release follows a path/trail through the graph rather than a garbage collector cycle.
 - Internal Rust properties use `snake_case`.
 - Rust source files must be organized in the following order:
   1. `use` imports

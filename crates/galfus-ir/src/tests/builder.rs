@@ -86,12 +86,61 @@ fn test_mir_serialization() {
 }
 
 #[test]
+fn test_mir_builder_lowers_copy_expression() {
+    let source_id = SourceId::new(0);
+    let code = r#"
+        struct User {
+            id: int32,
+        }
+
+        fn clone_user(user: User): User {
+            return copy user
+        }
+    "#;
+    let source = SourceFile::new(source_id, "test.gfs".to_string(), code.to_string());
+
+    let parse_result = parse(&source);
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    let graph = resolve_result.into_graph();
+
+    assert!(!graph.has_errors(), "Parse or resolve errors occurred");
+
+    let type_result = check_declaration_types(&source, &graph);
+    assert!(
+        !type_result.has_errors(),
+        "Typecheck errors occurred: {:?}",
+        type_result.diagnostics()
+    );
+
+    let builder = builder::MirBuilder::new(&graph, &type_result, code);
+    let mir_module = builder.build();
+    let func = mir_module
+        .functions
+        .iter()
+        .find(|function| function.name == "clone_user")
+        .expect("clone_user function should be lowered");
+
+    match &func.body {
+        MirBody::BasicBlock(block) => {
+            assert!(
+                block.instructions.iter().any(|instruction| matches!(
+                    instruction,
+                    Instruction::Assign(_, RValue::Copy(_))
+                ))
+            );
+        }
+        other => panic!("Expected basic block body, found {:?}", other),
+    }
+}
+
+#[test]
 fn test_mir_builder_lowers_concrete_typeof_branch() {
     let source_id = SourceId::new(0);
     let code = r#"
         fn label(): [uint8] {
-            return typeof int32 {
-                int => "number",
+            var dummy: int32 = 0
+            return instanceof dummy {
+                int32 v => "number",
                 _ => "other",
             }
         }
@@ -112,15 +161,7 @@ fn test_mir_builder_lowers_concrete_typeof_branch() {
 
     let func = &mir_module.functions[0];
 
-    match &func.body {
-        MirBody::BasicBlock(bb) => match &bb.terminator {
-            Terminator::Return(Some(Operand::Constant(Constant::String(value)))) => {
-                assert_eq!(value, "number");
-            }
-            other => panic!("Unexpected terminator: {:?}", other),
-        },
-        other => panic!("Expected basic block body, found {:?}", other),
-    }
+    assert!(has_string_assignment(&func.body, "number"));
 }
 
 #[test]
@@ -128,9 +169,10 @@ fn test_mir_builder_specializes_generic_typeof_call() {
     let source_id = SourceId::new(0);
     let code = r#"
         fn label<T: int32 | bool>(): [uint8] {
-            return typeof T {
-                int32 => "number",
-                bool => "flag",
+            var dummy = new([T; 1])[0]
+            return instanceof dummy {
+                int32 v => "number",
+                bool v => "flag",
             }
         }
 
@@ -171,15 +213,7 @@ fn test_mir_builder_specializes_generic_typeof_call() {
 
     assert!(specialized.name.starts_with("label#"));
 
-    match &specialized.body {
-        MirBody::BasicBlock(bb) => match &bb.terminator {
-            Terminator::Return(Some(Operand::Constant(Constant::String(value)))) => {
-                assert_eq!(value, "number");
-            }
-            other => panic!("Unexpected terminator: {:?}", other),
-        },
-        other => panic!("Expected specialized function body to be a basic block, found {other:?}"),
-    }
+    assert!(has_string_assignment(&specialized.body, "number"));
 }
 
 fn first_call_function_id(body: &MirBody) -> Option<FunctionId> {
@@ -196,6 +230,34 @@ fn first_call_function_id(body: &MirBody) -> Option<FunctionId> {
         } => first_call_function_id(then_branch)
             .or_else(|| else_branch.as_deref().and_then(first_call_function_id)),
         MirBody::Loop { body } => first_call_function_id(body),
+    }
+}
+
+fn has_string_assignment(body: &MirBody, expected_value: &str) -> bool {
+    match body {
+        MirBody::BasicBlock(block) => block.instructions.iter().any(|inst| {
+            if let Instruction::Assign(_, RValue::Use(Operand::Constant(Constant::String(val)))) =
+                inst
+            {
+                val == expected_value
+            } else {
+                false
+            }
+        }),
+        MirBody::Block { statements, .. } => statements
+            .iter()
+            .any(|stmt| has_string_assignment(stmt, expected_value)),
+        MirBody::If {
+            then_branch,
+            else_branch,
+            ..
+        } => {
+            has_string_assignment(then_branch, expected_value)
+                || else_branch
+                    .as_deref()
+                    .is_some_and(|branch| has_string_assignment(branch, expected_value))
+        }
+        MirBody::Loop { body } => has_string_assignment(body, expected_value),
     }
 }
 
@@ -279,7 +341,10 @@ fn test_mir_builder_phase2() {
             }
 
             var i = 0;
-            while i < 10 {
+            loop {
+                if i >= 10 {
+                    break;
+                }
                 i = i + 1;
                 if i == 5 {
                     continue;
@@ -324,7 +389,7 @@ fn test_mir_builder_phase2() {
     match &func.body {
         MirBody::Block { statements, .. } => {
             let mut found_if = false;
-            let mut found_while = false;
+            let mut found_first_loop = false;
             let mut found_loop = false;
             let mut found_return = false;
 
@@ -334,10 +399,10 @@ fn test_mir_builder_phase2() {
                         found_if = true;
                     }
                     MirBody::Loop { .. } => {
-                        if found_while {
+                        if found_first_loop {
                             found_loop = true;
                         } else {
-                            found_while = true;
+                            found_first_loop = true;
                         }
                     }
                     MirBody::BasicBlock(bb) => {
@@ -350,7 +415,7 @@ fn test_mir_builder_phase2() {
             }
 
             assert!(found_if, "If statement not found in MIR");
-            assert!(found_while, "While statement not found in MIR");
+            assert!(found_first_loop, "First loop statement not found in MIR");
             assert!(found_loop, "Loop statement not found in MIR");
             assert!(found_return, "Return statement not found in MIR");
         }

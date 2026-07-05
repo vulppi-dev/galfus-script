@@ -11,6 +11,30 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
         Some((owner_symbol, variant_symbol))
     }
 
+    fn get_imported_choice_variant(&self, pattern: NodeId) -> Option<(String, Vec<TypeId>)> {
+        let variant_ty = self.builder.type_result.layer().node_type(pattern)?;
+        let table = self.builder.type_result.layer().table();
+        let (_root, segments) = match table.kind(variant_ty) {
+            Some(TypeKind::Path { root, segments }) => (*root, segments),
+            _ => return None,
+        };
+        if segments.len() != 2 {
+            return None;
+        }
+        let choice_name = &segments[0];
+        let variant_name = &segments[1];
+
+        let choice = self
+            .builder
+            .type_result
+            .imported_path_choices
+            .values()
+            .find(|c| c.name == *choice_name)?;
+        let variant = choice.variants.iter().find(|v| v.name == *variant_name)?;
+
+        Some((variant.name.clone(), variant.payload_types.clone()))
+    }
+
     pub(super) fn lower_match_arms(
         &mut self,
         arms: &[NodeId],
@@ -92,6 +116,11 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
     ) -> Operand {
         let syntax = self.builder.graph.syntax();
         let pattern_node = syntax.node(pattern_node_id).unwrap();
+        println!(
+            "DEBUG lower_pattern_check: pattern_node.kind()={:?}, text={}",
+            pattern_node.kind(),
+            self.builder.node_text(pattern_node_id)
+        );
         let resolution = self.builder.graph.resolution();
 
         match pattern_node.kind() {
@@ -146,6 +175,12 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                 let symbols = self.variant_pattern_symbols(pattern_node_id);
                 let variant_data =
                     symbols.and_then(|(_, vs)| resolution.and_then(|res| res.symbol(vs)));
+                println!(
+                    "DEBUG VariantPattern symbols={:?}, variant_data={:?}, kind={:?}",
+                    symbols,
+                    variant_data.map(|s| s.name()),
+                    variant_data.map(|s| s.kind())
+                );
                 if let (Some((owner_symbol, variant_symbol)), Some(variant_data)) =
                     (symbols, variant_data)
                 {
@@ -171,16 +206,29 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                         }
                         SymbolKind::ChoiceVariant => {
                             let variant_name = variant_data.name().to_string();
-                            let mut variant_ty = TypeId::new(0);
-                            let table = self.builder.type_result.layer().table();
-                            for id in 0..table.len() {
-                                let ty_id = TypeId::new(id as u32);
-                                if matches!(table.kind(ty_id), Some(TypeKind::Named { symbol }) if *symbol == variant_symbol)
-                                {
-                                    variant_ty = ty_id;
-                                    break;
+                            let mut variant_ty = self
+                                .builder
+                                .type_result
+                                .layer()
+                                .node_type(pattern_node_id)
+                                .unwrap_or_else(|| TypeId::new(0));
+
+                            if variant_ty == TypeId::new(0) {
+                                let table = self.builder.type_result.layer().table();
+                                for id in 0..table.len() {
+                                    let ty_id = TypeId::new(id as u32);
+                                    if matches!(table.kind(ty_id), Some(TypeKind::Named { symbol }) if *symbol == variant_symbol)
+                                    {
+                                        variant_ty = ty_id;
+                                        break;
+                                    }
                                 }
                             }
+
+                            println!(
+                                "DEBUG ChoiceVariant variant_name={} variant_ty={:?}",
+                                variant_name, variant_ty
+                            );
 
                             let bool_ty = self
                                 .builder
@@ -202,8 +250,13 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                                 let payload_node = syntax.node(payload_node_id).unwrap();
                                 let payload_patterns = payload_node.children();
 
-                                let payload_types =
-                                    self.choice_variant_payload_types(owner_symbol, variant_symbol);
+                                let payload_types = if let Some((_, imported_payload_types)) =
+                                    self.get_imported_choice_variant(pattern_node_id)
+                                {
+                                    imported_payload_types
+                                } else {
+                                    self.choice_variant_payload_types(owner_symbol, variant_symbol)
+                                };
 
                                 if !payload_patterns.is_empty() {
                                     let payload_ty = if payload_patterns.len() > 1 {
@@ -274,6 +327,96 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                         }
                         _ => {}
                     }
+                } else if let Some((variant_name, payload_types)) =
+                    self.get_imported_choice_variant(pattern_node_id)
+                {
+                    let variant_ty = self
+                        .builder
+                        .type_result
+                        .layer()
+                        .node_type(pattern_node_id)
+                        .unwrap();
+
+                    let bool_ty = self
+                        .builder
+                        .type_result
+                        .layer()
+                        .table()
+                        .primitive(galfus_frontend::PrimitiveType::Bool);
+
+                    let cond_temp = self.declare_local(None, bool_ty);
+                    self.current_instructions.push(Instruction::Assign(
+                        cond_temp,
+                        RValue::Instanceof(subject.clone(), variant_ty),
+                    ));
+
+                    if let Some(payload_node_id) = syntax
+                        .first_child_of_kind(pattern_node_id, SyntaxNodeKind::VariantPatternPayload)
+                    {
+                        let payload_node = syntax.node(payload_node_id).unwrap();
+                        let payload_patterns = payload_node.children();
+
+                        if !payload_patterns.is_empty() {
+                            let payload_ty = if payload_patterns.len() > 1 {
+                                self.find_tuple_type(&payload_types)
+                            } else {
+                                payload_types[0]
+                            };
+
+                            let payload_temp = self.declare_local(None, payload_ty);
+                            let extract_insts = vec![Instruction::Assign(
+                                payload_temp,
+                                RValue::MemberAccess(subject.clone(), variant_name),
+                            )];
+
+                            let payload_op = Operand::Local(payload_temp);
+                            if payload_patterns.len() == 1 {
+                                let mut nested_bindings = Vec::new();
+                                let _ = self.lower_pattern_check(
+                                    payload_patterns[0],
+                                    &payload_op,
+                                    bindings,
+                                    &mut nested_bindings,
+                                );
+                                bindings.push(MirBody::BasicBlock(BasicBlock {
+                                    id: self.builder.next_block(),
+                                    instructions: extract_insts,
+                                    terminator: Terminator::None,
+                                }));
+                                bindings.extend(nested_bindings);
+                            } else {
+                                bindings.push(MirBody::BasicBlock(BasicBlock {
+                                    id: self.builder.next_block(),
+                                    instructions: extract_insts,
+                                    terminator: Terminator::None,
+                                }));
+                                for (i, &child_pattern) in payload_patterns.iter().enumerate() {
+                                    let element_ty = payload_types[i];
+                                    let element_temp = self.declare_local(None, element_ty);
+                                    let elem_insts = vec![Instruction::Assign(
+                                        element_temp,
+                                        RValue::MemberAccess(payload_op.clone(), i.to_string()),
+                                    )];
+                                    bindings.push(MirBody::BasicBlock(BasicBlock {
+                                        id: self.builder.next_block(),
+                                        instructions: elem_insts,
+                                        terminator: Terminator::None,
+                                    }));
+
+                                    let mut nested_bindings = Vec::new();
+                                    let _ = self.lower_pattern_check(
+                                        child_pattern,
+                                        &Operand::Local(element_temp),
+                                        bindings,
+                                        &mut nested_bindings,
+                                    );
+                                    bindings.extend(nested_bindings);
+                                }
+                            }
+                        }
+                    }
+
+                    return Operand::Local(cond_temp);
                 }
                 Operand::Constant(Constant::Bool(false))
             }

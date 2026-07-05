@@ -610,7 +610,7 @@ fn check_ignored_for_binding_does_not_create_referenceable_symbol() {
         r#"
 fn main(values: [int32]): null {
   for _ in values {
-    var copied: int32 = 1
+    var copied: int32 = _
   }
 
   return

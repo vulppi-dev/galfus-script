@@ -4,8 +4,8 @@ use galfus_core::{NodeId, SymbolId, TypeId};
 
 use crate::{
     AsNameId, ImportedChoiceSurface, ImportedConstraintSurface, ImportedFunctionParameterType,
-    ImportedMemberKey, ImportedSurfaceTypes, ImportedType, ModuleGraph, NameId, SymbolKind,
-    SyntaxNodeKind, TypeCheckResult, TypeKind,
+    ImportedMemberKey, ImportedSurfaceTypes, ImportedType, ModuleGraph, NameId, ResolutionLayer,
+    SymbolKind, SyntaxNodeKind, TypeCheckResult, TypeKind,
 };
 
 pub use export::*;
@@ -59,7 +59,7 @@ impl ModuleSurface {
             });
         }
 
-        export.ty().cloned()
+        export.ty().map(|ty| ty.relocate(local_symbol))
     }
 
     pub fn imported_path_type_for_export<N: AsNameId>(
@@ -76,7 +76,7 @@ impl ModuleSurface {
                 });
             }
 
-            return export.ty().cloned();
+            return export.ty().map(|ty| ty.relocate(namespace));
         }
 
         let name_str = name_id.as_str();
@@ -107,7 +107,7 @@ impl ModuleSurface {
                     .payload_types()
                     .iter()
                     .cloned()
-                    .map(ImportedFunctionParameterType::new)
+                    .map(|ty| ImportedFunctionParameterType::new(ty.relocate(namespace)))
                     .collect();
 
                 Some(ImportedType::Function {
@@ -116,7 +116,7 @@ impl ModuleSurface {
                 })
             }
 
-            _ => member.ty().cloned(),
+            _ => member.ty().map(|ty| ty.relocate(namespace)),
         }
     }
 
@@ -151,7 +151,7 @@ impl ModuleSurface {
                     .payload_types()
                     .iter()
                     .cloned()
-                    .map(ImportedFunctionParameterType::new)
+                    .map(|ty| ImportedFunctionParameterType::new(ty.relocate(local_symbol)))
                     .collect();
 
                 Some(ImportedType::Function {
@@ -160,7 +160,7 @@ impl ModuleSurface {
                 })
             }
 
-            _ => member.ty().cloned(),
+            _ => member.ty().map(|ty| ty.relocate(local_symbol)),
         }
     }
 
@@ -208,19 +208,24 @@ pub fn build_module_surface(graph: &ModuleGraph, type_result: &TypeCheckResult) 
                 type_result
                     .layer()
                     .symbol_type(export.symbol())
-                    .and_then(|ty| transport_type(type_result, ty))
+                    .and_then(|ty| transport_type(resolution, type_result, ty))
             };
 
             let members = surface_members_for_export(graph, type_result, export.symbol());
-            let generic_parameter_count =
-                surface_generic_parameter_count(graph, export.symbol(), export.kind());
+            let generic_parameters = surface_generic_parameters(
+                graph,
+                export.symbol(),
+                export.kind(),
+                type_result,
+                resolution,
+            );
 
             ModuleSurfaceExport::with_members(
                 export.name().to_string(),
                 export.kind(),
                 ty,
                 members,
-                generic_parameter_count,
+                generic_parameters,
             )
         })
         .collect();
@@ -235,6 +240,13 @@ pub fn imported_surface_types_for_namespace(
     let mut imported_types = ImportedSurfaceTypes::new();
 
     for export in surface.exports() {
+        if let Some(ty) = export.ty() {
+            imported_types.insert_member_type(
+                ImportedMemberKey::new(namespace, "", export.name()),
+                ty.clone(),
+            );
+        }
+
         for member in export.members() {
             if let Some(ty) = member.ty() {
                 imported_types.insert_member_type(
@@ -292,13 +304,12 @@ fn surface_members_for_export(
         .iter()
         .filter_map(|(name, member_symbol)| {
             let member = resolution.symbol(*member_symbol)?;
-
             match member.kind() {
                 SymbolKind::StructField | SymbolKind::ConstraintField => {
                     let ty = type_result
                         .layer()
                         .symbol_type(*member_symbol)
-                        .and_then(|ty| transport_type(type_result, ty))?;
+                        .and_then(|ty| transport_type(resolution, type_result, ty))?;
 
                     Some(ModuleSurfaceMember::new(
                         name.to_string(),
@@ -311,7 +322,7 @@ fn surface_members_for_export(
                     let ty = type_result
                         .layer()
                         .symbol_type(*member_symbol)
-                        .and_then(|ty| transport_type(type_result, ty))?;
+                        .and_then(|ty| transport_type(resolution, type_result, ty))?;
 
                     Some(ModuleSurfaceMember::new(
                         name.to_string(),
@@ -343,51 +354,71 @@ fn surface_members_for_export(
         .collect()
 }
 
-fn surface_generic_parameter_count(
+fn surface_generic_parameters(
     graph: &ModuleGraph,
     symbol: SymbolId,
     kind: SymbolKind,
-) -> usize {
-    if kind != SymbolKind::Constraint {
-        return 0;
+    type_result: &TypeCheckResult,
+    resolution: &ResolutionLayer,
+) -> Vec<ImportedType> {
+    match kind {
+        SymbolKind::Constraint | SymbolKind::Choice | SymbolKind::Struct | SymbolKind::Function => {
+        }
+        _ => return Vec::new(),
     }
 
-    let Some(resolution) = graph.resolution() else {
-        return 0;
-    };
-
     let Some(member_scope) = resolution.member_scope(symbol) else {
-        return 0;
+        return Vec::new();
     };
 
     let Some(scope) = resolution.scope(member_scope) else {
-        return 0;
+        return Vec::new();
     };
 
     let Some(owner) = scope.owner() else {
-        return 0;
+        return Vec::new();
     };
 
-    declaration_symbols_in_node(graph, owner, SymbolKind::GenericParameter)
+    let local_parameters = declaration_generic_parameters_in_node(graph, owner);
+
+    local_parameters
+        .into_iter()
+        .filter_map(|param_symbol| {
+            let ty = type_result.layer().symbol_type(param_symbol)?;
+            transport_type(resolution, type_result, ty)
+        })
+        .collect()
 }
 
-fn declaration_symbols_in_node(graph: &ModuleGraph, node: NodeId, kind: SymbolKind) -> usize {
+fn declaration_generic_parameters_in_node(graph: &ModuleGraph, node: NodeId) -> Vec<SymbolId> {
+    let mut symbols = Vec::new();
+    collect_generic_parameters_in_node(graph, node, &mut symbols);
+    symbols
+}
+
+fn collect_generic_parameters_in_node(
+    graph: &ModuleGraph,
+    node: NodeId,
+    symbols: &mut Vec<SymbolId>,
+) {
     let Some(syntax_node) = graph.syntax().node(node) else {
-        return 0;
+        return;
     };
 
-    let current = graph
+    if let Some(symbol) = graph
         .resolution()
         .and_then(|resolution| resolution.declaration_symbol(node))
-        .and_then(|symbol| graph.resolution()?.symbol(symbol))
-        .is_some_and(|symbol| symbol.kind() == kind) as usize;
+    {
+        if let Some(sym) = graph.resolution().and_then(|res| res.symbol(symbol)) {
+            if sym.kind() == SymbolKind::GenericParameter {
+                symbols.push(symbol);
+            }
+        }
+    }
 
-    current
-        + syntax_node
-            .children()
-            .iter()
-            .map(|child| declaration_symbols_in_node(graph, *child, kind))
-            .sum::<usize>()
+    for child in syntax_node.children() {
+        collect_generic_parameters_in_node(graph, *child, symbols);
+    }
 }
 
 fn choice_payload_types(
@@ -400,6 +431,8 @@ fn choice_payload_types(
     let payload = find_descendant_of_kind(graph, variant, SyntaxNodeKind::ChoicePayload)?;
     let payload_node = graph.syntax().node(payload)?;
 
+    let resolution = graph.resolution()?;
+
     payload_node
         .children()
         .iter()
@@ -407,7 +440,7 @@ fn choice_payload_types(
             let type_node = first_type_child(graph, *child).unwrap_or(*child);
             let ty = type_result.layer().node_type(type_node)?;
 
-            transport_type(type_result, ty)
+            transport_type(resolution, type_result, ty)
         })
         .collect()
 }
@@ -474,27 +507,31 @@ fn first_type_child(graph: &ModuleGraph, node: NodeId) -> Option<NodeId> {
     })
 }
 
-fn transport_type(result: &TypeCheckResult, ty: TypeId) -> Option<ImportedType> {
+fn transport_type(
+    resolution: &ResolutionLayer,
+    result: &TypeCheckResult,
+    ty: TypeId,
+) -> Option<ImportedType> {
     match result.layer().table().kind(ty).cloned()? {
         TypeKind::Primitive(primitive) => Some(ImportedType::Primitive(primitive)),
 
         TypeKind::Array { element } => Some(ImportedType::Array {
-            element: Box::new(transport_type(result, element)?),
+            element: Box::new(transport_type(resolution, result, element)?),
         }),
 
         TypeKind::FixedArray { element, size } => Some(ImportedType::FixedArray {
-            element: Box::new(transport_type(result, element)?),
+            element: Box::new(transport_type(resolution, result, element)?),
             size,
         }),
 
         TypeKind::Range { element } => Some(ImportedType::Range {
-            element: Box::new(transport_type(result, element)?),
+            element: Box::new(transport_type(resolution, result, element)?),
         }),
 
         TypeKind::Tuple { elements } => {
             let elements = elements
                 .into_iter()
-                .map(|element| transport_type(result, element))
+                .map(|element| transport_type(resolution, result, element))
                 .collect::<Option<Vec<_>>>()?;
 
             Some(ImportedType::Tuple { elements })
@@ -503,7 +540,7 @@ fn transport_type(result: &TypeCheckResult, ty: TypeId) -> Option<ImportedType> 
         TypeKind::Union { members } => {
             let members = members
                 .into_iter()
-                .map(|member| transport_type(result, member))
+                .map(|member| transport_type(resolution, result, member))
                 .collect::<Option<Vec<_>>>()?;
 
             Some(ImportedType::Union { members })
@@ -514,7 +551,7 @@ fn transport_type(result: &TypeCheckResult, ty: TypeId) -> Option<ImportedType> 
                 .parameters()
                 .iter()
                 .map(|parameter| {
-                    let ty = transport_type(result, parameter.ty())?;
+                    let ty = transport_type(resolution, result, parameter.ty())?;
 
                     if parameter.is_rest() {
                         return Some(ImportedFunctionParameterType::rest(ty));
@@ -528,14 +565,36 @@ fn transport_type(result: &TypeCheckResult, ty: TypeId) -> Option<ImportedType> 
                 })
                 .collect::<Option<Vec<_>>>()?;
 
-            let return_type = Box::new(transport_type(result, function.return_type())?);
+            let return_type = Box::new(transport_type(resolution, result, function.return_type())?);
 
             Some(ImportedType::Function {
                 parameters,
                 return_type,
             })
         }
-
+        TypeKind::Named { symbol } => {
+            let symbol_data = resolution.symbol(symbol)?;
+            let name = symbol_data.name().to_string();
+            Some(ImportedType::LocalPath { name })
+        }
+        TypeKind::Path { root, segments } => {
+            let symbol_data = resolution.symbol(root)?;
+            let mut name = symbol_data.name().to_string();
+            for segment in segments {
+                name.push_str("::");
+                name.push_str(&segment);
+            }
+            Some(ImportedType::LocalPath { name })
+        }
+        TypeKind::GenericParameter { symbol } => Some(ImportedType::GenericParameter { symbol }),
+        TypeKind::GenericInstance { base, arguments } => {
+            let base = Box::new(transport_type(resolution, result, base)?);
+            let arguments = arguments
+                .into_iter()
+                .map(|arg| transport_type(resolution, result, arg))
+                .collect::<Option<Vec<_>>>()?;
+            Some(ImportedType::GenericInstance { base, arguments })
+        }
         _ => None,
     }
 }

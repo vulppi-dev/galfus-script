@@ -279,6 +279,10 @@ impl<'a> Resolver<'a> {
     }
 
     fn resolve_variant_pattern(&mut self, pattern: NodeId, scope: ScopeId) {
+        println!(
+            "DEBUG resolve_variant_pattern CALLED on {}",
+            self.node_text(pattern)
+        );
         let Some(root) = self.syntax.child(pattern, 0) else {
             return;
         };
@@ -299,11 +303,18 @@ impl<'a> Resolver<'a> {
         let root_symbol = self
             .resolution
             .reference_symbol(reference_root)
+            .or_else(|| self.resolution.path_reference_symbol(reference_root))
             .or_else(|| {
                 let root_name = self.node_text(reference_root);
                 let root_name_id = NameId::intern(&root_name);
                 self.resolution.lookup_symbol(scope, root_name_id)
             });
+
+        println!(
+            "DEBUG resolve_variant_pattern: reference_root={}, root_symbol={:?}",
+            self.node_text(reference_root),
+            root_symbol
+        );
 
         let Some(root_symbol) = root_symbol else {
             let root_name = self.node_text(reference_root);

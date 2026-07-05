@@ -148,7 +148,7 @@ fn normalize(value: int32 | null): int32 {
         diagnostic.code().as_str() == TypeDiagnosticCode::IncompatibleInstanceofArmType.as_code()
             && diagnostic
                 .message()
-                .contains("instanceof arm body must be compatible with `bool`, got `int32`")
+                .contains("instanceof arm body must be compatible with `int32`, got `bool`")
     }));
 }
 

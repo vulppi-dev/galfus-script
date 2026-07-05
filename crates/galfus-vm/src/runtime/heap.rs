@@ -58,15 +58,6 @@ impl VirtualMachine {
         }
     }
 
-    pub(super) fn resolve_array_index(
-        &self,
-        val: Value,
-        len: usize,
-    ) -> Result<Option<usize>, VmError> {
-        let raw_index = self.to_raw_array_index(val)?;
-        Ok(self.resolve_raw_array_index(raw_index, len))
-    }
-
     pub(super) fn resolve_raw_array_index(&self, raw_index: i128, len: usize) -> Option<usize> {
         let len = len as i128;
         let resolved = if raw_index < 0 {
@@ -192,6 +183,21 @@ impl VirtualMachine {
             (Value::Object(obj_ref), ImageType::Choice(expected_layout_idx)) => {
                 if let Ok(HeapObject::Choice { layout_idx, .. }) = self.get_object(*obj_ref) {
                     layout_idx == expected_layout_idx
+                } else {
+                    false
+                }
+            }
+            (
+                Value::Object(obj_ref),
+                ImageType::ChoiceVariant(expected_choice_idx, expected_variant_idx),
+            ) => {
+                if let Ok(HeapObject::Choice {
+                    layout_idx,
+                    variant_idx,
+                    ..
+                }) = self.get_object(*obj_ref)
+                {
+                    layout_idx == expected_choice_idx && *variant_idx == *expected_variant_idx
                 } else {
                     false
                 }

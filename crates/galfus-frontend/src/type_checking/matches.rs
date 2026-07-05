@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use galfus_core::{NodeId, SymbolId, TypeId};
 
@@ -283,18 +283,59 @@ impl<'a> DeclarationTypeChecker<'a> {
         pattern: NodeId,
         expected: TypeId,
     ) -> bool {
-        let Some((owner_symbol, variant)) = self.imported_variant_pattern(pattern) else {
+        let Some((owner_symbol, choice, mut variant)) = self.imported_variant_pattern(pattern)
+        else {
             return false;
         };
 
-        let owner_type = self.layer.table_mut().intern_named(owner_symbol);
+        let owner_type = self
+            .layer
+            .table_mut()
+            .intern_path(owner_symbol, vec![choice.name.clone()]);
 
-        if !self.is_assignable(expected, owner_type) {
-            self.report_invalid_match_pattern_type(pattern, expected, owner_type);
+        let mut expected_choice_type = expected;
+        let mut generic_arguments = Vec::new();
+        if let Some(TypeKind::GenericInstance { base, arguments }) =
+            self.layer.table().kind(expected)
+        {
+            expected_choice_type = *base;
+            generic_arguments = arguments.clone();
+        }
+
+        if !self.is_assignable(expected_choice_type, owner_type) {
+            self.report_invalid_match_pattern_type(pattern, expected_choice_type, owner_type);
             return true;
         }
 
+        if !generic_arguments.is_empty() {
+            let substitution = choice
+                .generic_parameters
+                .iter()
+                .copied()
+                .zip(generic_arguments)
+                .collect::<HashMap<_, _>>();
+
+            for payload_type in &mut variant.payload_types {
+                *payload_type =
+                    self.substitute_generic_expression_type(*payload_type, &substitution);
+            }
+        }
+
         self.check_imported_choice_variant_pattern_payload(pattern, &variant);
+
+        let mut segments = match self.layer.table().kind(expected) {
+            Some(TypeKind::Path { segments, .. }) => segments.clone(),
+            Some(TypeKind::GenericInstance { base, .. }) => match self.layer.table().kind(*base) {
+                Some(TypeKind::Path { segments, .. }) => segments.clone(),
+                _ => Vec::new(),
+            },
+            _ => Vec::new(),
+        };
+        if !segments.is_empty() {
+            segments.push(variant.name.clone());
+            let variant_ty = self.layer.table_mut().intern_path(owner_symbol, segments);
+            self.layer.bind_node_type(pattern, variant_ty);
+        }
 
         true
     }
@@ -336,18 +377,27 @@ impl<'a> DeclarationTypeChecker<'a> {
     fn imported_variant_pattern(
         &self,
         pattern: NodeId,
-    ) -> Option<(SymbolId, LoweredImportedChoiceVariant)> {
+    ) -> Option<(
+        SymbolId,
+        LoweredImportedChoice,
+        LoweredImportedChoiceVariant,
+    )> {
         let resolution = self.graph.resolution()?;
         let owner_symbol = resolution.reference_symbol(pattern)?;
-        let choice = self.imported_symbol_choices.get(&owner_symbol)?;
+        let choice = if let Some(c) = self.imported_symbol_choices.get(&owner_symbol) {
+            c
+        } else {
+            let root = self.graph.syntax().child(pattern, 0)?;
+            self.imported_path_choices.get(&root)?
+        };
+
         let variant_name = self.variant_pattern_variant_name(pattern)?;
         let variant = choice
             .variants
             .iter()
-            .find(|variant| variant.name == variant_name)?
-            .clone();
+            .find(|variant| variant.name == variant_name)?;
 
-        Some((owner_symbol, variant))
+        Some((owner_symbol, choice.clone(), variant.clone()))
     }
 
     fn variant_pattern_variant_name(&self, pattern: NodeId) -> Option<String> {
@@ -507,6 +557,21 @@ impl<'a> DeclarationTypeChecker<'a> {
                 .values()
                 .find(|choice| !choice.variants.is_empty())
                 .map(|choice| (root, choice)),
+            Some(TypeKind::GenericInstance { base, .. }) => {
+                let base = self.resolve_alias_type(base);
+                match self.layer.table().kind(base).cloned() {
+                    Some(TypeKind::Named { symbol }) => self
+                        .imported_symbol_choices
+                        .get(&symbol)
+                        .map(|choice| (symbol, choice)),
+                    Some(TypeKind::Path { root, .. }) => self
+                        .imported_path_choices
+                        .values()
+                        .find(|choice| !choice.variants.is_empty())
+                        .map(|choice| (root, choice)),
+                    _ => None,
+                }
+            }
             _ => None,
         }
     }

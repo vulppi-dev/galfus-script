@@ -72,7 +72,6 @@ pub enum SyntaxNodeKind {
     ElseClause,
     ForStatement,
     ForBinding,
-    WhileStatement,
     LoopStatement,
     AssignmentStatement,
 
@@ -138,9 +137,6 @@ pub enum SyntaxNodeKind {
     InstanceofExpression,
     InstanceofArmList,
     InstanceofArm,
-    TypeofExpression,
-    TypeofArmList,
-    TypeofArm,
     NewArrayExpression,
 
     // Operators
@@ -194,7 +190,6 @@ impl SyntaxNodeKind {
                 | SyntaxNodeKind::ExpressionStatement
                 | SyntaxNodeKind::IfStatement
                 | SyntaxNodeKind::ForStatement
-                | SyntaxNodeKind::WhileStatement
                 | SyntaxNodeKind::LoopStatement
                 | SyntaxNodeKind::AssignmentStatement
         )
@@ -228,7 +223,6 @@ impl SyntaxNodeKind {
                 | SyntaxNodeKind::NullSafeMemberExpression
                 | SyntaxNodeKind::MatchExpression
                 | SyntaxNodeKind::InstanceofExpression
-                | SyntaxNodeKind::TypeofExpression
                 | SyntaxNodeKind::NewArrayExpression
         )
     }

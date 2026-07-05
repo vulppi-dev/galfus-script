@@ -485,7 +485,12 @@ impl<'a> DeclarationTypeChecker<'a> {
         substitution: &TypeSubstitution,
     ) {
         for (&parameter, &argument) in substitution {
-            if self.generic_argument_satisfies_bound(parameter, argument) {
+            let sat = self.generic_argument_satisfies_bound(parameter, argument);
+            println!(
+                "VALIDATE_BOUNDS: parameter={:?}, argument={:?}, satisfies={}",
+                parameter, argument, sat
+            );
+            if sat {
                 continue;
             }
 
@@ -507,7 +512,7 @@ impl<'a> DeclarationTypeChecker<'a> {
 
     fn generic_argument_satisfies_bound(&mut self, parameter: SymbolId, argument: TypeId) -> bool {
         let Some(bound_node) = self.generic_parameter_bound_type_node(parameter) else {
-            return false;
+            return true;
         };
 
         if let Ok(application) = self.constraint_application(bound_node) {

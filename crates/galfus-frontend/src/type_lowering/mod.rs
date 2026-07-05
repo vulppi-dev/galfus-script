@@ -68,7 +68,6 @@ impl<'a> TypeLowerer<'a> {
         if self.is_type_node_kind(syntax_node.kind()) {
             let ty = self.lower_type(node);
             self.layer.bind_node_type(node, ty);
-            return;
         }
 
         for child in syntax_node.children() {

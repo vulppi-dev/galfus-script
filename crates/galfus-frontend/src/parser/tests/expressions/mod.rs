@@ -11,6 +11,5 @@ mod instanceof;
 mod match_expressions;
 mod spread;
 mod struct_literals;
-mod typeof_expressions;
 mod unary_and_grouped;
 mod variant_construction;

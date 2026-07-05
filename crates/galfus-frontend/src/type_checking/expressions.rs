@@ -85,9 +85,9 @@ impl<'a> DeclarationTypeChecker<'a> {
 
             SyntaxNodeKind::MatchExpression => self.infer_match_expression_type(node),
 
-            SyntaxNodeKind::InstanceofExpression => self.infer_instanceof_expression_type(node),
-
-            SyntaxNodeKind::TypeofExpression => self.infer_typeof_expression_type(node, expected),
+            SyntaxNodeKind::InstanceofExpression => {
+                self.infer_instanceof_expression_type(node, expected)
+            }
 
             SyntaxNodeKind::MemberExpression => self.infer_member_expression_type(node, false),
 
@@ -109,7 +109,11 @@ impl<'a> DeclarationTypeChecker<'a> {
 
             SyntaxNodeKind::CopyExpression => {
                 let value = self.graph.syntax().child(node, 0)?;
-                self.infer_expression_type_with_expected(value, expected)
+                let ty = self.infer_expression_type_with_expected(value, expected)?;
+                if self.is_fieldless_struct_type(ty) {
+                    self.report_invalid_copy_target(node, ty);
+                }
+                Some(ty)
             }
 
             SyntaxNodeKind::NewArrayExpression => self.infer_new_array_expression_type(node),
@@ -137,7 +141,16 @@ impl<'a> DeclarationTypeChecker<'a> {
 
         self.layer
             .symbol_type(symbol)
-            .or_else(|| self.infer_unbound_symbol_type(symbol))
+            .or_else(|| {
+                if let Some(symbol_data) = resolution.symbol(symbol) {
+                    if symbol_data.kind() == SymbolKind::ImportNamespace {
+                        let ty = self.layer.table_mut().intern(TypeKind::Named { symbol });
+                        self.layer.bind_symbol_type(symbol, ty);
+                        return Some(ty);
+                    }
+                }
+                self.infer_unbound_symbol_type(symbol)
+            })
             .map(|ty| self.apply_active_type_substitutions(ty))
     }
 
@@ -173,7 +186,7 @@ impl<'a> DeclarationTypeChecker<'a> {
         }
     }
 
-    fn infer_unbound_symbol_type(&mut self, symbol: SymbolId) -> Option<TypeId> {
+    pub(super) fn infer_unbound_symbol_type(&mut self, symbol: SymbolId) -> Option<TypeId> {
         let root = self.graph.syntax().root()?;
         let initializer = self.find_initializer_for_symbol(root, symbol)?;
 

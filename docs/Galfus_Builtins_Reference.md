@@ -218,22 +218,22 @@ constraint Stringable {
 }
 
 fn stringify(value: int | uint | float | bool | null | [uint8] | Stringable): [uint8]
-fn parse<T: int | uint | float | bool | null | [uint8]>(s: [uint8]): T
+fn parse<T>(s: [uint8]): ParseResult<T>
 ```
 
 `stringify` returns compact bytes for booleans, `null`, raw `[uint8]`, concrete
 integer widths, and structs that implement the anchored `Stringable` function.
 Float formatting is currently a deterministic placeholder until decimal float
-formatting exists in the rich builtin layer. `parse` currently exposes the
-generic surface and uses `typeof T`; full numeric parsing depends on generic
-specialization and richer format helpers.
+formatting exists in the rich builtin layer. `parse` leverages generic type
+constraints to parse numeric and primitive values, returning a `ParseResult<T>`
+containing the parsed value or an error.
 
 ### `json`
 
 Highly optimized JSON parsing and serialization.
 
-- `fn parse(jsonBytes: [uint8]): Any` - Deserialize JSON bytes into dynamic structure or native types.
-- `fn stringify(val: Any): [uint8]` - Serialize any structured data back into JSON UTF-8 bytes.
+- `fn parse<T>(jsonBytes: [uint8]): ParseResult<T>` - Deserialize JSON bytes into a concrete structure or native types.
+- `fn stringify(val: int | uint | float | bool | null | [uint8]): [uint8]` - Serialize structured data back into JSON UTF-8 bytes.
 
 ### `regex`
 

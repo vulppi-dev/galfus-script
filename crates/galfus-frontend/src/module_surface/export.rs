@@ -9,12 +9,12 @@ pub struct ModuleSurfaceExport {
     kind: SymbolKind,
     ty: Option<ImportedType>,
     members: Vec<ModuleSurfaceMember>,
-    generic_parameter_count: usize,
+    generic_parameters: Vec<ImportedType>,
 }
 
 impl ModuleSurfaceExport {
     pub fn new(name: String, kind: SymbolKind, ty: Option<ImportedType>) -> Self {
-        Self::with_members(name, kind, ty, Vec::new(), 0)
+        Self::with_members(name, kind, ty, Vec::new(), Vec::new())
     }
 
     pub fn with_members(
@@ -22,14 +22,14 @@ impl ModuleSurfaceExport {
         kind: SymbolKind,
         ty: Option<ImportedType>,
         members: Vec<ModuleSurfaceMember>,
-        generic_parameter_count: usize,
+        generic_parameters: Vec<ImportedType>,
     ) -> Self {
         Self {
             name,
             kind,
             ty,
             members,
-            generic_parameter_count,
+            generic_parameters,
         }
     }
 
@@ -50,7 +50,11 @@ impl ModuleSurfaceExport {
     }
 
     pub fn generic_parameter_count(&self) -> usize {
-        self.generic_parameter_count
+        self.generic_parameters.len()
+    }
+
+    pub fn generic_parameters(&self) -> &[ImportedType] {
+        self.generic_parameters.as_slice()
     }
 
     pub(super) fn imported_constraint_surface(&self) -> ImportedConstraintSurface {
@@ -86,7 +90,7 @@ impl ModuleSurfaceExport {
 
         ImportedConstraintSurface::new(
             self.name.clone(),
-            self.generic_parameter_count,
+            self.generic_parameters.len(),
             fields,
             functions,
         )
@@ -108,7 +112,7 @@ impl ModuleSurfaceExport {
             })
             .collect();
 
-        ImportedChoiceSurface::new(self.name.clone(), variants)
+        ImportedChoiceSurface::new(self.name.clone(), variants, self.generic_parameters.clone())
     }
 }
 

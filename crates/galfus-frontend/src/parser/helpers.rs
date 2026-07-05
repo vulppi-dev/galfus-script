@@ -22,7 +22,6 @@ impl Parser {
                 | TokenKind::Tilde
                 | TokenKind::Match
                 | TokenKind::Instanceof
-                | TokenKind::Typeof
         )
     }
 
@@ -85,8 +84,7 @@ impl Parser {
         match node.kind() {
             SyntaxNodeKind::CallExpression
             | SyntaxNodeKind::MatchExpression
-            | SyntaxNodeKind::InstanceofExpression
-            | SyntaxNodeKind::TypeofExpression => true,
+            | SyntaxNodeKind::InstanceofExpression => true,
 
             SyntaxNodeKind::GroupedExpression => node
                 .children()
