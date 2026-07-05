@@ -18,12 +18,6 @@ impl<'a> DeclarationTypeChecker<'a> {
         let subject_text = self.node_text(subject);
         let subject_generic = self.generic_parameter_symbol(subject_type);
 
-        println!(
-            "DEBUG instanceof: subject_type={:?} subject_generic={:?}",
-            self.layer.table().kind(subject_type),
-            subject_generic
-        );
-
         let arm_nodes = self
             .graph
             .syntax()
@@ -70,14 +64,6 @@ impl<'a> DeclarationTypeChecker<'a> {
                 let pattern_type = self.layer.node_type(pattern).unwrap_or(subject_type);
                 let arm_expected =
                     self.branch_expected_type(expected, subject_generic, pattern_type);
-
-                println!(
-                    "DEBUG instanceof arm: pattern_type={:?} expected={:?} arm_expected={:?} actual={:?}",
-                    self.layer.table().kind(pattern_type),
-                    self.layer.table().kind(expected),
-                    self.layer.table().kind(arm_expected),
-                    self.layer.table().kind(actual)
-                );
 
                 if self.is_assignable(arm_expected, actual) {
                     continue;

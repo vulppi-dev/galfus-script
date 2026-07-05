@@ -486,10 +486,6 @@ impl<'a> DeclarationTypeChecker<'a> {
     ) {
         for (&parameter, &argument) in substitution {
             let sat = self.generic_argument_satisfies_bound(parameter, argument);
-            println!(
-                "VALIDATE_BOUNDS: parameter={:?}, argument={:?}, satisfies={}",
-                parameter, argument, sat
-            );
             if sat {
                 continue;
             }

@@ -116,11 +116,6 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
     ) -> Operand {
         let syntax = self.builder.graph.syntax();
         let pattern_node = syntax.node(pattern_node_id).unwrap();
-        println!(
-            "DEBUG lower_pattern_check: pattern_node.kind()={:?}, text={}",
-            pattern_node.kind(),
-            self.builder.node_text(pattern_node_id)
-        );
         let resolution = self.builder.graph.resolution();
 
         match pattern_node.kind() {
@@ -175,12 +170,6 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                 let symbols = self.variant_pattern_symbols(pattern_node_id);
                 let variant_data =
                     symbols.and_then(|(_, vs)| resolution.and_then(|res| res.symbol(vs)));
-                println!(
-                    "DEBUG VariantPattern symbols={:?}, variant_data={:?}, kind={:?}",
-                    symbols,
-                    variant_data.map(|s| s.name()),
-                    variant_data.map(|s| s.kind())
-                );
                 if let (Some((owner_symbol, variant_symbol)), Some(variant_data)) =
                     (symbols, variant_data)
                 {
@@ -224,11 +213,6 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                                     }
                                 }
                             }
-
-                            println!(
-                                "DEBUG ChoiceVariant variant_name={} variant_ty={:?}",
-                                variant_name, variant_ty
-                            );
 
                             let bool_ty = self
                                 .builder

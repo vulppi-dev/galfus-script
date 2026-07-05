@@ -112,21 +112,10 @@ pub fn validate_module_image(image: &ModuleImage) -> Result<(), Vec<ImageValidat
         .unwrap_or(0);
     let max_fields = max_struct_fields.max(max_choice_payloads);
 
-    println!("CONSTANTS:");
-    for (idx, c) in image.constants.constants.iter().enumerate() {
-        println!("  {}: {:?}", idx, c);
-    }
-
     // 4. Validate instructions of each function
     for func in &image.functions {
         let max_regs = func.param_count as u16 + func.local_count + func.temp_count;
         let func_name = &func.name;
-        if func_name == "parseUint64Raw" || func_name == "stringifyUint64" || func_name == "main" {
-            println!("INSTRUCTIONS for {}:", func_name);
-            for (idx, instr) in func.instructions.iter().enumerate() {
-                println!("  {}: {:?}", idx, instr);
-            }
-        }
 
         for (instr_idx, &instr) in func.instructions.iter().enumerate() {
             let check_reg = |reg: Reg, errors: &mut Vec<ImageValidationError>| {

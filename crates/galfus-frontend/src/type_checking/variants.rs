@@ -14,11 +14,6 @@ struct VariantPayload {
 impl<'a> DeclarationTypeChecker<'a> {
     pub(super) fn infer_path_variant_expression_type(&mut self, node: NodeId) -> Option<TypeId> {
         let resolution = self.graph.resolution()?;
-        println!(
-            "PATH_EXPR: node={:?}, path_reference_kind={:?}",
-            node,
-            resolution.path_reference_kind(node)
-        );
         let Some(kind) = resolution.path_reference_kind(node) else {
             return self.infer_value_anchor_path_type(node);
         };

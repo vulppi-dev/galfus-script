@@ -96,10 +96,6 @@ entry = "src/main.gfs"
     fs::write(src.join("main.gfs"), main_source)?;
 
     let check_result = check_workspace(&root)?;
-    println!(
-        "TEST_DIAGNOSTICS: {:?}",
-        check_result.check_result().diagnostics()
-    );
     assert!(
         !check_result.has_errors(),
         "workspace check failed: {:?}",

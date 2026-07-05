@@ -10,14 +10,6 @@ impl<'a> DeclarationTypeChecker<'a> {
             return;
         };
 
-        if self.source.text().contains("export fn main") {
-            println!(
-                "CHECK_INIT_NODE: id={:?}, kind={:?}",
-                node,
-                syntax_node.kind()
-            );
-        }
-
         match syntax_node.kind() {
             SyntaxNodeKind::VarItem
             | SyntaxNodeKind::ConstItem

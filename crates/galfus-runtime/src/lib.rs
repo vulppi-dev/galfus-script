@@ -64,10 +64,6 @@ impl EntryAbi {
             (self.return_type, ty),
             (EntryReturnType::Int32, galfus_image::ImageType::Int32)
         );
-        println!(
-            "DEBUG accepts_return_type: self.return_type={:?}, ty={:?}, res={}",
-            self.return_type, ty, res
-        );
         res
     }
 }
@@ -207,10 +203,6 @@ impl Runtime {
             });
         }
         let return_ty = image.types.get(entry_func.return_ty.raw() as usize);
-        println!(
-            "DEBUG: entry_func.name={}, return_ty={:?}, raw={:?}",
-            entry_func.name, return_ty, entry_func.return_ty
-        );
         if !return_ty.is_some_and(|ty| abi.accepts_return_type(ty)) {
             return Err(RuntimeError::EntryReturnTypeMismatch {
                 name: entry_name.to_string(),
@@ -234,7 +226,6 @@ impl Runtime {
         })();
         self.capabilities = Some(vm.context.target);
         let result = result?;
-        println!("DEBUG entry function returned: {:?}", result);
 
         match result {
             VmValue::Int32(code) => Ok(code),

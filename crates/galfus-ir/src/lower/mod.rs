@@ -80,17 +80,7 @@ impl<'a> LowerCtx<'a> {
 
     pub fn lower_type(&mut self, ty: TypeId) -> TypeIdx {
         let ty = self.resolve_alias_type(ty);
-        let table = self.type_result.layer().table();
-        if self.source_text.contains("export fn main") {
-            for id in 0..table.len() {
-                let ty_id = TypeId::new(id as u32);
-                println!(
-                    "MAIN_TYPE_TABLE_ENTRY: id={:?}, kind={:?}",
-                    ty_id,
-                    table.kind(ty_id)
-                );
-            }
-        }
+
         if let Some(&idx) = self.type_map.get(&ty) {
             return idx;
         }
@@ -187,13 +177,6 @@ impl<'a> LowerCtx<'a> {
             _ => ImageType::Null,
         };
 
-        println!(
-            "LOWER_TYPE: ty_id={:?}, kind={:?}, resolved_image_type={:?}, index={:?}",
-            ty,
-            table.kind(ty),
-            image_type,
-            next_idx
-        );
         self.types[next_idx.raw() as usize] = image_type.clone();
 
         next_idx
