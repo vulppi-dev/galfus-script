@@ -1,0 +1,297 @@
+Previous: [Mutation, Assignment and Ownership](./09-mutation-assignment-and-ownership.md) | Index: [Galfus Core System](./00-index.md) | Next: [Control Flow](./11-control-flow.md)
+
+---
+
+# 10. Functions and Calls
+
+This document defines function declarations, return types, parameters, defaults, rest parameters, calls, anchor functions, stamped functions, arrows, closures, and function types.
+
+## 10.1 Function Declaration
+
+```galfus
+fn sum(a: int32, b: int32): int32 {
+  return a + b
+}
+```
+
+Every function MUST declare a return type.
+
+Invalid:
+
+```galfus
+fn call() {
+}
+```
+
+Valid:
+
+```galfus
+fn call(): null {
+}
+```
+
+## 10.2 Return Behavior
+
+A function whose return type includes `null` may fall through.
+
+Equivalent:
+
+```galfus
+fn call(): null {
+}
+```
+
+```galfus
+fn call(): null {
+  return
+}
+```
+
+```galfus
+fn call(): null {
+  return null
+}
+```
+
+A non-null function must return a compatible value on all reachable paths.
+
+Invalid:
+
+```galfus
+fn value(): int32 {
+}
+```
+
+## 10.3 Parameters Are Const Bindings
+
+Function parameters are constant bindings by default.
+
+```galfus
+fn call(value: int32): null {
+  value = 10 // invalid
+}
+```
+
+Complex parameters share the same graph, but the parameter binding cannot be rebound.
+
+```galfus
+fn rename(user: User, name: [uint8]): null {
+  user.name = name // valid if field is mutable
+}
+```
+
+## 10.4 Default Parameters
+
+```galfus
+fn connect(host: [uint8], port: int32 = 80): bool {
+  return true
+}
+
+connect("localhost")
+connect("localhost", 8080)
+```
+
+Trailing default parameters may be omitted.
+
+Middle default parameters require `_`.
+
+```galfus
+fn call(a: int32, b: int32 = 2, c: int32 = 3): null {
+}
+
+call(1)
+call(1, _)
+call(1, _, 3)
+```
+
+Argument gaps are invalid.
+
+```galfus
+call(1,,3) // invalid
+```
+
+## 10.5 Rest Parameters
+
+A rest parameter receives a runtime-sized sequence of positional arguments.
+
+```galfus
+fn summarize(...values: [int32]): int32 {
+  var total = 0
+
+  for value in values {
+    total += value
+  }
+
+  return total
+}
+```
+
+A function may have at most one rest parameter.
+
+The rest parameter SHOULD be final.
+
+Function calls do not support argument spread initially.
+
+Invalid:
+
+```galfus
+summarize(...values)
+```
+
+## 10.6 Calls
+
+Call checking validates:
+
+```txt
+target is callable
+argument count
+default mapping
+rest mapping
+argument types
+return type
+generic inference
+```
+
+Arguments evaluate left to right after the target is resolved/evaluated.
+
+## 10.7 Anchor Functions
+
+```galfus
+fn User::rename(self, name: [uint8]): User {
+  self.name = name
+  return self
+}
+```
+
+`self` has no explicit type annotation.
+
+Anchor call:
+
+```galfus
+user::rename("Ana")
+```
+
+There is no implicit write-back.
+
+```galfus
+user = user::rename("Ana")
+```
+
+## 10.8 Stamped Functions
+
+Stamped functions use keyword metadata.
+
+```galfus
+fn(stamp) max(a: int32, b: int32): int32 {
+  if a > b {
+    return a
+  }
+
+  return b
+}
+```
+
+Stamped functions are eligible for callsite expansion or lowering-time specialization.
+
+Restrictions:
+
+```txt
+no direct recursion
+no indirect stamped recursion
+no unbounded generic instantiation
+must be lowerable inline
+cannot receive decorators
+```
+
+Invalid:
+
+```galfus
+@trace("max")
+fn(stamp) max(a: int32, b: int32): int32 {
+  return a
+}
+```
+
+## 10.9 Generic Functions
+
+```galfus
+fn identity<T>(value: T): T {
+  return value
+}
+
+identity<int64>(10)
+```
+
+Explicit generic argument lists must be complete or omitted initially.
+
+## 10.10 Arrow Functions and Closures
+
+Expression body:
+
+```galfus
+var double = (value: int32): int32 => value * 2
+```
+
+Block body:
+
+```galfus
+var double = (value: int32): int32 => {
+  return value * 2
+}
+```
+
+Arrow functions may capture surrounding values.
+
+Captured complex values participate in ownership.
+
+## 10.11 Function Types
+
+```galfus
+fn(int32, int32): int32
+fn([uint8]): null
+```
+
+Named functions may be used as values.
+
+```galfus
+var operation: fn(int32, int32): int32 = sum
+```
+
+Function types are invariant by default.
+
+## 10.12 No Function Overloading
+
+Function overloading by parameter type is not supported.
+
+Invalid:
+
+```galfus
+fn format(value: int32): [uint8] {
+  return "int"
+}
+
+fn format(value: bool): [uint8] {
+  return "bool"
+}
+```
+
+Use distinct names or constraint-based behavior.
+
+## 10.13 Contract
+
+The checker MUST:
+
+- Require explicit return type.
+- Treat parameters as const bindings.
+- Allow fallthrough only when return type accepts `null`.
+- Reject missing return in non-null functions.
+- Support trailing omitted defaults.
+- Support `_` for middle default arguments.
+- Reject argument gaps.
+- Reject decorators on stamped functions.
+- Reject stamped recursion.
+- Reject function overloads by signature.
+
+---
+
+Previous: [Mutation, Assignment and Ownership](./09-mutation-assignment-and-ownership.md) | Index: [Galfus Core System](./00-index.md) | Next: [Control Flow](./11-control-flow.md)
