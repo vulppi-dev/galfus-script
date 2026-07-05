@@ -42,7 +42,7 @@
 - Target source file size around 300 lines; avoid exceeding 600 lines when splitting is practical (does not apply to `.md` documentation files).
 - If files are changed externally while you work, treat those changes as intentional and do not revert them unless explicitly requested.
 - Detect repetitive work and propose or create scripts to automate it.
-- Files on .tmp/ are temporary and used for planning, prototyping, and testing. They can be modified or deleted without warning. These files are not version controlled and should not be used for permanent code or documentation.
+- Files on .tmp/ are temporary and used for planning, prototyping, and testing. They can be modified or deleted without warning. These files are not version controlled and should not be used for permanent code or documentation. If the agent wants to create temporary files that will not be used in commits, they must be placed in a `.tmp/` directory at the root of the project.
 
 ## 6) Validation and Uncertainty Rules
 
@@ -69,6 +69,7 @@
   3. Rest of the code
 - Do not use explicit paths in the middle of code (e.g., `crate::modulo1::modulo2::ElementoUsado`). These must be imported with `use` at the top of the file.
 - If there are tests, they must be in a separate file, and the test module declaration must be placed at the top of the parent file:
+
   ```rust
   #[cfg(test)]
   mod tests;
