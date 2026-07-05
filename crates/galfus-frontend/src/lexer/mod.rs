@@ -1,3 +1,6 @@
+use crate::{LexicalDiagnosticCode, Token, TokenKind};
+use galfus_core::{Diagnostic, DiagnosticBag, SourceFile, Span};
+
 #[cfg(test)]
 mod tests;
 
@@ -7,9 +10,6 @@ mod numbers;
 mod strings;
 mod tokenize;
 mod trivia;
-
-use crate::{LexicalDiagnosticCode, Token, TokenKind};
-use galfus_core::{Diagnostic, DiagnosticBag, SourceFile, Span};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum NumberBase {

@@ -1,11 +1,11 @@
-#[cfg(test)]
-mod tests;
-
 use crate::{
     ArraySize, FunctionParameterType, ModuleGraph, PrimitiveType, SymbolKind, SyntaxNodeKind,
     TypeLayer,
 };
 use galfus_core::{NodeId, SourceFile, SymbolId, TypeId};
+
+#[cfg(test)]
+mod tests;
 
 #[derive(Debug, Clone)]
 pub struct TypeLoweringResult {

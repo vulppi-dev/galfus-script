@@ -1,3 +1,13 @@
+use std::collections::HashMap;
+
+use galfus_core::{DiagnosticBag, NodeId, SourceFile, SymbolId, TypeId};
+
+use crate::{
+    FunctionParameterType, ModuleGraph, PrimitiveType, SyntaxNodeKind, TypeLayer, lower_types,
+};
+
+pub use model::*;
+
 #[cfg(test)]
 mod tests;
 
@@ -34,16 +44,7 @@ mod support;
 mod typeof_expressions;
 mod variants;
 
-use std::collections::HashMap;
-
-use galfus_core::{DiagnosticBag, NodeId, SourceFile, SymbolId, TypeId};
-
-use crate::{
-    FunctionParameterType, ModuleGraph, PrimitiveType, SyntaxNodeKind, TypeLayer, lower_types,
-};
-
 mod model;
-pub use model::*;
 
 struct DeclarationTypeChecker<'a> {
     source: &'a SourceFile,

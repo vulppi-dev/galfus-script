@@ -1,3 +1,8 @@
+use crate::{
+    ModuleGraph, OperatorKind, ParserDiagnosticCode, SyntaxNodeKind, Token, TokenKind, lex,
+};
+use galfus_core::{Diagnostic, DiagnosticBag, NodeId, SourceFile, Span};
+
 #[cfg(test)]
 mod tests;
 
@@ -13,11 +18,6 @@ mod start;
 mod statements;
 mod syntax;
 mod syntax_types;
-
-use crate::{
-    ModuleGraph, OperatorKind, ParserDiagnosticCode, SyntaxNodeKind, Token, TokenKind, lex,
-};
-use galfus_core::{Diagnostic, DiagnosticBag, NodeId, SourceFile, Span};
 
 #[derive(Debug, Clone)]
 pub struct ParseResult {

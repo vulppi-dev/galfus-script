@@ -1,6 +1,6 @@
 use galfus_core::{NodeId, SymbolId, TypeId};
 
-use crate::{PrimitiveType, SymbolKind, SyntaxNodeKind};
+use crate::{PrimitiveType, SymbolKind, SyntaxNodeKind, TypeKind};
 
 use super::DeclarationTypeChecker;
 
@@ -145,7 +145,7 @@ impl<'a> DeclarationTypeChecker<'a> {
         let expected = self.resolve_alias_type(expected?);
 
         match self.layer.table().kind(expected) {
-            Some(crate::TypeKind::Primitive(
+            Some(TypeKind::Primitive(
                 PrimitiveType::Int8
                 | PrimitiveType::Int16
                 | PrimitiveType::Int32
@@ -166,7 +166,7 @@ impl<'a> DeclarationTypeChecker<'a> {
         let expected = self.resolve_alias_type(expected?);
 
         match self.layer.table().kind(expected) {
-            Some(crate::TypeKind::Primitive(
+            Some(TypeKind::Primitive(
                 PrimitiveType::Float16 | PrimitiveType::Float32 | PrimitiveType::Float64,
             )) => Some(expected),
             _ => None,
@@ -233,7 +233,7 @@ impl<'a> DeclarationTypeChecker<'a> {
         let expected_elements = expected.and_then(|expected_ty| {
             let resolved = self.resolve_alias_type(expected_ty);
             match self.layer.table().kind(resolved) {
-                Some(crate::TypeKind::Tuple { elements }) => Some(elements.clone()),
+                Some(TypeKind::Tuple { elements }) => Some(elements.clone()),
                 _ => None,
             }
         });
@@ -258,7 +258,11 @@ impl<'a> DeclarationTypeChecker<'a> {
 
     fn infer_cast_expression_type(&mut self, node: NodeId) -> Option<TypeId> {
         let type_node = self.first_type_child(node)?;
-        self.layer.node_type(type_node)
+        let target_type = self.layer.node_type(type_node)?;
+        if let Some(val_node) = self.graph.syntax().child(node, 1) {
+            self.infer_expression_type(val_node);
+        }
+        Some(target_type)
     }
 
     fn infer_new_array_expression_type(&mut self, node: NodeId) -> Option<TypeId> {

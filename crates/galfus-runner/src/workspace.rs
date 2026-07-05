@@ -127,11 +127,11 @@ impl WorkspaceCheckResult {
         self.run_args.as_slice()
     }
 
-    pub fn modules(&self) -> &[crate::CheckedModule] {
+    pub fn modules(&self) -> &[CheckedModule] {
         self.check.modules()
     }
 
-    pub fn diagnostics(&self) -> &galfus_core::DiagnosticBag {
+    pub fn diagnostics(&self) -> &DiagnosticBag {
         self.check.diagnostics()
     }
 

@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use galfus_core::{NodeId, SymbolId, TypeId};
+use galfus_core::{Diagnostic, NodeId, SymbolId, TypeId};
 
 use crate::{PrimitiveType, SymbolKind, TypeDiagnosticCode, TypeKind};
 
@@ -262,11 +262,10 @@ impl<'a> DeclarationTypeChecker<'a> {
 
         let field_type = self.describe_type_for_diagnostic(field_type);
 
-        self.diagnostics
-            .push(galfus_core::Diagnostic::error_with_message(
-                TypeDiagnosticCode::InvalidWeakFieldType,
-                format!("weak field type must be nullable, got `{field_type}`"),
-                span,
-            ));
+        self.diagnostics.push(Diagnostic::error_with_message(
+            TypeDiagnosticCode::InvalidWeakFieldType,
+            format!("weak field type must be nullable, got `{field_type}`"),
+            span,
+        ));
     }
 }

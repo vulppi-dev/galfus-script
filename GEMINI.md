@@ -63,3 +63,15 @@
 - If variables are unused and do not hold ownership/side-effects, they must be removed.
 - Unused functions must also be removed.
 - Internal Rust properties use `snake_case`.
+- Rust source files must be organized in the following order:
+  1. `use` imports
+  2. `mod` declarations
+  3. Rest of the code
+- Do not use explicit paths in the middle of code (e.g., `crate::modulo1::modulo2::ElementoUsado`). These must be imported with `use` at the top of the file.
+- If there are tests, they must be in a separate file, and the test module declaration must be placed at the top of the parent file:
+  ```rust
+  #[cfg(test)]
+  mod tests;
+
+  // Rest of the file
+  ```

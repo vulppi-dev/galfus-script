@@ -1,10 +1,11 @@
+use super::MirBuilder;
 use crate::mir::*;
 use galfus_core::{NodeId, SymbolId, TypeId};
-use galfus_frontend::{PrimitiveType, SyntaxNodeKind, TypeKind};
+use galfus_frontend::{PrimitiveType, RangeOperatorKind, SymbolKind, SyntaxNodeKind, TypeKind};
 use std::collections::HashMap;
 
 pub struct FunctionBuilder<'b, 'a> {
-    pub(super) builder: &'b mut super::MirBuilder<'a>,
+    pub(super) builder: &'b mut MirBuilder<'a>,
     pub(super) locals: Vec<LocalDecl>,
     pub(super) symbol_to_local: std::collections::HashMap<SymbolId, LocalId>,
     pub(super) current_instructions: Vec<Instruction>,
@@ -15,11 +16,9 @@ pub struct FunctionBuilder<'b, 'a> {
 
 impl<'b, 'a> FunctionBuilder<'b, 'a> {
     pub(super) fn node_type(&self, node: NodeId) -> Option<TypeId> {
-        self.builder
-            .type_result
-            .layer()
-            .node_type(node)
-            .map(|ty| self.substitute_type(ty))
+        let ty = self.builder.type_result.layer().node_type(node);
+
+        ty.map(|ty| self.substitute_type(ty))
     }
 
     pub(super) fn symbol_type(&self, symbol: SymbolId) -> Option<TypeId> {
@@ -322,8 +321,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                                 let is_global = resolution.is_some_and(|res| {
                                     matches!(
                                         res.symbol(sym).map(|s| s.kind()),
-                                        Some(galfus_frontend::SymbolKind::Var)
-                                            | Some(galfus_frontend::SymbolKind::Const)
+                                        Some(SymbolKind::Var) | Some(SymbolKind::Const)
                                     )
                                 });
                                 if is_global {
@@ -553,8 +551,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                     let range_op_node_data = syntax.node(range_op_node).unwrap();
                     let op_kind = range_op_node_data.range_operator();
 
-                    let is_quantity =
-                        matches!(op_kind, Some(galfus_frontend::RangeOperatorKind::Quantity));
+                    let is_quantity = matches!(op_kind, Some(RangeOperatorKind::Quantity));
 
                     let counter_local = if is_quantity {
                         let counter_local = self.declare_local(None, end_ty);
@@ -587,9 +584,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                         ));
                     } else {
                         let cond_op = match op_kind {
-                            Some(galfus_frontend::RangeOperatorKind::Exclusive) | None => {
-                                MirBinaryOp::Less
-                            }
+                            Some(RangeOperatorKind::Exclusive) | None => MirBinaryOp::Less,
                             _ => MirBinaryOp::Less,
                         };
                         self.current_instructions.push(Instruction::Assign(

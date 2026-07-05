@@ -1,5 +1,7 @@
 use super::LowerCtx;
-use crate::mir::{MirBody, MirFunction, Terminator};
+use crate::mir::{
+    Constant as MirConstant, Instruction as MirInstruction, MirBody, MirFunction, Terminator,
+};
 use galfus_image::Instruction;
 use galfus_image::instruction::{GlobalIdx, Reg};
 
@@ -118,15 +120,15 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
             MirBody::BasicBlock(bb) => {
                 for instr in &bb.instructions {
                     match instr {
-                        crate::mir::Instruction::Assign(dest, rval) => {
+                        MirInstruction::Assign(dest, rval) => {
                             self.emit_rvalue(Reg(dest.raw() as u16), rval);
                         }
-                        crate::mir::Instruction::Drop(local) => {
+                        MirInstruction::Drop(local) => {
                             self.instructions.push(Instruction::Drop {
                                 reg: Reg(local.raw() as u16),
                             });
                         }
-                        crate::mir::Instruction::StoreGlobal(name, operand) => {
+                        MirInstruction::StoreGlobal(name, operand) => {
                             let global_idx = self
                                 .ctx
                                 .graph
@@ -145,7 +147,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                             });
                             self.free_temp_if_operand(operand);
                         }
-                        crate::mir::Instruction::StoreIndex { arr, idx, val } => {
+                        MirInstruction::StoreIndex { arr, idx, val } => {
                             let arr_reg = self.operand_reg(arr);
                             let idx_reg = self.operand_reg(idx);
                             let val_reg = self.operand_reg(val);
@@ -160,7 +162,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                             self.free_temp_if_operand(idx);
                             self.free_temp_if_operand(arr);
                         }
-                        crate::mir::Instruction::StoreField {
+                        MirInstruction::StoreField {
                             obj,
                             field_name,
                             val,
@@ -202,7 +204,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                     Terminator::Panic(msg) => {
                         let const_idx = self
                             .ctx
-                            .get_or_create_constant(&crate::mir::Constant::String(msg.clone()));
+                            .get_or_create_constant(&MirConstant::String(msg.clone()));
                         self.instructions.push(Instruction::Panic { const_idx });
                     }
                     Terminator::ConstraintCall {
@@ -223,11 +225,9 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                             self.load_operand_to(arg_op, extra_regs[i]);
                         }
 
-                        let name_const =
-                            self.ctx
-                                .get_or_create_constant(&crate::mir::Constant::String(
-                                    method_name.clone(),
-                                ));
+                        let name_const = self
+                            .ctx
+                            .get_or_create_constant(&MirConstant::String(method_name.clone()));
 
                         self.instructions.push(Instruction::CallMethod {
                             dest: Reg(destination.raw() as u16),
@@ -251,8 +251,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                             self.load_operand_to(&args[0], arg_reg);
                             self.instructions.push(Instruction::Write { src: arg_reg });
 
-                            let null_idx =
-                                self.ctx.get_or_create_constant(&crate::mir::Constant::Null);
+                            let null_idx = self.ctx.get_or_create_constant(&MirConstant::Null);
                             self.instructions.push(Instruction::LoadConst {
                                 dest: Reg(destination.raw() as u16),
                                 const_idx: null_idx,

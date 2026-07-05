@@ -1,15 +1,3 @@
-mod diagnostic;
-mod graph;
-mod lexer;
-mod module_surface;
-mod parser;
-mod resolver;
-mod string_table;
-mod token;
-mod type_checking;
-mod type_lowering;
-mod types;
-
 pub use diagnostic::*;
 pub use graph::*;
 pub use lexer::*;
@@ -21,3 +9,15 @@ pub use token::*;
 pub use type_checking::*;
 pub use type_lowering::*;
 pub use types::*;
+
+mod diagnostic;
+mod graph;
+mod lexer;
+mod module_surface;
+mod parser;
+mod resolver;
+mod string_table;
+mod token;
+mod type_checking;
+mod type_lowering;
+mod types;

@@ -1,13 +1,16 @@
+use crate::mir::Constant as MirConstant;
 use galfus_core::{FunctionId, NodeId, SymbolId, TypeId};
 use galfus_frontend::{
     ArraySize, ModuleGraph, PrimitiveType, SymbolKind, SyntaxNodeKind, TypeCheckResult, TypeKind,
 };
 use galfus_image::instruction::{ConstIdx, FuncIdx, TypeIdx};
 use galfus_image::*;
+pub use module::*;
 use std::collections::{HashMap, HashSet};
 
 pub mod control_flow;
 mod expression;
+mod module;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum HashableConstant {
@@ -19,17 +22,17 @@ pub enum HashableConstant {
 }
 
 impl HashableConstant {
-    pub fn from_mir(constant: &crate::mir::Constant) -> Option<Self> {
+    pub fn from_mir(constant: &MirConstant) -> Option<Self> {
         match constant {
-            crate::mir::Constant::Null => None,
-            crate::mir::Constant::Bool(b) => Some(Self::Bool(*b)),
-            crate::mir::Constant::Int(i) => Some(
+            MirConstant::Null => None,
+            MirConstant::Bool(b) => Some(Self::Bool(*b)),
+            MirConstant::Int(i) => Some(
                 i32::try_from(*i)
                     .map(Self::Int32)
                     .unwrap_or(Self::Int64(*i)),
             ),
-            crate::mir::Constant::Float(f) => Some(Self::FloatBits(f.to_bits())),
-            crate::mir::Constant::String(s) => Some(Self::String(s.clone())),
+            MirConstant::Float(f) => Some(Self::FloatBits(f.to_bits())),
+            MirConstant::String(s) => Some(Self::String(s.clone())),
         }
     }
 }
@@ -132,7 +135,8 @@ impl<'a> LowerCtx<'a> {
             _ => ImageType::Null,
         };
 
-        self.types[next_idx.raw() as usize] = image_type;
+        self.types[next_idx.raw() as usize] = image_type.clone();
+
         next_idx
     }
 
@@ -290,7 +294,7 @@ impl<'a> LowerCtx<'a> {
         next_idx
     }
 
-    pub fn get_or_create_constant(&mut self, constant: &crate::mir::Constant) -> ConstIdx {
+    pub fn get_or_create_constant(&mut self, constant: &MirConstant) -> ConstIdx {
         let hashable = match HashableConstant::from_mir(constant) {
             Some(h) => h,
             None => return ConstIdx(0), // Placeholder for Null
@@ -304,13 +308,13 @@ impl<'a> LowerCtx<'a> {
         self.constants_map.insert(hashable, next_idx);
 
         let c = match constant {
-            crate::mir::Constant::Null => unreachable!(),
-            crate::mir::Constant::Bool(b) => Constant::Bool(*b),
-            crate::mir::Constant::Int(i) => i32::try_from(*i)
+            MirConstant::Null => unreachable!(),
+            MirConstant::Bool(b) => Constant::Bool(*b),
+            MirConstant::Int(i) => i32::try_from(*i)
                 .map(Constant::Int32)
                 .unwrap_or(Constant::Int64(*i)),
-            crate::mir::Constant::Float(f) => Constant::Float(*f),
-            crate::mir::Constant::String(s) => Constant::String(s.clone()),
+            MirConstant::Float(f) => Constant::Float(*f),
+            MirConstant::String(s) => Constant::String(s.clone()),
         };
 
         self.constant_pool.constants.push(c);
@@ -672,6 +676,3 @@ impl<'a> LowerCtx<'a> {
         TypeId::new(0)
     }
 }
-
-mod module;
-pub use module::*;

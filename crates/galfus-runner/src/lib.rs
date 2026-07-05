@@ -1,3 +1,15 @@
+use anyhow::Result;
+use galfus_core::{Diagnostic, SourceFile, SourceId};
+use std::fs;
+use std::path::{Path, PathBuf};
+
+pub use check::*;
+pub use compile_workspace::*;
+pub use diagnostic::*;
+pub use local_graph::*;
+pub use workspace::*;
+pub use workspace_graph::*;
+
 #[cfg(test)]
 mod tests;
 
@@ -7,17 +19,6 @@ mod diagnostic;
 mod local_graph;
 mod workspace;
 mod workspace_graph;
-
-pub use check::*;
-pub use compile_workspace::*;
-pub use diagnostic::*;
-pub use local_graph::*;
-pub use workspace::*;
-pub use workspace_graph::*;
-
-use anyhow::Result;
-use galfus_core::Diagnostic;
-use std::path::{Path, PathBuf};
 
 const STD_IO_MODULE: &str = "std/io";
 const TEXT_MODULE: &str = "text";
@@ -203,11 +204,9 @@ fn print_diagnostic(result: &CheckResult, diagnostic: &Diagnostic) {
 }
 
 pub fn compile_file_to_gfb(source_path: &Path, output_path: &Path) -> Result<()> {
-    use std::fs;
-
     let code = fs::read_to_string(source_path)?;
-    let source_id = galfus_core::SourceId::new(0);
-    let source_file = galfus_core::SourceFile::new(
+    let source_id = SourceId::new(0);
+    let source_file = SourceFile::new(
         source_id,
         source_path.to_string_lossy().into_owned(),
         code.clone(),
@@ -251,8 +250,6 @@ pub fn compile_file_to_gfb(source_path: &Path, output_path: &Path) -> Result<()>
 }
 
 pub fn load_gfb_file(path: &Path) -> Result<galfus_image::ModuleImage> {
-    use std::fs;
-
     let bytes = fs::read(path)?;
     let module_image = galfus_image::gfb::deserialize_from_gfb(&bytes)
         .map_err(|e| anyhow::anyhow!("GFB loader error: {}", e))?;

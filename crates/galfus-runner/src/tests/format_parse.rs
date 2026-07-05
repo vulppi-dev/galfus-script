@@ -15,8 +15,8 @@ export fn main(args: [[uint8]]): int32 {
   var parsed = format::parse<int32>("123")
 
   return match parsed {
-    format::Result::Ok(value) => value,
-    format::Result::Err(error) => 0,
+    format::ParseResult::Ok(value) => value,
+    format::ParseResult::Err(error) => 0,
   }
 }
 "#,
@@ -37,14 +37,14 @@ export fn main(args: [[uint8]]): int32 {
   var parsed = format::parse<bool>("true")
 
   return match parsed {
-    format::Result::Ok(value) => {
+    format::ParseResult::Ok(value) => {
       if value {
         return 1
       }
 
       return 0
     },
-    format::Result::Err(error) => 0,
+    format::ParseResult::Err(error) => 0,
   }
 }
 "#,
@@ -65,8 +65,8 @@ export fn main(args: [[uint8]]): int32 {
   var parsed = format::parse<int32>("abc")
 
   return match parsed {
-    format::Result::Ok(value) => value,
-    format::Result::Err(error) => 7,
+    format::ParseResult::Ok(value) => value,
+    format::ParseResult::Err(error) => 7,
   }
 }
 "#,

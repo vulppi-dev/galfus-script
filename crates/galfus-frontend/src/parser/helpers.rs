@@ -263,10 +263,9 @@ impl Parser {
                             index += 1;
                         }
 
-                        return self
-                            .tokens
-                            .get(index)
-                            .is_some_and(|token| token.kind() == &TokenKind::LeftParen);
+                        return self.tokens.get(index).is_some_and(|token| {
+                            matches!(token.kind(), TokenKind::LeftParen | TokenKind::ColonColon)
+                        });
                     }
                 }
 
@@ -283,10 +282,9 @@ impl Parser {
                                 index += 1;
                             }
 
-                            return self
-                                .tokens
-                                .get(index)
-                                .is_some_and(|token| token.kind() == &TokenKind::LeftParen);
+                            return self.tokens.get(index).is_some_and(|token| {
+                                matches!(token.kind(), TokenKind::LeftParen | TokenKind::ColonColon)
+                            });
                         }
                     } else {
                         return false;

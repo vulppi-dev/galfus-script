@@ -15,30 +15,35 @@ impl<'a> DeclarationTypeChecker<'a> {
         let right = self.graph.syntax().child(node, 2)?;
         let operator_text = self.node_text(operator);
 
-        let (left_type, right_type) =
-            self.infer_binary_operand_types(left, right, expected, operator_text.as_str())?;
+        let res = (|| {
+            let (left_type, right_type) =
+                self.infer_binary_operand_types(left, right, expected, operator_text.as_str())?;
 
-        let ty = match operator_text.as_str() {
-            "+" | "-" | "*" | "/" | "%" | "**" => {
-                self.check_numeric_binary_operator(operator, left_type, right_type)?
-            }
-            "<" | "<=" | ">" | ">=" => {
-                self.check_numeric_comparison_operator(operator, left_type, right_type)?
-            }
-            "==" | "!=" => self.check_equality_operator(operator, left_type, right_type)?,
-            "&&" | "||" => self.check_bool_binary_operator(operator, left_type, right_type)?,
-            "&" | "|" | "^" => {
-                self.check_integer_binary_operator(operator, left_type, right_type)?
-            }
-            "<<" | ">>" => self.check_shift_operator(operator, left_type, right_type)?,
-            _ => {
-                self.report_unsupported_operator(operator, operator_text.as_str());
-                self.layer.table_mut().error()
-            }
-        };
+            let ty = match operator_text.as_str() {
+                "+" | "-" | "*" | "/" | "%" | "**" => {
+                    self.check_numeric_binary_operator(operator, left_type, right_type)?
+                }
+                "<" | "<=" | ">" | ">=" => {
+                    self.check_numeric_comparison_operator(operator, left_type, right_type)?
+                }
+                "==" | "!=" => self.check_equality_operator(operator, left_type, right_type)?,
+                "&&" | "||" => self.check_bool_binary_operator(operator, left_type, right_type)?,
+                "&" | "|" | "^" => {
+                    self.check_integer_binary_operator(operator, left_type, right_type)?
+                }
+                "<<" | ">>" => self.check_shift_operator(operator, left_type, right_type)?,
+                _ => {
+                    self.report_unsupported_operator(operator, operator_text.as_str());
+                    self.layer.table_mut().error()
+                }
+            };
+            Some(ty)
+        })();
 
-        self.layer.bind_node_type(node, ty);
-        Some(ty)
+        if let Some(ty) = res {
+            self.layer.bind_node_type(node, ty);
+        }
+        res
     }
 
     pub(super) fn infer_unary_expression_type(&mut self, node: NodeId) -> Option<TypeId> {

@@ -53,7 +53,7 @@ impl<'a> MirBuilder<'a> {
 
         // Return Type derived from function signature in the TypeTable
         let return_type = match self.type_result.layer().table().kind(func_type) {
-            Some(galfus_frontend::TypeKind::Function(f)) => {
+            Some(TypeKind::Function(f)) => {
                 self.substitute_type(f.return_type(), &type_substitutions)
             }
             _ => func_type,

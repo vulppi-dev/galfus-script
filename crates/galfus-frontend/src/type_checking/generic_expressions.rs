@@ -13,7 +13,9 @@ impl<'a> DeclarationTypeChecker<'a> {
         let target = self.graph.syntax().child(node, 0)?;
         let arguments = self.graph.syntax().child(node, 1)?;
 
-        let target_type = self.infer_expression_type(target)?;
+        let target_type = self.infer_expression_type(target);
+
+        let target_type = target_type?;
         let argument_types = self.generic_expression_argument_types(arguments)?;
 
         let parameters = self.generic_expression_parameter_symbols(target, target_type);
@@ -30,12 +32,22 @@ impl<'a> DeclarationTypeChecker<'a> {
 
         let substitution = parameters
             .into_iter()
-            .zip(argument_types)
+            .zip(argument_types.clone())
             .collect::<GenericSubstitution>();
 
         self.validate_generic_substitution_bounds(node, &substitution);
 
-        Some(self.substitute_generic_expression_type(target_type, &substitution))
+        let resolved_target = self.resolve_alias_type(target_type);
+        let result_type = match self.layer.table().kind(resolved_target) {
+            Some(TypeKind::Named { .. }) => self
+                .layer
+                .table_mut()
+                .intern_generic_instance(target_type, argument_types),
+            _ => self.substitute_generic_expression_type(target_type, &substitution),
+        };
+
+        self.layer.bind_node_type(node, result_type);
+        Some(result_type)
     }
 
     fn generic_expression_argument_types(&self, arguments: NodeId) -> Option<Vec<TypeId>> {
@@ -57,19 +69,23 @@ impl<'a> DeclarationTypeChecker<'a> {
         Some(argument_types)
     }
 
-    fn generic_expression_parameter_symbols(
+    pub(super) fn generic_expression_parameter_symbols(
         &self,
         target: NodeId,
         target_type: TypeId,
     ) -> Vec<SymbolId> {
-        if let Some(symbol) = self.expression_reference_symbol(target)
-            && let Some(function_item) = self.function_item_for_symbol(symbol)
-        {
-            let parameters =
-                self.declaration_symbols_in_node(function_item, &[SymbolKind::GenericParameter]);
+        if let Some(symbol) = self.expression_reference_symbol(target) {
+            let mut decl_item = self.function_item_for_symbol(symbol);
+            if decl_item.is_none() {
+                decl_item = self.choice_or_struct_item_for_symbol(symbol);
+            }
+            if let Some(item) = decl_item {
+                let parameters =
+                    self.declaration_symbols_in_node(item, &[SymbolKind::GenericParameter]);
 
-            if !parameters.is_empty() {
-                return parameters;
+                if !parameters.is_empty() {
+                    return parameters;
+                }
             }
         }
 
@@ -110,6 +126,35 @@ impl<'a> DeclarationTypeChecker<'a> {
 
         for child in syntax_node.children() {
             if let Some(found) = self.find_function_item_for_symbol(*child, symbol) {
+                return Some(found);
+            }
+        }
+
+        None
+    }
+
+    fn choice_or_struct_item_for_symbol(&self, symbol: SymbolId) -> Option<NodeId> {
+        let root = self.graph.syntax().root()?;
+        self.find_choice_or_struct_item_for_symbol(root, symbol)
+    }
+
+    fn find_choice_or_struct_item_for_symbol(
+        &self,
+        node: NodeId,
+        symbol: SymbolId,
+    ) -> Option<NodeId> {
+        let syntax_node = self.graph.syntax().node(node)?;
+
+        if (syntax_node.kind() == SyntaxNodeKind::ChoiceItem
+            && self.direct_identifier_symbol(node, SymbolKind::Choice) == Some(symbol))
+            || (syntax_node.kind() == SyntaxNodeKind::StructItem
+                && self.direct_identifier_symbol(node, SymbolKind::Struct) == Some(symbol))
+        {
+            return Some(node);
+        }
+
+        for child in syntax_node.children() {
+            if let Some(found) = self.find_choice_or_struct_item_for_symbol(*child, symbol) {
                 return Some(found);
             }
         }

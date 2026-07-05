@@ -1,15 +1,19 @@
-#[cfg(test)]
-mod tests;
-
 use std::collections::HashMap;
 
-use galfus_core::{SymbolId, TypeId};
+use galfus_core::{NodeId, SymbolId, TypeId};
 
 use crate::{
     AsNameId, ImportedChoiceSurface, ImportedConstraintSurface, ImportedFunctionParameterType,
     ImportedMemberKey, ImportedSurfaceTypes, ImportedType, ModuleGraph, NameId, SymbolKind,
     SyntaxNodeKind, TypeCheckResult, TypeKind,
 };
+
+pub use export::*;
+
+#[cfg(test)]
+mod tests;
+
+mod export;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ModuleSurface {
@@ -189,9 +193,6 @@ impl ModuleSurface {
     }
 }
 
-mod export;
-pub use export::*;
-
 pub fn build_module_surface(graph: &ModuleGraph, type_result: &TypeCheckResult) -> ModuleSurface {
     let Some(resolution) = graph.resolution() else {
         return ModuleSurface::new(Vec::new());
@@ -370,11 +371,7 @@ fn surface_generic_parameter_count(
     declaration_symbols_in_node(graph, owner, SymbolKind::GenericParameter)
 }
 
-fn declaration_symbols_in_node(
-    graph: &ModuleGraph,
-    node: galfus_core::NodeId,
-    kind: SymbolKind,
-) -> usize {
+fn declaration_symbols_in_node(graph: &ModuleGraph, node: NodeId, kind: SymbolKind) -> usize {
     let Some(syntax_node) = graph.syntax().node(node) else {
         return 0;
     };
@@ -396,7 +393,7 @@ fn declaration_symbols_in_node(
 fn choice_payload_types(
     graph: &ModuleGraph,
     type_result: &TypeCheckResult,
-    declaration: galfus_core::NodeId,
+    declaration: NodeId,
 ) -> Option<Vec<ImportedType>> {
     let root = graph.syntax().root()?;
     let variant = find_parent_choice_variant(graph, root, declaration)?;
@@ -417,9 +414,9 @@ fn choice_payload_types(
 
 fn find_parent_choice_variant(
     graph: &ModuleGraph,
-    node: galfus_core::NodeId,
-    declaration: galfus_core::NodeId,
-) -> Option<galfus_core::NodeId> {
+    node: NodeId,
+    declaration: NodeId,
+) -> Option<NodeId> {
     let syntax_node = graph.syntax().node(node)?;
 
     if syntax_node.kind() == SyntaxNodeKind::ChoiceVariant
@@ -442,9 +439,9 @@ fn find_parent_choice_variant(
 
 fn find_descendant_of_kind(
     graph: &ModuleGraph,
-    node: galfus_core::NodeId,
+    node: NodeId,
     kind: SyntaxNodeKind,
-) -> Option<galfus_core::NodeId> {
+) -> Option<NodeId> {
     let syntax_node = graph.syntax().node(node)?;
 
     for child in syntax_node.children() {
@@ -462,7 +459,7 @@ fn find_descendant_of_kind(
     None
 }
 
-fn first_type_child(graph: &ModuleGraph, node: galfus_core::NodeId) -> Option<galfus_core::NodeId> {
+fn first_type_child(graph: &ModuleGraph, node: NodeId) -> Option<NodeId> {
     let syntax_node = graph.syntax().node(node)?;
 
     if syntax_node.kind().is_type() {

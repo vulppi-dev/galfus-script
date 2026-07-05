@@ -1,6 +1,6 @@
 use super::control_flow::FnEmitter;
 use crate::mir::{Constant as MirConstant, MirBinaryOp, MirUnaryOp, Operand, RValue};
-use galfus_core::TypeId;
+use galfus_core::{SymbolId, TypeId};
 use galfus_frontend::{PrimitiveType, SymbolKind, TypeKind};
 use galfus_image::Instruction;
 use galfus_image::instruction::{FieldIdx, GlobalIdx, Reg};
@@ -22,8 +22,71 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                 self.free_temp_if_operand(operand);
             }
             RValue::BinaryOp(op, lhs, rhs) => {
-                let lhs_reg = self.operand_reg(lhs);
-                let rhs_reg = self.operand_reg(rhs);
+                let mut lhs_reg = self.operand_reg(lhs);
+                let mut rhs_reg = self.operand_reg(rhs);
+                let lhs_ty = self.get_operand_type(lhs);
+                let rhs_ty = self.get_operand_type(rhs);
+
+                let layer = self.ctx.type_result.layer();
+                let table = layer.table();
+
+                let is_numeric = |ty: TypeId| {
+                    matches!(
+                        table.kind(ty),
+                        Some(TypeKind::Primitive(
+                            PrimitiveType::Int8
+                                | PrimitiveType::Int16
+                                | PrimitiveType::Int32
+                                | PrimitiveType::Int64
+                                | PrimitiveType::Uint8
+                                | PrimitiveType::Uint16
+                                | PrimitiveType::Uint32
+                                | PrimitiveType::Uint64
+                                | PrimitiveType::Float16
+                                | PrimitiveType::Float32
+                                | PrimitiveType::Float64
+                        ))
+                    )
+                };
+
+                let mut cast_temp_count = 0;
+
+                if lhs_ty != rhs_ty && is_numeric(lhs_ty) && is_numeric(rhs_ty) {
+                    if matches!(lhs, Operand::Local(_)) && matches!(rhs, Operand::Constant(_)) {
+                        let temp = self.alloc_temp();
+                        cast_temp_count += 1;
+                        let type_idx = self.ctx.lower_type(lhs_ty);
+                        self.instructions.push(Instruction::Cast {
+                            dest: temp,
+                            src: rhs_reg,
+                            type_idx,
+                        });
+                        rhs_reg = temp;
+                    } else if matches!(rhs, Operand::Local(_))
+                        && matches!(lhs, Operand::Constant(_))
+                    {
+                        let temp = self.alloc_temp();
+                        cast_temp_count += 1;
+                        let type_idx = self.ctx.lower_type(rhs_ty);
+                        self.instructions.push(Instruction::Cast {
+                            dest: temp,
+                            src: lhs_reg,
+                            type_idx,
+                        });
+                        lhs_reg = temp;
+                    } else {
+                        let temp = self.alloc_temp();
+                        cast_temp_count += 1;
+                        let type_idx = self.ctx.lower_type(lhs_ty);
+                        self.instructions.push(Instruction::Cast {
+                            dest: temp,
+                            src: rhs_reg,
+                            type_idx,
+                        });
+                        rhs_reg = temp;
+                    }
+                }
+
                 let instr = match op {
                     MirBinaryOp::Add => Instruction::Add {
                         dest,
@@ -127,6 +190,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                     },
                 };
                 self.instructions.push(instr);
+                self.free_temps(cast_temp_count);
                 self.free_temp_if_operand(rhs);
                 self.free_temp_if_operand(lhs);
             }
@@ -558,7 +622,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
         }
     }
 
-    fn struct_symbol_for_type(&self, ty: TypeId) -> Option<galfus_core::SymbolId> {
+    fn struct_symbol_for_type(&self, ty: TypeId) -> Option<SymbolId> {
         let ty = self.ctx.resolve_alias_type(ty);
         let layer = self.ctx.type_result.layer();
         let table = layer.table();

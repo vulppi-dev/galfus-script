@@ -1,3 +1,12 @@
+use crate::{AsNameId, ModuleGraph, NameId, ResolverDiagnosticCode, SyntaxLayer, SyntaxNodeKind};
+use galfus_core::{Diagnostic, DiagnosticBag, NodeId, ScopeId, SourceFile, Span, SymbolId};
+
+pub use export::*;
+pub use import::*;
+pub use resolution::*;
+pub use scope::*;
+pub use symbol::*;
+
 #[cfg(test)]
 mod tests;
 
@@ -14,16 +23,6 @@ mod scope;
 mod symbol;
 mod type_member;
 mod type_reference;
-
-use galfus_core::{Diagnostic, DiagnosticBag, NodeId, ScopeId, SourceFile, Span, SymbolId};
-
-pub use export::*;
-pub use import::*;
-pub use resolution::*;
-pub use scope::*;
-pub use symbol::*;
-
-use crate::{AsNameId, ModuleGraph, NameId, ResolverDiagnosticCode, SyntaxLayer, SyntaxNodeKind};
 
 pub struct ResolveResult {
     graph: ModuleGraph,

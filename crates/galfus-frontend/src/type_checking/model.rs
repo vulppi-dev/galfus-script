@@ -4,6 +4,10 @@ use galfus_core::{DiagnosticBag, NodeId, SymbolId};
 
 use crate::{ArraySize, PrimitiveType, TypeLayer};
 
+pub use ownership_model::*;
+
+mod ownership_model;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ImportedFunctionParameterType {
     ty: ImportedType,
@@ -344,6 +348,3 @@ impl TypeCheckResult {
         self.layer
     }
 }
-
-mod ownership_model;
-pub use ownership_model::*;

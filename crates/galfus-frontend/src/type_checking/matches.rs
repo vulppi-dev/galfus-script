@@ -159,10 +159,23 @@ impl<'a> DeclarationTypeChecker<'a> {
             return;
         };
 
-        let owner_type = self
+        let mut owner_type = self
             .layer
             .symbol_type(owner_symbol)
             .unwrap_or_else(|| self.layer.table_mut().intern_named(owner_symbol));
+
+        let mut generic_arguments = Vec::new();
+        if let Some(target) = self.graph.syntax().child(pattern, 0) {
+            if let Some(target_type) = self.infer_expression_type(target) {
+                let resolved = self.resolve_alias_type(target_type);
+                if let Some(TypeKind::GenericInstance { arguments, .. }) =
+                    self.layer.table().kind(resolved)
+                {
+                    owner_type = resolved;
+                    generic_arguments = arguments.clone();
+                }
+            }
+        }
 
         if !self.is_assignable(expected, owner_type) {
             self.report_invalid_match_pattern_type(pattern, expected, owner_type);
@@ -183,7 +196,12 @@ impl<'a> DeclarationTypeChecker<'a> {
             }
 
             SymbolKind::ChoiceVariant => {
-                self.check_choice_variant_pattern_payload(pattern, owner_symbol, variant_symbol);
+                self.check_choice_variant_pattern_payload(
+                    pattern,
+                    owner_symbol,
+                    variant_symbol,
+                    &generic_arguments,
+                );
             }
 
             _ => {}
@@ -208,8 +226,31 @@ impl<'a> DeclarationTypeChecker<'a> {
         pattern: NodeId,
         owner_symbol: SymbolId,
         variant_symbol: SymbolId,
+        generic_arguments: &[TypeId],
     ) {
-        let payload_types = self.choice_variant_payload_types(owner_symbol, variant_symbol);
+        let mut payload_types = self.choice_variant_payload_types(owner_symbol, variant_symbol);
+
+        if !generic_arguments.is_empty() {
+            let choice_type = self
+                .layer
+                .symbol_type(owner_symbol)
+                .unwrap_or_else(|| self.layer.table_mut().intern_named(owner_symbol));
+            let mut parameters = Vec::new();
+            if let Some(target) = self.graph.syntax().child(pattern, 0) {
+                parameters = self.generic_expression_parameter_symbols(target, choice_type);
+            }
+            if parameters.is_empty() {
+                parameters = self.generic_parameter_symbols_from_type(choice_type);
+            }
+            let substitution = parameters
+                .into_iter()
+                .zip(generic_arguments.iter().copied())
+                .collect::<std::collections::HashMap<SymbolId, TypeId>>();
+            for payload_type in &mut payload_types {
+                *payload_type =
+                    self.substitute_generic_expression_type(*payload_type, &substitution);
+            }
+        }
 
         let payload_patterns = self
             .graph

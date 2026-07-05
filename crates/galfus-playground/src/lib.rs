@@ -1,9 +1,3 @@
-#[cfg(feature = "wasm")]
-mod wasm;
-
-#[cfg(test)]
-mod tests;
-
 use anyhow::{Context, Result};
 use galfus_target::WebTarget;
 use std::{
@@ -11,6 +5,12 @@ use std::{
     path::{Path, PathBuf},
     time::{SystemTime, UNIX_EPOCH},
 };
+
+#[cfg(feature = "wasm")]
+mod wasm;
+
+#[cfg(test)]
+mod tests;
 
 pub struct PlaygroundResult {
     pub output: String,

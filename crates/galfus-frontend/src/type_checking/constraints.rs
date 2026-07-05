@@ -32,18 +32,18 @@ struct StructFunctionInfo {
     ty: TypeId,
 }
 
-pub(in crate::type_checking) type TypeSubstitution = HashMap<SymbolId, TypeId>;
+pub(super) type TypeSubstitution = HashMap<SymbolId, TypeId>;
 
 #[derive(Debug, Clone)]
-pub(in crate::type_checking) struct ConstraintApplication {
+pub(super) struct ConstraintApplication {
     pub(super) symbol: SymbolId,
-    pub(in crate::type_checking) constraint_name: String,
+    pub(super) constraint_name: String,
     pub(super) substitution: TypeSubstitution,
-    pub(in crate::type_checking) imported_constraint: Option<LoweredImportedConstraint>,
+    pub(super) imported_constraint: Option<LoweredImportedConstraint>,
 }
 
 #[derive(Debug, Clone)]
-pub(in crate::type_checking) enum ConstraintApplicationError {
+pub(super) enum ConstraintApplicationError {
     InvalidTarget,
     GenericArgumentCountMismatch {
         constraint_name: String,

@@ -5,7 +5,7 @@ use std::{
 
 use anyhow::Result;
 use galfus_core::NodeId;
-use galfus_frontend::ImportKind;
+use galfus_frontend::{ImportKind, ImportRecord, SyntaxNodeKind};
 
 use crate::*;
 
@@ -288,7 +288,7 @@ impl WorkspaceGraph {
 
     fn resolve_import_export(
         &self,
-        import: &galfus_frontend::ImportRecord,
+        import: &ImportRecord,
         to: Option<WorkspaceModuleId>,
         checked_modules: &[CheckedModule],
     ) -> Option<String> {
@@ -308,7 +308,7 @@ impl WorkspaceGraph {
     fn resolve_namespace_referenced_exports(
         &self,
         module: &CheckedModule,
-        import: &galfus_frontend::ImportRecord,
+        import: &ImportRecord,
         to: Option<WorkspaceModuleId>,
         checked_modules: &[CheckedModule],
     ) -> Vec<String> {
@@ -362,7 +362,7 @@ impl WorkspaceGraph {
 
         if matches!(
             syntax_node.kind(),
-            galfus_frontend::SyntaxNodeKind::PathExpression | galfus_frontend::SyntaxNodeKind::Path
+            SyntaxNodeKind::PathExpression | SyntaxNodeKind::Path
         ) {
             if let Some(reference) = self.namespace_reference_name(module, node, namespace) {
                 references.push(reference);
@@ -399,13 +399,13 @@ impl WorkspaceGraph {
         };
 
         match syntax_node.kind() {
-            galfus_frontend::SyntaxNodeKind::NameExpression => syntax
-                .first_child_of_kind(node, galfus_frontend::SyntaxNodeKind::Identifier)
+            SyntaxNodeKind::NameExpression => syntax
+                .first_child_of_kind(node, SyntaxNodeKind::Identifier)
                 .map(|identifier| self.node_text(module, identifier))
                 .into_iter()
                 .collect(),
 
-            galfus_frontend::SyntaxNodeKind::PathExpression => {
+            SyntaxNodeKind::PathExpression => {
                 let Some(target) = syntax.child(node, 0) else {
                     return Vec::new();
                 };
@@ -419,13 +419,13 @@ impl WorkspaceGraph {
                 segments
             }
 
-            galfus_frontend::SyntaxNodeKind::Path => syntax_node
+            SyntaxNodeKind::Path => syntax_node
                 .children()
                 .iter()
                 .filter_map(|child| {
                     let child_node = syntax.node(*child)?;
 
-                    if child_node.kind() != galfus_frontend::SyntaxNodeKind::Identifier {
+                    if child_node.kind() != SyntaxNodeKind::Identifier {
                         return None;
                     }
 

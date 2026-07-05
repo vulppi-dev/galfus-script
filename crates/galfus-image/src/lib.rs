@@ -1,12 +1,12 @@
 use serde::{Deserialize, Serialize};
 
-pub mod gfb;
-pub mod instruction;
-pub mod validation;
-
 pub use gfb::*;
 pub use instruction::*;
 pub use validation::*;
+
+pub mod gfb;
+pub mod instruction;
+pub mod validation;
 
 // =========================================================================
 // Image Value Model

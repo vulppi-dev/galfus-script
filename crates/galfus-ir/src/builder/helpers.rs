@@ -106,6 +106,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
             Some(node) => node,
             None => return Vec::new(),
         };
+
         payload_node
             .children()
             .iter()

@@ -244,6 +244,9 @@ fn test_run_format_stringify_core_values() -> Result<()> {
     )?;
 
     let result = run_project(file_path.to_str().unwrap(), &[]);
+    if let Err(ref e) = result {
+        println!("test_run_format_stringify_core_values failed: {:?}", e);
+    }
     assert!(result.is_ok());
 
     fs::remove_dir_all(root)?;
@@ -311,6 +314,9 @@ fn test_run_ansi_apply_with_stringify_string() -> Result<()> {
     )?;
 
     let result = run_project(file_path.to_str().unwrap(), &[]);
+    if let Err(ref e) = result {
+        println!("test_run_ansi_apply_with_stringify_string failed: {:?}", e);
+    }
     assert!(result.is_ok());
 
     fs::remove_dir_all(root)?;

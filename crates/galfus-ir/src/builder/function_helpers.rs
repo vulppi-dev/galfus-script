@@ -1,5 +1,6 @@
 use super::function::FunctionBuilder;
 use super::*;
+use galfus_frontend::{BinaryOperatorKind, UnaryOperatorKind};
 
 impl<'b, 'a> FunctionBuilder<'b, 'a> {
     pub(super) fn lower_binary_op(&self, op_node_id: NodeId) -> MirBinaryOp {
@@ -9,26 +10,26 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
             .and_then(|node| node.binary_operator())
         {
             return match op {
-                galfus_frontend::BinaryOperatorKind::Add => MirBinaryOp::Add,
-                galfus_frontend::BinaryOperatorKind::Subtract => MirBinaryOp::Subtract,
-                galfus_frontend::BinaryOperatorKind::Multiply => MirBinaryOp::Multiply,
-                galfus_frontend::BinaryOperatorKind::Divide => MirBinaryOp::Divide,
-                galfus_frontend::BinaryOperatorKind::Remainder => MirBinaryOp::Remainder,
-                galfus_frontend::BinaryOperatorKind::Power => MirBinaryOp::Power,
-                galfus_frontend::BinaryOperatorKind::ShiftLeft => MirBinaryOp::ShiftLeft,
-                galfus_frontend::BinaryOperatorKind::ShiftRight => MirBinaryOp::ShiftRight,
-                galfus_frontend::BinaryOperatorKind::BitwiseAnd => MirBinaryOp::BitwiseAnd,
-                galfus_frontend::BinaryOperatorKind::BitwiseOr => MirBinaryOp::BitwiseOr,
-                galfus_frontend::BinaryOperatorKind::BitwiseXor => MirBinaryOp::BitwiseXor,
-                galfus_frontend::BinaryOperatorKind::Equal => MirBinaryOp::Equal,
-                galfus_frontend::BinaryOperatorKind::NotEqual => MirBinaryOp::NotEqual,
-                galfus_frontend::BinaryOperatorKind::Less => MirBinaryOp::Less,
-                galfus_frontend::BinaryOperatorKind::LessEqual => MirBinaryOp::LessEqual,
-                galfus_frontend::BinaryOperatorKind::Greater => MirBinaryOp::Greater,
-                galfus_frontend::BinaryOperatorKind::GreaterEqual => MirBinaryOp::GreaterEqual,
-                galfus_frontend::BinaryOperatorKind::LogicalAnd => MirBinaryOp::LogicalAnd,
-                galfus_frontend::BinaryOperatorKind::LogicalOr => MirBinaryOp::LogicalOr,
-                galfus_frontend::BinaryOperatorKind::NullFallback => MirBinaryOp::NullFallback,
+                BinaryOperatorKind::Add => MirBinaryOp::Add,
+                BinaryOperatorKind::Subtract => MirBinaryOp::Subtract,
+                BinaryOperatorKind::Multiply => MirBinaryOp::Multiply,
+                BinaryOperatorKind::Divide => MirBinaryOp::Divide,
+                BinaryOperatorKind::Remainder => MirBinaryOp::Remainder,
+                BinaryOperatorKind::Power => MirBinaryOp::Power,
+                BinaryOperatorKind::ShiftLeft => MirBinaryOp::ShiftLeft,
+                BinaryOperatorKind::ShiftRight => MirBinaryOp::ShiftRight,
+                BinaryOperatorKind::BitwiseAnd => MirBinaryOp::BitwiseAnd,
+                BinaryOperatorKind::BitwiseOr => MirBinaryOp::BitwiseOr,
+                BinaryOperatorKind::BitwiseXor => MirBinaryOp::BitwiseXor,
+                BinaryOperatorKind::Equal => MirBinaryOp::Equal,
+                BinaryOperatorKind::NotEqual => MirBinaryOp::NotEqual,
+                BinaryOperatorKind::Less => MirBinaryOp::Less,
+                BinaryOperatorKind::LessEqual => MirBinaryOp::LessEqual,
+                BinaryOperatorKind::Greater => MirBinaryOp::Greater,
+                BinaryOperatorKind::GreaterEqual => MirBinaryOp::GreaterEqual,
+                BinaryOperatorKind::LogicalAnd => MirBinaryOp::LogicalAnd,
+                BinaryOperatorKind::LogicalOr => MirBinaryOp::LogicalOr,
+                BinaryOperatorKind::NullFallback => MirBinaryOp::NullFallback,
             };
         }
         MirBinaryOp::Add
@@ -41,9 +42,9 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
             .and_then(|node| node.unary_operator())
         {
             return match op {
-                galfus_frontend::UnaryOperatorKind::Negate => MirUnaryOp::Negate,
-                galfus_frontend::UnaryOperatorKind::Not => MirUnaryOp::Not,
-                galfus_frontend::UnaryOperatorKind::BitwiseNot => MirUnaryOp::BitwiseNot,
+                UnaryOperatorKind::Negate => MirUnaryOp::Negate,
+                UnaryOperatorKind::Not => MirUnaryOp::Not,
+                UnaryOperatorKind::BitwiseNot => MirUnaryOp::BitwiseNot,
             };
         }
         MirUnaryOp::Negate

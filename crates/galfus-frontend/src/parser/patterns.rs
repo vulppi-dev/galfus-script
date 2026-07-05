@@ -19,7 +19,25 @@ impl Parser {
         }
 
         if self.at(&TokenKind::Identifier) {
-            if matches!(self.peek_after_newlines(1).kind(), TokenKind::ColonColon) {
+            let mut is_generic_variant = false;
+            let mut next_idx = self.position + 1;
+            while next_idx < self.tokens.len()
+                && self.tokens[next_idx].kind() == &TokenKind::Newline
+            {
+                next_idx += 1;
+            }
+            if next_idx < self.tokens.len() && self.tokens[next_idx].kind() == &TokenKind::Less {
+                let saved_position = self.position;
+                self.position = next_idx;
+                if self.can_parse_generic_call_suffix() {
+                    is_generic_variant = true;
+                }
+                self.position = saved_position;
+            }
+
+            if is_generic_variant
+                || matches!(self.peek_after_newlines(1).kind(), TokenKind::ColonColon)
+            {
                 return self.parse_variant_pattern();
             }
 
@@ -139,9 +157,46 @@ impl Parser {
     }
 
     pub(super) fn parse_variant_pattern(&mut self) -> Option<NodeId> {
-        let target = self.parse_identifier()?;
+        let identifier = self.parse_identifier()?;
+        let span = self.node_span(identifier);
+        let mut target = self.add_node(SyntaxNodeKind::NameExpression, span, vec![identifier]);
 
-        self.skip_newlines();
+        loop {
+            self.skip_newlines();
+
+            if self.at(&TokenKind::Less) && self.can_parse_generic_call_suffix() {
+                target = self.parse_generic_expression(target)?;
+                continue;
+            }
+
+            if self.at(&TokenKind::ColonColon) {
+                let mut offset = 1;
+                while self.peek(offset).kind() == &TokenKind::Newline {
+                    offset += 1;
+                }
+                if self.peek(offset).kind() == &TokenKind::Identifier {
+                    offset += 1;
+                    while self.peek(offset).kind() == &TokenKind::Newline {
+                        offset += 1;
+                    }
+                    let next_next = self.peek(offset).kind();
+                    if next_next == &TokenKind::ColonColon || next_next == &TokenKind::Less {
+                        self.bump();
+                        let member = self.parse_identifier()?;
+                        let span = Span::cover(self.node_span(target), self.node_span(member))
+                            .unwrap_or_else(|| self.node_span(target));
+                        target = self.add_node(
+                            SyntaxNodeKind::PathExpression,
+                            span,
+                            vec![target, member],
+                        );
+                        continue;
+                    }
+                }
+            }
+
+            break;
+        }
 
         self.expect(TokenKind::ColonColon)?;
 

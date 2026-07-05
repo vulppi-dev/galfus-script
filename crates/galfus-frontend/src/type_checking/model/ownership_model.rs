@@ -2,14 +2,14 @@ use galfus_core::{NodeId, SymbolId, TypeId};
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct OwnershipMetadata {
-    pub(in crate::type_checking) anchors: Vec<AnchorMetadata>,
-    pub(in crate::type_checking) edges: Vec<EdgeMetadata>,
-    pub(in crate::type_checking) cycles: Vec<OwnershipCycleMetadata>,
-    pub(in crate::type_checking) weak_observers: Vec<WeakObserverMetadata>,
-    pub(in crate::type_checking) weak_fields: Vec<WeakFieldMetadata>,
-    pub(in crate::type_checking) captures: Vec<CaptureMetadata>,
-    pub(in crate::type_checking) temporaries: Vec<TemporaryMetadata>,
-    pub(in crate::type_checking) release_eligibilities: Vec<ReleaseEligibilityMetadata>,
+    pub(crate) anchors: Vec<AnchorMetadata>,
+    pub(crate) edges: Vec<EdgeMetadata>,
+    pub(crate) cycles: Vec<OwnershipCycleMetadata>,
+    pub(crate) weak_observers: Vec<WeakObserverMetadata>,
+    pub(crate) weak_fields: Vec<WeakFieldMetadata>,
+    pub(crate) captures: Vec<CaptureMetadata>,
+    pub(crate) temporaries: Vec<TemporaryMetadata>,
+    pub(crate) release_eligibilities: Vec<ReleaseEligibilityMetadata>,
 }
 
 impl OwnershipMetadata {

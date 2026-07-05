@@ -5,8 +5,10 @@ use std::collections::HashSet;
 
 use super::{LowerCtx, control_flow};
 
+use crate::mir::MirModule;
+
 pub fn lower_module(
-    mir_module: &crate::mir::MirModule,
+    mir_module: &MirModule,
     type_result: &TypeCheckResult,
     module_graph: &ModuleGraph,
     source_text: &str,

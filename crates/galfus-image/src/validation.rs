@@ -116,6 +116,12 @@ pub fn validate_module_image(image: &ModuleImage) -> Result<(), Vec<ImageValidat
     for func in &image.functions {
         let max_regs = func.param_count as u16 + func.local_count + func.temp_count;
         let func_name = &func.name;
+        if func_name == "parseUint64Raw" || func_name == "stringifyUint64" {
+            println!("INSTRUCTIONS for {}:", func_name);
+            for (idx, instr) in func.instructions.iter().enumerate() {
+                println!("  {}: {:?}", idx, instr);
+            }
+        }
 
         for (instr_idx, &instr) in func.instructions.iter().enumerate() {
             let check_reg = |reg: Reg, errors: &mut Vec<ImageValidationError>| {
@@ -400,6 +406,13 @@ pub fn validate_module_image(image: &ModuleImage) -> Result<(), Vec<ImageValidat
                                 }
                             }
                             _ => {
+                                println!(
+                                    "VALIDATION ERROR: NewTuple at instruction {} in function {} found type_idx={:?}: {:?}",
+                                    instr_idx,
+                                    func_name,
+                                    type_idx,
+                                    image.types[type_idx.raw() as usize]
+                                );
                                 errors.push(ImageValidationError::TypeMismatchAlloc {
                                     func_name: func_name.clone(),
                                     instr_idx,

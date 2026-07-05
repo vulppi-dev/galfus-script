@@ -1,6 +1,6 @@
 use galfus_core::{NodeId, SymbolId, TypeId};
 
-use crate::{SyntaxNodeKind, TypeKind};
+use crate::{FunctionType, SyntaxNodeKind, TypeKind};
 
 use super::DeclarationTypeChecker;
 
@@ -256,7 +256,7 @@ impl<'a> DeclarationTypeChecker<'a> {
     fn check_call_arguments(
         &mut self,
         call: NodeId,
-        function: &crate::FunctionType,
+        function: &FunctionType,
         arguments: &[CallArgument],
     ) {
         let parameters = function.parameters();

@@ -1,6 +1,6 @@
 use anyhow::Result;
-use galfus_core::SymbolId;
-use galfus_frontend::SyntaxNodeKind;
+use galfus_core::{FunctionId, NodeId, SymbolId};
+use galfus_frontend::{SymbolKind, SyntaxNodeKind};
 use galfus_image::{
     ConstantPool, ImageFunction, ImageType, ModuleImage,
     instruction::{FuncIdx, Instruction, Reg, TypeIdx},
@@ -264,10 +264,7 @@ pub fn compile_workspace_to_image(check_result: &WorkspaceCheckResult) -> Result
     Ok(module_image)
 }
 
-fn collect_call_targets(
-    body: &galfus_ir::mir::MirBody,
-    targets: &mut Vec<galfus_core::FunctionId>,
-) {
+fn collect_call_targets(body: &galfus_ir::mir::MirBody, targets: &mut Vec<FunctionId>) {
     match body {
         galfus_ir::mir::MirBody::BasicBlock(bb) => {
             if let galfus_ir::mir::Terminator::Call { func, .. } = &bb.terminator {
@@ -346,11 +343,8 @@ fn visit_init_dependencies(
 fn resolve_import_target(
     modules: &[CheckedModule],
     mod_idx: usize,
-    func_id: galfus_core::FunctionId,
-) -> Option<(usize, galfus_core::FunctionId)> {
-    use galfus_core::{NodeId, SymbolId};
-    use galfus_frontend::SymbolKind;
-
+    func_id: FunctionId,
+) -> Option<(usize, FunctionId)> {
     let module = &modules[mod_idx];
     let resolution = module.graph().resolution()?;
     let symbol_id = SymbolId::new(func_id.raw());
@@ -376,10 +370,7 @@ fn resolve_import_target(
         let target_resolution = target_mod.graph().resolution()?;
         for export in target_resolution.exports() {
             if export.name() == member_name {
-                return Some((
-                    target_idx,
-                    galfus_core::FunctionId::new(export.symbol().raw()),
-                ));
+                return Some((target_idx, FunctionId::new(export.symbol().raw())));
             }
         }
     }
@@ -398,10 +389,7 @@ fn resolve_import_target(
         let target_resolution = target_mod.graph().resolution()?;
         for export in target_resolution.exports() {
             if export.name() == imported_name {
-                return Some((
-                    target_idx,
-                    galfus_core::FunctionId::new(export.symbol().raw()),
-                ));
+                return Some((target_idx, FunctionId::new(export.symbol().raw())));
             }
         }
     }
@@ -419,10 +407,8 @@ fn resolve_import_target(
         let mut candidates = target_resolution.exports().iter().filter_map(|export| {
             let matches_member = export.name() == member_name
                 || export.name().ends_with(&format!("::{member_name}"));
-            (export.kind() == SymbolKind::Function && matches_member).then_some((
-                target_idx,
-                galfus_core::FunctionId::new(export.symbol().raw()),
-            ))
+            (export.kind() == SymbolKind::Function && matches_member)
+                .then_some((target_idx, FunctionId::new(export.symbol().raw())))
         });
         let first = candidates.next();
         if first.is_some() && candidates.next().is_none() {
@@ -444,12 +430,7 @@ fn resolve_import_target(
                 .find(|export| {
                     export.kind() == SymbolKind::Function && export.symbol().raw() == func_id.raw()
                 })
-                .map(|export| {
-                    (
-                        target_idx,
-                        galfus_core::FunctionId::new(export.symbol().raw()),
-                    )
-                })
+                .map(|export| (target_idx, FunctionId::new(export.symbol().raw())))
         });
     let first = candidates.next();
     if first.is_some() && candidates.next().is_none() {
@@ -463,8 +444,8 @@ fn resolve_local_call_target(
     modules: &[CheckedModule],
     mod_idx: usize,
     mir_mod: &galfus_ir::mir::MirModule,
-    func_id: galfus_core::FunctionId,
-) -> Option<galfus_core::FunctionId> {
+    func_id: FunctionId,
+) -> Option<FunctionId> {
     let module = &modules[mod_idx];
     let node_id = path_call_target_node(func_id)?;
     let node = module.graph().syntax().node(node_id)?;
@@ -472,7 +453,7 @@ fn resolve_local_call_target(
         return None;
     }
     if let Some(symbol) = module.graph().resolution()?.path_reference_symbol(node_id) {
-        return Some(galfus_core::FunctionId::new(symbol.raw()));
+        return Some(FunctionId::new(symbol.raw()));
     }
 
     let member_node = node.child(1)?;
@@ -493,9 +474,9 @@ fn resolve_local_call_target(
 
 const PATH_CALL_TARGET_TAG: u32 = 0x8000_0000;
 
-fn path_call_target_node(func_id: galfus_core::FunctionId) -> Option<galfus_core::NodeId> {
+fn path_call_target_node(func_id: FunctionId) -> Option<NodeId> {
     let raw = func_id.raw();
-    (raw & PATH_CALL_TARGET_TAG != 0).then(|| galfus_core::NodeId::new(raw & !PATH_CALL_TARGET_TAG))
+    (raw & PATH_CALL_TARGET_TAG != 0).then(|| NodeId::new(raw & !PATH_CALL_TARGET_TAG))
 }
 
 fn canonical_global_idx(
@@ -576,7 +557,7 @@ fn import_target_index(modules: &[CheckedModule], mod_idx: usize, source: &str) 
     modules.iter().position(|module| module.path() == target)
 }
 
-fn import_source_for_expression(module: &CheckedModule, expr: galfus_core::NodeId) -> Option<&str> {
+fn import_source_for_expression(module: &CheckedModule, expr: NodeId) -> Option<&str> {
     let syntax = module.graph().syntax();
     let resolution = module.graph().resolution()?;
     let node = syntax.node(expr)?;
@@ -647,7 +628,7 @@ fn rewrite_global_indices(
 fn collect_entry_exports(
     entry_module: &CheckedModule,
     entry_mir: &galfus_ir::mir::MirModule,
-    global_func_map: &HashMap<(usize, galfus_core::FunctionId), galfus_image::instruction::FuncIdx>,
+    global_func_map: &HashMap<(usize, FunctionId), galfus_image::instruction::FuncIdx>,
     entry_idx: usize,
 ) -> Vec<galfus_image::ExportSlot> {
     let mut exports = Vec::new();

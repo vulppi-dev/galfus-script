@@ -1,10 +1,12 @@
+use crate::{ResolutionLayer, Token, TokenKind};
+use galfus_core::{Diagnostic, DiagnosticBag, NodeId, SourceId, Span};
+use smallvec::SmallVec;
+pub use syntax_kind::*;
+
 #[cfg(test)]
 mod tests;
 
-use crate::{ResolutionLayer, Token, TokenKind};
-use galfus_core::{Diagnostic, DiagnosticBag, NodeId, SourceId, Span};
-
-use smallvec::SmallVec;
+mod syntax_kind;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum GraphPhase {
@@ -482,23 +484,3 @@ impl SyntaxNode {
         }
     }
 }
-
-/// Syntax node kinds used by the parsed syntax graph.
-///
-/// Child ordering is intentionally stable. Parser tests, syntax helpers,
-/// and later resolver/lowering code may rely on child positions for compact
-/// access, but higher-level code should prefer helper methods when available.
-///
-/// General conventions:
-///
-/// - `SourceFile` children are top-level items in source order.
-/// - `ExportItem` has exactly one child: the exported item.
-/// - List nodes contain only list elements, in source order.
-/// - Wrapper nodes usually contain the wrapped syntax as their first child.
-/// - `TypeAnnotation` contains exactly one type child.
-/// - `Initializer` contains exactly one expression child.
-/// - Operator nodes contain no children; their span points to the operator token.
-/// - Literal nodes contain no children.
-/// - `Identifier` contains no children.
-mod syntax_kind;
-pub use syntax_kind::*;

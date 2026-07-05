@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use galfus_core::{Diagnostic, NodeId, SymbolId, TypeId};
 
-use crate::TypeDiagnosticCode;
+use crate::{FunctionType, TypeDiagnosticCode};
 
 use super::DeclarationTypeChecker;
 
@@ -329,7 +329,7 @@ impl<'a> DeclarationTypeChecker<'a> {
     pub(super) fn report_call_argument_count_mismatch(
         &mut self,
         call: NodeId,
-        function: &crate::FunctionType,
+        function: &FunctionType,
         argument_count: usize,
     ) {
         let parameters = function.parameters();

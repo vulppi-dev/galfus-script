@@ -1,6 +1,6 @@
 use galfus_core::TypeId;
 
-use crate::TypeKind;
+use crate::{FunctionType, TypeKind};
 
 use super::DeclarationTypeChecker;
 
@@ -89,11 +89,7 @@ impl<'a> DeclarationTypeChecker<'a> {
         }
     }
 
-    fn is_function_type_assignable(
-        &self,
-        expected: &crate::FunctionType,
-        actual: &crate::FunctionType,
-    ) -> bool {
+    fn is_function_type_assignable(&self, expected: &FunctionType, actual: &FunctionType) -> bool {
         if expected.parameters().len() != actual.parameters().len() {
             return false;
         }

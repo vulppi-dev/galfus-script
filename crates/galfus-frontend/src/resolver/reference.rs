@@ -141,7 +141,18 @@ impl<'a> Resolver<'a> {
 
         self.resolve_node_references(target, scope);
 
-        if let Some(symbol) = self.resolution.reference_symbol(target) {
+        let mut reference_target = target;
+        while self.syntax.node(reference_target).map(|n| n.kind())
+            == Some(SyntaxNodeKind::GenericExpression)
+        {
+            if let Some(first_child) = self.syntax.first_child(reference_target) {
+                reference_target = first_child;
+            } else {
+                break;
+            }
+        }
+
+        if let Some(symbol) = self.resolution.reference_symbol(reference_target) {
             self.resolution.bind_reference(expression, symbol);
             self.resolve_path_expression_member(expression, symbol);
         }
@@ -272,11 +283,31 @@ impl<'a> Resolver<'a> {
             return;
         };
 
-        let root_name = self.node_text(root);
-        let root_name_id = NameId::intern(&root_name);
+        self.resolve_node_references(root, scope);
 
-        let Some(root_symbol) = self.resolution.lookup_symbol(scope, root_name_id) else {
-            self.report_unresolved_name(root, root_name);
+        let mut reference_root = root;
+        while self.syntax.node(reference_root).map(|n| n.kind())
+            == Some(SyntaxNodeKind::GenericExpression)
+        {
+            if let Some(first_child) = self.syntax.first_child(reference_root) {
+                reference_root = first_child;
+            } else {
+                break;
+            }
+        }
+
+        let root_symbol = self
+            .resolution
+            .reference_symbol(reference_root)
+            .or_else(|| {
+                let root_name = self.node_text(reference_root);
+                let root_name_id = NameId::intern(&root_name);
+                self.resolution.lookup_symbol(scope, root_name_id)
+            });
+
+        let Some(root_symbol) = root_symbol else {
+            let root_name = self.node_text(reference_root);
+            self.report_unresolved_name(reference_root, root_name);
             return;
         };
 

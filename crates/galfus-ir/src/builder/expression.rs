@@ -305,8 +305,19 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                     return Operand::Local(choice_temp);
                 }
 
+                let mut real_target = target_node;
+                while let Some(node) = syntax.node(real_target)
+                    && node.kind() == SyntaxNodeKind::GenericExpression
+                {
+                    if let Some(inner) = node.first_child() {
+                        real_target = inner;
+                    } else {
+                        break;
+                    }
+                }
+
                 let mut is_namespace_call = false;
-                if let Some(target) = syntax.node(target_node)
+                if let Some(target) = syntax.node(real_target)
                     && target.kind() == SyntaxNodeKind::PathExpression
                     && let Some(root_node) = target.first_child()
                     && let Some(root_symbol) =
@@ -327,7 +338,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                 // The receiver is child(0) of the PathExpression; its type resolves to
                 // a Named type whose symbol has SymbolKind::Constraint.
                 let is_constraint_method = syntax
-                    .node(target_node)
+                    .node(real_target)
                     .and_then(|target| {
                         if target.kind() != SyntaxNodeKind::PathExpression {
                             return None;
@@ -361,7 +372,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                 if is_constraint_method {
                     // Extract method name from the PathExpression member node (child 1).
                     let method_name = syntax
-                        .node(target_node)
+                        .node(real_target)
                         .and_then(|n| n.child(1))
                         .and_then(|member_node| {
                             syntax.node(member_node).map(|mn| {
@@ -386,7 +397,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                         // Receiver was already lowered as args[0] (anchored_receiver case).
                         args[0].clone()
                     } else if let Some(receiver_node) =
-                        syntax.node(target_node).and_then(|n| n.child(0))
+                        syntax.node(real_target).and_then(|n| n.child(0))
                     {
                         self.lower_expression(receiver_node, statements)
                     } else {
@@ -419,11 +430,11 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                 }
 
                 let mut func_id = if is_namespace_call {
-                    path_call_function_id(target_node)
+                    path_call_function_id(real_target)
                 } else if anchored_receiver.is_some() {
                     target_symbol
                         .map(|sym| FunctionId::new(sym.raw()))
-                        .unwrap_or_else(|| path_call_function_id(target_node))
+                        .unwrap_or_else(|| path_call_function_id(real_target))
                 } else {
                     target_symbol
                         .map(|sym| FunctionId::new(sym.raw()))
@@ -680,6 +691,10 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
     }
 
     fn anchored_call_receiver(&self, target: NodeId) -> Option<NodeId> {
+        if self.is_choice_variant_call_target(target) {
+            return None;
+        }
+
         let syntax = self.builder.graph.syntax();
         let node = syntax.node(target)?;
         if node.kind() != SyntaxNodeKind::PathExpression {
@@ -690,7 +705,10 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
         let receiver_kind = syntax.node(receiver)?.kind();
         if matches!(
             receiver_kind,
-            SyntaxNodeKind::NameExpression | SyntaxNodeKind::Identifier | SyntaxNodeKind::Path
+            SyntaxNodeKind::NameExpression
+                | SyntaxNodeKind::Identifier
+                | SyntaxNodeKind::Path
+                | SyntaxNodeKind::GenericExpression
         ) {
             None
         } else {

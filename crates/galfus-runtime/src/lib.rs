@@ -1,11 +1,11 @@
-#[cfg(test)]
-mod tests;
-
 use galfus_image::ModuleImage;
 use galfus_target::TargetCapabilityProvider;
 use galfus_vm::{HeapObject, VirtualMachine, VmPanic, VmValue};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+
+#[cfg(test)]
+mod tests;
 
 #[derive(Debug, thiserror::Error)]
 pub enum RuntimeError {

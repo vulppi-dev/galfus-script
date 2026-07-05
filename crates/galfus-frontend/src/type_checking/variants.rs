@@ -179,14 +179,35 @@ impl<'a> DeclarationTypeChecker<'a> {
         let variant_symbol = resolution.path_reference_symbol(node)?;
         let owner_symbol = self.owner_symbol_for_member(variant_symbol, SymbolKind::Choice)?;
 
-        let owner_type = self
+        let mut owner_type = self
             .layer
             .symbol_type(owner_symbol)
             .unwrap_or_else(|| self.layer.table_mut().intern_named(owner_symbol));
 
         let variant_name = resolution.symbol(variant_symbol)?.name().to_string();
 
-        let payload_types = self.choice_variant_payload_types(owner_symbol, variant_symbol);
+        let mut payload_types = self.choice_variant_payload_types(owner_symbol, variant_symbol);
+
+        if let Some(target) = self.graph.syntax().child(node, 0) {
+            if let Some(target_type) = self.infer_expression_type(target) {
+                let resolved = self.resolve_alias_type(target_type);
+                if let Some(TypeKind::GenericInstance { arguments, .. }) =
+                    self.layer.table().kind(resolved)
+                {
+                    owner_type = resolved;
+                    let choice_type = self.layer.symbol_type(owner_symbol).unwrap_or(owner_type);
+                    let parameters = self.generic_expression_parameter_symbols(target, choice_type);
+                    let substitution = parameters
+                        .into_iter()
+                        .zip(arguments.clone())
+                        .collect::<std::collections::HashMap<SymbolId, TypeId>>();
+                    for payload_type in &mut payload_types {
+                        *payload_type =
+                            self.substitute_generic_expression_type(*payload_type, &substitution);
+                    }
+                }
+            }
+        }
 
         Some(VariantPayload {
             variant_name,

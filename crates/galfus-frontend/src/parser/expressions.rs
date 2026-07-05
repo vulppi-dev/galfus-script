@@ -80,7 +80,7 @@ impl Parser {
             return self.parse_null_literal();
         }
 
-        if self.at(&TokenKind::Identifier) {
+        if self.at(&TokenKind::Identifier) || self.at(&TokenKind::Underscore) {
             return self.parse_name_expression();
         }
 

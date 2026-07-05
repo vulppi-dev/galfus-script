@@ -39,7 +39,7 @@ fn test_mir_builder_phase4() {
         type_result.diagnostics()
     );
 
-    let mir_module = crate::MirBuilder::new(&graph, &type_result, code).build();
+    let mir_module = MirBuilder::new(&graph, &type_result, code).build();
 
     // Verify globals: g_var and g_const
     assert_eq!(mir_module.globals.len(), 2);
@@ -148,7 +148,7 @@ fn test_mir_lowering_basic() {
         type_result.diagnostics()
     );
 
-    let mir_module = crate::MirBuilder::new(&graph, &type_result, code).build();
+    let mir_module = MirBuilder::new(&graph, &type_result, code).build();
     let module_image = lower_module(&mir_module, &type_result, &graph, code);
 
     // Verify module image metadata
@@ -203,7 +203,7 @@ fn test_mir_lowering_defaults_integer_constants_to_int32() {
         type_result.diagnostics()
     );
 
-    let mir_module = crate::MirBuilder::new(&graph, &type_result, code).build();
+    let mir_module = MirBuilder::new(&graph, &type_result, code).build();
     let module_image = lower_module(&mir_module, &type_result, &graph, code);
 
     assert!(
@@ -271,7 +271,7 @@ fn test_mir_lowering_advanced() {
         type_result.diagnostics()
     );
 
-    let mir_module = crate::MirBuilder::new(&graph, &type_result, code).build();
+    let mir_module = MirBuilder::new(&graph, &type_result, code).build();
     let module_image = lower_module(&mir_module, &type_result, &graph, code);
 
     // Verify functions
@@ -343,7 +343,7 @@ fn test_mir_builder_for_loop() {
         type_result.diagnostics()
     );
 
-    let mir_module = crate::MirBuilder::new(&graph, &type_result, code).build();
+    let mir_module = MirBuilder::new(&graph, &type_result, code).build();
 
     assert_eq!(mir_module.functions.len(), 1);
     let func = &mir_module.functions[0];

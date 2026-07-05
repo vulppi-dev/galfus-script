@@ -1,6 +1,4 @@
 use crate::*;
-
-mod references;
 use anyhow::Result;
 use galfus_core::{Diagnostic, DiagnosticBag, NodeId, SourceFile, SourceId, SymbolId};
 use galfus_frontend::{
@@ -14,6 +12,8 @@ use std::{
     collections::{HashMap, HashSet},
     path::{Path, PathBuf},
 };
+
+mod references;
 
 #[derive(Debug, Clone)]
 pub struct CheckedModule {
@@ -228,7 +228,7 @@ impl ModuleLoader {
         Ok(())
     }
 
-    fn import_sources(&self, module_index: usize) -> Vec<(String, galfus_core::NodeId)> {
+    fn import_sources(&self, module_index: usize) -> Vec<(String, NodeId)> {
         let Some(resolution) = self.modules[module_index].graph().resolution() else {
             return Vec::new();
         };
