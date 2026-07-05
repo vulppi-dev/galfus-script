@@ -1,6 +1,6 @@
 # Galfus VM Bytecode and Opcode Specification
 
-This document defines the binary instruction set (opcodes) and bytecode format for the Galfus Virtual Machine. It supports the execution requirements of the MVP (local allocation, deterministic release, type casts, control flow) and is future-proofed for target-agnostic multithreading and Software Transactional Memory (STM).
+This document defines the binary instruction set (opcodes) and bytecode format for the Galfus Virtual Machine. It supports the execution requirements of local allocation, deterministic release, type casts, and control flow, and is future-proofed for target-agnostic multithreading and Software Transactional Memory (STM).
 
 ---
 

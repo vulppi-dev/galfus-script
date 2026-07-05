@@ -7,14 +7,14 @@
 
 > A small, efficient, highly modular interpreted scripting language built around typed source code, compact `.gfb` artifacts, and a deterministic VM runtime.
 
-Galfus Script is a programming language validating a compact, modular, VM-first scripting model. The MVP (Minimum Viable Product) compiler pipeline and VM interpreter are fully implemented and verified.
+Galfus Script is a programming language validating a compact, modular, VM-first scripting model. The compiler pipeline and VM interpreter are fully implemented and verified.
 
 ---
 
 ## Table of Contents
 
 - [Status](#status)
-- [MVP Core Features](#mvp-core-features)
+- [Core Features](#core-features)
 - [Memory Philosophy](#memory-philosophy)
 - [Repository Layout](#repository-layout)
 - [Virtual Standard Library](#virtual-standard-library)
@@ -44,7 +44,7 @@ The entire core execution pipeline is complete. You can parse, typecheck, compil
 
 ---
 
-## MVP Core Features
+## Core Features
 
 Galfus Script implements a robust set of modern language features:
 

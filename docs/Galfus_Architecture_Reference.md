@@ -34,7 +34,7 @@
 30. [Security Model](#30-security-model)
 31. [Determinism Model](#31-determinism-model)
 32. [Execution Flows](#32-execution-flows)
-33. [MVP Architecture](#33-mvp-architecture)
+33. [Core Architecture](#33-core-architecture)
 34. [Non-Goals](#34-non-goals)
 35. [Architecture Summary](#35-architecture-summary)
 
@@ -1184,11 +1184,11 @@ running VM
 
 ---
 
-## 33. MVP Architecture
+## 33. Core Architecture
 
-The MVP architecture should include only the minimum required execution system.
+The core architecture should include only the minimum required execution system.
 
-MVP required parts:
+Core required parts:
 
 ```txt
 vm_core
@@ -1203,7 +1203,7 @@ minimal panic
 single-unit bundle output
 ```
 
-MVP non-required parts:
+Core non-required parts:
 
 ```txt
 compiler module in runtime

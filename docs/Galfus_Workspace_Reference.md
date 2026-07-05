@@ -4,7 +4,7 @@ This document defines the Galfus workspace and project model.
 
 The workspace model is explicit, deterministic, module-first, and designed to keep final bundles small. It describes how projects are organized on disk, how `galfus.toml` declares module identity and resolution rules, how dependencies are addressed, how artifacts are produced, and how final distribution units are assembled.
 
-This document covers workspace structure only. Syntax, semantic rules, runtime architecture, and MVP scope are defined in separate documents.
+This document covers workspace structure only. Syntax, semantic rules, and runtime architecture are defined in separate documents.
 
 ---
 

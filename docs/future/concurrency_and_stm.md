@@ -1,6 +1,6 @@
 # Galfus Future Concurrency and Transactional Shared Memory Architecture
 
-This document defines the conceptual design for the future multithreading, concurrency, and transactional shared memory (STM) architecture of the Galfus runtime. These features are scheduled for development after the MVP.
+This document defines the conceptual design for the future multithreading, concurrency, and transactional shared memory (STM) architecture of the Galfus runtime.
 
 ---
 
