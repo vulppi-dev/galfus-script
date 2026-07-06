@@ -80,8 +80,10 @@ Example configuration:
 Basic console and standard input/output stream interaction.
 
 ```galfus
-# Read all available bytes from standard input until EOF.
-fn read(): [uint8]
+# Read bytes from standard input until the delimiter is reached or EOF.
+# The delimiter is not included in the returned bytes.
+# An empty delimiter is invalid.
+fn read(until: [uint8] = "\n"): [uint8]
 
 # Write raw UTF-8 bytes to standard output.
 fn print(text: [uint8]): null
@@ -214,26 +216,34 @@ Base-level deterministic string conversion.
 
 ```galfus
 constraint Stringable {
-  fn stringify(): [uint8],
+  fn stringify(self): [uint8]
 }
 
-fn stringify(value: int | uint | float | bool | null | [uint8] | Stringable): [uint8]
+fn stringify<T>(value: T): [uint8]
 fn parse<T>(s: [uint8]): ParseResult<T>
 ```
 
-`stringify` returns compact bytes for booleans, `null`, raw `[uint8]`, concrete
-integer widths, and structs that implement the anchored `Stringable` function.
-Float formatting is currently a deterministic placeholder until decimal float
-formatting exists in the rich builtin layer. `parse` leverages generic type
-constraints to parse numeric and primitive values, returning a `ParseResult<T>`
-containing the parsed value or an error.
+`stringify` is a conceptual generic builtin that returns compact bytes for booleans, `null`, raw `[uint8]`, concrete integer/float widths, and types implementing `Stringable`. Supported `T` types for `stringify<T>` are:
+
+- `bool`
+- `null`
+- `[uint8]`
+- concrete integer widths (`int8`, `int16`, `int32`, `int64`, `int128`, `uint8`, `uint16`, `uint32`, `uint64`, `uint128`)
+- concrete float widths (`float32`, `float64`)
+- any type satisfying the `Stringable` constraint
+
+`parse<T>` is a compiler-specialized builtin that parses numeric and primitive values, returning a `ParseResult<T>` containing the parsed value or an error. Supported target types `T` are:
+
+- `bool`
+- concrete integer widths (`int8`, `int16`, `int32`, `int64`, `int128`, `uint8`, `uint16`, `uint32`, `uint64`, `uint128`)
+- concrete float widths (`float32`, `float64`)
 
 ### `json`
 
 Highly optimized JSON parsing and serialization.
 
 - `fn parse<T>(jsonBytes: [uint8]): ParseResult<T>` - Deserialize JSON bytes into a concrete structure or native types.
-- `fn stringify(val: int | uint | float | bool | null | [uint8]): [uint8]` - Serialize structured data back into JSON UTF-8 bytes.
+- `fn stringify<T>(val: T): [uint8]` - Serialize structured data back into JSON UTF-8 bytes. Supported `T` types include `bool`, `null`, `[uint8]`, concrete integer/float widths, and arrays/structs composed of these supported types.
 
 ### `regex`
 

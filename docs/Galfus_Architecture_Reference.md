@@ -11,8 +11,8 @@
 7. [Source and Execution Artifacts](#7-source-and-execution-artifacts)
 8. [Frontend and Compilation Pipeline](#8-frontend-and-compilation-pipeline)
 9. [Galfus Module Image](#9-galfus-module-image)
-10. [`.gfb` - Galfus Binary](#10-gfb---galfus-binary)
-11. [`.gfm` - Galfus Map](#11-gfm---galfus-map)
+10. [Internal Executable Serialization](#10-internal-executable-serialization)
+11. [Internal Debug Map](#11-internal-debug-map)
 12. [`.gfp` - Galfus Proxy](#12-gfp---galfus-proxy)
 13. [Runtime Loader](#13-runtime-loader)
 14. [VM Core](#14-vm-core)
@@ -50,8 +50,6 @@ Short definition:
 Galfus is a typed VM-first language
 with a minimal runtime kernel,
 a serializable Galfus Module Image,
-compact Galfus binaries,
-separate debug maps,
 used-only modules,
 platform adapters,
 and single-unit distribution.
@@ -60,11 +58,10 @@ and single-unit distribution.
 The language is not centered around native AOT compilation. The primary execution model is:
 
 ```txt
-.gfs source
-  -> compiler pipeline
-  -> Galfus Module Image
-  -> .gfb serialization
-  -> runtime loader
+.gfs + .gfp
+  -> semantic graph
+  -> internal ImageModule
+  -> target-specific final bundle blob
   -> VM
   -> execute
 ```
@@ -76,7 +73,7 @@ entry module
   -> BundleGraph
   -> reachability analysis
   -> used modules and adapters
-  -> compact .gfb bundle or embedded module image
+  -> target-specific final bundle blob
   -> target-specific single distribution unit
 ```
 
@@ -91,9 +88,8 @@ This document does not define syntax details or semantic typing rules except whe
 Architecture answers questions such as:
 
 ```txt
-what is included in the runtime kernel
-what is serialized into .gfb
-what stays in .gfm
+what is serialized into the final target bundle blob
+how debug maps are structured
 what belongs to the compiler module
 what is included only when used
 how adapters are selected
@@ -144,15 +140,13 @@ Tooling world:
   MIR
   bytecode generation
   module image generation
-  .gfb writing
-  .gfm writing
+  executable serialization writing
+  debug map writing
 
 Artifact world:
   .gfs
-  Galfus Module Image
-  .gfb
-  .gfm
   .gfp
+  Galfus Module Image
   external payload descriptors
 
 Runtime world:
@@ -265,12 +259,10 @@ The compiler module follows the same used-only module rule as every other module
 
 ## 7. Source and Execution Artifacts
 
-Galfus uses the following artifact types.
+Galfus uses the following public source and adapter descriptors:
 
 ```txt
 .gfs  Galfus source file
-.gfb  Galfus Binary; serialized Galfus Module Image
-.gfm  Galfus Map; debug/tooling/source reconstruction map
 .gfp  Galfus Proxy; descriptor for external payloads/adapters
 ```
 
@@ -280,20 +272,14 @@ Artifact responsibilities:
 .gfs:
   human-authored source used by tooling
 
-Galfus Module Image:
-  in-memory executable image containing the minimum required for VM execution
-
-.gfb:
-  binary serialization of a Galfus Module Image
-
-.gfm:
-  optional debug/tooling map for source reconstruction, IDE paths, spans, names, and autocomplete
-
 .gfp:
   proxy descriptor used to describe external payloads, host bridges, ABI, adapters, and binding metadata
+
+Galfus Module Image:
+  internal executable representation in memory containing the minimum required for VM execution
 ```
 
-The runtime does not require `.gfs`, `.gfm`, or `.gfp` for normal release execution.
+The runtime does not require `.gfs` or `.gfp` for normal release execution, only the compiled internal `ImageModule` data inside the target bundle.
 
 ---
 
@@ -302,7 +288,7 @@ The runtime does not require `.gfs`, `.gfm`, or `.gfp` for normal release execut
 The normal compilation pipeline is:
 
 ```txt
-.gfs source
+.gfs + .gfp
   -> lexer/parser
   -> resolver
   -> type checker
@@ -310,9 +296,8 @@ The normal compilation pipeline is:
   -> ownership checker
   -> MIR
   -> bytecode
-  -> Galfus Module Image
-  -> .gfb serialization
-  -> optional .gfm
+  -> internal ImageModule
+  -> final target bundle serialization
 ```
 
 Important boundaries:
@@ -322,17 +307,16 @@ WorkspaceGraph is tooling-only.
 ModuleGraph is tooling-only.
 SemanticGraph is tooling-only.
 MIR is tooling-only.
-Galfus Module Image is runtime-facing.
-.gfb is the serialized form of the Galfus Module Image.
+Galfus Module Image is the runtime-facing internal representation.
 ```
 
-The VM receives a Galfus Module Image, normally deserialized from `.gfb`.
+The VM receives a Galfus Module Image, normally deserialized from the target bundle blob.
 
 ---
 
 ## 9. Galfus Module Image
 
-The Galfus Module Image is the in-memory executable image containing the minimum required for VM execution.
+The Galfus Module Image (internally `ImageModule`) is the in-memory executable image containing the minimum required for VM execution.
 
 It is not source code. It is not a frontend graph. It is not a debug map.
 
@@ -355,22 +339,21 @@ adapter references
 integrity-relevant metadata
 ```
 
-The `.gfb` file is the binary serialization of this Module Image.
+This Module Image is serialized into the final target bundle blob.
 
 Build flow:
 
 ```txt
-.gfs
+.gfs + .gfp
   -> compiler pipeline
   -> Galfus Module Image
-  -> serialize
-  -> .gfb
+  -> serialize inside target bundle blob
 ```
 
 Execution flow:
 
 ```txt
-.gfb
+final bundle blob
   -> validate
   -> deserialize
   -> Galfus Module Image
@@ -379,11 +362,9 @@ Execution flow:
 
 ---
 
-## 10. `.gfb` - Galfus Binary
+## 10. Internal Executable Serialization
 
-A `.gfb` is the compact binary serialization of a Galfus Module Image.
-
-A `.gfb` should contain only what is required for execution and integrity:
+The serialized `ImageModule` representation should contain only what is required for execution and integrity:
 
 ```txt
 format header
@@ -402,15 +383,13 @@ adapter references
 integrity metadata
 ```
 
-A `.gfb` does not contain rich development metadata. It does not contain full source, rich symbol paths, IDE autocomplete data, source reconstruction data, or debug spans beyond what is required for minimal execution diagnostics and integrity.
-
-Release `.gfb` should remain compact.
+This serialization does not contain rich development metadata. It does not contain full source, rich symbol paths, IDE autocomplete data, source reconstruction data, or debug spans beyond what is required for minimal execution diagnostics and integrity. It is embedded directly inside target-specific bundle blobs.
 
 ---
 
-## 11. `.gfm` - Galfus Map
+## 11. Internal Debug Map
 
-A `.gfm` is an optional debug and tooling artifact.
+Debug and tooling mapping data is kept separate from the internal executable serialization.
 
 It contains information such as:
 
@@ -426,15 +405,15 @@ IDE autocomplete paths
 diagnostic enrichment data
 ```
 
-A `.gfm` is not required for release execution.
+Debug maps are not required for release execution.
 
-Debug builds, IDEs, REPLs, playgrounds, and development tooling may use `.gfm` to provide richer diagnostics and source-aware behavior.
+Debug builds, IDEs, REPLs, playgrounds, and development tooling may use this mapping data to provide richer diagnostics and source-aware behavior.
 
 Separation rule:
 
 ```txt
-.gfb contains the minimum for execution and integrity.
-.gfm contains debug, source reconstruction, and IDE/tooling data.
+Executable serialization contains the minimum for execution and integrity.
+Debug maps contain debug, source reconstruction, and IDE/tooling data.
 ```
 
 ---
@@ -477,7 +456,7 @@ The runtime loader is responsible for converting serialized executable artifacts
 Responsibilities:
 
 ```txt
-load .gfb
+load final bundle blob
 validate format and integrity
 deserialize Galfus Module Image
 resolve import slots inside the bundle
@@ -513,7 +492,7 @@ adapter call dispatch
 panic propagation
 ```
 
-The VM core does not include parser, resolver, type checker, semantic checker, ownership checker, MIR builder, `.gfb` writer, `.gfm` writer, debug hooks, JIT, or reflection by default.
+The VM core does not include parser, resolver, type checker, semantic checker, ownership checker, MIR builder, executable serialization writer, debug map writer, debug hooks, JIT, or reflection by default.
 
 ---
 
@@ -709,7 +688,7 @@ entry module
 The bundle may contain:
 
 ```txt
-main .gfb
+serialized main module image
 packed dependency module images
 used builtin modules
 used adapter descriptors
@@ -763,7 +742,7 @@ Every final build produces a single distribution unit.
 Possible distribution units:
 
 ```txt
-.gfb
+final bundle blob
 executable
 firmware .bin
 APK
@@ -786,10 +765,10 @@ app bundle:
   one distribution unit with internal files
 
 executable:
-  may embed .gfb and external payloads
+  may embed serialized module image and external payloads
 
 firmware .bin:
-  may embed .gfb in flash
+  may embed serialized module image in flash
 ```
 
 The architectural guarantee is that the output is packaged as one target-appropriate final unit.
@@ -904,7 +883,7 @@ A panic aborts the entire Galfus execution process.
 
 A panic should identify the module trace up to the module that caused the panic.
 
-Without debug tools, a panic reports the information available in `.gfb`, such as:
+Without debug tools, a panic reports the information available in the serialized module image, such as:
 
 ```txt
 panic reason
@@ -913,7 +892,7 @@ available module/function identifiers
 minimal bytecode location, if available
 ```
 
-With debug tools and `.gfm`, a panic may report:
+With debug tools and debug maps, a panic may report:
 
 ```txt
 panic reason
@@ -933,7 +912,7 @@ Examples of runtime failures that may panic:
 sandbox memory limit exceeded
 stack limit exceeded
 invalid external adapter response
-corrupted .gfb
+corrupted serialized module image
 integrity failure
 unreachable bytecode state
 host capability violation
@@ -950,7 +929,7 @@ Debug support is optional.
 Debug architecture may include:
 
 ```txt
-.gfm
+debug maps
 source maps
 source reconstruction data
 debug hooks
@@ -962,7 +941,7 @@ rich panic diagnostics
 IDE paths and autocomplete metadata
 ```
 
-Release execution does not require debug hooks or `.gfm`.
+Release execution does not require debug hooks or separate debug maps.
 
 Debug mode enriches diagnostics without changing language semantics.
 
@@ -1018,7 +997,7 @@ server:
   executable or hosted runtime
 
 web/WASM:
-  runtime+VM WASM and .gfb payload/bundle
+  runtime+VM WASM and final bundle blob
 
 Android:
   APK/AAB/AAR and Android toolchain
@@ -1027,7 +1006,7 @@ iOS:
   app/framework and Apple platform toolchain
 
 embedded:
-  firmware .bin with static adapters and embedded .gfb
+  firmware .bin with static adapters and embedded serialized module image
 ```
 
 Targets may require external toolchains:
@@ -1086,7 +1065,7 @@ Security mechanisms:
 type checking
 semantic checking
 ownership checking
-compact .gfb validation
+compact serialized module image validation
 integrity metadata
 capability policy
 adapter policy
@@ -1125,19 +1104,19 @@ Host integration is explicit and policy-bound. There are no implicit arbitrary l
 
 ## 32. Execution Flows
 
-### Flow A - Source to `.gfb`
+### Flow A - Source to Serialized Module Image
 
 ```txt
 .gfs source
   -> compiler pipeline
   -> Galfus Module Image
-  -> .gfb serialization
+  -> target-specific bundle blob serialization
 ```
 
-### Flow B - `.gfb` to Execution
+### Flow B - Deserialization to Execution
 
 ```txt
-.gfb
+final bundle blob
   -> validate
   -> deserialize
   -> Galfus Module Image
@@ -1164,8 +1143,8 @@ entry module
 
 ```txt
 panic/debug event
-  -> .gfb minimal identifiers
-  -> .gfm source map, if available
+  -> minimal bytecode/module identifiers
+  -> debug source map, if available
   -> source span
   -> module trace
   -> enriched diagnostic
@@ -1193,7 +1172,7 @@ Core required parts:
 ```txt
 vm_core
 owner_graph_core
-.gfb loader
+executable image loader
 Galfus Module Image deserializer
 bytecode interpreter
 primitive scalar support
@@ -1207,7 +1186,7 @@ Core non-required parts:
 
 ```txt
 compiler module in runtime
-.gfm in release
+debug maps in release
 regex module
 rich text/string module
 collection helpers beyond what is used
@@ -1260,13 +1239,11 @@ Optional module:
 
 Artifacts:
   .gfs = source
-  Galfus Module Image = minimum executable image in memory
-  .gfb = serialized Module Image
-  .gfm = debug/tooling/source reconstruction map
+  Galfus Module Image = internal representation serialized inside target-specific final bundle blob
   .gfp = proxy descriptor for external payloads/adapters
 
 Runtime:
-  load .gfb
+  load final bundle blob
   validate
   deserialize Module Image
   execute in VM

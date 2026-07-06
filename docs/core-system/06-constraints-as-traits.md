@@ -42,9 +42,14 @@ Generic constraint:
 constraint Comparable<T> {
   fn compare(self, other: T): int32
 }
-```
 
 `self` is inferred. It does not use an explicit type annotation.
+
+Semantics of `compare(self, other: T): int32`:
+- Returns a negative value if `self` is ordered before `other`.
+- Returns zero if `self` is equivalent to `other` in ordering.
+- Returns a positive value if `self` is ordered after `other`.
+```
 
 ## 6.3 Satisfying Constraints
 
@@ -76,7 +81,7 @@ Builtin constraints are compiler-known but not globally imported.
 If a programmer references them directly, they must import them.
 
 ```galfus
-import { Comparable, Iterable, Iterator, Range } from "std/constraints"
+import { Comparable, Iterable, Iterator } from "std/constraints"
 ```
 
 ## 6.5 Constraints as Generic Bounds

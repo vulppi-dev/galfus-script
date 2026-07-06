@@ -103,7 +103,6 @@ These names are reserved as built-in type names.
 Not core primitive names:
 
 ```txt
-float16
 float128
 String
 string
@@ -120,7 +119,7 @@ unknown
 
 A string literal has type `[uint8]`, not `String`.
 
-`float16` and `float128` are not core because Galfus avoids depending on unstable or target-fragile floating-point support for the base language.
+`float128` is not core because Galfus avoids depending on unstable or target-fragile floating-point support for the base language.
 
 ## 1.4 Metadata Names Are Not Reserved
 
@@ -251,7 +250,7 @@ call(1, _)
 call(1, _, _)
 ```
 
-All are valid when trailing parameters have defaults.
+All are valid when trailing parameters have defaults. Empty argument gaps such as `call(1,,3)` are invalid. All omitted default arguments in non-trailing positions must use the `_` placeholder.
 
 ## 1.8 Operators Are Not Identifiers
 

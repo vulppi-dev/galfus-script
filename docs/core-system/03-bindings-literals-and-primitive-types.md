@@ -121,7 +121,7 @@ var value = 10.5
 var precise: float64 = 10.5
 ```
 
-`float16` and `float128` are not core primitive types.
+`float128` is not a core primitive type.
 
 ## 3.6 Negative Numbers
 

@@ -652,7 +652,7 @@ workspace resolution
 semantic checking
 ownership checking
 Module Image generation
-.gfb validation
+executable image serialization validation
 runtime loading
 adapter call dispatch
 sandbox/capability enforcement
@@ -765,7 +765,7 @@ controlled plugin systems
 engine-friendly scripting
 LLM-friendly generated code validation
 sandboxed execution of user code
-compact .gfb-centered distribution
+compact bundle-centered distribution
 explicit external capability model
 ```
 

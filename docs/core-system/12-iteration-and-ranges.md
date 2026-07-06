@@ -88,14 +88,12 @@ repeat next()
 
 ## 12.5 Compiler-Known Iteration Concepts
 
-`Range`, `Iterable`, and `Iterator` are known by the compiler for validation and lowering.
+`Iterable` and `Iterator` are known by the compiler for validation and lowering. Range literals are compiler-known expression forms. A range literal does not expose a required source-visible `Range` type/constraint initially.
 
-They are not globally imported.
-
-If source code references them directly, it must import them.
+If source code references `Iterable` or `Iterator` directly, it must import them.
 
 ```galfus
-import { Range, Iterable, Iterator } from "std/constraints"
+import { Iterable, Iterator } from "std/constraints"
 ```
 
 Compiler-known does not mean globally available.
@@ -307,8 +305,8 @@ The checker/lowering MUST:
 - Evaluate `for` source once.
 - Treat item and index bindings as const.
 - Support named `for` targets.
-- Keep `Range`, `Iterable`, and `Iterator` compiler-known but not globally imported.
-- Require explicit imports when those names are used in source.
+- Keep `Iterable` and `Iterator` compiler-known but not globally imported.
+- Require explicit imports when `Iterable` or `Iterator` is referenced directly in source.
 - Restrict literal ranges to integer literals.
 - Reject `1..1`, `1::0`, `1::-1`, and `1::2%0`.
 - Avoid implicit array materialization for ranges.

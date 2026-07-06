@@ -8,7 +8,7 @@ This document defines the binary instruction set (opcodes) and bytecode format f
 
 Galfus VM uses a **register-based execution model** where instructions read operands from and write results to local slots (registers) within the current call frame.
 
-To keep the `.gfb` binary compact, instructions use a **variable-length encoding**:
+To keep the serialized instruction stream compact, instructions use a **variable-length encoding**:
 
 - **Opcode**: 1 byte (`u8`).
 - **Registers**: 2 bytes (`u16`), supporting up to 65,536 registers per call frame.

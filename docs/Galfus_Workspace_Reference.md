@@ -28,7 +28,7 @@ This document covers workspace structure only. Syntax, semantic rules, and runti
 16. [Artifact Roles](#16-artifact-roles)
 17. [Galfus Proxy Files](#17-galfus-proxy-files)
 18. [External Payloads](#18-external-payloads)
-19. [Galfus Map Files](#19-galfus-map-files)
+19. [Galfus Map Files](#19-internal-debug-mapping)
 20. [Workspace / Monorepo Layout](#20-workspace--monorepo-layout)
 21. [Workspace Members](#21-workspace-members)
 22. [Deterministic Resolution](#22-deterministic-resolution)
@@ -143,7 +143,8 @@ my-app/
   src/
     main.gfs
   modules/
-    physics.gfb
+    physics.gfp
+    libphysics.so
     audio.gfp
     libaudio.so
   build/
@@ -177,8 +178,6 @@ It may contain:
 
 ```txt
 .gfs
-.gfb
-.gfm
 .gfp
 .wasm
 .dll
@@ -190,11 +189,8 @@ Only these are Galfus module descriptors:
 
 ```txt
 .gfs
-.gfb
 .gfp
 ```
-
-`.gfm` is a debug/tooling sidecar, not an importable module descriptor.
 
 External payloads such as `.wasm`, `.dll`, `.so`, and `.dylib` are not import targets. They are attached through `.gfp` files.
 
@@ -209,8 +205,6 @@ compiler cache
 module graph cache
 MIR cache
 bytecode cache
-.gfb outputs
-.gfm outputs
 bundle outputs
 diagnostics
 hashes
@@ -239,7 +233,7 @@ math = "src/math.gfs"
 
 [dependencies]
 collection = { target = "collection" }
-physics = { target = "./modules/physics.gfb" }
+physics = { target = "./modules/physics.gfp" }
 audio = { target = "./modules/audio.gfp" }
 ```
 
@@ -447,7 +441,7 @@ No top-level item becomes public merely by existing.
 [alias]
 math = "src/math.gfs"
 shared = "../shared/src/main.gfs"
-physics = "modules/physics.gfb"
+physics = "modules/physics.gfp"
 ```
 
 The `$` prefix is used only at the import site, not in TOML.
@@ -471,7 +465,7 @@ The dependency declaration model is intentionally uniform: the dependency name i
 collection = { target = "collection" }
 math = { target = "@vulppi/math-core/vector", version = "1.0.0" }
 local_shared = { target = "../shared" }
-physics = { target = "./modules/physics.gfb" }
+physics = { target = "./modules/physics.gfp" }
 audio = { target = "./modules/audio.gfp" }
 ```
 
@@ -483,7 +477,6 @@ organization-qualified module address
 unqualified module address
 workspace member
 relative local path
-.gfb artifact
 .gfp proxy descriptor
 future registry/cache source
 ```
@@ -518,7 +511,6 @@ All imports resolve to Galfus module descriptors:
 
 ```txt
 .gfs
-.gfb
 .gfp
 ```
 
@@ -532,14 +524,13 @@ Valid module descriptors are:
 
 ```txt
 .gfs  Galfus source module
-.gfb  Galfus binary module
 .gfp  Galfus proxy descriptor
 ```
 
 Invalid direct import targets include:
 
 ```txt
-.gfm
+debug maps
 .wasm
 .dll
 .so
@@ -561,16 +552,6 @@ External payloads can still be used, but only through `.gfp` proxy descriptors a
 Project source file. Used by compiler/tooling.
 
 `.gfs` is not publishable.
-
-### `.gfb`
-
-Serialized Galfus Module Image. Executable by the Galfus VM after validation/deserialization.
-
-`.gfb` is publishable.
-
-### `.gfm`
-
-Debug/tooling/source reconstruction map. Not an importable module descriptor and not a primary publishable artifact.
 
 ### `.gfp`
 
@@ -617,9 +598,9 @@ In the final bundle, a `.gfp` may disappear as a standalone file. Its informatio
 
 ---
 
-## 19. Galfus Map Files
+## 19. Internal Debug Mapping
 
-`.gfm` files contain debug and tooling data.
+Debug mapping data contains debug and tooling data.
 
 They may include:
 
@@ -633,7 +614,7 @@ IDE/autocomplete paths
 debug mapping
 ```
 
-`.gfm` is not required for release execution. It is not embedded in `.gfb` by default.
+This mapping data is not required for release execution.
 
 ---
 
@@ -788,8 +769,8 @@ ownership checker
 MIR builder
 bytecode writer
 Module Image builder
-.gfb writer
-.gfm writer
+executable serialization writer
+debug map writer
 ```
 
 Normal apps do not include `compiler`. REPLs, playgrounds, sandboxes, hot reload hosts, and development tools may include it.
@@ -803,7 +784,7 @@ A build resolves the workspace graph, compiles source modules, validates depende
 Conceptual flow:
 
 ```txt
-.gfs / .gfb / .gfp discovery
+.gfs / .gfp discovery
   -> module records
   -> export surfaces
   -> dependency resolution
@@ -812,15 +793,13 @@ Conceptual flow:
   -> validation
   -> compiler pipeline for .gfs
   -> Galfus Module Image
-  -> .gfb serialization
-  -> optional .gfm
+  -> target bundle serialization
 ```
 
 Build inputs can include:
 
 ```txt
 .gfs
-.gfb
 .gfp
 payloads referenced by .gfp
 galfus.toml
@@ -830,8 +809,7 @@ galfus.lock, when present
 Build outputs can include:
 
 ```txt
-.gfb
-.gfm
+final bundle blob
 cache
 diagnostics
 logs
@@ -844,13 +822,13 @@ logs
 A debug build emits:
 
 ```txt
-.gfb
-.gfm
+final bundle blob (with internal debug markers)
+internal debug map
 ```
 
-A release build emits the minimum `.gfb` required for execution and integrity.
+A release build emits the minimum final bundle blob required for execution and integrity.
 
-`.gfm` data is not embedded into `.gfb` by default.
+Debug map data is not embedded into the final bundle blob by default.
 
 ---
 
@@ -884,7 +862,7 @@ Every final bundle is a single distribution unit.
 Possible forms:
 
 ```txt
-.gfb
+final bundle blob
 executable
 firmware .bin
 APK
@@ -1070,7 +1048,7 @@ LLM-assisted execution environment
 development tool
 ```
 
-The compiler module may generate a Galfus Module Image or `.gfb` while the VM is already running, if target and policy allow it.
+The compiler module may generate a Galfus Module Image or final bundle blob while the VM is already running, if target and policy allow it.
 
 Normal apps do not include the compiler module.
 
@@ -1133,12 +1111,12 @@ Local dependencies and payloads belong in `modules/` or in explicitly configured
 IDE/autocomplete data, debug maps, source spans, and source reconstruction metadata belong in:
 
 ```txt
-.gfm
+internal debug maps
 build/ cache
 external tooling data
 ```
 
-They do not belong in `.gfb` release artifacts.
+They do not belong in release final bundle blobs.
 
 ---
 
@@ -1147,7 +1125,6 @@ They do not belong in `.gfb` release artifacts.
 Only these artifacts are publishable:
 
 ```txt
-.gfb
 .gfp
 ```
 
@@ -1155,14 +1132,11 @@ Not publishable:
 
 ```txt
 .gfs
-.gfm
 ```
 
 `.gfs` is source-only and local to development.
 
-`.gfm` can be distributed separately for debug/tooling/source reconstruction if a project or organization chooses to do so, but it is not a primary publishable module artifact.
-
-Published dependencies therefore use `.gfb` and `.gfp`.
+Published dependencies therefore use `.gfp`.
 
 ---
 
@@ -1171,18 +1145,18 @@ Published dependencies therefore use `.gfb` and `.gfp`.
 Valid dependency direction:
 
 ```txt
-.gfs -> .gfb -> .gfp
+.gfs -> .gfp
 ```
 
-This means source can compile to a binary module, and a binary module can depend on a proxy/external adapter descriptor.
+This means source can compile and reference proxy/external adapter descriptors.
 
 Invalid direction:
 
 ```txt
-.gfp -> .gfb -> .gfs
+.gfp -> .gfs
 ```
 
-A `.gfp` is isolated, and a `.gfb` has already been transpiled/serialized from a Module Image. Runtime/published artifacts do not depend back on project source.
+A `.gfp` is isolated. Runtime/published artifacts do not depend back on project source.
 
 ---
 
@@ -1203,12 +1177,11 @@ ambiguous import
 case mismatch
 invalid export address
 export target missing
-invalid dependency target
-missing dependency artifact
+missing dependency descriptor (.gfp)
 missing external payload referenced by .gfp
 attempt to import unsupported file type directly
 attempt to publish .gfs
-attempt to treat .gfm as importable module
+attempt to treat debug map as importable module
 invalid lock resolution
 integrity/hash mismatch
 ```
@@ -1241,13 +1214,11 @@ Galfus workspaces are explicit, module-first, deterministic graphs.
 
 galfus.toml defines identity, target kind, entry, exports, aliases, dependencies, and target configuration.
 
-Imports resolve only to Galfus module descriptors: .gfs, .gfb, or .gfp.
+Imports resolve only to Galfus module descriptors: .gfs or .gfp.
 
 .gfs is source-only and not publishable.
 
-.gfb and .gfp are publishable artifacts.
-
-.gfm is debug/tooling/source reconstruction data.
+.gfp is a publishable artifact.
 
 All final bundles are single distribution units.
 
