@@ -63,6 +63,15 @@ impl<'a> Resolver<'a> {
     }
 
     fn resolve_node_references(&mut self, node: NodeId, current_scope: ScopeId) {
+        self.resolve_node_references_with_parent(node, current_scope, None);
+    }
+
+    fn resolve_node_references_with_parent(
+        &mut self,
+        node: NodeId,
+        current_scope: ScopeId,
+        parent_kind: Option<SyntaxNodeKind>,
+    ) {
         let Some(syntax_node) = self.syntax.node(node) else {
             return;
         };
@@ -99,11 +108,22 @@ impl<'a> Resolver<'a> {
                 return;
             }
 
+            SyntaxNodeKind::WildcardExpression => {
+                if parent_kind != Some(SyntaxNodeKind::Argument) {
+                    self.diagnostics.push(Diagnostic::error_with_message(
+                        ResolverDiagnosticCode::UnresolvedName,
+                        "unresolved name `_`".to_string(),
+                        syntax_node.span(),
+                    ));
+                }
+                return;
+            }
+
             _ => {}
         }
 
         for child in syntax_node.children() {
-            self.resolve_node_references(*child, scope);
+            self.resolve_node_references_with_parent(*child, scope, Some(syntax_node.kind()));
         }
     }
 

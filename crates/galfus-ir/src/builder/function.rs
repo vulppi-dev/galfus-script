@@ -433,18 +433,85 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
             SyntaxNodeKind::LoopStatement => {
                 self.flush_current_instructions(statements);
 
-                let body_node = node.child(0).unwrap();
-                let body = Box::new(self.lower_block(body_node));
+                let body_node = syntax
+                    .first_child_of_kind(stmt_id, SyntaxNodeKind::Block)
+                    .unwrap();
+                let condition_node = node.children().iter().copied().find(|&child| {
+                    let child_kind = syntax
+                        .node(child)
+                        .map(|c| c.kind())
+                        .unwrap_or(SyntaxNodeKind::SourceFile);
+                    child_kind != SyntaxNodeKind::KeywordMetadataList
+                        && child_kind != SyntaxNodeKind::Block
+                });
 
-                statements.push(MirBody::Loop { body });
+                if let Some(cond_expr) = condition_node {
+                    let mut loop_body_statements = Vec::new();
+                    let cond_operand = self.lower_expression(cond_expr, &mut loop_body_statements);
+                    let bool_type_id = self
+                        .builder
+                        .type_result
+                        .layer()
+                        .table()
+                        .primitive(PrimitiveType::Bool);
+
+                    let not_cond_local = self.declare_local(None, bool_type_id);
+                    self.current_instructions.push(Instruction::Assign(
+                        not_cond_local,
+                        RValue::UnaryOp(MirUnaryOp::Not, cond_operand),
+                    ));
+
+                    self.flush_current_instructions(&mut loop_body_statements);
+
+                    let break_bb = MirBody::BasicBlock(BasicBlock {
+                        id: self.builder.next_block(),
+                        instructions: Vec::new(),
+                        terminator: Terminator::Break,
+                    });
+                    loop_body_statements.push(MirBody::If {
+                        cond: Operand::Local(not_cond_local),
+                        then_branch: Box::new(break_bb),
+                        else_branch: None,
+                    });
+
+                    let lowered_body = self.lower_block(body_node);
+                    loop_body_statements.push(lowered_body);
+
+                    statements.push(MirBody::Loop {
+                        body: Box::new(MirBody::Block {
+                            locals: Vec::new(),
+                            statements: loop_body_statements,
+                        }),
+                    });
+                } else {
+                    let body = Box::new(self.lower_block(body_node));
+                    statements.push(MirBody::Loop { body });
+                }
             }
 
             SyntaxNodeKind::ForStatement => {
                 self.flush_current_instructions(statements);
 
-                let binding_node = node.child(0).unwrap();
-                let iterable_node = node.child(1).unwrap();
-                let body_node = node.child(2).unwrap();
+                let binding_node = syntax
+                    .first_child_of_kind(stmt_id, SyntaxNodeKind::ForBinding)
+                    .unwrap();
+                let body_node = syntax
+                    .first_child_of_kind(stmt_id, SyntaxNodeKind::Block)
+                    .unwrap();
+                let iterable_node = node
+                    .children()
+                    .iter()
+                    .copied()
+                    .find(|&child| {
+                        let child_kind = syntax
+                            .node(child)
+                            .map(|c| c.kind())
+                            .unwrap_or(SyntaxNodeKind::SourceFile);
+                        child_kind != SyntaxNodeKind::KeywordMetadataList
+                            && child_kind != SyntaxNodeKind::ForBinding
+                            && child_kind != SyntaxNodeKind::Block
+                    })
+                    .unwrap();
 
                 let iterable_syntax = syntax.node(iterable_node).unwrap();
 

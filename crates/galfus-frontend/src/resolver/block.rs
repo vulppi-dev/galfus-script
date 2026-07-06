@@ -190,7 +190,10 @@ impl<'a> Resolver<'a> {
             self.declare_for_binding(binding, for_scope);
         }
 
-        if let Some(body) = self.syntax.child(statement, 2) {
+        if let Some(body) = self
+            .syntax
+            .first_child_of_kind(statement, SyntaxNodeKind::Block)
+        {
             self.resolve_block(body, for_scope);
         }
     }
@@ -364,30 +367,40 @@ impl<'a> Resolver<'a> {
                 }
             }
 
-            SyntaxNodeKind::StructBindingField => match node.child_count() {
-                0 => {}
+            SyntaxNodeKind::StructPattern => {
+                if node.children().len() > 1 {
+                    for field in &node.children()[1..] {
+                        self.declare_match_binding_pattern(*field, scope);
+                    }
+                }
+            }
 
-                1 => {
-                    if let Some(name) = node.first_child() {
-                        let symbol_name = self.node_text(name);
+            SyntaxNodeKind::StructBindingField | SyntaxNodeKind::StructPatternField => {
+                match node.child_count() {
+                    0 => {}
 
-                        if symbol_name != "_" {
-                            self.declare_symbol(
-                                symbol_name,
-                                SymbolKind::PatternBinding,
-                                name,
-                                scope,
-                            );
+                    1 => {
+                        if let Some(name) = node.first_child() {
+                            let symbol_name = self.node_text(name);
+
+                            if symbol_name != "_" {
+                                self.declare_symbol(
+                                    symbol_name,
+                                    SymbolKind::PatternBinding,
+                                    name,
+                                    scope,
+                                );
+                            }
+                        }
+                    }
+
+                    _ => {
+                        if let Some(alias_pattern) = node.child(1) {
+                            self.declare_match_binding_pattern(alias_pattern, scope);
                         }
                     }
                 }
-
-                _ => {
-                    if let Some(alias_pattern) = node.child(1) {
-                        self.declare_match_binding_pattern(alias_pattern, scope);
-                    }
-                }
-            },
+            }
 
             SyntaxNodeKind::RestBindingPattern => {
                 if let Some(inner) = node.first_child() {

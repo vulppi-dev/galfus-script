@@ -274,23 +274,33 @@ impl<'a> Resolver<'a> {
                 }
             }
 
-            SyntaxNodeKind::StructBindingField => match node.child_count() {
-                0 => {}
-
-                1 => {
-                    if let Some(name) = node.first_child() {
-                        let symbol_name = self.node_text(name);
-                        let name_id = NameId::intern(&symbol_name);
-                        self.declare_symbol(name_id, kind, name, scope);
+            SyntaxNodeKind::StructPattern => {
+                if node.children().len() > 1 {
+                    for field in &node.children()[1..] {
+                        self.declare_binding_pattern(*field, kind, scope);
                     }
                 }
+            }
 
-                _ => {
-                    if let Some(alias_pattern) = node.child(1) {
-                        self.declare_binding_pattern(alias_pattern, kind, scope);
+            SyntaxNodeKind::StructBindingField | SyntaxNodeKind::StructPatternField => {
+                match node.child_count() {
+                    0 => {}
+
+                    1 => {
+                        if let Some(name) = node.first_child() {
+                            let symbol_name = self.node_text(name);
+                            let name_id = NameId::intern(&symbol_name);
+                            self.declare_symbol(name_id, kind, name, scope);
+                        }
+                    }
+
+                    _ => {
+                        if let Some(alias_pattern) = node.child(1) {
+                            self.declare_binding_pattern(alias_pattern, kind, scope);
+                        }
                     }
                 }
-            },
+            }
 
             SyntaxNodeKind::TupleBindingPattern | SyntaxNodeKind::ArrayBindingPattern => {
                 for child in node.children() {

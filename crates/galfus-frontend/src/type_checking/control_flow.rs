@@ -4,48 +4,89 @@ use crate::{PrimitiveType, SyntaxNodeKind, TypeKind};
 
 use super::DeclarationTypeChecker;
 
+#[derive(Debug, Clone)]
+pub(super) struct ControlTarget {
+    pub(super) _node: NodeId,
+    pub(super) name: Option<String>,
+}
+
 impl<'a> DeclarationTypeChecker<'a> {
-    pub(super) fn check_control_flow(&mut self, node: NodeId, loop_depth: usize) {
+    pub(super) fn check_control_flow(&mut self, node: NodeId) {
         let Some(syntax_node) = self.graph.syntax().node(node) else {
             return;
         };
 
         match syntax_node.kind() {
             SyntaxNodeKind::IfStatement => {
-                self.check_if_statement_control_flow(node, loop_depth);
+                self.check_if_statement_control_flow(node);
             }
 
             SyntaxNodeKind::LoopStatement => {
-                self.check_loop_statement_control_flow(node, loop_depth);
+                self.check_loop_statement_control_flow(node);
             }
 
             SyntaxNodeKind::ForStatement => {
-                self.check_for_statement_control_flow(node, loop_depth);
+                self.check_for_statement_control_flow(node);
             }
 
             SyntaxNodeKind::BreakStatement => {
-                if loop_depth == 0 {
+                let label = self.graph.syntax().child(node, 0);
+                if let Some(lbl_node) = label {
+                    let lbl_name = self.node_text(lbl_node);
+                    if !self
+                        .control_targets
+                        .iter()
+                        .any(|target| target.name.as_deref() == Some(&lbl_name))
+                    {
+                        self.report_unresolved_control_target(lbl_node, &lbl_name);
+                    }
+                } else if self.control_targets.is_empty() {
                     self.report_break_outside_loop(node);
                 }
             }
 
             SyntaxNodeKind::ContinueStatement => {
-                if loop_depth == 0 {
+                let label = self.graph.syntax().child(node, 0);
+                if let Some(lbl_node) = label {
+                    let lbl_name = self.node_text(lbl_node);
+                    if !self
+                        .control_targets
+                        .iter()
+                        .any(|target| target.name.as_deref() == Some(&lbl_name))
+                    {
+                        self.report_unresolved_control_target(lbl_node, &lbl_name);
+                    }
+                } else if self.control_targets.is_empty() {
                     self.report_continue_outside_loop(node);
                 }
+            }
+
+            SyntaxNodeKind::RollbackStatement => {
+                if self.transaction_depth == 0 {
+                    self.report_rollback_outside_transaction(node);
+                }
+            }
+
+            SyntaxNodeKind::TransactionStatement => {
+                self.transaction_depth += 1;
+                let children = syntax_node.children().to_vec();
+                for child in children {
+                    self.check_control_flow(child);
+                }
+                self.transaction_depth -= 1;
             }
 
             _ => {
                 let children = syntax_node.children().to_vec();
 
                 for child in children {
-                    self.check_control_flow(child, loop_depth);
+                    self.check_control_flow(child);
                 }
             }
         }
     }
 
-    fn check_if_statement_control_flow(&mut self, node: NodeId, loop_depth: usize) {
+    fn check_if_statement_control_flow(&mut self, node: NodeId) {
         let Some(condition) = self.graph.syntax().child(node, 0) else {
             return;
         };
@@ -60,36 +101,132 @@ impl<'a> DeclarationTypeChecker<'a> {
             .unwrap_or_default();
 
         for child in children.into_iter().skip(1) {
-            self.check_control_flow(child, loop_depth);
+            self.check_control_flow(child);
         }
     }
 
-    fn check_loop_statement_control_flow(&mut self, node: NodeId, loop_depth: usize) {
-        if let Some(body) = self.graph.syntax().child(node, 0) {
-            self.check_control_flow(body, loop_depth + 1);
+    fn check_loop_statement_control_flow(&mut self, node: NodeId) {
+        let syntax = self.graph.syntax();
+        if let Some(condition) = syntax.node(node).and_then(|loop_node| {
+            loop_node.children().iter().copied().find(|&child| {
+                let kind = syntax
+                    .node(child)
+                    .map(|c| c.kind())
+                    .unwrap_or(SyntaxNodeKind::SourceFile);
+                kind != SyntaxNodeKind::KeywordMetadataList && kind != SyntaxNodeKind::Block
+            })
+        }) {
+            self.check_bool_condition(condition);
         }
+
+        let target_name = self.loop_target_name(node);
+        if let Some(ref name) = target_name {
+            if self
+                .control_targets
+                .iter()
+                .any(|t| t.name.as_ref() == Some(name))
+            {
+                self.report_duplicate_control_target(node, name);
+            }
+        }
+
+        self.control_targets.push(ControlTarget {
+            _node: node,
+            name: target_name,
+        });
+
+        if let Some(body) = syntax.first_child_of_kind(node, SyntaxNodeKind::Block) {
+            self.check_control_flow(body);
+        }
+
+        self.control_targets.pop();
     }
 
-    fn check_for_statement_control_flow(&mut self, node: NodeId, loop_depth: usize) {
-        let Some(binding) = self.graph.syntax().child(node, 0) else {
+    fn check_for_statement_control_flow(&mut self, node: NodeId) {
+        let syntax = self.graph.syntax();
+        let Some(binding) = syntax.first_child_of_kind(node, SyntaxNodeKind::ForBinding) else {
             return;
         };
 
-        let Some(iterable) = self.graph.syntax().child(node, 1) else {
+        let Some(body) = syntax.first_child_of_kind(node, SyntaxNodeKind::Block) else {
             return;
         };
 
-        let Some(body) = self.graph.syntax().child(node, 2) else {
+        let Some(iterable) = syntax.node(node).and_then(|for_node| {
+            for_node.children().iter().copied().find(|&child| {
+                let kind = syntax
+                    .node(child)
+                    .map(|c| c.kind())
+                    .unwrap_or(SyntaxNodeKind::SourceFile);
+                kind != SyntaxNodeKind::KeywordMetadataList
+                    && kind != SyntaxNodeKind::ForBinding
+                    && kind != SyntaxNodeKind::Block
+            })
+        }) else {
             return;
         };
 
         let Some(element_type) = self.check_for_iterable_type(iterable) else {
-            self.check_control_flow(body, loop_depth + 1);
+            let target_name = self.loop_target_name(node);
+            if let Some(ref name) = target_name {
+                if self
+                    .control_targets
+                    .iter()
+                    .any(|t| t.name.as_ref() == Some(name))
+                {
+                    self.report_duplicate_control_target(node, name);
+                }
+            }
+            self.control_targets.push(ControlTarget {
+                _node: node,
+                name: target_name,
+            });
+            self.check_control_flow(body);
+            self.control_targets.pop();
             return;
         };
 
         self.bind_for_binding_type(binding, element_type);
-        self.check_control_flow(body, loop_depth + 1);
+
+        let target_name = self.loop_target_name(node);
+        if let Some(ref name) = target_name {
+            if self
+                .control_targets
+                .iter()
+                .any(|t| t.name.as_ref() == Some(name))
+            {
+                self.report_duplicate_control_target(node, name);
+            }
+        }
+        self.control_targets.push(ControlTarget {
+            _node: node,
+            name: target_name,
+        });
+        self.check_control_flow(body);
+        self.control_targets.pop();
+    }
+
+    fn loop_target_name(&self, loop_node: NodeId) -> Option<String> {
+        let metadata_list_node = self
+            .graph
+            .syntax()
+            .first_child_of_kind(loop_node, SyntaxNodeKind::KeywordMetadataList)?;
+
+        let metadata_list = self.graph.syntax().node(metadata_list_node)?;
+
+        for child in metadata_list.children() {
+            let child_node = self.graph.syntax().node(*child)?;
+            if child_node.kind() == SyntaxNodeKind::KeywordMetadataPair {
+                if let Some(key_ident) = child_node.first_child() {
+                    if self.node_text(key_ident) == "name" {
+                        if let Some(val_ident) = self.graph.syntax().child(*child, 1) {
+                            return Some(self.node_text(val_ident).to_string());
+                        }
+                    }
+                }
+            }
+        }
+        None
     }
 
     fn check_bool_condition(&mut self, condition: NodeId) {

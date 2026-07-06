@@ -178,7 +178,7 @@ fn parse_break_requires_statement_terminator() {
         .diagnostics()
         .iter()
         .find(|diagnostic| {
-            diagnostic.message() == "expected statement terminator, found `Identifier`"
+            diagnostic.message() == "expected statement terminator, found `LeftParen`"
         })
         .expect("missing statement terminator diagnostic");
 
@@ -197,7 +197,7 @@ fn parse_continue_requires_statement_terminator() {
         .diagnostics()
         .iter()
         .find(|diagnostic| {
-            diagnostic.message() == "expected statement terminator, found `Identifier`"
+            diagnostic.message() == "expected statement terminator, found `LeftParen`"
         })
         .expect("missing statement terminator diagnostic");
 

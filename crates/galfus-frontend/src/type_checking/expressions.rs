@@ -71,6 +71,12 @@ impl<'a> DeclarationTypeChecker<'a> {
                 self.infer_expression_type_with_expected(inner, expected)
             }
 
+            SyntaxNodeKind::WildcardExpression => {
+                let ty = expected.unwrap_or_else(|| self.layer.table_mut().error());
+                self.layer.bind_node_type(node, ty);
+                Some(ty)
+            }
+
             SyntaxNodeKind::NameExpression => self.infer_name_expression_type(node),
 
             SyntaxNodeKind::PathExpression => self.infer_path_variant_expression_type(node),

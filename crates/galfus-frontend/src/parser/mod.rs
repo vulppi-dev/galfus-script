@@ -13,6 +13,7 @@ mod helpers;
 mod items;
 mod lists;
 mod literals;
+mod metadata;
 mod patterns;
 mod start;
 mod statements;

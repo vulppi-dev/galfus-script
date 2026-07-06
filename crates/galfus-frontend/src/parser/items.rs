@@ -136,23 +136,7 @@ impl Parser {
         let fn_token = self.expect(TokenKind::Fn)?;
         self.skip_newlines();
 
-        let stamp = if self.at(&TokenKind::LeftParen)
-            && self.peek(1).kind() == &TokenKind::Identifier
-            && self.token_text(self.peek(1)) == "stamp"
-        {
-            self.bump();
-            let stamp_token = self.bump();
-            self.expect(TokenKind::RightParen)?;
-            self.skip_newlines();
-
-            Some(self.add_node(
-                SyntaxNodeKind::FunctionStamp,
-                stamp_token.span(),
-                Vec::new(),
-            ))
-        } else {
-            None
-        };
+        let metadata = self.parse_optional_keyword_metadata(false);
 
         let anchor = if let Some(separator_position) = self.find_function_anchor_separator() {
             let anchor = self.parse_function_anchor_until(separator_position)?;
@@ -193,8 +177,8 @@ impl Parser {
             children.push(decorators);
         }
 
-        if let Some(stamp) = stamp {
-            children.push(stamp);
+        if let Some(metadata) = metadata {
+            children.push(metadata);
         }
 
         if let Some(anchor) = anchor {
@@ -314,7 +298,24 @@ impl Parser {
 
         self.skip_newlines();
 
-        let base_type = if self.at(&TokenKind::Less) {
+        let base_type = if self.at(&TokenKind::LeftParen) {
+            self.bump();
+            self.skip_newlines();
+
+            let ty = self.parse_type()?;
+
+            self.skip_newlines();
+            self.expect(TokenKind::RightParen)?;
+            self.skip_newlines();
+
+            Some(ty)
+        } else if self.at(&TokenKind::Less) {
+            let less = self.current().clone();
+            self.graph.push_diagnostic(Diagnostic::error_with_message(
+                ParserDiagnosticCode::UnexpectedToken,
+                "enum base type must use enum(T) syntax instead of enum<T>".to_string(),
+                less.span(),
+            ));
             self.bump();
             self.skip_newlines();
 
@@ -329,6 +330,12 @@ impl Parser {
             None
         };
 
+        let metadata = if base_type.is_none() {
+            self.parse_optional_keyword_metadata(false)
+        } else {
+            None
+        };
+
         let name = self.parse_identifier()?;
 
         self.skip_newlines();
@@ -339,6 +346,10 @@ impl Parser {
 
         if let Some(base_type) = base_type {
             children.push(base_type);
+        }
+
+        if let Some(metadata) = metadata {
+            children.push(metadata);
         }
 
         children.push(name);

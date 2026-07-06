@@ -423,3 +423,148 @@ struct CollectedBindingInitializer {
     symbols: Vec<SymbolId>,
     dependencies: HashSet<SymbolId>,
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum MetadataOwner {
+    Function,
+    Enum,
+    Loop,
+    For,
+    Transaction,
+    Other,
+}
+
+impl<'a> DeclarationTypeChecker<'a> {
+    pub(super) fn check_keyword_metadata(&mut self, root: NodeId) {
+        self.check_keyword_metadata_in_node(root);
+    }
+
+    fn check_keyword_metadata_in_node(&mut self, node: NodeId) {
+        let Some(syntax_node) = self.graph.syntax().node(node) else {
+            return;
+        };
+
+        let kind = syntax_node.kind();
+        if let Some(metadata_list_node) = self
+            .graph
+            .syntax()
+            .first_child_of_kind(node, SyntaxNodeKind::KeywordMetadataList)
+        {
+            let owner = match kind {
+                SyntaxNodeKind::FunctionItem => MetadataOwner::Function,
+                SyntaxNodeKind::EnumItem => MetadataOwner::Enum,
+                SyntaxNodeKind::LoopStatement => MetadataOwner::Loop,
+                SyntaxNodeKind::ForStatement => MetadataOwner::For,
+                SyntaxNodeKind::TransactionStatement => MetadataOwner::Transaction,
+                _ => MetadataOwner::Other,
+            };
+
+            self.validate_keyword_metadata_list(metadata_list_node, owner);
+        }
+
+        let children = syntax_node.children().to_vec();
+        for child in children {
+            self.check_keyword_metadata_in_node(child);
+        }
+    }
+
+    fn validate_keyword_metadata_list(&mut self, list_node: NodeId, owner: MetadataOwner) {
+        let Some(list) = self.graph.syntax().node(list_node) else {
+            return;
+        };
+
+        for child in list.children() {
+            let Some(child_node) = self.graph.syntax().node(*child) else {
+                continue;
+            };
+
+            match child_node.kind() {
+                SyntaxNodeKind::KeywordMetadataFlag => {
+                    let flag_ident = self.graph.syntax().child(*child, 0);
+                    let flag_text = flag_ident.map(|id| self.node_text(id)).unwrap_or_default();
+
+                    let is_valid = match owner {
+                        MetadataOwner::Function => flag_text == "stamp",
+                        MetadataOwner::Transaction => flag_text == "after" || flag_text == "shared",
+                        _ => false,
+                    };
+
+                    if !is_valid {
+                        let owner_name = match owner {
+                            MetadataOwner::Function => "function",
+                            MetadataOwner::Enum => "enum",
+                            MetadataOwner::Loop => "loop",
+                            MetadataOwner::For => "for",
+                            MetadataOwner::Transaction => "transaction",
+                            MetadataOwner::Other => "construct",
+                        };
+                        self.report_invalid_keyword_metadata(
+                            *child,
+                            format!("invalid metadata {} for {}", flag_text, owner_name),
+                        );
+                    }
+                }
+
+                SyntaxNodeKind::KeywordMetadataPair => {
+                    let key_ident = child_node.first_child();
+                    let key_text = key_ident.map(|id| self.node_text(id)).unwrap_or_default();
+
+                    let is_valid = match owner {
+                        MetadataOwner::Loop | MetadataOwner::For => key_text == "name",
+                        MetadataOwner::Transaction => key_text == "after" || key_text == "shared",
+                        _ => false,
+                    };
+
+                    if !is_valid {
+                        let owner_name = match owner {
+                            MetadataOwner::Function => "function",
+                            MetadataOwner::Enum => "enum",
+                            MetadataOwner::Loop => "loop",
+                            MetadataOwner::For => "for",
+                            MetadataOwner::Transaction => "transaction",
+                            MetadataOwner::Other => "construct",
+                        };
+                        self.report_invalid_keyword_metadata(
+                            *child,
+                            format!("invalid metadata {} for {}", key_text, owner_name),
+                        );
+                    }
+                }
+
+                SyntaxNodeKind::KeywordMetadataType => {
+                    let is_valid = match owner {
+                        MetadataOwner::Enum => {
+                            if let Some(type_node) = child_node.first_child() {
+                                if let Some(ty) = self.layer.node_type(type_node) {
+                                    self.is_integer_type(ty)
+                                } else {
+                                    false
+                                }
+                            } else {
+                                false
+                            }
+                        }
+                        _ => false,
+                    };
+
+                    if !is_valid {
+                        let owner_name = match owner {
+                            MetadataOwner::Function => "function",
+                            MetadataOwner::Enum => "enum",
+                            MetadataOwner::Loop => "loop",
+                            MetadataOwner::For => "for",
+                            MetadataOwner::Transaction => "transaction",
+                            MetadataOwner::Other => "construct",
+                        };
+                        self.report_invalid_keyword_metadata(
+                            *child,
+                            format!("invalid metadata type for {}", owner_name),
+                        );
+                    }
+                }
+
+                _ => {}
+            }
+        }
+    }
+}

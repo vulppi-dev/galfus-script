@@ -53,11 +53,7 @@ impl<'a> DeclarationTypeChecker<'a> {
         };
 
         if syntax_node.kind() == SyntaxNodeKind::FunctionItem
-            && self
-                .graph
-                .syntax()
-                .first_child_of_kind(node, SyntaxNodeKind::FunctionStamp)
-                .is_some()
+            && self.is_function_stamped(node)
             && let Some(symbol) = self.direct_identifier_symbol(node, SymbolKind::Function)
         {
             stamps.insert(symbol, node);
@@ -66,6 +62,33 @@ impl<'a> DeclarationTypeChecker<'a> {
         for child in syntax_node.children() {
             self.collect_stamp_functions_in_node(*child, stamps);
         }
+    }
+
+    pub(super) fn is_function_stamped(&self, function: NodeId) -> bool {
+        let Some(metadata_list_node) = self
+            .graph
+            .syntax()
+            .first_child_of_kind(function, SyntaxNodeKind::KeywordMetadataList)
+        else {
+            return false;
+        };
+
+        let Some(metadata_list) = self.graph.syntax().node(metadata_list_node) else {
+            return false;
+        };
+
+        for child in metadata_list.children() {
+            if let Some(child_node) = self.graph.syntax().node(*child) {
+                if child_node.kind() == SyntaxNodeKind::KeywordMetadataFlag {
+                    if let Some(flag_ident) = self.graph.syntax().child(*child, 0) {
+                        if self.node_text(flag_ident) == "stamp" {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        false
     }
 
     fn collect_called_stamp_symbols(

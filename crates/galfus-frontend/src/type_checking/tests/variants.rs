@@ -52,7 +52,7 @@ var direction: Direction = Direction::North
 fn check_accepts_integer_enum_base_type() {
     let (_source, _graph, result) = check_source(
         r#"
-enum<uint8> Mode {
+enum(uint8) Mode {
   Off(0),
   On(1),
 }
@@ -68,7 +68,7 @@ var mode: Mode = Mode::On
 fn check_reports_non_integer_enum_base_type() {
     let source = source(
         r#"
-enum<bool> Mode {
+enum(bool) Mode {
   Off,
   On,
 }
@@ -97,7 +97,7 @@ enum<bool> Mode {
 fn check_reports_enum_discriminant_type_mismatch() {
     let source = source(
         r#"
-enum<uint8> Mode {
+enum(uint8) Mode {
   Off(true),
   On(1),
 }

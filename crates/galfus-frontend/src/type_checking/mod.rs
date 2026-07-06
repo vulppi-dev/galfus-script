@@ -58,6 +58,8 @@ struct DeclarationTypeChecker<'a> {
     imported_path_choices: HashMap<NodeId, LoweredImportedChoice>,
     active_type_substitutions: Vec<HashMap<SymbolId, TypeId>>,
     imported_generic_params: HashMap<SymbolId, SymbolId>,
+    control_targets: Vec<control_flow::ControlTarget>,
+    transaction_depth: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -89,6 +91,8 @@ impl<'a> DeclarationTypeChecker<'a> {
             imported_path_choices: HashMap::new(),
             active_type_substitutions: Vec::new(),
             imported_generic_params: HashMap::new(),
+            control_targets: Vec::new(),
+            transaction_depth: 0,
         }
     }
 
@@ -113,7 +117,8 @@ impl<'a> DeclarationTypeChecker<'a> {
 
         self.check_node(root);
         self.check_decorators(root);
-        self.check_control_flow(root, 0);
+        self.check_keyword_metadata(root);
+        self.check_control_flow(root);
         self.check_initializer_types(root);
         self.check_expression_statements(root);
         self.check_enum_types(root);

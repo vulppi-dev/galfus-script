@@ -368,7 +368,7 @@ fn parse_generic_choice_item() {
 #[test]
 fn parse_enum_with_base_type() {
     let source = source(
-        "enum<int64> TextureType {
+        "enum(int64) TextureType {
             Float32,
             Float64,
         }",
@@ -449,7 +449,7 @@ fn parse_enum_variant_with_numeric_discriminant() {
 #[test]
 fn parse_enum_variant_with_binary_discriminant_expression() {
     let source = source(
-        "enum<int64> TextureType {
+        "enum(int64) TextureType {
             Float32(1 << 32),
             Float64,
         }",

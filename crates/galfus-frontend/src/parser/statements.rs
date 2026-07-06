@@ -48,6 +48,14 @@ impl Parser {
             return self.parse_instanceof_statement();
         }
 
+        if self.at(&TokenKind::Transaction) {
+            return self.parse_transaction_statement();
+        }
+
+        if self.at(&TokenKind::Rollback) {
+            return self.parse_rollback_statement();
+        }
+
         if self.can_start_expression() {
             return self.parse_expression_or_assignment_statement();
         }
@@ -235,6 +243,10 @@ impl Parser {
 
         self.skip_newlines();
 
+        let metadata = self.parse_optional_keyword_metadata(false);
+
+        self.skip_newlines();
+
         let binding = self.parse_for_binding()?;
 
         self.skip_newlines();
@@ -249,37 +261,68 @@ impl Parser {
 
         let body = self.parse_block()?;
 
+        let mut children = Vec::new();
+        if let Some(metadata) = metadata {
+            children.push(metadata);
+        }
+        children.push(binding);
+        children.push(iterable);
+        children.push(body);
+
         let span = Span::cover(for_token.span(), self.node_span(body)).unwrap_or(for_token.span());
 
-        Some(self.add_node(
-            SyntaxNodeKind::ForStatement,
-            span,
-            vec![binding, iterable, body],
-        ))
+        Some(self.add_node(SyntaxNodeKind::ForStatement, span, children))
     }
 
     pub(super) fn parse_break_statement(&mut self) -> Option<NodeId> {
         let break_token = self.expect(TokenKind::Break)?;
 
+        let label = if self.at(&TokenKind::Identifier) {
+            self.parse_identifier()
+        } else {
+            None
+        };
+
         self.expect_statement_end();
 
-        Some(self.add_node(
-            SyntaxNodeKind::BreakStatement,
-            break_token.span(),
-            Vec::new(),
-        ))
+        let mut children = Vec::new();
+        if let Some(label) = label {
+            children.push(label);
+        }
+
+        let span = if let Some(label) = label {
+            Span::cover(break_token.span(), self.node_span(label)).unwrap_or(break_token.span())
+        } else {
+            break_token.span()
+        };
+
+        Some(self.add_node(SyntaxNodeKind::BreakStatement, span, children))
     }
 
     pub(super) fn parse_continue_statement(&mut self) -> Option<NodeId> {
         let continue_token = self.expect(TokenKind::Continue)?;
 
+        let label = if self.at(&TokenKind::Identifier) {
+            self.parse_identifier()
+        } else {
+            None
+        };
+
         self.expect_statement_end();
 
-        Some(self.add_node(
-            SyntaxNodeKind::ContinueStatement,
-            continue_token.span(),
-            Vec::new(),
-        ))
+        let mut children = Vec::new();
+        if let Some(label) = label {
+            children.push(label);
+        }
+
+        let span = if let Some(label) = label {
+            Span::cover(continue_token.span(), self.node_span(label))
+                .unwrap_or(continue_token.span())
+        } else {
+            continue_token.span()
+        };
+
+        Some(self.add_node(SyntaxNodeKind::ContinueStatement, span, children))
     }
 
     pub(super) fn parse_loop_statement(&mut self) -> Option<NodeId> {
@@ -287,12 +330,31 @@ impl Parser {
 
         self.skip_newlines();
 
+        let metadata = self.parse_optional_keyword_metadata(true);
+        self.skip_newlines();
+
+        let condition = if !self.at(&TokenKind::LeftBrace) {
+            self.parse_expression()
+        } else {
+            None
+        };
+        self.skip_newlines();
+
         let body = self.parse_block()?;
+
+        let mut children = Vec::new();
+        if let Some(metadata) = metadata {
+            children.push(metadata);
+        }
+        if let Some(condition) = condition {
+            children.push(condition);
+        }
+        children.push(body);
 
         let span =
             Span::cover(loop_token.span(), self.node_span(body)).unwrap_or(loop_token.span());
 
-        Some(self.add_node(SyntaxNodeKind::LoopStatement, span, vec![body]))
+        Some(self.add_node(SyntaxNodeKind::LoopStatement, span, children))
     }
 
     pub(super) fn parse_match_statement(&mut self) -> Option<NodeId> {
@@ -328,5 +390,69 @@ impl Parser {
             .unwrap_or_else(|| self.node_span(pattern));
 
         Some(self.add_node(SyntaxNodeKind::InstanceofArm, span, vec![pattern, body]))
+    }
+
+    pub(super) fn parse_transaction_statement(&mut self) -> Option<NodeId> {
+        let transaction_token = self.expect(TokenKind::Transaction)?;
+
+        self.skip_newlines();
+
+        let mut targets = Vec::new();
+        while !self.is_eof() && self.at(&TokenKind::Identifier) {
+            if let Some(ident) = self.parse_identifier() {
+                targets.push(ident);
+            }
+
+            self.skip_newlines();
+            if self.at(&TokenKind::Comma) {
+                self.bump();
+                self.skip_newlines();
+                continue;
+            }
+            break;
+        }
+
+        let target_list_span = if !targets.is_empty() {
+            let first = targets.first().unwrap();
+            let last = targets.last().unwrap();
+            Span::cover(self.node_span(*first), self.node_span(*last))
+                .unwrap_or_else(|| self.node_span(*first))
+        } else {
+            Span::empty(
+                transaction_token.span().source_id(),
+                transaction_token.span().end(),
+            )
+        };
+
+        let target_list = self.add_node(
+            SyntaxNodeKind::TransactionTargetList,
+            target_list_span,
+            targets,
+        );
+
+        self.skip_newlines();
+
+        let body = self.parse_block()?;
+
+        let span = Span::cover(transaction_token.span(), self.node_span(body))
+            .unwrap_or_else(|| transaction_token.span());
+
+        Some(self.add_node(
+            SyntaxNodeKind::TransactionStatement,
+            span,
+            vec![target_list, body],
+        ))
+    }
+
+    pub(super) fn parse_rollback_statement(&mut self) -> Option<NodeId> {
+        let rollback_token = self.expect(TokenKind::Rollback)?;
+
+        self.expect_statement_end();
+
+        Some(self.add_node(
+            SyntaxNodeKind::RollbackStatement,
+            rollback_token.span(),
+            Vec::new(),
+        ))
     }
 }

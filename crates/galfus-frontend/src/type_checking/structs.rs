@@ -7,16 +7,19 @@ use crate::{SymbolKind, SyntaxNodeKind, TypeKind};
 use super::DeclarationTypeChecker;
 
 #[derive(Debug, Clone)]
-struct StructFieldInfo {
-    name: String,
-    ty: TypeId,
-    has_default: bool,
+pub(super) struct StructFieldInfo {
+    pub(super) name: String,
+    pub(super) ty: TypeId,
+    pub(super) has_default: bool,
 }
 
 impl<'a> DeclarationTypeChecker<'a> {
     pub(super) fn infer_struct_literal_type(&mut self, node: NodeId) -> Option<TypeId> {
-        let target = self.graph.syntax().child(node, 0)?;
-        let fields = self.graph.syntax().child(node, 1)?;
+        let syntax = self.graph.syntax();
+        let target = syntax.child(node, 0)?;
+        let fields = syntax
+            .node(node)
+            .and_then(|n| n.children().last().copied())?;
         let target_name = self.node_text(target);
 
         let Some((struct_symbol, target_type, struct_name)) = self.struct_literal_target(target)
@@ -133,7 +136,10 @@ impl<'a> DeclarationTypeChecker<'a> {
         }
     }
 
-    fn struct_literal_target(&mut self, target: NodeId) -> Option<(SymbolId, TypeId, String)> {
+    pub(super) fn struct_literal_target(
+        &mut self,
+        target: NodeId,
+    ) -> Option<(SymbolId, TypeId, String)> {
         let target_name = self.node_text(target);
 
         let (symbol, struct_name) = {
@@ -169,7 +175,7 @@ impl<'a> DeclarationTypeChecker<'a> {
         Some((symbol, ty, struct_name))
     }
 
-    fn struct_fields(&self, struct_symbol: SymbolId) -> Vec<StructFieldInfo> {
+    pub(super) fn struct_fields(&self, struct_symbol: SymbolId) -> Vec<StructFieldInfo> {
         let mut visited = HashSet::new();
         self.struct_fields_with_visited(struct_symbol, &mut visited)
     }

@@ -240,7 +240,7 @@ fn parse_stamp_function_item() {
     let root = syntax.root().unwrap();
 
     assert!(find_first_of_kind(syntax, root, SyntaxNodeKind::FunctionItem).is_some());
-    assert!(find_first_of_kind(syntax, root, SyntaxNodeKind::FunctionStamp).is_some());
+    assert!(find_first_of_kind(syntax, root, SyntaxNodeKind::KeywordMetadataList).is_some());
 }
 
 #[test]

@@ -144,6 +144,10 @@ pub enum TypeDiagnosticCode {
     InvalidStructSpreadTarget,
     RestrictedBuiltinSymbol,
     InvalidCopyTarget,
+    InvalidKeywordMetadata,
+    DuplicateControlTarget,
+    UnresolvedControlTarget,
+    RollbackOutsideTransaction,
 }
 
 impl DiagnosticCodeKind for TypeDiagnosticCode {
@@ -195,6 +199,10 @@ impl DiagnosticCodeKind for TypeDiagnosticCode {
             Self::InvalidStructSpreadTarget => "T0044",
             Self::RestrictedBuiltinSymbol => "T0045",
             Self::InvalidCopyTarget => "T0046",
+            Self::InvalidKeywordMetadata => "T0047",
+            Self::DuplicateControlTarget => "T0048",
+            Self::UnresolvedControlTarget => "T0049",
+            Self::RollbackOutsideTransaction => "T0050",
         }
     }
 
@@ -248,6 +256,10 @@ impl DiagnosticCodeKind for TypeDiagnosticCode {
             Self::InvalidStructSpreadTarget => "invalid struct spread target",
             Self::RestrictedBuiltinSymbol => "restricted builtin symbol usage",
             Self::InvalidCopyTarget => "invalid copy target",
+            Self::InvalidKeywordMetadata => "invalid keyword metadata",
+            Self::DuplicateControlTarget => "duplicate control target name",
+            Self::UnresolvedControlTarget => "unresolved control target",
+            Self::RollbackOutsideTransaction => "rollback statement outside of a transaction block",
         }
     }
 }

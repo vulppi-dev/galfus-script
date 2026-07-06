@@ -435,4 +435,68 @@ impl<'a> DeclarationTypeChecker<'a> {
             span,
         ));
     }
+
+    pub(super) fn report_invalid_keyword_metadata(
+        &mut self,
+        node: NodeId,
+        message: impl Into<String>,
+    ) {
+        let span = self
+            .graph
+            .syntax()
+            .node(node)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+            TypeDiagnosticCode::InvalidKeywordMetadata,
+            message.into(),
+            span,
+        ));
+    }
+
+    pub(super) fn report_duplicate_control_target(&mut self, node: NodeId, name: &str) {
+        let span = self
+            .graph
+            .syntax()
+            .node(node)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+            TypeDiagnosticCode::DuplicateControlTarget,
+            format!("duplicate control target name {name}"),
+            span,
+        ));
+    }
+
+    pub(super) fn report_unresolved_control_target(&mut self, node: NodeId, name: &str) {
+        let span = self
+            .graph
+            .syntax()
+            .node(node)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+            TypeDiagnosticCode::UnresolvedControlTarget,
+            format!("unresolved control target {name}"),
+            span,
+        ));
+    }
+
+    pub(super) fn report_rollback_outside_transaction(&mut self, node: NodeId) {
+        let span = self
+            .graph
+            .syntax()
+            .node(node)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+            TypeDiagnosticCode::RollbackOutsideTransaction,
+            "rollback statement outside of a transaction block".to_string(),
+            span,
+        ));
+    }
 }

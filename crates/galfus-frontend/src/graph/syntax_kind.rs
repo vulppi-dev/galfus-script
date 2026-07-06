@@ -60,6 +60,12 @@ pub enum SyntaxNodeKind {
     Decorator,
     DecoratorList,
 
+    // Keyword metadata
+    KeywordMetadataList,
+    KeywordMetadataFlag,
+    KeywordMetadataPair,
+    KeywordMetadataType,
+
     // Statements
     Block,
     ReturnStatement,
@@ -75,6 +81,11 @@ pub enum SyntaxNodeKind {
     LoopStatement,
     AssignmentStatement,
 
+    // Transactions
+    TransactionStatement,
+    TransactionTargetList,
+    RollbackStatement,
+
     // Patterns
     BindingPattern,
     TypePattern,
@@ -88,6 +99,10 @@ pub enum SyntaxNodeKind {
     ArrayBindingPattern,
     RestBindingPattern,
     WildcardPattern,
+
+    // Nominal Struct Patterns
+    StructPattern,
+    StructPatternField,
 
     // Binding helpers
     TypeAnnotation,
@@ -160,6 +175,9 @@ pub enum SyntaxNodeKind {
     BoolLiteral,
     NullLiteral,
     StringLiteral,
+
+    // Wildcard Expression
+    WildcardExpression,
 }
 
 impl SyntaxNodeKind {
@@ -192,6 +210,8 @@ impl SyntaxNodeKind {
                 | SyntaxNodeKind::ForStatement
                 | SyntaxNodeKind::LoopStatement
                 | SyntaxNodeKind::AssignmentStatement
+                | SyntaxNodeKind::TransactionStatement
+                | SyntaxNodeKind::RollbackStatement
         )
     }
 
@@ -224,6 +244,7 @@ impl SyntaxNodeKind {
                 | SyntaxNodeKind::MatchExpression
                 | SyntaxNodeKind::InstanceofExpression
                 | SyntaxNodeKind::NewArrayExpression
+                | SyntaxNodeKind::WildcardExpression
         )
     }
 
@@ -282,6 +303,8 @@ impl SyntaxNodeKind {
                 | SyntaxNodeKind::GenericArgumentList
                 | SyntaxNodeKind::StructLiteralFieldList
                 | SyntaxNodeKind::DecoratorList
+                | SyntaxNodeKind::KeywordMetadataList
+                | SyntaxNodeKind::TransactionTargetList
         )
     }
 
@@ -300,6 +323,8 @@ impl SyntaxNodeKind {
                 | SyntaxNodeKind::VariantPattern
                 | SyntaxNodeKind::VariantPatternPayload
                 | SyntaxNodeKind::LiteralPattern
+                | SyntaxNodeKind::StructPattern
+                | SyntaxNodeKind::StructPatternField
         )
     }
 }

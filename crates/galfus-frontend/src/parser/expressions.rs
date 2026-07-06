@@ -76,7 +76,16 @@ impl Parser {
             return self.parse_null_literal();
         }
 
-        if self.at(&TokenKind::Identifier) || self.at(&TokenKind::Underscore) {
+        if self.at(&TokenKind::Underscore) {
+            let token = self.bump();
+            return Some(self.add_node(
+                SyntaxNodeKind::WildcardExpression,
+                token.span(),
+                Vec::new(),
+            ));
+        }
+
+        if self.at(&TokenKind::Identifier) {
             return self.parse_name_expression();
         }
 

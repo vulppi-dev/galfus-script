@@ -452,6 +452,104 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                 Operand::Local(cond_temp)
             }
 
+            SyntaxNodeKind::StructPattern => {
+                let pattern_type = self
+                    .builder
+                    .type_result
+                    .layer()
+                    .node_type(pattern_node_id)
+                    .unwrap_or_else(|| TypeId::new(0));
+
+                let bool_ty = self
+                    .builder
+                    .type_result
+                    .layer()
+                    .table()
+                    .primitive(galfus_frontend::PrimitiveType::Bool);
+
+                let cond_temp = self.declare_local(None, bool_ty);
+                self.current_instructions.push(Instruction::Assign(
+                    cond_temp,
+                    RValue::Instanceof(subject.clone(), pattern_type),
+                ));
+
+                let mut and_conditions = Vec::new();
+                and_conditions.push(Operand::Local(cond_temp));
+
+                for &field in &pattern_node.children()[1..] {
+                    let field_node = syntax.node(field).unwrap();
+                    let field_ident = syntax
+                        .first_child_of_kind(field, SyntaxNodeKind::Identifier)
+                        .unwrap();
+                    let field_name = self.builder.node_text(field_ident).to_string();
+
+                    let field_ty = self
+                        .builder
+                        .type_result
+                        .layer()
+                        .node_type(field)
+                        .unwrap_or_else(|| TypeId::new(0));
+
+                    let field_temp = self.declare_local(None, field_ty);
+                    let extract_inst = Instruction::Assign(
+                        field_temp,
+                        RValue::MemberAccess(subject.clone(), field_name),
+                    );
+
+                    bindings.push(MirBody::BasicBlock(BasicBlock {
+                        id: self.builder.next_block(),
+                        instructions: vec![extract_inst],
+                        terminator: Terminator::None,
+                    }));
+
+                    let field_op = Operand::Local(field_temp);
+
+                    if field_node.children().len() > 1 {
+                        // Aliased: e.g. `x: pattern`
+                        let inner_pattern = field_node.child(1).unwrap();
+                        let mut inner_bindings = Vec::new();
+                        let inner_cond = self.lower_pattern_check(
+                            inner_pattern,
+                            &field_op,
+                            statements,
+                            &mut inner_bindings,
+                        );
+                        and_conditions.push(inner_cond);
+                        bindings.extend(inner_bindings);
+                    } else {
+                        // Shorthand: binds the variable to local
+                        if let Some(res) = resolution {
+                            let ident = syntax
+                                .first_child_of_kind(field, SyntaxNodeKind::Identifier)
+                                .unwrap();
+                            if let Some(symbol) = res.declaration_symbol(ident) {
+                                let local_id = self.declare_local(Some(symbol), field_ty);
+                                self.symbol_to_local.insert(symbol, local_id);
+                                let bind_inst =
+                                    Instruction::Assign(local_id, RValue::Use(field_op));
+                                bindings.push(MirBody::BasicBlock(BasicBlock {
+                                    id: self.builder.next_block(),
+                                    instructions: vec![bind_inst],
+                                    terminator: Terminator::None,
+                                }));
+                            }
+                        }
+                    }
+                }
+
+                let mut final_cond = and_conditions[0].clone();
+                for next_cond in &and_conditions[1..] {
+                    let temp = self.declare_local(None, bool_ty);
+                    self.current_instructions.push(Instruction::Assign(
+                        temp,
+                        RValue::BinaryOp(MirBinaryOp::LogicalAnd, final_cond, next_cond.clone()),
+                    ));
+                    final_cond = Operand::Local(temp);
+                }
+
+                final_cond
+            }
+
             _ => Operand::Constant(Constant::Null),
         }
     }

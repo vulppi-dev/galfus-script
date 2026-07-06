@@ -491,10 +491,10 @@ fn check_path_typechecks_namespace_imported_anchor_function() -> Result<()> {
         "user.gfs",
         r#"
         export struct User {
-            name: [int8],
+            name: [uint8],
         }
 
-        export fn User::rename(self: User, name: [int8]): User {
+        export fn User::rename(self: User, name: [uint8]): User {
             return self
         }
         "#,

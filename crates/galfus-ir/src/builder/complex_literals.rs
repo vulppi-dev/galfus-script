@@ -20,7 +20,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
 
         if let Some(struct_symbol) = self.struct_symbol_for_type(struct_type) {
             let fields_list_node = if node.kind() == SyntaxNodeKind::StructLiteral {
-                node.child(1)
+                node.children().last().copied()
             } else {
                 node.child(0)
             };
@@ -324,7 +324,32 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
             _ => return Operand::Constant(Constant::Null),
         };
 
-        let storage = if node.child_count() > 1 {
+        let storage = if let Some(metadata_list_node) = self
+            .builder
+            .graph
+            .syntax()
+            .first_child_of_kind(expr_id, SyntaxNodeKind::KeywordMetadataList)
+        {
+            let mut found_shared = false;
+            if let Some(metadata_list) = self.builder.graph.syntax().node(metadata_list_node) {
+                for child in metadata_list.children() {
+                    if let Some(child_node) = self.builder.graph.syntax().node(*child) {
+                        if child_node.kind() == SyntaxNodeKind::KeywordMetadataFlag {
+                            if let Some(flag_ident) = self.builder.graph.syntax().child(*child, 0) {
+                                if self.builder.node_text(flag_ident) == "shared" {
+                                    found_shared = true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if found_shared {
+                StorageMetadata::Shared
+            } else {
+                StorageMetadata::Local
+            }
+        } else if node.child_count() > 1 {
             let storage_ident = node.child(1).unwrap();
             let tag = self.builder.node_text(storage_ident);
 

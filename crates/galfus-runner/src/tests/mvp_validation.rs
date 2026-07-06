@@ -47,7 +47,7 @@ var values: [int32] = [0, ...fixed, 4]
 var last: int32 | null = values[-1]
 var point: (int32, bool) = (1, true)
 
-enum<uint8> Mode {
+enum(uint8) Mode {
   Off(0),
   On(1),
 }
@@ -271,7 +271,7 @@ fn main(values: [int32]): null {
         root.as_path(),
         "type_error.gfs",
         r#"
-enum<bool> Mode {
+enum(bool) Mode {
   Off,
   On,
 }

@@ -40,6 +40,14 @@ impl<'a> DeclarationTypeChecker<'a> {
                 continue;
             }
 
+            if kind == SyntaxNodeKind::FunctionItem && self.is_function_stamped(node) {
+                self.report_invalid_decorator_usage(
+                    child,
+                    "decorators are not allowed on stamped functions".to_string(),
+                );
+                continue;
+            }
+
             let Some(target_type) = self.decorated_target_type(node) else {
                 self.report_invalid_decorator_usage(child, "cannot infer decorated target type");
                 continue;

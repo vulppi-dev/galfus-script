@@ -36,16 +36,20 @@ import format from "format"
 export fn main(args: [[uint8]]): int32 {
   var parsed = format::parse<bool>("true")
 
-  return match parsed {
+  var res: int32 = 0
+  match parsed {
     format::ParseResult::Ok(value) => {
       if value {
-        return 1
+        res = 1
+      } else {
+        res = 0
       }
-
-      return 0
     },
-    format::ParseResult::Err(error) => 0,
+    format::ParseResult::Err(error) => {
+      res = 0
+    },
   }
+  return res
 }
 "#,
     )?;

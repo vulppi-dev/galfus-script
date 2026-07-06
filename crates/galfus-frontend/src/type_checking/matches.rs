@@ -120,6 +120,10 @@ impl<'a> DeclarationTypeChecker<'a> {
                 self.layer.bind_node_type(pattern, expected);
             }
 
+            SyntaxNodeKind::StructPattern => {
+                self.check_struct_match_pattern_type(pattern, expected);
+            }
+
             _ => {}
         }
     }
@@ -288,10 +292,11 @@ impl<'a> DeclarationTypeChecker<'a> {
             return false;
         };
 
-        let owner_type = self
-            .layer
-            .table_mut()
-            .intern_path(owner_symbol, vec![choice.name.clone()]);
+        let owner_type = self.layer.symbol_type(owner_symbol).unwrap_or_else(|| {
+            self.layer
+                .table_mut()
+                .intern_path(owner_symbol, vec![choice.name.clone()])
+        });
 
         let mut expected_choice_type = expected;
         let mut generic_arguments = Vec::new();
@@ -673,5 +678,63 @@ impl<'a> DeclarationTypeChecker<'a> {
         }
 
         None
+    }
+
+    fn check_struct_match_pattern_type(&mut self, pattern: NodeId, expected: TypeId) {
+        let type_node = self.graph.syntax().child(pattern, 0).unwrap();
+
+        let Some((struct_symbol, target_type, struct_name)) = self.struct_literal_target(type_node)
+        else {
+            let target_name = self.node_text(type_node);
+            self.report_invalid_struct_literal_target(type_node, target_name.as_str());
+            let err = self.layer.table_mut().error();
+            self.layer.bind_node_type(pattern, err);
+            return;
+        };
+
+        if !self.is_assignable(expected, target_type) {
+            self.report_invalid_match_pattern_type(pattern, expected, target_type);
+            let err = self.layer.table_mut().error();
+            self.layer.bind_node_type(pattern, err);
+            return;
+        }
+
+        let expected_fields = self.struct_fields(struct_symbol);
+
+        let syntax = self.graph.syntax();
+        let pattern_node = syntax.node(pattern).unwrap();
+        // The rest of children are StructPatternField nodes
+        for &field in &pattern_node.children()[1..] {
+            let field_node = syntax.node(field).unwrap();
+            let field_ident = syntax
+                .first_child_of_kind(field, SyntaxNodeKind::Identifier)
+                .unwrap();
+            let field_name = self.node_text(field_ident);
+
+            let Some(expected_field) = expected_fields
+                .iter()
+                .find(|candidate| candidate.name == field_name)
+            else {
+                self.report_unknown_struct_field(field, field_name.as_str(), struct_name.as_str());
+                continue;
+            };
+
+            self.layer.bind_node_type(field, expected_field.ty);
+
+            // If there's an alias/pattern check it, otherwise bind pattern binding
+            if field_node.children().len() > 1 {
+                let inner_pattern = field_node.child(1).unwrap();
+                self.check_match_pattern_type(inner_pattern, expected_field.ty);
+            } else {
+                // Shorthand: bind the identifier to the field type
+                let symbols =
+                    self.declaration_symbols_in_node(field, &[SymbolKind::PatternBinding]);
+                for symbol in symbols {
+                    self.layer.bind_symbol_type(symbol, expected_field.ty);
+                }
+            }
+        }
+
+        self.layer.bind_node_type(pattern, target_type);
     }
 }

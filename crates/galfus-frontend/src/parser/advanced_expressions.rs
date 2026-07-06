@@ -20,14 +20,53 @@ impl Parser {
         Some(self.add_node(SyntaxNodeKind::InferredStructLiteral, span, vec![fields]))
     }
 
-    /// Dispatches after seeing `new(` — produces either a `StructLiteral` or a
-    /// `NewArrayExpression` depending on what type was parsed.
     pub(super) fn parse_typed_new_after_paren(&mut self, new_token: Token) -> Option<NodeId> {
         self.expect(TokenKind::LeftParen)?;
 
         self.skip_newlines();
 
         let type_node = self.parse_type()?;
+
+        self.skip_newlines();
+
+        let mut metadata_items = Vec::new();
+        let mut metadata_span = None;
+
+        while self.at(&TokenKind::Comma) {
+            self.bump();
+            self.skip_newlines();
+
+            if self.at(&TokenKind::RightParen) {
+                break;
+            }
+
+            let start_position = self.position;
+            if let Some(item) = self.parse_keyword_metadata_item() {
+                if metadata_span.is_none() {
+                    metadata_span = Some(self.node_span(item));
+                } else {
+                    metadata_span = Some(
+                        Span::cover(metadata_span.unwrap(), self.node_span(item))
+                            .unwrap_or(metadata_span.unwrap()),
+                    );
+                }
+                metadata_items.push(item);
+            }
+
+            self.skip_newlines();
+            if self.position == start_position {
+                self.bump();
+            }
+        }
+
+        let close = self.expect(TokenKind::RightParen)?;
+
+        let metadata_list = if !metadata_items.is_empty() {
+            let span = metadata_span.unwrap_or(close.span());
+            Some(self.add_node(SyntaxNodeKind::KeywordMetadataList, span, metadata_items))
+        } else {
+            None
+        };
 
         self.skip_newlines();
 
@@ -44,40 +83,28 @@ impl Parser {
             type_kind,
             SyntaxNodeKind::ArrayType | SyntaxNodeKind::FixedArrayType
         ) {
-            // Optional second argument: storage tag (e.g. `shared`)
-            let storage = if self.at(&TokenKind::Comma) {
-                self.bump();
-                self.skip_newlines();
-                Some(self.parse_identifier()?)
-            } else {
-                None
-            };
-
-            self.skip_newlines();
-
-            let close = self.expect(TokenKind::RightParen)?;
-
             let span = Span::cover(new_token.span(), close.span()).unwrap_or(new_token.span());
 
             let mut children = vec![type_node];
-            if let Some(storage_ident) = storage {
-                children.push(storage_ident);
+            if let Some(metadata) = metadata_list {
+                children.push(metadata);
             }
 
             return Some(self.add_node(SyntaxNodeKind::NewArrayExpression, span, children));
         }
-
-        // Struct path: existing behaviour.
-        self.expect(TokenKind::RightParen)?;
-
-        self.skip_newlines();
 
         let fields = self.parse_struct_literal_field_list()?;
 
         let span =
             Span::cover(new_token.span(), self.node_span(fields)).unwrap_or(new_token.span());
 
-        Some(self.add_node(SyntaxNodeKind::StructLiteral, span, vec![type_node, fields]))
+        let mut children = vec![type_node];
+        if let Some(metadata) = metadata_list {
+            children.push(metadata);
+        }
+        children.push(fields);
+
+        Some(self.add_node(SyntaxNodeKind::StructLiteral, span, children))
     }
 
     pub(super) fn parse_arrow_function_expression(&mut self) -> Option<NodeId> {
