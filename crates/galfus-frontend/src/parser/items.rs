@@ -136,7 +136,10 @@ impl Parser {
         let fn_token = self.expect(TokenKind::Fn)?;
         self.skip_newlines();
 
-        let stamp = if self.at(&TokenKind::LeftParen) && self.peek(1).kind() == &TokenKind::Stamp {
+        let stamp = if self.at(&TokenKind::LeftParen)
+            && self.peek(1).kind() == &TokenKind::Identifier
+            && self.token_text(self.peek(1)) == "stamp"
+        {
             self.bump();
             let stamp_token = self.bump();
             self.expect(TokenKind::RightParen)?;

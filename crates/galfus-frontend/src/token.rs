@@ -63,7 +63,8 @@ pub enum TokenKind {
     False,
     New,
     Copy,
-    Stamp,
+    Transaction,
+    Rollback,
 
     // Delimiters
     LeftParen,    // (

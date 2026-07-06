@@ -50,6 +50,7 @@ pub struct Parser {
     tokens: Vec<Token>,
     position: usize,
     graph: ModuleGraph,
+    source_text: String,
 }
 
 impl Parser {
@@ -62,7 +63,13 @@ impl Parser {
             tokens,
             position: 0,
             graph,
+            source_text: source.text().to_string(),
         }
+    }
+
+    fn token_text(&self, token: &Token) -> &str {
+        let span = token.span();
+        &self.source_text[span.start() as usize..span.end() as usize]
     }
 
     pub fn finish(mut self) -> ParseResult {

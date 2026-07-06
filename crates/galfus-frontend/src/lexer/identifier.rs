@@ -34,7 +34,8 @@ impl Lexer<'_> {
             "false" => TokenKind::False,
             "new" => TokenKind::New,
             "copy" => TokenKind::Copy,
-            "stamp" => TokenKind::Stamp,
+            "transaction" => TokenKind::Transaction,
+            "rollback" => TokenKind::Rollback,
             _ => return None,
         };
 
