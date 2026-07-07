@@ -60,11 +60,9 @@ impl EntryAbi {
     }
 
     fn accepts_return_type(self, ty: &galfus_image::ImageType) -> bool {
-        let res = matches!(
-            (self.return_type, ty),
-            (EntryReturnType::Int32, galfus_image::ImageType::Int32)
-        );
-        res
+        match self.return_type {
+            EntryReturnType::Int32 => ty == &galfus_image::ImageType::Int32,
+        }
     }
 }
 

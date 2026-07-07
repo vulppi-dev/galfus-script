@@ -335,12 +335,22 @@ impl<'a> LowerCtx<'a> {
             return idx;
         }
 
-        let next_idx = ChoiceLayoutIdx(self.choice_layouts.len() as u16);
-        self.choice_map.insert(choice_symbol, next_idx);
-
         let resolution = self.graph.resolution().unwrap();
         let symbol_data = resolution.symbol(choice_symbol).unwrap();
         let choice_name = symbol_data.name().to_string();
+
+        if let Some(pos) = self
+            .choice_layouts
+            .iter()
+            .position(|layout| layout.name == choice_name)
+        {
+            let idx = ChoiceLayoutIdx(pos as u16);
+            self.choice_map.insert(choice_symbol, idx);
+            return idx;
+        }
+
+        let next_idx = ChoiceLayoutIdx(self.choice_layouts.len() as u16);
+        self.choice_map.insert(choice_symbol, next_idx);
 
         let raw_variants = self.get_choice_variants(choice_symbol);
         let variants = raw_variants

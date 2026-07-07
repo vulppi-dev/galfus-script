@@ -22,7 +22,7 @@ export fn main(args: [[uint8]]): int32 {
 "#,
     )?;
 
-    assert_eq!(format!("{result:?}"), "123");
+    assert_eq!(result, "123");
     Ok(())
 }
 
@@ -54,7 +54,7 @@ export fn main(args: [[uint8]]): int32 {
 "#,
     )?;
 
-    assert_eq!(format!("{result:?}"), "1");
+    assert_eq!(result, "1");
     Ok(())
 }
 
@@ -68,15 +68,105 @@ import format from "format"
 export fn main(args: [[uint8]]): int32 {
   var parsed = format::parse<int32>("abc")
 
-  return match parsed {
-    format::ParseResult::Ok(value) => value,
-    format::ParseResult::Err(error) => 7,
+  var res: int32 = 7
+  match parsed {
+    format::ParseResult::Ok(value) => {
+      res = 0
+    },
+    format::ParseResult::Err(error) => {
+      res = 7
+    },
   }
+  return res
 }
 "#,
     )?;
 
-    assert_eq!(format!("{result:?}"), "7");
+    assert_eq!(result, "7");
+    Ok(())
+}
+
+#[test]
+fn format_parse_float64_standard_decimal_success() -> anyhow::Result<()> {
+    let result = run_main(
+        "galfus_format_parse_float64_standard_decimal",
+        r#"
+import format from "format"
+
+export fn main(args: [[uint8]]): int32 {
+  var parsed = format::parse<float64>("-0.1")
+
+  var res: int32 = 0
+  match parsed {
+    format::ParseResult::Ok(value) => {
+      res = 1
+    },
+    format::ParseResult::Err(error) => {
+      res = 0
+    },
+  }
+  return res
+}
+"#,
+    )?;
+
+    assert_eq!(result, "1");
+    Ok(())
+}
+
+#[test]
+fn format_parse_float64_rejects_leading_dot() -> anyhow::Result<()> {
+    let result = run_main(
+        "galfus_format_parse_float64_leading_dot",
+        r#"
+import format from "format"
+
+export fn main(args: [[uint8]]): int32 {
+  var parsed = format::parse<float64>(".1")
+
+  var res: int32 = 1
+  match parsed {
+    format::ParseResult::Ok(value) => {
+      res = 0
+    },
+    format::ParseResult::Err(error) => {
+      res = 1
+    },
+  }
+  return res
+}
+"#,
+    )?;
+
+    assert_eq!(result, "1");
+    Ok(())
+}
+
+#[test]
+fn format_parse_float64_rejects_exponent() -> anyhow::Result<()> {
+    let result = run_main(
+        "galfus_format_parse_float64_exponent",
+        r#"
+import format from "format"
+
+export fn main(args: [[uint8]]): int32 {
+  var parsed = format::parse<float64>("1e2")
+
+  var res: int32 = 1
+  match parsed {
+    format::ParseResult::Ok(value) => {
+      res = 0
+    },
+    format::ParseResult::Err(error) => {
+      res = 1
+    },
+  }
+  return res
+}
+"#,
+    )?;
+
+    assert_eq!(result, "1");
     Ok(())
 }
 
