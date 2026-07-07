@@ -2,7 +2,10 @@ use anyhow::Result;
 use galfus_core::DiagnosticBag;
 use std::{fs, path::Path};
 
-use crate::{CheckResult, CheckedModule, ModuleLoader, WorkspaceDiagnosticCode};
+use crate::check::{CheckResult, CheckedModule, ModuleLoader};
+use crate::diagnostic::WorkspaceDiagnosticCode;
+use crate::module::normalize_existing_path;
+use crate::print::print_check_result;
 
 use super::config::{parse_workspace_config, workspace_span};
 use super::graph::WorkspaceGraph;
@@ -102,12 +105,12 @@ pub fn check_workspace(root: impl AsRef<Path>) -> Result<WorkspaceCheckResult> {
     let mut loader = ModuleLoader::default();
 
     if let Some(entry) = config.entry() {
-        let entry = crate::normalize_existing_path(entry)?;
+        let entry = normalize_existing_path(entry)?;
         loader.load_module(entry)?;
     }
 
     for export in config.exports() {
-        let path = crate::normalize_existing_path(export.path())?;
+        let path = normalize_existing_path(export.path())?;
         loader.load_module(path)?;
     }
 
@@ -128,7 +131,7 @@ pub fn check_workspace(root: impl AsRef<Path>) -> Result<WorkspaceCheckResult> {
 
 pub fn check_workspace_root(root: &str) -> Result<()> {
     let result = check_workspace(root)?;
-    crate::print_check_result(result.check_result());
+    print_check_result(result.check_result());
     Ok(())
 }
 

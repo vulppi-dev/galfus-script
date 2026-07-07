@@ -1,6 +1,7 @@
 use galfus_core::DiagnosticCodeKind;
 
-use crate::{CheckDiagnosticCode, check::check_path};
+use crate::check::check_path;
+use crate::diagnostic::CheckDiagnosticCode;
 use anyhow::Result;
 use galfus_frontend::TypeDiagnosticCode;
 use std::{

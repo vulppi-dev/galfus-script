@@ -2,9 +2,9 @@ use std::path::Path;
 
 use anyhow::Result;
 
-use crate::{
-    WorkspaceGraph, check_path, check_workspace, compile_workspace_to_image, print_check_result,
-};
+use crate::check::check_path;
+use crate::print::print_check_result;
+use crate::workspace::*;
 
 pub fn run_project(path: &str, cli_args: &[String]) -> Result<()> {
     let path = Path::new(path);
@@ -33,7 +33,7 @@ pub fn run_project(path: &str, cli_args: &[String]) -> Result<()> {
 
         let entry_path = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
         let graph = WorkspaceGraph::for_single_file(&entry_path, check_result.modules())?;
-        let ws_check_result = crate::WorkspaceCheckResult::new(check_result, graph);
+        let ws_check_result = WorkspaceCheckResult::new(check_result, graph);
         let module_image = compile_workspace_to_image(&ws_check_result)?;
 
         (module_image, "main".to_string(), Vec::new())

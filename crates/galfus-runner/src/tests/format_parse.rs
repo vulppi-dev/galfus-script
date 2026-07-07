@@ -1,8 +1,9 @@
-use crate::{check_workspace, compile_workspace_to_image};
 use galfus_runtime::Runtime;
 use galfus_target::WebTarget;
 use std::fs;
 use std::path::PathBuf;
+
+use crate::workspace::{check_workspace, compile_workspace_to_image};
 
 #[test]
 fn format_parse_int32_success() -> anyhow::Result<()> {

@@ -1,7 +1,6 @@
 use anyhow::Result;
 use std::path::{Path, PathBuf};
 
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum ModuleSource {
     File(PathBuf),

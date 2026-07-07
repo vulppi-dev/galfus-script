@@ -1,17 +1,17 @@
-use crate::*;
 use anyhow::Result;
 use galfus_core::{Diagnostic, DiagnosticBag, NodeId, SourceFile, SourceId, SymbolId};
-use galfus_frontend::{
-    ImportKind, ImportedSurfaceTypes, ModuleGraph, ModuleSurface, ResolutionLayer, SyntaxNodeKind,
-    TypeCheckResult, build_module_surface, check_declaration_types,
-    check_declaration_types_with_surfaces, imported_surface_types_for_named_export,
-    imported_surface_types_for_namespace, parse, resolve,
-};
-pub(crate) use references::check_path;
+use galfus_frontend::*;
 use std::{
     collections::{HashMap, HashSet},
     path::{Path, PathBuf},
 };
+
+use crate::{
+    ModuleSource, WorkspaceResolver, diagnostic::CheckDiagnosticCode,
+    module::normalize_existing_path, print::print_check_result,
+};
+
+pub(crate) use references::check_path;
 
 mod references;
 

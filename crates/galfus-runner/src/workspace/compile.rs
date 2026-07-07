@@ -14,7 +14,11 @@ use galfus_ir::mir::{
 };
 use std::collections::{HashMap, HashSet};
 
-use crate::{CheckedModule, WorkspaceCheckResult, WorkspaceResolver, WorkspaceRootKind};
+use crate::{
+    WorkspaceResolver,
+    check::CheckedModule,
+    workspace::{WorkspaceCheckResult, WorkspaceRootKind},
+};
 
 struct MyWorkspaceContext<'a> {
     modules: &'a [CheckedModule],

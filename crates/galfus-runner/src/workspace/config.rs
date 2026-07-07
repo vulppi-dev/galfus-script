@@ -5,8 +5,9 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::WorkspaceDiagnosticCode;
 use galfus_core::SourceId;
+
+use crate::diagnostic::WorkspaceDiagnosticCode;
 
 pub(crate) const WORKSPACE_SOURCE_ID: SourceId = SourceId::new(u32::MAX);
 

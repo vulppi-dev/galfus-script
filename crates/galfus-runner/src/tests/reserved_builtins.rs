@@ -1,6 +1,7 @@
-use crate::check_workspace;
 use std::fs;
 use std::path::PathBuf;
+
+use crate::workspace::check_workspace;
 
 #[test]
 fn user_file_cannot_declare_builtin_function_key() -> anyhow::Result<()> {

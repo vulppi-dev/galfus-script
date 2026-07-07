@@ -1,4 +1,19 @@
-use super::*;
+use std::path::Path;
+
+use anyhow::Result;
+use galfus_core::{Diagnostic, NodeId};
+use galfus_frontend::{
+    ImportKind, ImportedSurfaceTypes, ModuleSurface, ResolutionLayer, SyntaxNodeKind,
+    imported_surface_types_for_namespace,
+};
+
+use crate::{
+    check::{
+        CheckResult, ModuleLoader, NamedTypeCheckRecord, PathCheckRecord, PathSegmentRecord,
+        is_resolvable_import,
+    },
+    diagnostic::CheckDiagnosticCode,
+};
 
 impl ModuleLoader {
     pub(super) fn collect_named_imported_path_types(

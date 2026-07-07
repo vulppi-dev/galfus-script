@@ -1,7 +1,8 @@
 use galfus_core::DiagnosticCodeKind;
 use galfus_frontend::{ImportKind, TypeDiagnosticCode};
 
-use crate::{WorkspaceDiagnosticCode, workspace::check_workspace};
+use crate::diagnostic::WorkspaceDiagnosticCode;
+use crate::workspace::check_workspace;
 use anyhow::Result;
 use std::{
     fs,
