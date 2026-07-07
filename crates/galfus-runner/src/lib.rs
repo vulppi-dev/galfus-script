@@ -24,6 +24,7 @@ const STD_IO_MODULE: &str = "std/io";
 const TEXT_MODULE: &str = "text";
 const FORMAT_MODULE: &str = "format";
 const FORMAT_ANSI_MODULE: &str = "format/ansi";
+const BUFFER_MODULE: &str = "std/buffer";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum ModuleSource {
@@ -83,7 +84,8 @@ impl ModuleSourceProvider for BuiltinSourceProvider {
             s if s == STD_IO_MODULE
                 || s == TEXT_MODULE
                 || s == FORMAT_MODULE
-                || s == FORMAT_ANSI_MODULE =>
+                || s == FORMAT_ANSI_MODULE
+                || s == BUFFER_MODULE =>
             {
                 Ok(Some(ModuleSource::Builtin {
                     name: source.to_string(),
@@ -106,6 +108,9 @@ impl ModuleSourceProvider for BuiltinSourceProvider {
             }
             ModuleSource::Builtin { name } if name == FORMAT_ANSI_MODULE => {
                 Ok(galfus_builtins::FORMAT_ANSI_SOURCE.to_string())
+            }
+            ModuleSource::Builtin { name } if name == BUFFER_MODULE => {
+                Ok(galfus_builtins::BUFFER_SOURCE.to_string())
             }
             ModuleSource::Builtin { name } => Err(anyhow::anyhow!("unknown builtin `{name}`")),
             ModuleSource::File(_) => unreachable!("builtin provider received file source"),

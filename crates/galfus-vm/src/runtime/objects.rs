@@ -137,14 +137,11 @@ impl VirtualMachine {
                     let heap_obj = self.get_object(obj_ref)?;
                     let val = match heap_obj {
                         HeapObject::Array { elements, .. } | HeapObject::Tuple { elements } => {
-                            let index = self
-                                .resolve_raw_array_index(raw_index, elements.len())
-                                .ok_or(VmError::IndexOutOfBounds {
-                                    index: raw_index,
-                                    len: elements.len(),
-                                })?;
-
-                            elements[index].clone()
+                            if let Some(index) = self.resolve_raw_array_index(raw_index, elements.len()) {
+                                elements[index].clone()
+                            } else {
+                                Value::Null
+                            }
                         }
                         _ => {
                             return Err(VmError::TypeMismatch {
@@ -494,8 +491,7 @@ impl VirtualMachine {
         }
     }
 
-    /// Returns the zero/default `Value` for a given element `TypeIdx`.
-    /// Used by `NewArray` to fill the backing buffer instead of `Value::Null`.
+    /// Returns the default `Value` for element types that can be safely default-initialized.
     fn zero_value_for_type(&self, type_idx: TypeIdx) -> Result<Value, VmError> {
         let ty = self
             .image
@@ -515,8 +511,13 @@ impl VirtualMachine {
             ImageType::Uint64 => Value::Uint64(0),
             ImageType::Float32 => Value::Float32(0.0),
             ImageType::Float64 => Value::Float64(0.0),
-            // For complex/unknown types fall back to Null.
-            _ => Value::Null,
+            ImageType::Null => Value::Null,
+            _ => {
+                return Err(VmError::TypeMismatch {
+                    expected: "defaultable array element type".to_string(),
+                    found: format!("{:?}", ty),
+                });
+            }
         })
     }
 }

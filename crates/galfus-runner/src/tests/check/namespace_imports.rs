@@ -103,7 +103,7 @@ fn check_path_accepts_rich_builtin_namespace_imports() -> Result<()> {
     let main = write_file(
         root.as_path(),
         "main.gfs",
-        r#"
+        r##"
 import text from "text"
 import format from "format"
 import ansi from "format/ansi"
@@ -116,7 +116,7 @@ var styled: [uint8] = ansi::red()::apply("error")
 fn main(): null {
   return
 }
-"#,
+"##,
     )?;
 
     let result = check_path(main.as_path())?;
@@ -126,6 +126,76 @@ fn main(): null {
         "rich builtin imports should check: {:?}",
         result.diagnostics()
     );
+
+    fs::remove_dir_all(root)?;
+    Ok(())
+}
+
+#[test]
+fn check_path_accepts_buffer_create_for_nullable_struct() -> Result<()> {
+    let root = temp_project()?;
+
+    let main = write_file(
+        root.as_path(),
+        "main.gfs",
+        r##"
+import buffer from "std/buffer"
+
+struct User {
+  id: int32,
+}
+
+var users = buffer::create<User | null>(3)
+
+fn main(): null {
+  return
+}
+"##,
+    )?;
+
+    let result = check_path(main.as_path())?;
+
+    assert!(
+        !result.has_errors(),
+        "nullable buffer element should check: {:?}",
+        result.diagnostics()
+    );
+
+    fs::remove_dir_all(root)?;
+    Ok(())
+}
+
+#[test]
+fn check_path_rejects_buffer_create_for_non_defaultable_struct() -> Result<()> {
+    let root = temp_project()?;
+
+    let main = write_file(
+        root.as_path(),
+        "main.gfs",
+        r##"
+import buffer from "std/buffer"
+
+struct User {
+  id: int32,
+}
+
+var users = buffer::create<User>(3)
+
+fn main(): null {
+  return
+}
+"##,
+    )?;
+
+    let result = check_path(main.as_path())?;
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::InvalidBufferElement.as_code()
+            && diagnostic
+                .message()
+                .contains("not defaultable or nullable")
+    }));
 
     fs::remove_dir_all(root)?;
     Ok(())

@@ -499,4 +499,22 @@ impl<'a> DeclarationTypeChecker<'a> {
             span,
         ));
     }
+
+    pub(super) fn report_invalid_buffer_element(&mut self, node: NodeId, actual: TypeId) {
+        let span = self
+            .graph
+            .syntax()
+            .node(node)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        let actual = self.layer.table().describe(actual);
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+            TypeDiagnosticCode::InvalidBufferElement,
+            format!("type `{actual}` is not defaultable or nullable"),
+            span,
+        ));
+    }
 }
+

@@ -18,6 +18,7 @@ pub fn lower_module(
     for (i, func) in mir_module.functions.iter().enumerate() {
         ctx.function_map.insert(func.id, FuncIdx(i as u16));
         ctx.function_names.insert(func.id, func.name.clone());
+        ctx.function_return_types.insert(func.id, func.return_type);
     }
 
     let mut functions = Vec::new();

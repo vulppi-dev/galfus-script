@@ -1,6 +1,8 @@
 use anyhow::Result;
-use galfus_core::{FunctionId, NodeId, SymbolId};
-use galfus_frontend::{SymbolKind, SyntaxNodeKind};
+use galfus_core::{FunctionId, NodeId, SymbolId, TypeId};
+use galfus_frontend::{SymbolKind, SyntaxNodeKind, FunctionParameterType, FunctionType, TypeKind, TypeTable};
+use galfus_ir::builder::WorkspaceContext;
+use galfus_ir::mir::MirFunction;
 use galfus_image::{
     ConstantPool, ImageFunction, ImageType, ModuleImage,
     instruction::{FuncIdx, Instruction, Reg, TypeIdx},
@@ -23,8 +25,239 @@ pub fn compile_workspace_to_gfb(
     Ok(())
 }
 
+struct MyWorkspaceContext<'a> {
+    modules: &'a [CheckedModule],
+    specialisations: HashMap<(usize, SymbolId, Vec<TypeId>), FunctionId>,
+    specialised_functions: Vec<Vec<MirFunction>>,
+    specialised_id_to_target: HashMap<FunctionId, (usize, FunctionId)>,
+    next_specialised_id: u32,
+}
+
+impl<'a> MyWorkspaceContext<'a> {
+    fn new(modules: &'a [CheckedModule]) -> Self {
+        Self {
+            modules,
+            specialisations: HashMap::new(),
+            specialised_functions: vec![Vec::new(); modules.len()],
+            specialised_id_to_target: HashMap::new(),
+            next_specialised_id: 0x7FFF_FFFF,
+        }
+    }
+
+    fn translate_symbol(&self, caller_mod_idx: usize, target_mod_idx: usize, sym: SymbolId) -> SymbolId {
+        let caller_res = match self.modules[caller_mod_idx].graph().resolution() {
+            Some(res) => res,
+            None => return sym,
+        };
+        let caller_sym_data = match caller_res.symbol(sym) {
+            Some(s) => s,
+            None => return sym,
+        };
+        let sym_name = caller_sym_data.name();
+        
+        let target_res = match self.modules[target_mod_idx].graph().resolution() {
+            Some(res) => res,
+            None => return sym,
+        };
+        
+        // 1. Look in target's internal/declared symbols
+        for target_sym in target_res.symbols() {
+            if target_sym.name() == sym_name {
+                return target_sym.id();
+            }
+        }
+        
+        // 2. Look in target's imports
+        for import in target_res.imports() {
+            if import.local_name() == sym_name {
+                return import.local_symbol();
+            }
+        }
+        
+        sym
+    }
+
+    fn translate_type(&self, caller_mod_idx: usize, target_mod_idx: usize, ty: TypeId) -> TypeId {
+        let caller_module = &self.modules[caller_mod_idx];
+        let caller_table = caller_module.type_result().unwrap().layer().table();
+        
+        let modules_ptr = self.modules.as_ptr() as usize as *mut CheckedModule;
+        let target_module_mut = unsafe { &mut *modules_ptr.add(target_mod_idx) };
+        let target_table = target_module_mut.type_result_mut().unwrap().layer_mut().table_mut();
+        
+        self.translate_type_helper(caller_mod_idx, target_mod_idx, caller_table, target_table, ty)
+    }
+
+    fn translate_type_helper(&self, caller_mod_idx: usize, target_mod_idx: usize, caller_table: &TypeTable, target_table: &mut TypeTable, ty: TypeId) -> TypeId {
+        let kind = match caller_table.kind(ty) {
+            Some(k) => k,
+            None => return ty,
+        };
+        
+        let translated_kind = match kind {
+            TypeKind::Primitive(prim) => TypeKind::Primitive(*prim),
+            TypeKind::Named { symbol } => {
+                let target_symbol = self.translate_symbol(caller_mod_idx, target_mod_idx, *symbol);
+                TypeKind::Named { symbol: target_symbol }
+            }
+            TypeKind::GenericParameter { symbol } => {
+                let target_symbol = self.translate_symbol(caller_mod_idx, target_mod_idx, *symbol);
+                TypeKind::GenericParameter { symbol: target_symbol }
+            }
+            TypeKind::Array { element } => {
+                let target_element = self.translate_type_helper(caller_mod_idx, target_mod_idx, caller_table, target_table, *element);
+                TypeKind::Array { element: target_element }
+            }
+            TypeKind::FixedArray { element, size } => {
+                let target_element = self.translate_type_helper(caller_mod_idx, target_mod_idx, caller_table, target_table, *element);
+                TypeKind::FixedArray { element: target_element, size: *size }
+            }
+            TypeKind::Range { element } => {
+                let target_element = self.translate_type_helper(caller_mod_idx, target_mod_idx, caller_table, target_table, *element);
+                TypeKind::Range { element: target_element }
+            }
+            TypeKind::Tuple { elements } => {
+                let target_elements = elements
+                    .iter()
+                    .map(|&e| self.translate_type_helper(caller_mod_idx, target_mod_idx, caller_table, target_table, e))
+                    .collect::<Vec<_>>();
+                TypeKind::Tuple { elements: target_elements }
+            }
+            TypeKind::Union { members } => {
+                let target_members = members
+                    .iter()
+                    .map(|&e| self.translate_type_helper(caller_mod_idx, target_mod_idx, caller_table, target_table, e))
+                    .collect::<Vec<_>>();
+                TypeKind::Union { members: target_members }
+            }
+            TypeKind::Function(func) => {
+                let target_return_type = self.translate_type_helper(caller_mod_idx, target_mod_idx, caller_table, target_table, func.return_type());
+                let target_parameters = func
+                    .parameters()
+                    .iter()
+                    .map(|param| {
+                        let target_ty = self.translate_type_helper(caller_mod_idx, target_mod_idx, caller_table, target_table, param.ty());
+                        if param.is_rest() {
+                            FunctionParameterType::rest(target_ty)
+                        } else if param.has_default() {
+                            FunctionParameterType::with_default(target_ty)
+                        } else {
+                            FunctionParameterType::new(target_ty)
+                        }
+                    })
+                    .collect::<Vec<_>>();
+                TypeKind::Function(FunctionType::new(target_parameters, target_return_type))
+            }
+            TypeKind::GenericInstance { base, arguments } => {
+                let target_base = self.translate_type_helper(caller_mod_idx, target_mod_idx, caller_table, target_table, *base);
+                let target_arguments = arguments
+                    .iter()
+                    .map(|&arg| self.translate_type_helper(caller_mod_idx, target_mod_idx, caller_table, target_table, arg))
+                    .collect::<Vec<_>>();
+                TypeKind::GenericInstance { base: target_base, arguments: target_arguments }
+            }
+            TypeKind::Path { root, segments } => {
+                let target_root = self.translate_symbol(caller_mod_idx, target_mod_idx, *root);
+                TypeKind::Path { root: target_root, segments: segments.clone() }
+            }
+            TypeKind::Error => TypeKind::Error,
+        };
+        target_table.intern(translated_kind)
+    }
+}
+
+impl<'a> WorkspaceContext for MyWorkspaceContext<'a> {
+    fn resolve_import(&self, node_id: NodeId) -> Option<(usize, SymbolId)> {
+        let current_mod_idx = self.modules.iter().position(|m| {
+            m.graph().syntax().node(node_id).is_some()
+        })?;
+
+        let mut real_target = node_id;
+        let module = &self.modules[current_mod_idx];
+        let syntax = module.graph().syntax();
+        while let Some(node) = syntax.node(real_target)
+            && node.kind() == SyntaxNodeKind::GenericExpression
+        {
+            if let Some(inner) = node.first_child() {
+                real_target = inner;
+            } else {
+                break;
+            }
+        }
+
+        let func_id = FunctionId::new(0x8000_0000 | real_target.raw());
+        let (target_mod_idx, target_func_id) = resolve_import_target(self.modules, current_mod_idx, func_id)?;
+        let target_symbol = SymbolId::new(target_func_id.raw());
+        Some((target_mod_idx, target_symbol))
+    }
+
+    fn get_generic_params(&self, target_mod_idx: usize, target_symbol: SymbolId) -> Option<Vec<SymbolId>> {
+        let target_module = &self.modules[target_mod_idx];
+        let type_res = target_module.type_result().unwrap();
+        let builder = galfus_ir::builder::MirBuilder::new(target_module.graph(), type_res, target_module.source().text());
+        let function_item = builder.function_item_for_symbol(target_symbol)?;
+        Some(builder.generic_parameters_for_function_item(function_item))
+    }
+
+    fn specialize_function(
+        &mut self,
+        caller_node_id: NodeId,
+        target_mod_idx: usize,
+        target_symbol: SymbolId,
+        concrete_types: Vec<TypeId>,
+        substitutions: std::collections::HashMap<SymbolId, TypeId>,
+    ) -> FunctionId {
+        let caller_mod_idx = self.modules.iter().position(|m| {
+            m.graph().syntax().node(caller_node_id).is_some()
+        }).unwrap_or(0);
+
+        let concrete_types = concrete_types
+            .iter()
+            .map(|&ty| self.translate_type(caller_mod_idx, target_mod_idx, ty))
+            .collect::<Vec<_>>();
+
+        let substitutions = substitutions
+            .into_iter()
+            .map(|(sym, ty)| {
+                let translated_ty = self.translate_type(caller_mod_idx, target_mod_idx, ty);
+                (sym, translated_ty)
+            })
+            .collect::<HashMap<_, _>>();
+
+        let key = (target_mod_idx, target_symbol, concrete_types.clone());
+        if let Some(func_id) = self.specialisations.get(&key).copied() {
+            return func_id;
+        }
+
+        let specialized_id = FunctionId::new(self.next_specialised_id);
+        self.next_specialised_id = self.next_specialised_id.saturating_sub(1);
+        self.specialisations.insert(key, specialized_id);
+        self.specialised_id_to_target.insert(specialized_id, (target_mod_idx, specialized_id));
+
+        let target_module = &self.modules[target_mod_idx];
+        let type_res = target_module.type_result().unwrap();
+        let mut builder = galfus_ir::builder::MirBuilder::new(target_module.graph(), type_res, target_module.source().text());
+        builder = builder.with_workspace_ctx(self);
+        
+        if let Some(function_item) = builder.function_item_for_symbol(target_symbol) {
+            if let Some(mut function) = builder.build_function_with_substitutions(
+                function_item,
+                Some(specialized_id),
+                substitutions,
+            ) {
+                function.name = format!("{}#{}", function.name, specialized_id.raw());
+                self.specialised_functions[target_mod_idx].push(function);
+            }
+        }
+
+        specialized_id
+    }
+}
+
 pub fn compile_workspace_to_image(check_result: &WorkspaceCheckResult) -> Result<ModuleImage> {
     let modules = check_result.modules();
+    let mut ws_ctx = MyWorkspaceContext::new(modules);
+
     let mut mir_modules = Vec::new();
     for module in modules {
         let type_res = module.type_result().ok_or_else(|| {
@@ -35,8 +268,14 @@ pub fn compile_workspace_to_image(check_result: &WorkspaceCheckResult) -> Result
         })?;
         let mir =
             galfus_ir::builder::MirBuilder::new(module.graph(), type_res, module.source().text())
+                .with_workspace_ctx(&mut ws_ctx)
                 .build();
         mir_modules.push(mir);
+    }
+
+    for (i, mir_mod) in mir_modules.iter_mut().enumerate() {
+        let mut specialized = std::mem::take(&mut ws_ctx.specialised_functions[i]);
+        mir_mod.functions.append(&mut specialized);
     }
 
     // 1. Assign unique global function indices
@@ -56,13 +295,18 @@ pub fn compile_workspace_to_image(check_result: &WorkspaceCheckResult) -> Result
             collect_call_targets(&func.body, &mut call_targets);
 
             for func_id in call_targets {
-                if let Some((target_mod_idx, target_func_id)) =
+                let resolved = if let Some(&(target_mod_idx, target_func_id)) = ws_ctx.specialised_id_to_target.get(&func_id) {
+                    Some((target_mod_idx, target_func_id))
+                } else {
                     resolve_import_target(modules, mod_idx, func_id)
-                    && let Some(&global_idx) =
+                };
+                if let Some((target_mod_idx, target_func_id)) = resolved {
+                    if let Some(&global_idx) =
                         global_func_map.get(&(target_mod_idx, target_func_id))
-                {
-                    global_func_map.insert((mod_idx, func_id), global_idx);
-                    continue;
+                    {
+                        global_func_map.insert((mod_idx, func_id), global_idx);
+                        continue;
+                    }
                 }
 
                 if let Some(local_func_id) =
@@ -125,6 +369,8 @@ pub fn compile_workspace_to_image(check_result: &WorkspaceCheckResult) -> Result
         for mir_func in &mir_mod.functions {
             ctx.function_names
                 .insert(mir_func.id, mir_func.name.clone());
+            ctx.function_return_types
+                .insert(mir_func.id, mir_func.return_type);
         }
 
         for mir_func in &mir_mod.functions {
@@ -134,6 +380,8 @@ pub fn compile_workspace_to_image(check_result: &WorkspaceCheckResult) -> Result
             if is_init {
                 init_funcs.insert(mod_idx, global_idx);
             }
+
+            ctx.active_substitutions = mir_func.type_substitutions.clone();
 
             let return_ty = ctx.lower_type(mir_func.return_type);
             for &param_ty in &mir_func.parameter_types {
@@ -350,27 +598,34 @@ fn resolve_import_target(
     let symbol_id = SymbolId::new(func_id.raw());
     let node_id = path_call_target_node(func_id).unwrap_or_else(|| NodeId::new(func_id.raw()));
 
-    if let Some(syntax_node) = module.graph().syntax().node(node_id)
-        && syntax_node.kind() == SyntaxNodeKind::PathExpression
-        && let Some(root_node) = syntax_node.first_child()
-        && let Some(root_symbol) = resolution.reference_symbol(root_node)
-        && let Some(import) = resolution
-            .imports()
-            .iter()
-            .find(|imp| imp.local_symbol() == root_symbol)
-        && let Some(member_node) = syntax_node.child(1)
-    {
-        let syntax = module.graph().syntax();
-        let member_node_data = syntax.node(member_node)?;
-        let member_span = member_node_data.span();
-        let member_name = module.source().slice(member_span)?;
-        let target_idx = import_target_index(modules, mod_idx, import.source())?;
-
-        let target_mod = &modules[target_idx];
-        let target_resolution = target_mod.graph().resolution()?;
-        for export in target_resolution.exports() {
-            if export.name() == member_name {
-                return Some((target_idx, FunctionId::new(export.symbol().raw())));
+    if let Some(syntax_node) = module.graph().syntax().node(node_id) {
+        if syntax_node.kind() == SyntaxNodeKind::PathExpression
+            && let Some(root_node) = syntax_node.first_child()
+        {
+            let root_sym = resolution.reference_symbol(root_node);
+            if let Some(root_symbol) = root_sym {
+                let import_found = resolution
+                    .imports()
+                    .iter()
+                    .find(|imp| imp.local_symbol() == root_symbol);
+                if let Some(import) = import_found
+                    && let Some(member_node) = syntax_node.child(1)
+                {
+                    let syntax = module.graph().syntax();
+                    let member_node_data = syntax.node(member_node)?;
+                    let member_span = member_node_data.span();
+                    let member_name = module.source().slice(member_span)?;
+                    let target_idx = import_target_index(modules, mod_idx, import.source());
+                    if let Some(target_idx) = target_idx {
+                        let target_mod = &modules[target_idx];
+                        let target_resolution = target_mod.graph().resolution()?;
+                        for export in target_resolution.exports() {
+                            if export.name() == member_name {
+                                return Some((target_idx, FunctionId::new(export.symbol().raw())));
+                            }
+                        }
+                    }
+                }
             }
         }
     }

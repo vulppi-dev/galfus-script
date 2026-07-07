@@ -21,6 +21,7 @@ pub struct MirBuilder<'a> {
     pub(super) specialisations: HashMap<(FunctionId, Vec<TypeId>), FunctionId>,
     pub(super) specialized_functions: Vec<MirFunction>,
     pub(super) active_specialisations: HashSet<(FunctionId, Vec<TypeId>)>,
+    pub(super) workspace_ctx: Option<*mut (dyn WorkspaceContext + 'a)>,
 }
 
 impl<'a> MirBuilder<'a> {
@@ -39,8 +40,15 @@ impl<'a> MirBuilder<'a> {
             specialisations: HashMap::new(),
             specialized_functions: Vec::new(),
             active_specialisations: HashSet::new(),
+            workspace_ctx: None,
         }
     }
+
+    pub fn with_workspace_ctx(mut self, ctx: &'a mut dyn WorkspaceContext) -> Self {
+        self.workspace_ctx = Some(ctx as *mut (dyn WorkspaceContext + 'a));
+        self
+    }
+
 
     pub fn build(mut self) -> MirModule {
         let mut functions = Vec::new();
@@ -215,6 +223,7 @@ impl<'a> MirBuilder<'a> {
             parameter_types: Vec::new(),
             locals: builder_ctx.locals,
             body,
+            type_substitutions: HashMap::new(),
         })
     }
 
@@ -392,3 +401,17 @@ impl<'a> MirBuilder<'a> {
         }
     }
 }
+
+pub trait WorkspaceContext {
+    fn resolve_import(&self, node_id: NodeId) -> Option<(usize, SymbolId)>;
+    fn get_generic_params(&self, target_mod_idx: usize, target_symbol: SymbolId) -> Option<Vec<SymbolId>>;
+    fn specialize_function(
+        &mut self,
+        caller_node_id: NodeId,
+        target_mod_idx: usize,
+        target_symbol: SymbolId,
+        concrete_types: Vec<TypeId>,
+        substitutions: std::collections::HashMap<SymbolId, TypeId>,
+    ) -> FunctionId;
+}
+

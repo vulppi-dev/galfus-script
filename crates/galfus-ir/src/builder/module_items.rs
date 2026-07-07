@@ -6,7 +6,7 @@ impl<'a> MirBuilder<'a> {
         self.build_function_with_substitutions(item, None, HashMap::new())
     }
 
-    pub(super) fn build_function_with_substitutions(
+    pub fn build_function_with_substitutions(
         &mut self,
         item: NodeId,
         specialized_id: Option<FunctionId>,
@@ -69,7 +69,7 @@ impl<'a> MirBuilder<'a> {
             current_instructions: Vec::new(),
             scopes: vec![Vec::new()],
             return_type,
-            type_substitutions,
+            type_substitutions: type_substitutions.clone(),
         };
 
         // Declare parameters as locals
@@ -96,10 +96,11 @@ impl<'a> MirBuilder<'a> {
             parameter_types,
             locals: builder_ctx.locals,
             body,
+            type_substitutions,
         })
     }
 
-    pub(super) fn function_item_for_symbol(&self, symbol: SymbolId) -> Option<NodeId> {
+    pub fn function_item_for_symbol(&self, symbol: SymbolId) -> Option<NodeId> {
         let root = self.graph.syntax().root()?;
         self.find_function_item_for_symbol(root, symbol)
     }
@@ -131,7 +132,7 @@ impl<'a> MirBuilder<'a> {
         None
     }
 
-    pub(super) fn generic_parameters_for_function_item(&self, item: NodeId) -> Vec<SymbolId> {
+    pub fn generic_parameters_for_function_item(&self, item: NodeId) -> Vec<SymbolId> {
         let syntax = self.graph.syntax();
         let Some(generic_list) =
             syntax.first_child_of_kind(item, SyntaxNodeKind::GenericParameterList)

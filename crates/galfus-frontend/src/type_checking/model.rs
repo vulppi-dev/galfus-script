@@ -435,6 +435,10 @@ impl TypeCheckResult {
         &self.layer
     }
 
+    pub fn layer_mut(&mut self) -> &mut TypeLayer {
+        &mut self.layer
+    }
+
     pub fn diagnostics(&self) -> &DiagnosticBag {
         &self.diagnostics
     }

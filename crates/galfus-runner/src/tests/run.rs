@@ -254,6 +254,71 @@ fn test_run_format_stringify_core_values() -> Result<()> {
 }
 
 #[test]
+fn test_run_buffer_create_with_runtime_length() -> Result<()> {
+    let root = temp_workspace()?;
+    let file_path = write_file(
+        &root,
+        "main.gfs",
+        r#"
+        import buffer from "std/buffer"
+
+        fn make(n: int32): [uint8] {
+            return buffer::create<uint8>(n)
+        }
+
+        export fn main(args: [[uint8]]): int32 {
+            var bytes = make(5)
+            if bytes.length != 5 {
+                return 1 / 0
+            }
+            return 0
+        }
+        "#,
+    )?;
+
+    let result = run_project(file_path.to_str().unwrap(), &[]);
+    if let Err(ref e) = result {
+        println!("test_run_buffer_create_with_runtime_length failed: {:?}", e);
+    }
+    assert!(result.is_ok());
+
+    fs::remove_dir_all(root)?;
+    Ok(())
+}
+
+#[test]
+fn test_run_buffer_create_allows_index_assignment() -> Result<()> {
+    let root = temp_workspace()?;
+    let file_path = write_file(
+        &root,
+        "main.gfs",
+        r#"
+        import buffer from "std/buffer"
+
+        export fn main(args: [[uint8]]): int32 {
+            var values = buffer::create<int32>(3)
+            values[0] = 10
+            values[1] = 20
+            values[2] = 30
+            if values[0] != 10 || values[1] != 20 || values[2] != 30 {
+                return 1 / 0
+            }
+            return 0
+        }
+        "#,
+    )?;
+
+    let result = run_project(file_path.to_str().unwrap(), &[]);
+    if let Err(ref e) = result {
+        println!("test_run_buffer_create_allows_index_assignment failed: {:?}", e);
+    }
+    assert!(result.is_ok());
+
+    fs::remove_dir_all(root)?;
+    Ok(())
+}
+
+#[test]
 fn test_run_workspace_with_args() -> Result<()> {
     let root = temp_workspace()?;
     write_file(

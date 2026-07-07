@@ -39,6 +39,10 @@ impl CheckedModule {
     pub fn type_result(&self) -> Option<&TypeCheckResult> {
         self.type_result.as_ref()
     }
+
+    pub fn type_result_mut(&mut self) -> Option<&mut TypeCheckResult> {
+        self.type_result.as_mut()
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -121,6 +125,7 @@ impl ModuleLoader {
             || path == Path::new(TEXT_MODULE)
             || path == Path::new(FORMAT_MODULE)
             || path == Path::new(FORMAT_ANSI_MODULE)
+            || path == Path::new(BUFFER_MODULE)
         {
             ModuleSource::Builtin {
                 name: path.to_string_lossy().to_string(),
@@ -482,6 +487,7 @@ fn is_builtin_import(source: &str) -> bool {
         || source == TEXT_MODULE
         || source == FORMAT_MODULE
         || source == FORMAT_ANSI_MODULE
+        || source == BUFFER_MODULE
 }
 
 fn is_resolvable_import(source: &str) -> bool {

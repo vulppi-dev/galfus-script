@@ -98,6 +98,12 @@ impl<'a> DeclarationTypeChecker<'a> {
         let target_type = self.resolve_alias_type(target_type);
 
         match self.layer.table().kind(target_type) {
+            Some(TypeKind::Array { .. }) | Some(TypeKind::FixedArray { .. })
+                if member_name == "length" =>
+            {
+                Some(self.layer.table().primitive(PrimitiveType::Int32))
+            }
+
             Some(TypeKind::Named { symbol }) => self
                 .member_type_for_symbol(*symbol, member_name)
                 .or_else(|| {

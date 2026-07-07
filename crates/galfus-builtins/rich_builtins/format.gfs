@@ -1,5 +1,7 @@
 // format - pure Galfus formatting and parsing helpers.
 
+import buffer from "std/buffer"
+
 type Parsed = int | uint | float | bool | null 
 
 export choice ParseResult<V: Parsed> {
@@ -11,17 +13,27 @@ export constraint Stringable {
   fn stringify(): [uint8]
 }
 
+fn length(s: [uint8]): int32 {
+  var i: int32 = 0
+  for byte in s {
+    i += 1
+  }
+  return i
+}
+
 fn append(a: [uint8], b: [uint8]): [uint8] {
-  var result: [uint8] = ""
-
+  var lenA = length(a)
+  var lenB = length(b)
+  var result = buffer::create<uint8>(lenA + lenB)
+  var i: int32 = 0
   for byte in a {
-    result = [...result, byte]
+    result[i] = byte
+    i += 1
   }
-
   for byte in b {
-    result = [...result, byte]
+    result[i] = byte
+    i += 1
   }
-
   return result
 }
 
@@ -64,14 +76,24 @@ fn stringifyUint64(value: uint64): [uint8] {
   }
 
   var n = value
-  var digits: [uint8] = ""
-
+  var len: int32 = 0
   loop {
     if n <= 0 {
       break
     }
-    var digit = <uint8> ((n % 10) + 48)
-    digits = [digit, ...digits]
+    len += 1
+    n = n / 10
+  }
+
+  var digits = buffer::create<uint8>(len)
+  n = value
+  var i = len - 1
+  loop {
+    if n <= 0 {
+      break
+    }
+    digits[i] = <uint8> ((n % 10) + 48)
+    i -= 1
     n = n / 10
   }
 

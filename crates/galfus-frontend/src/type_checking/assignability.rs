@@ -35,6 +35,14 @@ impl<'a> DeclarationTypeChecker<'a> {
                 .copied()
                 .all(|member| self.is_assignable(expected, member)),
 
+            (_, Some(TypeKind::GenericParameter { symbol })) => {
+                if let Some(arg_bound) = self.generic_parameter_bound_type(*symbol) {
+                    self.is_assignable(expected, arg_bound)
+                } else {
+                    false
+                }
+            }
+
             (
                 Some(TypeKind::Array {
                     element: expected_element,

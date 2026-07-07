@@ -51,6 +51,8 @@ pub struct LowerCtx<'a> {
     pub constants_map: HashMap<HashableConstant, ConstIdx>,
     pub function_map: HashMap<FunctionId, FuncIdx>,
     pub function_names: HashMap<FunctionId, String>,
+    pub function_return_types: HashMap<FunctionId, TypeId>,
+    pub active_substitutions: HashMap<SymbolId, TypeId>,
 }
 
 impl<'a> LowerCtx<'a> {
@@ -75,11 +77,35 @@ impl<'a> LowerCtx<'a> {
             constants_map: HashMap::new(),
             function_map: HashMap::new(),
             function_names: HashMap::new(),
+            function_return_types: HashMap::new(),
+            active_substitutions: HashMap::new(),
         }
     }
 
+    pub fn resolve_type_with_substitutions(&self, ty: TypeId) -> TypeId {
+        let mut current = self.resolve_alias_type(ty);
+        loop {
+            let table = self.type_result.layer().table();
+            match table.kind(current) {
+                Some(TypeKind::GenericParameter { symbol }) => {
+                    if let Some(&substituted) = self.active_substitutions.get(symbol) {
+                        let next = self.resolve_alias_type(substituted);
+                        if next == current {
+                            break;
+                        }
+                        current = next;
+                    } else {
+                        break;
+                    }
+                }
+                _ => break,
+            }
+        }
+        current
+    }
+
     pub fn lower_type(&mut self, ty: TypeId) -> TypeIdx {
-        let ty = self.resolve_alias_type(ty);
+        let ty = self.resolve_type_with_substitutions(ty);
 
         if let Some(&idx) = self.type_map.get(&ty) {
             return idx;

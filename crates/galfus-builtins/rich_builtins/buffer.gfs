@@ -1,0 +1,5 @@
+fn __builtin_create_buffer<T: null>(length: int32): [T] {}
+
+export fn create<T: null>(length: int32): [T] {
+  return __builtin_create_buffer<T>(length)
+}

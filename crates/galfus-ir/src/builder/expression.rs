@@ -451,7 +451,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                         .unwrap_or_else(|| FunctionId::new(0))
                 };
 
-                if !is_namespace_call
+                if !self.is_std_buffer_create_call_target(target_node)
                     && let Some(symbol) = target_symbol
                     && let Some(specialized) =
                         self.specialize_generic_call(symbol, target_node, &arg_types)
@@ -525,10 +525,26 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                 let ty = self.node_type(expr_id).unwrap_or_else(|| TypeId::new(0));
 
                 let temp_id = self.declare_local(None, ty);
-                self.current_instructions.push(Instruction::Assign(
-                    temp_id,
-                    RValue::MemberAccess(obj_operand, member_name),
-                ));
+                let obj_ty = self.node_type(obj_node).unwrap_or_else(|| TypeId::new(0));
+                let resolved_obj_ty = self.builder.resolve_alias_type(obj_ty);
+                let is_array_length = member_name == "length"
+                    && matches!(
+                        self.builder
+                            .type_result
+                            .layer()
+                            .table()
+                            .kind(resolved_obj_ty),
+                        Some(TypeKind::Array { .. }) | Some(TypeKind::FixedArray { .. })
+                    );
+
+                let rval = if is_array_length {
+                    RValue::Len(obj_operand)
+                } else {
+                    RValue::MemberAccess(obj_operand, member_name)
+                };
+
+                self.current_instructions
+                    .push(Instruction::Assign(temp_id, rval));
                 Operand::Local(temp_id)
             }
 
@@ -635,6 +651,53 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
         }
     }
 
+    fn is_std_buffer_create_call_target(&self, target: NodeId) -> bool {
+        let syntax = self.builder.graph.syntax();
+        let Some(resolution) = self.builder.graph.resolution() else {
+            return false;
+        };
+
+        let mut current = target;
+        while let Some(node) = syntax.node(current)
+            && node.kind() == SyntaxNodeKind::GenericExpression
+        {
+            if let Some(inner) = node.first_child() {
+                current = inner;
+            } else {
+                break;
+            }
+        }
+
+        let Some(node) = syntax.node(current) else {
+            return false;
+        };
+
+        if node.kind() != SyntaxNodeKind::PathExpression {
+            return false;
+        }
+
+        let Some(root_node) = node.child(0) else {
+            return false;
+        };
+        let Some(member_node) = node.child(1) else {
+            return false;
+        };
+
+        if self.builder.node_text(member_node) != "create" {
+            return false;
+        }
+
+        let root_symbol = resolution.reference_symbol(root_node).or_else(|| {
+            let identifier = syntax.first_child_of_kind(root_node, SyntaxNodeKind::Identifier)?;
+            resolution.reference_symbol(identifier)
+        });
+
+        root_symbol
+            .and_then(|symbol| resolution.import_for_symbol(symbol))
+            .and_then(|import_id| resolution.import(import_id))
+            .is_some_and(|import| import.source() == "std/buffer")
+    }
+
     fn anchored_call_receiver(&self, target: NodeId) -> Option<NodeId> {
         if self.is_choice_variant_call_target(target) {
             return None;
@@ -697,56 +760,94 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
         arg_types: &[TypeId],
     ) -> Option<FunctionId> {
         let original_id = FunctionId::new(symbol.raw());
-        let function_item = self.builder.function_item_for_symbol(symbol)?;
-        let generic_params = self
-            .builder
-            .generic_parameters_for_function_item(function_item);
+        let function_item = self.builder.function_item_for_symbol(symbol);
 
-        if generic_params.is_empty() {
-            return None;
+        if let Some(function_item) = function_item {
+            let generic_params = self
+                .builder
+                .generic_parameters_for_function_item(function_item);
+
+            if generic_params.is_empty() {
+                return None;
+            }
+
+            let concrete_types =
+                self.concrete_generic_arguments(target_node, &generic_params, arg_types)?;
+            if concrete_types.len() != generic_params.len() {
+                return None;
+            }
+
+            let key = (original_id, concrete_types.clone());
+
+            if let Some(func_id) = self.builder.specialisations.get(&key).copied() {
+                return Some(func_id);
+            }
+
+            if self.builder.active_specialisations.contains(&key) {
+                return Some(original_id);
+            }
+
+            let specialized_id = self.builder.next_specialized_function_id();
+            self.builder
+                .specialisations
+                .insert(key.clone(), specialized_id);
+            self.builder.active_specialisations.insert(key.clone());
+
+            let substitutions = generic_params
+                .into_iter()
+                .zip(concrete_types)
+                .collect::<HashMap<_, _>>();
+
+            let caller_next_local = self.builder.next_local_id;
+            if let Some(mut function) = self.builder.build_function_with_substitutions(
+                function_item,
+                Some(specialized_id),
+                substitutions,
+            ) {
+                function.name = format!("{}#{}", function.name, specialized_id.raw());
+                self.builder.specialized_functions.push(function);
+            }
+            self.builder.next_local_id = caller_next_local;
+
+            self.builder.active_specialisations.remove(&key);
+
+            Some(specialized_id)
+        } else if let Some(ctx_ptr) = self.builder.workspace_ctx {
+            let ctx = unsafe { &mut *ctx_ptr };
+            if let Some((target_mod_idx, target_symbol)) = ctx.resolve_import(target_node) {
+                if let Some(generic_params) = ctx.get_generic_params(target_mod_idx, target_symbol) {
+                    if generic_params.is_empty() {
+                        return None;
+                    }
+
+                    let concrete_types =
+                        self.concrete_generic_arguments(target_node, &generic_params, arg_types)?;
+                    if concrete_types.len() != generic_params.len() {
+                        return None;
+                    }
+
+                    let substitutions = generic_params
+                        .into_iter()
+                        .zip(concrete_types.clone())
+                        .collect::<HashMap<_, _>>();
+
+                    let specialized_id = ctx.specialize_function(
+                        target_node,
+                        target_mod_idx,
+                        target_symbol,
+                        concrete_types,
+                        substitutions,
+                    );
+                    Some(specialized_id)
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        } else {
+            None
         }
-
-        let concrete_types =
-            self.concrete_generic_arguments(target_node, &generic_params, arg_types)?;
-        if concrete_types.len() != generic_params.len() {
-            return None;
-        }
-
-        let key = (original_id, concrete_types.clone());
-
-        if let Some(func_id) = self.builder.specialisations.get(&key).copied() {
-            return Some(func_id);
-        }
-
-        if self.builder.active_specialisations.contains(&key) {
-            return Some(original_id);
-        }
-
-        let specialized_id = self.builder.next_specialized_function_id();
-        self.builder
-            .specialisations
-            .insert(key.clone(), specialized_id);
-        self.builder.active_specialisations.insert(key.clone());
-
-        let substitutions = generic_params
-            .into_iter()
-            .zip(concrete_types)
-            .collect::<HashMap<_, _>>();
-
-        let caller_next_local = self.builder.next_local_id;
-        if let Some(mut function) = self.builder.build_function_with_substitutions(
-            function_item,
-            Some(specialized_id),
-            substitutions,
-        ) {
-            function.name = format!("{}#{}", function.name, specialized_id.raw());
-            self.builder.specialized_functions.push(function);
-        }
-        self.builder.next_local_id = caller_next_local;
-
-        self.builder.active_specialisations.remove(&key);
-
-        Some(specialized_id)
     }
 
     fn concrete_generic_arguments(

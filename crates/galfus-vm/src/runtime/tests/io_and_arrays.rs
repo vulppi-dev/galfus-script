@@ -296,7 +296,7 @@ fn test_load_index_accepts_negative_index() {
 }
 
 #[test]
-fn test_load_index_out_of_bounds_returns_error() {
+fn test_load_index_out_of_bounds_returns_null() {
     let instrs = vec![
         Instruction::LoadConst {
             dest: Reg(1),
@@ -322,12 +322,9 @@ fn test_load_index_out_of_bounds_returns_error() {
     let image = create_test_image(instrs, vec![Constant::Int(3), Constant::Int(99)]);
 
     let mut vm = VirtualMachine::new(image);
-    let err = vm.run_function(FuncIdx(0), vec![]).unwrap_err();
+    let res = vm.run_function(FuncIdx(0), vec![]).unwrap();
 
-    assert!(matches!(
-        err.error,
-        VmError::IndexOutOfBounds { index: 99, len: 3 }
-    ));
+    assert_eq!(res, Value::Null);
 }
 
 #[test]

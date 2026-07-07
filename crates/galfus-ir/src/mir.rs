@@ -1,5 +1,6 @@
-use galfus_core::{FunctionId, StorageMetadata, TypeId};
+use galfus_core::{FunctionId, StorageMetadata, SymbolId, TypeId};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct LocalId(u32);
@@ -53,6 +54,8 @@ pub struct MirFunction {
     pub parameter_types: Vec<TypeId>,
     pub locals: Vec<LocalDecl>,
     pub body: MirBody,
+    #[serde(default)]
+    pub type_substitutions: HashMap<SymbolId, TypeId>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
