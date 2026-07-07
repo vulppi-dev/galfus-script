@@ -192,9 +192,7 @@ fn main(): null {
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
         diagnostic.code().as_str() == TypeDiagnosticCode::InvalidBufferElement.as_code()
-            && diagnostic
-                .message()
-                .contains("not defaultable or nullable")
+            && diagnostic.message().contains("not defaultable or nullable")
     }));
 
     fs::remove_dir_all(root)?;

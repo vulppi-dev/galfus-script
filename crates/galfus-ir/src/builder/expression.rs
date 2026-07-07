@@ -815,7 +815,8 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
         } else if let Some(ctx_ptr) = self.builder.workspace_ctx {
             let ctx = unsafe { &mut *ctx_ptr };
             if let Some((target_mod_idx, target_symbol)) = ctx.resolve_import(target_node) {
-                if let Some(generic_params) = ctx.get_generic_params(target_mod_idx, target_symbol) {
+                if let Some(generic_params) = ctx.get_generic_params(target_mod_idx, target_symbol)
+                {
                     if generic_params.is_empty() {
                         return None;
                     }

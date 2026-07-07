@@ -49,7 +49,6 @@ impl<'a> MirBuilder<'a> {
         self
     }
 
-
     pub fn build(mut self) -> MirModule {
         let mut functions = Vec::new();
         let mut globals = Vec::new();
@@ -404,7 +403,11 @@ impl<'a> MirBuilder<'a> {
 
 pub trait WorkspaceContext {
     fn resolve_import(&self, node_id: NodeId) -> Option<(usize, SymbolId)>;
-    fn get_generic_params(&self, target_mod_idx: usize, target_symbol: SymbolId) -> Option<Vec<SymbolId>>;
+    fn get_generic_params(
+        &self,
+        target_mod_idx: usize,
+        target_symbol: SymbolId,
+    ) -> Option<Vec<SymbolId>>;
     fn specialize_function(
         &mut self,
         caller_node_id: NodeId,
@@ -414,4 +417,3 @@ pub trait WorkspaceContext {
         substitutions: std::collections::HashMap<SymbolId, TypeId>,
     ) -> FunctionId;
 }
-

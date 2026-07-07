@@ -282,11 +282,19 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                             self.instructions.push(Instruction::Read {
                                 dest: Reg(destination.raw() as u16),
                             });
-                        } else if builtin_name.map(|s| s.starts_with("__builtin_create_buffer")).unwrap_or(false) {
+                        } else if builtin_name
+                            .map(|s| s.starts_with("__builtin_create_buffer"))
+                            .unwrap_or(false)
+                        {
                             let len_reg = self.alloc_temp();
                             self.load_operand_to(&args[0], len_reg);
 
-                            let dest_decl = self.func.locals.iter().find(|l| l.id == *destination).unwrap();
+                            let dest_decl = self
+                                .func
+                                .locals
+                                .iter()
+                                .find(|l| l.id == *destination)
+                                .unwrap();
                             let type_idx = self.ctx.lower_type(dest_decl.ty);
 
                             self.instructions.push(Instruction::NewArray {

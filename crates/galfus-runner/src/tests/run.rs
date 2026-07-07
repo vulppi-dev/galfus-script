@@ -310,7 +310,10 @@ fn test_run_buffer_create_allows_index_assignment() -> Result<()> {
 
     let result = run_project(file_path.to_str().unwrap(), &[]);
     if let Err(ref e) = result {
-        println!("test_run_buffer_create_allows_index_assignment failed: {:?}", e);
+        println!(
+            "test_run_buffer_create_allows_index_assignment failed: {:?}",
+            e
+        );
     }
     assert!(result.is_ok());
 

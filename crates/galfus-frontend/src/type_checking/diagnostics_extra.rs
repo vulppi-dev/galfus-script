@@ -517,4 +517,3 @@ impl<'a> DeclarationTypeChecker<'a> {
         ));
     }
 }
-

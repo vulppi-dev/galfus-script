@@ -455,6 +455,150 @@ fn test_copy_preserves_internal_weak_observer_topology() {
 }
 
 #[test]
+fn test_copy_nulls_external_weak_observer_target() {
+    let instrs = vec![
+        Instruction::AllocLocal {
+            dest: Reg(1),
+            type_idx: TypeIdx(8),
+        },
+        Instruction::AllocLocal {
+            dest: Reg(2),
+            type_idx: TypeIdx(8),
+        },
+        Instruction::AllocLocal {
+            dest: Reg(3),
+            type_idx: TypeIdx(8),
+        },
+        Instruction::StoreField {
+            obj: Reg(2),
+            field: FieldIdx(0),
+            val: Reg(3),
+        },
+        Instruction::StoreField {
+            obj: Reg(2),
+            field: FieldIdx(1),
+            val: Reg(1),
+        },
+        Instruction::Copy {
+            dest: Reg(4),
+            src: Reg(2),
+        },
+        Instruction::Ret { src: Reg(4) },
+    ];
+
+    let mut image = create_test_image(instrs, vec![]);
+    image.types.push(ImageType::Struct(StructLayoutIdx(1)));
+    image.struct_layouts.push(StructLayout {
+        name: "Node".to_string(),
+        fields: vec![
+            FieldLayout {
+                name: "child".to_string(),
+                ty: TypeIdx(8),
+                offset: 0,
+                ownership: OwnershipKind::Strong,
+            },
+            FieldLayout {
+                name: "parent".to_string(),
+                ty: TypeIdx(8),
+                offset: 8,
+                ownership: OwnershipKind::Weak,
+            },
+        ],
+        constraints: vec![],
+    });
+
+    let mut vm = VirtualMachine::new(image);
+    let res = vm.run_function(FuncIdx(0), vec![]).unwrap();
+    let copied_ref = match res {
+        Value::Object(obj_ref) => obj_ref,
+        other => panic!("expected copied node, got {:?}", other),
+    };
+
+    match vm.get_object(copied_ref).unwrap() {
+        HeapObject::Struct { fields, .. } => {
+            assert_eq!(fields[1], Value::Null);
+        }
+        other => panic!("expected copied node, got {:?}", other),
+    }
+}
+
+#[test]
+fn test_copy_preserves_shared_strong_topology() {
+    let instrs = vec![
+        Instruction::AllocLocal {
+            dest: Reg(1),
+            type_idx: TypeIdx(8),
+        },
+        Instruction::AllocLocal {
+            dest: Reg(2),
+            type_idx: TypeIdx(9),
+        },
+        Instruction::StoreField {
+            obj: Reg(2),
+            field: FieldIdx(0),
+            val: Reg(1),
+        },
+        Instruction::StoreField {
+            obj: Reg(2),
+            field: FieldIdx(1),
+            val: Reg(1),
+        },
+        Instruction::Copy {
+            dest: Reg(3),
+            src: Reg(2),
+        },
+        Instruction::Ret { src: Reg(3) },
+    ];
+
+    let mut image = create_test_image(instrs, vec![]);
+    image.types.push(ImageType::Struct(StructLayoutIdx(1)));
+    image.types.push(ImageType::Struct(StructLayoutIdx(2)));
+    image.struct_layouts.push(StructLayout {
+        name: "Node".to_string(),
+        fields: vec![FieldLayout {
+            name: "value".to_string(),
+            ty: TypeIdx(0),
+            offset: 0,
+            ownership: OwnershipKind::Value,
+        }],
+        constraints: vec![],
+    });
+    image.struct_layouts.push(StructLayout {
+        name: "Pair".to_string(),
+        fields: vec![
+            FieldLayout {
+                name: "left".to_string(),
+                ty: TypeIdx(8),
+                offset: 0,
+                ownership: OwnershipKind::Strong,
+            },
+            FieldLayout {
+                name: "right".to_string(),
+                ty: TypeIdx(8),
+                offset: 8,
+                ownership: OwnershipKind::Strong,
+            },
+        ],
+        constraints: vec![],
+    });
+
+    let mut vm = VirtualMachine::new(image);
+    let res = vm.run_function(FuncIdx(0), vec![]).unwrap();
+    let copied_pair_ref = match res {
+        Value::Object(obj_ref) => obj_ref,
+        other => panic!("expected copied pair, got {:?}", other),
+    };
+
+    match vm.get_object(copied_pair_ref).unwrap() {
+        HeapObject::Struct { fields, .. } => {
+            assert_eq!(fields[0], fields[1]);
+            assert_ne!(fields[0], Value::Object(VmObjectRef(0)));
+        }
+        other => panic!("expected copied pair, got {:?}", other),
+    }
+}
+
+#[test]
 fn test_copy_rejects_fieldless_structs_at_runtime() {
     let instrs = vec![
         Instruction::AllocLocal {

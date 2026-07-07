@@ -519,7 +519,6 @@ impl<'a> DeclarationTypeChecker<'a> {
         }
     }
 
-
     fn generic_argument_satisfies_bound(&mut self, parameter: SymbolId, argument: TypeId) -> bool {
         let Some(bound_node) = self.generic_parameter_bound_type_node(parameter) else {
             return true;
@@ -542,7 +541,9 @@ impl<'a> DeclarationTypeChecker<'a> {
         let bound = self.resolve_alias_type(bound);
         let resolved_arg = self.resolve_alias_type(argument);
 
-        if let Some(TypeKind::GenericParameter { symbol }) = self.layer.table().kind(resolved_arg).cloned() {
+        if let Some(TypeKind::GenericParameter { symbol }) =
+            self.layer.table().kind(resolved_arg).cloned()
+        {
             if let Some(arg_bound) = self.generic_parameter_bound_type(symbol) {
                 if self.is_assignable(bound, arg_bound) {
                     return true;
@@ -652,12 +653,13 @@ impl<'a> DeclarationTypeChecker<'a> {
             | Some(TypeKind::Range { .. })
             | Some(TypeKind::Tuple { .. })
             | Some(TypeKind::Function(_)) => true,
-            Some(TypeKind::Union { members }) => {
-                members.iter().any(|&m| {
-                    let resolved_m = self.resolve_alias_type(m);
-                    matches!(self.layer.table().kind(resolved_m), Some(TypeKind::Primitive(PrimitiveType::Null)))
-                })
-            }
+            Some(TypeKind::Union { members }) => members.iter().any(|&m| {
+                let resolved_m = self.resolve_alias_type(m);
+                matches!(
+                    self.layer.table().kind(resolved_m),
+                    Some(TypeKind::Primitive(PrimitiveType::Null))
+                )
+            }),
             Some(TypeKind::Named { symbol }) => {
                 if let Some(resolution) = self.graph.resolution() {
                     if let Some(sym) = resolution.symbol(*symbol) {
@@ -674,9 +676,7 @@ impl<'a> DeclarationTypeChecker<'a> {
                 }
                 false
             }
-            Some(TypeKind::GenericInstance { base, .. }) => {
-                self.is_defaultable_or_nullable(*base)
-            }
+            Some(TypeKind::GenericInstance { base, .. }) => self.is_defaultable_or_nullable(*base),
             Some(TypeKind::GenericParameter { .. }) => true,
             _ => false,
         }
@@ -751,7 +751,8 @@ impl<'a> DeclarationTypeChecker<'a> {
                         if let Some(import_rec) = resolution.import(imp_id) {
                             if import_rec.source() == "std/buffer" {
                                 return import_rec.imported_name() == Some("create")
-                                    || (import_rec.imported_name().is_none() && import_rec.local_name() == "create");
+                                    || (import_rec.imported_name().is_none()
+                                        && import_rec.local_name() == "create");
                             }
                         }
                     }

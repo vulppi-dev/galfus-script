@@ -26,18 +26,10 @@ impl<'a> DeclarationTypeChecker<'a> {
             PathReferenceKind::LocalMember => {
                 let target = self.graph.syntax().child(node, 0)?;
                 let member = self.graph.syntax().child(node, 1)?;
-                println!(
-                    "LOCAL_MEMBER: target={:?} kind={:?}",
-                    target,
-                    self.graph.syntax().node(target).map(|n| n.kind())
-                );
                 let target_type = self.infer_expression_type(target);
-                println!("LOCAL_MEMBER: target_type={:?}", target_type);
                 let target_type = target_type?;
                 let member_name = self.node_text(member);
-                let res = self.member_type_for_target_type(target_type, member_name.as_str());
-                println!("LOCAL_MEMBER: member_name={:?}, res={:?}", member_name, res);
-                res
+                self.member_type_for_target_type(target_type, member_name.as_str())
             }
         }
     }
