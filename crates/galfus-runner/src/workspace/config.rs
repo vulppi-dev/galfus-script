@@ -170,15 +170,6 @@ pub(super) fn parse_workspace_config(
         .and_then(|run| run.args.clone())
         .unwrap_or_default();
 
-    if run_entry.contains('.') || run_entry.contains('/') || run_entry.contains('\\') {
-        diagnostics.push(Diagnostic::error_with_message(
-            WorkspaceDiagnosticCode::InvalidConfig,
-            "`run.entry` must be the exported function name from the entry module".to_string(),
-            workspace_span(),
-        ));
-        return None;
-    }
-
     let exports = raw
         .exports
         .into_iter()

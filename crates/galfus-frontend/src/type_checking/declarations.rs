@@ -1,8 +1,27 @@
 use galfus_core::{NodeId, TypeId};
 
-use crate::{FunctionParameterType, SymbolKind, SyntaxNodeKind, TypeKind};
+use crate::{FunctionParameterType, PrimitiveType, SymbolKind, SyntaxNodeKind, TypeKind};
 
-use super::{DeclarationTypeChecker, primitive_type_by_name};
+use super::DeclarationTypeChecker;
+
+fn primitive_type_by_name(name: &str) -> Option<PrimitiveType> {
+    match name {
+        "null" => Some(PrimitiveType::Null),
+        "bool" => Some(PrimitiveType::Bool),
+        "int8" => Some(PrimitiveType::Int8),
+        "int16" => Some(PrimitiveType::Int16),
+        "int32" => Some(PrimitiveType::Int32),
+        "int64" => Some(PrimitiveType::Int64),
+        "uint8" => Some(PrimitiveType::Uint8),
+        "uint16" => Some(PrimitiveType::Uint16),
+        "uint32" => Some(PrimitiveType::Uint32),
+        "uint64" => Some(PrimitiveType::Uint64),
+        "float16" => Some(PrimitiveType::Float16),
+        "float32" => Some(PrimitiveType::Float32),
+        "float64" => Some(PrimitiveType::Float64),
+        _ => None,
+    }
+}
 
 impl<'a> DeclarationTypeChecker<'a> {
     pub(super) fn bind_builtin_symbol_types(&mut self) {

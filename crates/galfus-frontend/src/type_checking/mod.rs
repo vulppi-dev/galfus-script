@@ -2,9 +2,7 @@ use std::collections::HashMap;
 
 use galfus_core::{DiagnosticBag, NodeId, SourceFile, SymbolId, TypeId};
 
-use crate::{
-    FunctionParameterType, ModuleGraph, PrimitiveType, SyntaxNodeKind, TypeLayer, lower_types,
-};
+use crate::{FunctionParameterType, ModuleGraph, SyntaxNodeKind, TypeLayer, lower_types};
 
 pub use model::*;
 
@@ -391,14 +389,7 @@ impl<'a> DeclarationTypeChecker<'a> {
 }
 
 pub fn check_declaration_types(source: &SourceFile, graph: &ModuleGraph) -> TypeCheckResult {
-    check_declaration_types_with_imports(source, graph, &HashMap::new())
-}
-
-pub fn check_declaration_types_with_imports(
-    source: &SourceFile,
-    graph: &ModuleGraph,
-    imported_types: &HashMap<SymbolId, ImportedType>,
-) -> TypeCheckResult {
+    let imported_types: &HashMap<SymbolId, ImportedType> = &HashMap::new();
     let mut surface_types = ImportedSurfaceTypes::new();
 
     for (symbol, ty) in imported_types {
@@ -425,23 +416,4 @@ pub fn check_declaration_types_with_surfaces(
     checker.bind_imported_path_choices(imported_types.path_choices());
     checker.check();
     checker.into_result()
-}
-
-fn primitive_type_by_name(name: &str) -> Option<PrimitiveType> {
-    match name {
-        "null" => Some(PrimitiveType::Null),
-        "bool" => Some(PrimitiveType::Bool),
-        "int8" => Some(PrimitiveType::Int8),
-        "int16" => Some(PrimitiveType::Int16),
-        "int32" => Some(PrimitiveType::Int32),
-        "int64" => Some(PrimitiveType::Int64),
-        "uint8" => Some(PrimitiveType::Uint8),
-        "uint16" => Some(PrimitiveType::Uint16),
-        "uint32" => Some(PrimitiveType::Uint32),
-        "uint64" => Some(PrimitiveType::Uint64),
-        "float16" => Some(PrimitiveType::Float16),
-        "float32" => Some(PrimitiveType::Float32),
-        "float64" => Some(PrimitiveType::Float64),
-        _ => None,
-    }
 }
