@@ -1,6 +1,5 @@
 mod check;
 mod format_parse;
-mod gfb;
 mod graph;
 mod import_call_resolution;
 mod module_init;

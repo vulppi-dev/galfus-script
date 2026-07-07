@@ -47,7 +47,7 @@ fn main() -> Result<()> {
             galfus_runner::print_local_graph_file(&file)?;
         }
         Command::Repl => {
-            println!("galfus repl");
+            galfus_runner::repl()?;
         }
     }
 

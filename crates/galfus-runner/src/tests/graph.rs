@@ -1,4 +1,4 @@
-use crate::local_graph::local_graph_text;
+use crate::graph::local_graph_text;
 
 #[test]
 fn local_graph_prints_resolved_phase() {

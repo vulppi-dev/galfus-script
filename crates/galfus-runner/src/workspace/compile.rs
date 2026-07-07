@@ -13,22 +13,8 @@ use galfus_ir::mir::{
     BasicBlock, BlockId, LocalDecl, LocalId, MirBody, MirFunction, Operand, Terminator,
 };
 use std::collections::{HashMap, HashSet};
-use std::path::Path;
 
 use crate::{CheckedModule, WorkspaceCheckResult, WorkspaceResolver, WorkspaceRootKind};
-
-pub fn compile_workspace_to_gfb(
-    check_result: &WorkspaceCheckResult,
-    output_path: &Path,
-) -> Result<()> {
-    let module_image = compile_workspace_to_image(check_result)?;
-    let gfb_bytes = galfus_image::gfb::serialize_to_gfb(&module_image)
-        .map_err(|error| anyhow::anyhow!("Serialization error: {}", error))?;
-
-    std::fs::write(output_path, gfb_bytes)?;
-
-    Ok(())
-}
 
 struct MyWorkspaceContext<'a> {
     modules: &'a [CheckedModule],

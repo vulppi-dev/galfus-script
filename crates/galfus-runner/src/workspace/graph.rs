@@ -7,7 +7,9 @@ use anyhow::Result;
 use galfus_core::NodeId;
 use galfus_frontend::{ImportKind, ImportRecord, SyntaxNodeKind};
 
-use crate::*;
+use crate::CheckedModule;
+
+use super::config::WorkspaceConfig;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct WorkspaceModuleId(usize);
@@ -177,7 +179,7 @@ impl WorkspaceGraph {
             graph.module_by_path.insert(path, id);
         }
 
-        let entry_canonical = normalize_existing_path(entry_path)?;
+        let entry_canonical = crate::normalize_existing_path(entry_path)?;
         if let Some(entry_id) = graph.module_by_path.get(&entry_canonical).copied() {
             graph.roots.push(WorkspaceRoot {
                 kind: WorkspaceRootKind::Entry,

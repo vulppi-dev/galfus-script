@@ -121,12 +121,7 @@ impl ModuleLoader {
     }
 
     pub(crate) fn load_module(&mut self, path: PathBuf) -> Result<usize> {
-        let source = if path == Path::new(STD_IO_MODULE)
-            || path == Path::new(TEXT_MODULE)
-            || path == Path::new(FORMAT_MODULE)
-            || path == Path::new(FORMAT_ANSI_MODULE)
-            || path == Path::new(BUFFER_MODULE)
-        {
+        let source = if galfus_builtins::is_builtin_module(&path.to_string_lossy()) {
             ModuleSource::Builtin {
                 name: path.to_string_lossy().to_string(),
             }
@@ -483,11 +478,7 @@ fn is_relative_import(source: &str) -> bool {
 }
 
 fn is_builtin_import(source: &str) -> bool {
-    source == STD_IO_MODULE
-        || source == TEXT_MODULE
-        || source == FORMAT_MODULE
-        || source == FORMAT_ANSI_MODULE
-        || source == BUFFER_MODULE
+    galfus_builtins::is_builtin_module(source)
 }
 
 fn is_resolvable_import(source: &str) -> bool {
