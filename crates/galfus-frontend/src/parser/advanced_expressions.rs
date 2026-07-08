@@ -3,10 +3,8 @@ use crate::RangeOperatorKind;
 use crate::parser::expressions::ExpressionBoundary;
 
 impl Parser {
-    pub(super) fn parse_new_struct_literal(&mut self) -> Option<NodeId> {
+    pub(super) fn parse_new_literal(&mut self) -> Option<NodeId> {
         let new_token = self.expect(TokenKind::New)?;
-
-        self.skip_newlines();
 
         if self.at(&TokenKind::LeftParen) {
             return self.parse_typed_new_after_paren(new_token);

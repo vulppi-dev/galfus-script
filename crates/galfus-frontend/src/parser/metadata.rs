@@ -2,6 +2,8 @@ use super::*;
 use crate::SyntaxNodeKind;
 use galfus_core::{NodeId, Span};
 
+const METADATA_FLAGS: &[&str] = &["stamp", "after", "shared"];
+
 impl Parser {
     pub(super) fn parse_optional_keyword_metadata(&mut self, is_loop: bool) -> Option<NodeId> {
         if !self.at(&TokenKind::LeftParen) {
@@ -109,7 +111,7 @@ impl Parser {
         // 2) Flag: stamp, after, shared
         if self.at(&TokenKind::Identifier) {
             let text = self.token_text(self.current());
-            if text == "stamp" || text == "after" || text == "shared" {
+            if METADATA_FLAGS.contains(&text) {
                 let ident = self.parse_identifier()?;
                 let span = self.node_span(ident);
                 return Some(self.add_node(SyntaxNodeKind::KeywordMetadataFlag, span, vec![ident]));

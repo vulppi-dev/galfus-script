@@ -80,7 +80,6 @@ impl Parser {
         open: TokenKind,
         close: TokenKind,
         node_kind: SyntaxNodeKind,
-        require_comma: bool,
         mut parse_element: F,
     ) -> Option<NodeId>
     where
@@ -116,15 +115,13 @@ impl Parser {
                 continue;
             }
 
-            if require_comma {
-                let found = self.current().clone();
+            let found = self.current().clone();
 
-                self.graph.push_diagnostic(Diagnostic::error_with_message(
-                    ParserDiagnosticCode::ExpectedToken,
-                    format!("expected `Comma`, found `{:?}`", found.kind()),
-                    found.span(),
-                ));
-            }
+            self.graph.push_diagnostic(Diagnostic::error_with_message(
+                ParserDiagnosticCode::ExpectedToken,
+                format!("expected `Comma`, found `{:?}`", found.kind()),
+                found.span(),
+            ));
 
             if self.position == start_position {
                 self.bump();
@@ -143,7 +140,6 @@ impl Parser {
             TokenKind::LeftBrace,
             TokenKind::RightBrace,
             SyntaxNodeKind::NamedImportList,
-            true,
             |parser| parser.parse_named_import(),
         )
     }
@@ -153,7 +149,6 @@ impl Parser {
             TokenKind::LeftBrace,
             TokenKind::RightBrace,
             SyntaxNodeKind::StructFieldList,
-            true,
             |parser| {
                 if parser.at(&TokenKind::DotDotDot) {
                     parser.parse_struct_expansion()
@@ -169,7 +164,6 @@ impl Parser {
             TokenKind::LeftBrace,
             TokenKind::RightBrace,
             SyntaxNodeKind::EnumVariantList,
-            true,
             |parser| parser.parse_enum_variant(),
         )
     }
@@ -179,7 +173,6 @@ impl Parser {
             TokenKind::LeftBrace,
             TokenKind::RightBrace,
             SyntaxNodeKind::ChoiceVariantList,
-            true,
             |parser| parser.parse_choice_variant(),
         )
     }
@@ -253,12 +246,20 @@ impl Parser {
         Some(self.add_node(SyntaxNodeKind::ArgumentList, span, arguments))
     }
 
+    pub(super) fn parse_function_type_parameter_list(&mut self) -> Option<NodeId> {
+        self.parse_delimited_list(
+            TokenKind::LeftParen,
+            TokenKind::RightParen,
+            SyntaxNodeKind::FunctionTypeParameterList,
+            |parser| parser.parse_type(),
+        )
+    }
+
     pub(super) fn parse_struct_literal_field_list(&mut self) -> Option<NodeId> {
         self.parse_delimited_list(
             TokenKind::LeftBrace,
             TokenKind::RightBrace,
             SyntaxNodeKind::StructLiteralFieldList,
-            true,
             |parser| {
                 if parser.at(&TokenKind::DotDotDot) {
                     parser.parse_spread_struct_literal_field()
@@ -274,7 +275,6 @@ impl Parser {
             TokenKind::LeftBrace,
             TokenKind::RightBrace,
             SyntaxNodeKind::MatchArmList,
-            false,
             |parser| parser.parse_match_arm(),
         )
     }
@@ -284,7 +284,6 @@ impl Parser {
             TokenKind::LeftBrace,
             TokenKind::RightBrace,
             SyntaxNodeKind::InstanceofArmList,
-            false,
             |parser| parser.parse_instanceof_arm(),
         )
     }
@@ -525,15 +524,5 @@ impl Parser {
         let span = Span::cover(left.span(), right.span()).unwrap_or(left.span());
 
         Some(self.add_node(SyntaxNodeKind::ConstraintMemberList, span, members))
-    }
-
-    pub(super) fn parse_function_type_parameter_list(&mut self) -> Option<NodeId> {
-        self.parse_delimited_list(
-            TokenKind::LeftParen,
-            TokenKind::RightParen,
-            SyntaxNodeKind::FunctionTypeParameterList,
-            true,
-            |parser| parser.parse_type(),
-        )
     }
 }

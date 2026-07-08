@@ -66,6 +66,7 @@ impl Parser {
 
         None
     }
+
     pub(super) fn parse_export_item(&mut self, decorators: Option<NodeId>) -> Option<NodeId> {
         let export_token = self.expect(TokenKind::Export)?;
 

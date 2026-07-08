@@ -41,7 +41,7 @@ impl Parser {
         }
 
         if self.at(&TokenKind::New) {
-            return self.parse_new_struct_literal();
+            return self.parse_new_literal();
         }
 
         if self.at(&TokenKind::Match) {
