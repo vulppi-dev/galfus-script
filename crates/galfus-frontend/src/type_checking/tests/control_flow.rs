@@ -160,6 +160,22 @@ fn main(): null {
 }
 
 #[test]
+fn check_accepts_named_for_control_target() {
+    let (_source, _graph, result) = check_source(
+        r#"
+fn main(values: [int32]): null {
+  for(name: values) value in values {
+    continue values
+  }
+  return
+}
+"#,
+    );
+
+    assert!(!result.has_errors());
+}
+
+#[test]
 fn check_reports_duplicate_control_target() {
     let source = source(
         r#"
