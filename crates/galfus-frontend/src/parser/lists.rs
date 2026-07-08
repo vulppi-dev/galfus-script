@@ -197,25 +197,26 @@ impl Parser {
             if self.at(&TokenKind::RightParen) {
                 break;
             }
+            let start_position = self.position;
 
-            if self.at(&TokenKind::Comma) {
-                let comma = self.bump();
+            if self.at(&TokenKind::Underscore) {
+                let underscore = self.bump();
 
-                let omitted =
-                    self.add_node(SyntaxNodeKind::OmittedArgument, comma.span(), Vec::new());
+                let omitted = self.add_node(
+                    SyntaxNodeKind::OmittedArgument,
+                    underscore.span(),
+                    Vec::new(),
+                );
 
                 arguments.push(omitted);
 
                 self.skip_newlines();
-                continue;
+            } else {
+                let argument = self.parse_argument()?;
+                arguments.push(argument);
+
+                self.skip_newlines();
             }
-
-            let start_position = self.position;
-
-            let argument = self.parse_argument()?;
-            arguments.push(argument);
-
-            self.skip_newlines();
 
             if self.at(&TokenKind::RightParen) {
                 break;

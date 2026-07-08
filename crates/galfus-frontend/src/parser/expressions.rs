@@ -10,15 +10,11 @@ pub(super) enum ExpressionBoundary {
 
 impl Parser {
     pub(super) fn parse_expression(&mut self) -> Option<NodeId> {
-        self.parse_expression_with_boundary(ExpressionBoundary::None)
+        self.parse_binary_expression(0, ExpressionBoundary::None)
     }
 
     pub(super) fn parse_expression_before_block(&mut self) -> Option<NodeId> {
-        self.parse_expression_with_boundary(ExpressionBoundary::BeforeBlock)
-    }
-
-    fn parse_expression_with_boundary(&mut self, boundary: ExpressionBoundary) -> Option<NodeId> {
-        self.parse_binary_expression(0, boundary)
+        self.parse_binary_expression(0, ExpressionBoundary::BeforeBlock)
     }
 
     pub(super) fn parse_name_expression(&mut self) -> Option<NodeId> {

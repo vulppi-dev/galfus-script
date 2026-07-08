@@ -1,6 +1,16 @@
 use super::*;
 
 impl Parser {
+    pub(super) fn parse_optional_decorator_list(&mut self) -> Option<Option<NodeId>> {
+        self.skip_newlines();
+
+        if self.at(&TokenKind::At) {
+            return self.parse_decorator_list().map(Some);
+        }
+
+        Some(None)
+    }
+
     pub(super) fn parse_decorator_list(&mut self) -> Option<NodeId> {
         let first_span = self.current().span();
         let mut decorators = Vec::new();
@@ -19,20 +29,8 @@ impl Parser {
         Some(self.add_node(SyntaxNodeKind::DecoratorList, span, decorators))
     }
 
-    pub(super) fn parse_optional_decorator_list(&mut self) -> Option<Option<NodeId>> {
-        self.skip_newlines();
-
-        if self.at(&TokenKind::At) {
-            return self.parse_decorator_list().map(Some);
-        }
-
-        Some(None)
-    }
-
     pub(super) fn parse_decorator(&mut self) -> Option<NodeId> {
         let at_token = self.expect(TokenKind::At)?;
-
-        self.skip_newlines();
 
         let target = self.parse_decorator_target()?;
 
@@ -51,15 +49,17 @@ impl Parser {
         );
 
         loop {
+            if self.at(&TokenKind::LeftParen) {
+                expression = self.parse_call_expression(expression)?;
+                continue;
+            }
+
+            // TODO: Add parentheses recovery erro if after newline
+
             self.skip_newlines();
 
             if self.at(&TokenKind::ColonColon) {
                 expression = self.parse_path_expression(expression)?;
-                continue;
-            }
-
-            if self.at(&TokenKind::LeftParen) {
-                expression = self.parse_call_expression(expression)?;
                 continue;
             }
 

@@ -177,11 +177,7 @@ impl Parser {
     pub(super) fn parse_cast_expression(&mut self, boundary: ExpressionBoundary) -> Option<NodeId> {
         let left = self.expect(TokenKind::Less)?;
 
-        self.skip_newlines();
-
         let ty = self.parse_type()?;
-
-        self.skip_newlines();
 
         self.expect(TokenKind::Greater)?;
 

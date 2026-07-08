@@ -2,7 +2,7 @@ use super::*;
 
 impl Parser {
     pub(super) fn parse_identifier(&mut self) -> Option<NodeId> {
-        let token = if self.at(&TokenKind::Identifier) || self.at(&TokenKind::Underscore) {
+        let token = if self.at(&TokenKind::Identifier) {
             self.bump()
         } else {
             let found = self.current().clone();
