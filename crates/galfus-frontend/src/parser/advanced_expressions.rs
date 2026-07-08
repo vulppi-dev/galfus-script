@@ -1,5 +1,6 @@
 use super::*;
 use crate::RangeOperatorKind;
+use crate::UnaryOperatorKind;
 use crate::parser::expressions::ExpressionBoundary;
 
 impl Parser {
@@ -224,6 +225,25 @@ impl Parser {
     }
 
     pub(super) fn parse_range_operand(&mut self) -> Option<NodeId> {
+        if self.at(&TokenKind::Minus) {
+            let operator_token = self.bump();
+            let operator = self.graph.syntax_mut().add_operator_node(
+                SyntaxNodeKind::UnaryOperator,
+                operator_token.span(),
+                OperatorKind::Unary(UnaryOperatorKind::Negate),
+            );
+
+            let operand = self.parse_range_operand()?;
+            let span = Span::cover(operator_token.span(), self.node_span(operand))
+                .unwrap_or(operator_token.span());
+
+            return Some(self.add_node(
+                SyntaxNodeKind::UnaryExpression,
+                span,
+                vec![operator, operand],
+            ));
+        }
+
         if self.at(&TokenKind::Integer) {
             return self.parse_integer_literal();
         }

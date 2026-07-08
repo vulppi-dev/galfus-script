@@ -1,79 +1,329 @@
-use galfus_core::{NodeId, TypeId};
+use galfus_core::{Diagnostic, NodeId, TypeId};
 
-use crate::SyntaxNodeKind;
+use crate::{
+    PrimitiveType, RangeOperatorKind, SyntaxNodeKind, TypeDiagnosticCode, TypeKind,
+    UnaryOperatorKind,
+};
 
 use super::DeclarationTypeChecker;
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum RangeLiteralValue {
+    Integer(i64),
+    Float(f64),
+}
+
+impl RangeLiteralValue {
+    fn is_zero(self) -> bool {
+        match self {
+            Self::Integer(value) => value == 0,
+            Self::Float(value) => value == 0.0,
+        }
+    }
+}
 
 impl<'a> DeclarationTypeChecker<'a> {
     pub(super) fn infer_range_expression_type(&mut self, node: NodeId) -> Option<TypeId> {
         let start = self.graph.syntax().child(node, 0)?;
+        let operator = self.graph.syntax().child(node, 1)?;
         let end_or_count = self.graph.syntax().child(node, 2)?;
 
-        let start_type = self.infer_expression_type(start)?;
-        let end_or_count_type = self.infer_expression_type(end_or_count)?;
+        let operator_kind = self
+            .graph
+            .syntax()
+            .node(operator)
+            .and_then(|node| node.range_operator())?;
 
-        let start_is_numeric = self.is_numeric_type(start_type);
-        let end_or_count_is_numeric = self.is_numeric_type(end_or_count_type);
-
-        let mut has_error = false;
-
-        if !start_is_numeric {
-            self.report_invalid_range_operand_type(start, "numeric", start_type);
-            has_error = true;
+        match operator_kind {
+            RangeOperatorKind::Exclusive => {
+                self.infer_exclusive_range_type(node, start, end_or_count)
+            }
+            RangeOperatorKind::Quantity => {
+                self.infer_quantity_range_type(node, start, end_or_count)
+            }
         }
+    }
 
-        if !end_or_count_is_numeric {
-            self.report_invalid_range_operand_type(end_or_count, "numeric", end_or_count_type);
-            has_error = true;
-        } else if start_is_numeric && !self.is_same_numeric_type(start_type, end_or_count_type) {
-            let expected = format!(
-                "same numeric type as range start `{}`",
-                self.layer.table().describe(start_type)
-            );
+    fn infer_exclusive_range_type(
+        &mut self,
+        range: NodeId,
+        start: NodeId,
+        end: NodeId,
+    ) -> Option<TypeId> {
+        let int64 = self.layer.table().primitive(PrimitiveType::Int64);
+        self.bind_range_operand_type(start, int64);
+        self.bind_range_operand_type(end, int64);
 
-            self.report_invalid_range_operand_type(
-                end_or_count,
-                expected.as_str(),
-                end_or_count_type,
-            );
+        let start_value = self.integer_range_literal(start, "integer literal");
+        let end_value = self.integer_range_literal(end, "integer literal");
 
-            has_error = true;
-        }
-
-        if let Some(step) = self.graph.syntax().child(node, 3)
-            && let Some(step_type) = self.infer_range_step_type(step)
-        {
-            let step_is_numeric = self.is_numeric_type(step_type);
-
-            if !step_is_numeric {
-                self.report_invalid_range_operand_type(step, "numeric", step_type);
-                has_error = true;
-            } else if start_is_numeric && !self.is_same_numeric_type(start_type, step_type) {
-                let expected = format!(
-                    "same numeric type as range start `{}`",
-                    self.layer.table().describe(start_type)
-                );
-
-                self.report_invalid_range_operand_type(step, expected.as_str(), step_type);
-                has_error = true;
+        if let (Some(start_value), Some(end_value)) = (start_value, end_value) {
+            match end_value.checked_sub(start_value) {
+                Some(0) => self.report_invalid_range_value(range, "range must not be empty"),
+                Some(_) => {}
+                None => self.report_invalid_range_value(range, "range difference overflows int64"),
             }
         }
 
-        if has_error {
-            return Some(self.layer.table_mut().error());
-        }
-
-        Some(self.layer.table_mut().intern_range(start_type))
+        Some(self.layer.table_mut().intern_range(int64))
     }
 
-    fn infer_range_step_type(&mut self, step: NodeId) -> Option<TypeId> {
-        let syntax_node = self.graph.syntax().node(step)?;
+    fn infer_quantity_range_type(
+        &mut self,
+        range: NodeId,
+        start: NodeId,
+        count: NodeId,
+    ) -> Option<TypeId> {
+        let start_value = self.range_literal(start, "integer or float literal");
+        let count_value = self.integer_range_literal(count, "integer literal count");
 
-        if syntax_node.kind() == SyntaxNodeKind::RangeStep {
-            let expression = self.graph.syntax().child(step, 0)?;
-            return self.infer_expression_type(expression);
+        let item_type = match start_value {
+            Some(RangeLiteralValue::Integer(_)) => {
+                self.layer.table().primitive(PrimitiveType::Int64)
+            }
+            Some(RangeLiteralValue::Float(_)) => {
+                self.layer.table().primitive(PrimitiveType::Float64)
+            }
+            None => self.layer.table_mut().error(),
+        };
+
+        self.bind_range_operand_type(start, item_type);
+        self.bind_range_operand_type(count, self.layer.table().primitive(PrimitiveType::Int64));
+
+        if let Some(count_value) = count_value
+            && count_value <= 0
+        {
+            self.report_invalid_range_value(count, "range count must be greater than zero");
         }
 
-        self.infer_expression_type(step)
+        if let Some(step) = self.graph.syntax().child(range, 3) {
+            self.validate_range_step(range, item_type, start_value, count_value, step);
+        } else if let (Some(start_value), Some(count_value)) = (start_value, count_value) {
+            self.validate_range_bounds(range, start_value, count_value, None);
+        }
+
+        Some(self.layer.table_mut().intern_range(item_type))
+    }
+
+    fn validate_range_step(
+        &mut self,
+        range: NodeId,
+        item_type: TypeId,
+        start_value: Option<RangeLiteralValue>,
+        count_value: Option<i64>,
+        step: NodeId,
+    ) {
+        let Some(step_expression) = self.graph.syntax().child(step, 0) else {
+            return;
+        };
+
+        self.bind_range_operand_type(step_expression, item_type);
+
+        let step_value = self.range_literal(step_expression, "integer or float literal step");
+        if let Some(step_value) = step_value
+            && step_value.is_zero()
+        {
+            self.report_invalid_range_value(step, "range step must not be zero");
+        }
+
+        if !self.range_literal_matches_type(step_value, item_type) {
+            self.report_invalid_range_value(
+                step,
+                "range step must have the same numeric family as start",
+            );
+            return;
+        }
+
+        if let (Some(start_value), Some(count_value)) = (start_value, count_value) {
+            self.validate_range_bounds(range, start_value, count_value, step_value);
+        }
+    }
+
+    fn validate_range_bounds(
+        &mut self,
+        range: NodeId,
+        start_value: RangeLiteralValue,
+        count_value: i64,
+        step_value: Option<RangeLiteralValue>,
+    ) {
+        if count_value <= 0 {
+            return;
+        }
+
+        match (start_value, step_value) {
+            (RangeLiteralValue::Integer(start), Some(RangeLiteralValue::Integer(step))) => {
+                let Some(offset) = (count_value - 1).checked_mul(step) else {
+                    self.report_invalid_range_value(range, "range end overflows int64");
+                    return;
+                };
+
+                if start.checked_add(offset).is_none() {
+                    self.report_invalid_range_value(range, "range end overflows int64");
+                }
+            }
+            (RangeLiteralValue::Integer(start), None) => {
+                if start.checked_add(count_value - 1).is_none() {
+                    self.report_invalid_range_value(range, "range end overflows int64");
+                }
+            }
+            (RangeLiteralValue::Float(start), Some(RangeLiteralValue::Float(step))) => {
+                let end = start + ((count_value - 1) as f64 * step);
+                if !end.is_finite() {
+                    self.report_invalid_range_value(range, "range end must be finite");
+                }
+            }
+            (RangeLiteralValue::Float(start), None) => {
+                let end = start + (count_value - 1) as f64;
+                if !end.is_finite() {
+                    self.report_invalid_range_value(range, "range end must be finite");
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn integer_range_literal(&mut self, node: NodeId, expected: &str) -> Option<i64> {
+        match self.range_literal(node, expected) {
+            Some(RangeLiteralValue::Integer(value)) => Some(value),
+            Some(RangeLiteralValue::Float(_)) => {
+                let float64 = self.layer.table().primitive(PrimitiveType::Float64);
+                self.report_invalid_range_operand_type(node, expected, float64);
+                None
+            }
+            None => None,
+        }
+    }
+
+    fn range_literal(&mut self, node: NodeId, expected: &str) -> Option<RangeLiteralValue> {
+        let syntax_node = self.graph.syntax().node(node)?;
+
+        match syntax_node.kind() {
+            SyntaxNodeKind::IntegerLiteral => match self.parse_integer_literal_value(node) {
+                Some(value) => Some(RangeLiteralValue::Integer(value)),
+                None => {
+                    self.report_invalid_range_value(node, "range integer literal must fit int64");
+                    None
+                }
+            },
+            SyntaxNodeKind::FloatLiteral => match self.parse_float_literal_value(node) {
+                Some(value) if value.is_finite() => Some(RangeLiteralValue::Float(value)),
+                _ => {
+                    self.report_invalid_range_value(node, "range float literal must be finite");
+                    None
+                }
+            },
+            SyntaxNodeKind::UnaryExpression => self.signed_range_literal(node, expected),
+            _ => {
+                let error = self.layer.table_mut().error();
+                self.report_invalid_range_operand_type(node, expected, error);
+                None
+            }
+        }
+    }
+
+    fn signed_range_literal(&mut self, node: NodeId, expected: &str) -> Option<RangeLiteralValue> {
+        let operator = self.graph.syntax().child(node, 0)?;
+        let operand = self.graph.syntax().child(node, 1)?;
+        let is_negative = self
+            .graph
+            .syntax()
+            .node(operator)
+            .and_then(|node| node.unary_operator())
+            == Some(UnaryOperatorKind::Negate);
+
+        if !is_negative {
+            let error = self.layer.table_mut().error();
+            self.report_invalid_range_operand_type(node, expected, error);
+            return None;
+        }
+
+        match self.range_literal(operand, expected)? {
+            RangeLiteralValue::Integer(value) => Some(RangeLiteralValue::Integer(-value)),
+            RangeLiteralValue::Float(value) => Some(RangeLiteralValue::Float(-value)),
+        }
+    }
+
+    fn bind_range_operand_type(&mut self, node: NodeId, ty: TypeId) {
+        let Some(syntax_node) = self.graph.syntax().node(node) else {
+            return;
+        };
+
+        match syntax_node.kind() {
+            SyntaxNodeKind::IntegerLiteral | SyntaxNodeKind::FloatLiteral => {
+                self.layer.bind_node_type(node, ty);
+            }
+            SyntaxNodeKind::UnaryExpression => {
+                if let Some(operand) = self.graph.syntax().child(node, 1) {
+                    self.bind_range_operand_type(operand, ty);
+                }
+                self.layer.bind_node_type(node, ty);
+            }
+            _ => {}
+        }
+    }
+
+    fn range_literal_matches_type(&self, literal: Option<RangeLiteralValue>, ty: TypeId) -> bool {
+        let ty = self.resolve_alias_type(ty);
+        match (literal, self.layer.table().kind(ty)) {
+            (
+                Some(RangeLiteralValue::Integer(_)),
+                Some(TypeKind::Primitive(PrimitiveType::Int64)),
+            ) => true,
+            (
+                Some(RangeLiteralValue::Float(_)),
+                Some(TypeKind::Primitive(PrimitiveType::Float64)),
+            ) => true,
+            (None, Some(TypeKind::Error)) => true,
+            _ => false,
+        }
+    }
+
+    fn parse_integer_literal_value(&self, node: NodeId) -> Option<i64> {
+        let text = self.node_text(node);
+        let text = text.replace('_', "");
+
+        let (negative, digits) = text
+            .strip_prefix('-')
+            .map(|digits| (true, digits))
+            .unwrap_or((false, text.as_str()));
+
+        let (radix, digits) = if let Some(digits) = digits.strip_prefix("0x") {
+            (16, digits)
+        } else if let Some(digits) = digits.strip_prefix("0X") {
+            (16, digits)
+        } else if let Some(digits) = digits.strip_prefix("0b") {
+            (2, digits)
+        } else if let Some(digits) = digits.strip_prefix("0B") {
+            (2, digits)
+        } else if let Some(digits) = digits.strip_prefix("0o") {
+            (8, digits)
+        } else if let Some(digits) = digits.strip_prefix("0O") {
+            (8, digits)
+        } else {
+            (10, digits)
+        };
+
+        let value = i64::from_str_radix(digits, radix).ok()?;
+        Some(if negative { -value } else { value })
+    }
+
+    fn parse_float_literal_value(&self, node: NodeId) -> Option<f64> {
+        let text = self.node_text(node).replace('_', "");
+        text.parse::<f64>().ok()
+    }
+
+    fn report_invalid_range_value(&mut self, node: NodeId, message: &str) {
+        let span = self
+            .graph
+            .syntax()
+            .node(node)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+            TypeDiagnosticCode::InvalidRangeOperandType,
+            message.to_string(),
+            span,
+        ));
     }
 }

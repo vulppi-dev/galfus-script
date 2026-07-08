@@ -76,6 +76,66 @@ fn main(): null {
 }
 
 #[test]
+fn check_reports_assignment_to_parameter() {
+    let source = source(
+        r#"
+fn main(age: int32): null {
+  age = 20
+  return
+}
+"#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.into_graph();
+    let result = check_declaration_types(&source, &graph);
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::AssignmentToImmutable.as_code()
+            && diagnostic
+                .message()
+                .contains("cannot assign to immutable binding `age`")
+    }));
+}
+
+#[test]
+fn check_reports_assignment_to_for_binding() {
+    let source = source(
+        r#"
+fn main(values: [int32]): null {
+  for value in values {
+    value = 20
+  }
+  return
+}
+"#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.into_graph();
+    let result = check_declaration_types(&source, &graph);
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::AssignmentToImmutable.as_code()
+            && diagnostic
+                .message()
+                .contains("cannot assign to immutable binding `value`")
+    }));
+}
+
+#[test]
 fn check_accepts_nullable_assignment() {
     let (_source, _graph, result) = check_source(
         r#"

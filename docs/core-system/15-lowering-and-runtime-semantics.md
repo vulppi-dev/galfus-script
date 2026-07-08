@@ -344,13 +344,17 @@ Item and index bindings are const.
 
 ## 15.19 Range Lowering
 
-Ranges are compiler-known integer literal iterables.
+Ranges are compiler-known literal iterables.
 
 ```txt
 start..end
 start::count
 start::count%step
 ```
+
+`start..end` lowers as `range<int64>`.
+
+`start::count` and `start::count%step` lower as `range<int64>` when the start is an integer literal, or `range<float64>` when the start is a float literal. `count` is always an integer literal. `step`, when present, must use the same numeric family as `start`.
 
 Invalid:
 
@@ -360,6 +364,8 @@ a..b
 1::0
 1::-1
 1::2%0
+1.0..2.0
+1::4%0.5
 ```
 
 Ranges do not materialize arrays.

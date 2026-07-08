@@ -66,7 +66,13 @@ impl<'a> DeclarationTypeChecker<'a> {
             return;
         };
 
-        if symbol_data.kind() != SymbolKind::Const {
+        if !matches!(
+            symbol_data.kind(),
+            SymbolKind::Const
+                | SymbolKind::Parameter
+                | SymbolKind::RestParameter
+                | SymbolKind::ForBinding
+        ) {
             return;
         }
 

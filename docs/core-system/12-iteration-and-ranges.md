@@ -159,9 +159,16 @@ Examples:
 1..9
 1::4
 1::4%3
+1.5::4%0.5
 ```
 
-Range operands must be integer literals.
+Range operands must be literals. Dynamic expressions are not range operands.
+
+`start..end` accepts integer literals only and produces `range<int64>`.
+
+`start::count` accepts an integer or float literal start, an integer literal count, and produces `range<int64>` or `range<float64>`.
+
+`start::count%step` accepts an integer or float literal start, an integer literal count, and an integer or float literal step. `start` and `step` must use the same numeric family, producing `range<int64>` or `range<float64>`.
 
 Invalid:
 
@@ -169,6 +176,7 @@ Invalid:
 a..b
 start::count
 1.5..10.5
+1::4%0.5
 ```
 
 Dynamic ranges should be built through explicit functions/modules if needed later.
@@ -191,7 +199,7 @@ Produces:
 
 The end value is not included.
 
-The range must produce at least one value.
+The range must produce at least one value. In other words, `end - start` must not be zero.
 
 Invalid:
 
@@ -212,6 +220,8 @@ Produces:
 3
 2
 ```
+
+Exclusive range items use `int64` by default.
 
 ## 12.10 Quantity Range `start::count`
 
@@ -238,6 +248,8 @@ Invalid:
 1::0
 1::-1
 ```
+
+If start is an integer literal, items use `int64` by default. If start is a float literal, items use `float64` by default.
 
 ## 12.11 Quantity Range with Step
 
@@ -274,6 +286,14 @@ Produces:
 4
 3
 2
+```
+
+Step must use the same numeric family as start:
+
+```galfus
+1::4%2       // valid: range<int64>
+1.0::4%0.5  // valid: range<float64>
+1::4%0.5    // invalid
 ```
 
 ## 12.12 Range Allocation
