@@ -179,3 +179,29 @@ fn one(flag: bool): int32 {
         diagnostic.code().as_str() == TypeDiagnosticCode::MissingReturn.as_code()
     }));
 }
+
+#[test]
+fn check_warns_unreachable_statement_after_return() {
+    let source = source(
+        r#"
+fn main(): null {
+  return
+  var value = 1
+}
+"#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.into_graph();
+    let result = check_declaration_types(&source, &graph);
+
+    assert!(!result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::UnreachableCode.as_code()
+    }));
+}

@@ -32,6 +32,8 @@ var label = match value {
 
 All arms must produce compatible result types.
 
+Arms are comma-separated. The comma is required between arms even when an arm body is a block.
+
 ## 13.3 Wildcard Arm Position
 
 If `_` appears in an arm list, it must be the final arm.
@@ -195,6 +197,41 @@ var size = instanceof value {
   null => 0,
 }
 ```
+
+Fallback binding:
+
+```galfus
+var value = instanceof entry {
+  int32 x => 1,
+  int16 x => {
+    return 2
+  },
+  x => 0,
+}
+```
+
+The final `x =>` is a catch-all binding for the remaining possible type set.
+
+Wildcard fallback:
+
+```galfus
+var value = instanceof entry {
+  int32 x => 1,
+  _ => 0,
+}
+```
+
+`_ =>` is a catch-all for the remaining possible type set without creating a binding.
+
+Invalid subject:
+
+```galfus
+instanceof _ {
+  _ => 0,
+}
+```
+
+`instanceof` requires an input expression. `_` may appear in arms, but not as the input.
 
 Nullable narrowing:
 

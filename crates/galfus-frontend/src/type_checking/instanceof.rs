@@ -34,12 +34,16 @@ impl<'a> DeclarationTypeChecker<'a> {
             return Some(error);
         }
 
+        self.check_instanceof_arm_order(arm_nodes.as_slice());
+
         let mut arm_types = Vec::new();
+        let mut remaining_members = self.instanceof_possible_members(subject_type);
 
         for arm in arm_nodes {
             let Some(arm_type) = self.check_instanceof_arm_type(
                 arm,
                 subject_type,
+                &mut remaining_members,
                 subject_symbol,
                 subject_text.as_str(),
                 subject_generic,
@@ -50,6 +54,8 @@ impl<'a> DeclarationTypeChecker<'a> {
 
             arm_types.push((arm, arm_type));
         }
+
+        self.check_instanceof_exhaustiveness(node, subject_type, remaining_members.as_slice());
 
         if let Some(expected) = expected {
             let mut has_error = false;
@@ -122,10 +128,82 @@ impl<'a> DeclarationTypeChecker<'a> {
         Some(ty)
     }
 
+    fn check_instanceof_arm_order(&mut self, arms: &[NodeId]) {
+        let mut catch_all_seen = false;
+
+        for (index, arm) in arms.iter().copied().enumerate() {
+            let Some(pattern) = self.graph.syntax().child(arm, 0) else {
+                continue;
+            };
+
+            if catch_all_seen {
+                self.report_unreachable_pattern(pattern);
+                continue;
+            }
+
+            if !self.is_catch_all_instanceof_pattern(pattern) {
+                continue;
+            }
+
+            catch_all_seen = true;
+
+            if index + 1 < arms.len() {
+                self.report_catch_all_pattern_not_final(pattern);
+            }
+        }
+    }
+
+    fn check_instanceof_exhaustiveness(
+        &mut self,
+        instanceof_expression: NodeId,
+        subject_type: TypeId,
+        remaining_members: &[TypeId],
+    ) {
+        let missing = remaining_members
+            .iter()
+            .copied()
+            .map(|member| self.describe_type_for_diagnostic(member))
+            .collect::<Vec<_>>();
+
+        if missing.is_empty() {
+            return;
+        }
+
+        self.report_non_exhaustive_instanceof(
+            instanceof_expression,
+            subject_type,
+            missing.as_slice(),
+        );
+    }
+
+    fn instanceof_possible_members(&self, subject_type: TypeId) -> Vec<TypeId> {
+        let subject_type = self.resolve_alias_type(subject_type);
+
+        match self.layer.table().kind(subject_type) {
+            Some(TypeKind::Union { members }) => members.clone(),
+            Some(TypeKind::GenericParameter { symbol }) => self
+                .generic_parameter_bound_type(*symbol)
+                .map(|bound| self.instanceof_possible_members(bound))
+                .unwrap_or_else(|| vec![subject_type]),
+            Some(TypeKind::Error) => Vec::new(),
+            _ => vec![subject_type],
+        }
+    }
+
+    fn is_catch_all_instanceof_pattern(&self, pattern: NodeId) -> bool {
+        self.graph.syntax().node(pattern).is_some_and(|node| {
+            matches!(
+                node.kind(),
+                SyntaxNodeKind::WildcardPattern | SyntaxNodeKind::BindingPattern
+            )
+        })
+    }
+
     fn check_instanceof_arm_type(
         &mut self,
         arm: NodeId,
         subject_type: TypeId,
+        remaining_members: &mut Vec<TypeId>,
         subject_symbol: Option<galfus_core::SymbolId>,
         subject_text: &str,
         subject_generic: Option<galfus_core::SymbolId>,
@@ -134,7 +212,8 @@ impl<'a> DeclarationTypeChecker<'a> {
         let pattern = self.graph.syntax().child(arm, 0)?;
         let body = self.graph.syntax().child(arm, 1)?;
 
-        let narrowed_type = self.check_instanceof_pattern_type(pattern, subject_type);
+        let narrowed_type =
+            self.check_instanceof_pattern_type(pattern, subject_type, remaining_members);
         let arm_expected = expected
             .zip(narrowed_type)
             .map(|(expected, pattern_type)| {
@@ -170,6 +249,7 @@ impl<'a> DeclarationTypeChecker<'a> {
         &mut self,
         pattern: NodeId,
         subject_type: TypeId,
+        remaining_members: &mut Vec<TypeId>,
     ) -> Option<TypeId> {
         let Some(pattern_node) = self.graph.syntax().node(pattern) else {
             return None;
@@ -177,17 +257,21 @@ impl<'a> DeclarationTypeChecker<'a> {
 
         match pattern_node.kind() {
             SyntaxNodeKind::TypePattern => {
-                self.check_type_instanceof_pattern_type(pattern, subject_type)
+                self.check_type_instanceof_pattern_type(pattern, subject_type, remaining_members)
             }
 
             SyntaxNodeKind::BindingPattern => {
-                self.bind_instanceof_binding_pattern_type(pattern, subject_type);
-                Some(subject_type)
+                let remaining_type = self.instanceof_remaining_type(remaining_members.as_slice());
+                self.bind_instanceof_binding_pattern_type(pattern, remaining_type);
+                remaining_members.clear();
+                Some(remaining_type)
             }
 
             SyntaxNodeKind::WildcardPattern => {
-                self.layer.bind_node_type(pattern, subject_type);
-                Some(subject_type)
+                let remaining_type = self.instanceof_remaining_type(remaining_members.as_slice());
+                self.layer.bind_node_type(pattern, remaining_type);
+                remaining_members.clear();
+                Some(remaining_type)
             }
 
             _ => None,
@@ -198,6 +282,7 @@ impl<'a> DeclarationTypeChecker<'a> {
         &mut self,
         pattern: NodeId,
         subject_type: TypeId,
+        remaining_members: &mut Vec<TypeId>,
     ) -> Option<TypeId> {
         let Some(type_node) = self.first_type_child(pattern) else {
             return None;
@@ -212,10 +297,15 @@ impl<'a> DeclarationTypeChecker<'a> {
             return None;
         }
 
-        self.bind_instanceof_type_pattern_binding(pattern, pattern_type);
-        self.layer.bind_node_type(pattern, pattern_type);
+        let matching_members = self.matching_instanceof_members(pattern_type, remaining_members);
+        let narrowed_type = self.instanceof_remaining_type(matching_members.as_slice());
 
-        Some(pattern_type)
+        remaining_members.retain(|member| !self.instanceof_type_matches(pattern_type, *member));
+
+        self.bind_instanceof_type_pattern_binding(pattern, narrowed_type);
+        self.layer.bind_node_type(pattern, narrowed_type);
+
+        Some(narrowed_type)
     }
 
     fn infer_instanceof_arm_body_type_with_narrowing(
@@ -309,50 +399,58 @@ impl<'a> DeclarationTypeChecker<'a> {
         self.layer.bind_node_type(pattern, ty);
     }
 
-    fn is_instanceof_pattern_compatible(
-        &mut self,
-        subject_type: TypeId,
-        pattern_type: TypeId,
-    ) -> bool {
-        if self.is_assignable(subject_type, pattern_type) {
-            return true;
-        }
-
-        if self.is_assignable(pattern_type, subject_type) {
-            return true;
-        }
-
-        if self.union_contains_type(subject_type, pattern_type) {
-            return true;
-        }
-
-        if let Some(subject_generic) = self.generic_parameter_symbol(subject_type) {
-            if let Some(bound) = self.generic_parameter_bound_type(subject_generic) {
-                if self.is_assignable(bound, pattern_type)
-                    || self.is_assignable(pattern_type, bound)
-                    || self.union_contains_type(bound, pattern_type)
-                {
-                    return true;
-                }
-            }
-        }
-
-        false
+    fn is_instanceof_pattern_compatible(&self, subject_type: TypeId, pattern_type: TypeId) -> bool {
+        self.instanceof_possible_members(subject_type)
+            .into_iter()
+            .any(|member| self.instanceof_type_matches(pattern_type, member))
     }
 
-    fn union_contains_type(&self, union_type: TypeId, member_type: TypeId) -> bool {
-        let union_type = self.resolve_alias_type(union_type);
+    fn matching_instanceof_members(
+        &self,
+        pattern_type: TypeId,
+        remaining_members: &[TypeId],
+    ) -> Vec<TypeId> {
+        remaining_members
+            .iter()
+            .copied()
+            .filter(|member| self.instanceof_type_matches(pattern_type, *member))
+            .collect()
+    }
+
+    fn instanceof_type_matches(&self, pattern_type: TypeId, member_type: TypeId) -> bool {
+        let pattern_type = self.resolve_alias_type(pattern_type);
         let member_type = self.resolve_alias_type(member_type);
 
-        match self.layer.table().kind(union_type) {
+        if pattern_type == member_type {
+            return true;
+        }
+
+        match self.layer.table().kind(pattern_type) {
             Some(TypeKind::Union { members }) => members
                 .iter()
                 .copied()
-                .any(|member| self.is_assignable(member, member_type)),
+                .any(|member| self.instanceof_type_matches(member, member_type)),
 
             Some(TypeKind::Error) => true,
 
-            _ => false,
+            _ => match self.layer.table().kind(member_type) {
+                Some(TypeKind::Union { members }) => members
+                    .iter()
+                    .copied()
+                    .any(|member| self.instanceof_type_matches(pattern_type, member)),
+
+                Some(TypeKind::Error) => true,
+
+                _ => false,
+            },
+        }
+    }
+
+    fn instanceof_remaining_type(&mut self, remaining_members: &[TypeId]) -> TypeId {
+        match remaining_members {
+            [] => self.layer.table_mut().error(),
+            [member] => *member,
+            members => self.layer.table_mut().intern_union(members.iter().copied()),
         }
     }
 

@@ -331,8 +331,8 @@ fn check_reports_multiple_missing_choice_match_variants() {
 }
 
 #[test]
-fn check_does_not_require_enum_match_exhaustiveness_yet() {
-    let (_source, _graph, result) = check_source(
+fn check_reports_non_exhaustive_enum_match() {
+    let source = source(
         r#"
         enum Direction {
           North,
@@ -347,5 +347,57 @@ fn check_does_not_require_enum_match_exhaustiveness_yet() {
         "#,
     );
 
-    assert!(!result.has_errors());
+    let parse_result = parse(&source);
+    assert!(
+        !parse_result.has_errors(),
+        "{:?}",
+        parse_result.diagnostics()
+    );
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(
+        !resolve_result.has_errors(),
+        "{:?}",
+        resolve_result.diagnostics()
+    );
+
+    let graph = resolve_result.into_graph();
+    let result = check_declaration_types(&source, &graph);
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::NonExhaustiveMatch.as_code()
+            && diagnostic.message().contains("missing `South`")
+    }));
+}
+
+#[test]
+fn check_reports_catch_all_match_pattern_before_final_arm() {
+    let source = source(
+        r#"
+fn code(value: int32): int32 {
+  return match value {
+    fallback => fallback,
+    1 => 10,
+  }
+}
+"#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.into_graph();
+    let result = check_declaration_types(&source, &graph);
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::InvalidPatternOrder.as_code()
+    }));
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::UnreachablePattern.as_code()
+    }));
 }

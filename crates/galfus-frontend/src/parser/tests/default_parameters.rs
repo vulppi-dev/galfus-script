@@ -249,7 +249,7 @@ fn parse_parameter_default_before_required_parameter() {
 fn parse_initial_omitted_argument() {
     let source = source(
         "fn main(): null {
-            someFunction(, 32)
+            someFunction(_, 32)
             return
         }",
     );
@@ -293,7 +293,7 @@ fn parse_initial_omitted_argument() {
 fn parse_middle_omitted_argument() {
     let source = source(
         "fn main(): null {
-            someFunction(1, , 3)
+            someFunction(1, _, 3)
             return
         }",
     );

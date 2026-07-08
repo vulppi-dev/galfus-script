@@ -224,7 +224,7 @@ fn check_accepts_omitted_default_argument() {
           return a + b + c
         }
 
-        var value: int32 = call(1,,3)
+        var value: int32 = call(1, _, 3)
         "#,
     );
 
@@ -239,7 +239,7 @@ fn check_reports_omitted_required_argument() {
           return a + b
         }
 
-        var value: int32 = call(,2)
+        var value: int32 = call(_, 2)
         "#,
     );
 

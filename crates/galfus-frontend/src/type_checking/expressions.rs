@@ -72,7 +72,8 @@ impl<'a> DeclarationTypeChecker<'a> {
             }
 
             SyntaxNodeKind::WildcardExpression => {
-                let ty = expected.unwrap_or_else(|| self.layer.table_mut().error());
+                self.report_cannot_infer_type(node, "wildcard cannot be used as a value");
+                let ty = self.layer.table_mut().error();
                 self.layer.bind_node_type(node, ty);
                 Some(ty)
             }

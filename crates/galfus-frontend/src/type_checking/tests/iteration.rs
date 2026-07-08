@@ -1,4 +1,5 @@
 use super::*;
+use crate::ResolverDiagnosticCode;
 
 #[test]
 fn check_accepts_for_over_dynamic_array() {
@@ -161,6 +162,14 @@ fn main(values: [int32]): null {
 fn check_accepts_for_over_iterable_struct() {
     let (_source, _graph, result) = check_source(
         r#"
+        constraint Iterator<T, Item> {
+          fn next(self: T): Item | null
+        }
+
+        constraint Iterable<T, Item, Iter> {
+          fn iter(self: T): Iter
+        }
+
         struct Numbers satisfies Iterable<Numbers, int32, NumbersIterator> {
           values: [int32],
         }
@@ -202,6 +211,14 @@ fn check_accepts_for_over_iterable_struct() {
 fn check_binds_for_binding_type_from_iterable_struct() {
     let (source, graph, result) = check_source(
         r#"
+        constraint Iterator<T, Item> {
+          fn next(self: T): Item | null
+        }
+
+        constraint Iterable<T, Item, Iter> {
+          fn iter(self: T): Iter
+        }
+
         struct Numbers satisfies Iterable<Numbers, int32, NumbersIterator> {
           values: [int32],
         }
@@ -251,6 +268,14 @@ fn check_binds_for_binding_type_from_iterable_struct() {
 fn check_reports_iterable_with_non_iterator_iter_type() {
     let source = source(
         r#"
+constraint Iterator<T, Item> {
+  fn next(self: T): Item | null
+}
+
+constraint Iterable<T, Item, Iter> {
+  fn iter(self: T): Iter
+}
+
 struct Iter {}
 
 struct Source satisfies Iterable<Source, int32, Iter> {}
@@ -293,6 +318,10 @@ fn main(): null {
 fn check_reports_iterator_next_return_type_mismatch() {
     let source = source(
         r#"
+        constraint Iterator<T, Item> {
+          fn next(self: T): Item | null
+        }
+
         struct BadIterator satisfies Iterator<BadIterator, int32> {}
 
         fn BadIterator::next(self: BadIterator): bool {
@@ -318,9 +347,13 @@ fn check_reports_iterator_next_return_type_mismatch() {
 }
 
 #[test]
-fn check_accepts_builtin_comparable_constraint() {
+fn check_accepts_comparable_constraint() {
     let (_source, _graph, result) = check_source(
         r#"
+        constraint Comparable<Pattern, Value> {
+          fn compare(self: Pattern, value: Value): bool
+        }
+
         struct Pattern satisfies Comparable<Pattern, [uint8]> {}
 
         fn Pattern::compare(self: Pattern, value: [uint8]): bool {
@@ -333,9 +366,45 @@ fn check_accepts_builtin_comparable_constraint() {
 }
 
 #[test]
+fn check_reports_direct_builtin_constraint_without_import() {
+    let source = source(
+        r#"
+struct Pattern satisfies Comparable<Pattern, [uint8]> {}
+
+fn Pattern::compare(self: Pattern, value: [uint8]): bool {
+  return true
+}
+"#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.into_graph();
+    let result = check_declaration_types(&source, &graph);
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::RestrictedBuiltinSymbol.as_code()
+            && diagnostic.message().contains("Comparable")
+    }));
+}
+
+#[test]
 fn check_reports_iterable_iter_return_type_mismatch() {
     let source = source(
         r#"
+constraint Iterator<T, Item> {
+  fn next(self: T): Item | null
+}
+
+constraint Iterable<T, Item, Iter> {
+  fn iter(self: T): Iter
+}
+
 struct Iter {}
 
 struct Source satisfies Iterable<Source, int32, Iter> {}
@@ -366,6 +435,10 @@ fn Source::iter(self: Source): bool {
 fn check_reports_iterator_next_item_type_mismatch() {
     let source = source(
         r#"
+constraint Iterator<T, Item> {
+  fn next(self: T): Item | null
+}
+
 struct BadIterator satisfies Iterator<BadIterator, int32> {}
 
 fn BadIterator::next(self: BadIterator): bool | null {
@@ -394,6 +467,10 @@ fn BadIterator::next(self: BadIterator): bool | null {
 fn check_reports_builtin_comparable_return_type_mismatch() {
     let source = source(
         r#"
+constraint Comparable<Pattern, Value> {
+  fn compare(self: Pattern, value: Value): bool
+}
+
 struct Pattern satisfies Comparable<Pattern, [uint8]> {}
 
 fn Pattern::compare(self: Pattern, value: [uint8]): int32 {
@@ -422,6 +499,10 @@ fn Pattern::compare(self: Pattern, value: [uint8]): int32 {
 fn check_reports_for_over_iterator_without_iterable() {
     let source = source(
         r#"
+constraint Iterator<T, Item> {
+  fn next(self: T): Item | null
+}
+
 struct Counter satisfies Iterator<Counter, int32> {}
 
 fn Counter::next(self: Counter): int32 | null {
@@ -624,10 +705,8 @@ fn main(values: [int32]): null {
     let resolve_result = resolve(&source, parse_result.into_graph());
 
     assert!(resolve_result.has_errors());
-    assert!(
-        resolve_result
-            .diagnostics()
-            .iter()
-            .any(|diagnostic| { diagnostic.message().contains("unresolved name `_`") })
-    );
+    assert!(resolve_result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == ResolverDiagnosticCode::UnresolvedName.as_code()
+            && diagnostic.message().contains("unresolved name `_`")
+    }));
 }

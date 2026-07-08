@@ -1,4 +1,5 @@
 use super::*;
+use crate::ResolverDiagnosticCode;
 
 #[test]
 fn check_accepts_instanceof_type_pattern_binding() {
@@ -165,4 +166,134 @@ fn normalize(value: int32): int32 {
     );
 
     assert!(!result.has_errors());
+}
+
+#[test]
+fn check_binds_instanceof_fallback_binding_to_remaining_type() {
+    let (source, graph, result) = check_source(
+        r#"
+fn normalize(value: int32 | int16 | null): null {
+  return instanceof value {
+    int32 number => null,
+    int16 short => null,
+    rest => rest,
+  }
+}
+"#,
+    );
+
+    assert!(!result.has_errors());
+
+    let binding =
+        find_node_by_kind_and_text(&source, &graph, SyntaxNodeKind::BindingPattern, "rest")
+            .unwrap();
+
+    let ty = result.layer().node_type(binding).unwrap();
+
+    assert_eq!(
+        result.layer().table().kind(ty),
+        Some(&TypeKind::Primitive(PrimitiveType::Null))
+    );
+}
+
+#[test]
+fn check_instanceof_wildcard_fallback_does_not_bind() {
+    let (source, graph, result) = check_source(
+        r#"
+fn normalize(value: int32 | null): int32 {
+  return instanceof value {
+    int32 number => number,
+    _ => 0,
+  }
+}
+"#,
+    );
+
+    assert!(!result.has_errors());
+    assert!(
+        find_node_by_kind_and_text(&source, &graph, SyntaxNodeKind::BindingPattern, "_").is_none()
+    );
+}
+
+#[test]
+fn check_reports_instanceof_wildcard_subject() {
+    let source = source(
+        r#"
+fn normalize(): int32 {
+  return instanceof _ {
+    _ => 0,
+  }
+}
+"#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+
+    assert!(resolve_result.has_errors());
+    assert!(resolve_result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == ResolverDiagnosticCode::UnresolvedName.as_code()
+            && diagnostic.message().contains("unresolved name `_`")
+    }));
+}
+
+#[test]
+fn check_reports_non_exhaustive_instanceof() {
+    let source = source(
+        r#"
+fn normalize(value: int32 | null): int32 {
+  return instanceof value {
+    int32 number => number,
+  }
+}
+"#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.into_graph();
+    let result = check_declaration_types(&source, &graph);
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::NonExhaustiveMatch.as_code()
+            && diagnostic.message().contains("missing `null`")
+    }));
+}
+
+#[test]
+fn check_reports_catch_all_instanceof_pattern_before_final_arm() {
+    let source = source(
+        r#"
+fn normalize(value: int32): int32 {
+  return instanceof value {
+    other => other,
+    int32 number => number,
+  }
+}
+"#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.into_graph();
+    let result = check_declaration_types(&source, &graph);
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::InvalidPatternOrder.as_code()
+    }));
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::UnreachablePattern.as_code()
+    }));
 }

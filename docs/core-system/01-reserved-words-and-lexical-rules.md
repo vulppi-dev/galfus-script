@@ -212,6 +212,16 @@ var value = _
 
 Struct destructuring does not use `_` for omitted fields. Omit fields instead.
 
+Invalid as an `instanceof` subject:
+
+```galfus
+instanceof _ {
+  _ => 0
+}
+```
+
+`instanceof` requires a real input expression.
+
 ## 1.7 Wildcard as Default-Argument Placeholder
 
 `_` may request a default argument in a function call.

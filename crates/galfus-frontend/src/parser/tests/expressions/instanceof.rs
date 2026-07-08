@@ -93,7 +93,7 @@ fn parse_instanceof_wildcard_pattern() {
 #[test]
 fn parse_instanceof_expression_with_array_type_pattern() {
     let source = source(
-        "fn main(value: [uint8] | null): null {\n  instanceof value {\n    [uint8] name => {\n      return\n    }\n    _ => {\n      return\n    }\n  }\n}",
+        "fn main(value: [uint8] | null): null {\n  instanceof value {\n    [uint8] name => {\n      return\n    },\n    _ => {\n      return\n    }\n  }\n}",
     );
 
     let result = parse(&source);

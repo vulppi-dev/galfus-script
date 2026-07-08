@@ -148,6 +148,9 @@ pub enum TypeDiagnosticCode {
     DuplicateControlTarget,
     UnresolvedControlTarget,
     RollbackOutsideTransaction,
+    InvalidPatternOrder,
+    UnreachablePattern,
+    UnreachableCode,
     InvalidBufferElement,
 }
 
@@ -205,6 +208,9 @@ impl DiagnosticCodeKind for TypeDiagnosticCode {
             Self::UnresolvedControlTarget => "T0049",
             Self::RollbackOutsideTransaction => "T0050",
             Self::InvalidBufferElement => "T0052",
+            Self::InvalidPatternOrder => "T0053",
+            Self::UnreachablePattern => "T0054",
+            Self::UnreachableCode => "T0055",
         }
     }
 
@@ -262,6 +268,9 @@ impl DiagnosticCodeKind for TypeDiagnosticCode {
             Self::DuplicateControlTarget => "duplicate control target name",
             Self::UnresolvedControlTarget => "unresolved control target",
             Self::RollbackOutsideTransaction => "rollback statement outside of a transaction block",
+            Self::InvalidPatternOrder => "invalid pattern order",
+            Self::UnreachablePattern => "unreachable pattern",
+            Self::UnreachableCode => "unreachable code",
             Self::InvalidBufferElement => "invalid buffer element type",
         }
     }

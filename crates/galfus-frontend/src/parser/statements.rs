@@ -217,7 +217,7 @@ impl Parser {
     }
 
     pub(super) fn parse_for_binding(&mut self) -> Option<NodeId> {
-        let value_name = self.parse_identifier()?;
+        let value_name = self.parse_for_binding_name()?;
         let mut children = vec![value_name];
         let mut end_span = self.node_span(value_name);
 
@@ -227,7 +227,7 @@ impl Parser {
             self.bump();
             self.skip_newlines();
 
-            let index_name = self.parse_identifier()?;
+            let index_name = self.parse_for_binding_name()?;
             end_span = self.node_span(index_name);
             children.push(index_name);
         }
@@ -236,6 +236,14 @@ impl Parser {
             .unwrap_or_else(|| self.node_span(value_name));
 
         Some(self.add_node(SyntaxNodeKind::ForBinding, span, children))
+    }
+
+    fn parse_for_binding_name(&mut self) -> Option<NodeId> {
+        if self.at(&TokenKind::Underscore) {
+            return self.parse_wildcard_pattern();
+        }
+
+        self.parse_identifier()
     }
 
     pub(super) fn parse_for_statement(&mut self) -> Option<NodeId> {

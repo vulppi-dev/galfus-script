@@ -10,9 +10,11 @@ impl<'a> DeclarationTypeChecker<'a> {
     pub(super) fn check_semantic_rules(&mut self, root: NodeId) {
         self.check_return_context(root, false);
         self.check_function_return_paths(root);
+        self.check_unreachable_statements(root);
         self.check_binding_initialization_cycles(root);
         self.check_struct_expansion_targets(root);
         self.check_struct_literal_spread_targets(root);
+        self.check_builtin_constraint_imports(root);
         self.check_builtin_symbol_visibility(root);
     }
 
@@ -146,6 +148,39 @@ impl<'a> DeclarationTypeChecker<'a> {
         };
 
         self.statement_guarantees_return(else_body)
+    }
+
+    fn check_unreachable_statements(&mut self, node: NodeId) {
+        let Some(syntax_node) = self.graph.syntax().node(node) else {
+            return;
+        };
+
+        if syntax_node.kind() == SyntaxNodeKind::Block {
+            self.check_unreachable_block_statements(node);
+        }
+
+        for child in syntax_node.children() {
+            self.check_unreachable_statements(*child);
+        }
+    }
+
+    fn check_unreachable_block_statements(&mut self, block: NodeId) {
+        let Some(block_node) = self.graph.syntax().node(block) else {
+            return;
+        };
+
+        let mut unreachable = false;
+
+        for statement in block_node.children().iter().copied() {
+            if unreachable {
+                self.report_unreachable_code(statement);
+                continue;
+            }
+
+            if self.statement_guarantees_return(statement) {
+                unreachable = true;
+            }
+        }
     }
 
     fn check_binding_initialization_cycles(&mut self, root: NodeId) {
@@ -409,6 +444,54 @@ impl<'a> DeclarationTypeChecker<'a> {
         for child in syntax_node.children() {
             self.check_builtin_symbol_visibility(*child);
         }
+    }
+
+    fn check_builtin_constraint_imports(&mut self, node: NodeId) {
+        let Some(syntax_node) = self.graph.syntax().node(node) else {
+            return;
+        };
+
+        if self.is_type_node_kind(syntax_node.kind())
+            && let Some(symbol) = self
+                .graph
+                .resolution()
+                .and_then(|resolution| resolution.type_reference_symbol(node))
+            && self.is_direct_builtin_constraint_symbol(symbol)
+        {
+            let diagnostic_node = self
+                .graph
+                .syntax()
+                .first_child_of_kind(node, SyntaxNodeKind::Identifier)
+                .unwrap_or(node);
+            let name = self.node_text(diagnostic_node);
+            self.report_restricted_builtin_symbol(diagnostic_node, name.as_str());
+        }
+
+        for child in syntax_node.children() {
+            self.check_builtin_constraint_imports(*child);
+        }
+    }
+
+    fn is_direct_builtin_constraint_symbol(&self, symbol: SymbolId) -> bool {
+        let Some(resolution) = self.graph.resolution() else {
+            return false;
+        };
+
+        let Some(symbol_data) = resolution.symbol(symbol) else {
+            return false;
+        };
+
+        if symbol_data.kind() != SymbolKind::Constraint {
+            return false;
+        }
+
+        if !matches!(symbol_data.name(), "Iterator" | "Iterable" | "Comparable") {
+            return false;
+        }
+
+        resolution
+            .scope(symbol_data.scope())
+            .is_some_and(|scope| scope.kind() == crate::ScopeKind::Builtin)
     }
 }
 

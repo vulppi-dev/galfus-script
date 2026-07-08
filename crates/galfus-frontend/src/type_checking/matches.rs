@@ -29,6 +29,7 @@ impl<'a> DeclarationTypeChecker<'a> {
             return Some(error);
         }
 
+        self.check_match_arm_order(arm_nodes.as_slice());
         self.check_choice_match_exhaustiveness(node, subject_type, arm_nodes.as_slice());
 
         let mut arm_types = Vec::new();
@@ -77,6 +78,40 @@ impl<'a> DeclarationTypeChecker<'a> {
 
         self.layer.bind_node_type(node, ty);
         Some(ty)
+    }
+
+    fn check_match_arm_order(&mut self, arms: &[NodeId]) {
+        let mut catch_all_seen = false;
+
+        for (index, arm) in arms.iter().copied().enumerate() {
+            let Some(pattern) = self.graph.syntax().child(arm, 0) else {
+                continue;
+            };
+
+            if catch_all_seen {
+                self.report_unreachable_pattern(pattern);
+                continue;
+            }
+
+            if !self.is_catch_all_match_pattern(pattern) {
+                continue;
+            }
+
+            catch_all_seen = true;
+
+            if index + 1 < arms.len() {
+                self.report_catch_all_pattern_not_final(pattern);
+            }
+        }
+    }
+
+    fn is_catch_all_match_pattern(&self, pattern: NodeId) -> bool {
+        self.graph.syntax().node(pattern).is_some_and(|node| {
+            matches!(
+                node.kind(),
+                SyntaxNodeKind::WildcardPattern | SyntaxNodeKind::BindingPattern
+            )
+        })
     }
 
     fn check_match_arm_type(&mut self, arm: NodeId, subject_type: TypeId) -> Option<TypeId> {
@@ -431,6 +466,10 @@ impl<'a> DeclarationTypeChecker<'a> {
         arms: &[NodeId],
     ) {
         let Some(choice_symbol) = self.choice_symbol_from_match_subject_type(subject_type) else {
+            if self.check_enum_match_exhaustiveness(match_expression, subject_type, arms) {
+                return;
+            }
+
             self.check_imported_choice_match_exhaustiveness(match_expression, subject_type, arms);
             return;
         };
@@ -482,6 +521,63 @@ impl<'a> DeclarationTypeChecker<'a> {
         }
 
         self.report_non_exhaustive_match(match_expression, subject_type, missing.as_slice());
+    }
+
+    fn check_enum_match_exhaustiveness(
+        &mut self,
+        match_expression: NodeId,
+        subject_type: TypeId,
+        arms: &[NodeId],
+    ) -> bool {
+        let Some(enum_symbol) = self.enum_symbol_from_match_subject_type(subject_type) else {
+            return false;
+        };
+
+        let variants = self.enum_variant_symbols_in_order(enum_symbol);
+
+        if variants.is_empty() {
+            return true;
+        }
+
+        let mut covered = HashSet::new();
+
+        for arm in arms {
+            let Some(pattern) = self.graph.syntax().child(*arm, 0) else {
+                continue;
+            };
+
+            if self.is_catch_all_match_pattern(pattern) {
+                return true;
+            }
+
+            let Some(pattern_node) = self.graph.syntax().node(pattern) else {
+                continue;
+            };
+
+            if pattern_node.kind() != SyntaxNodeKind::VariantPattern {
+                continue;
+            }
+
+            let Some((owner_symbol, variant_symbol)) = self.variant_pattern_symbols(pattern) else {
+                continue;
+            };
+
+            if owner_symbol == enum_symbol {
+                covered.insert(variant_symbol);
+            }
+        }
+
+        let missing = variants
+            .into_iter()
+            .filter(|(variant_symbol, _)| !covered.contains(variant_symbol))
+            .map(|(_, variant_name)| variant_name)
+            .collect::<Vec<_>>();
+
+        if !missing.is_empty() {
+            self.report_non_exhaustive_match(match_expression, subject_type, missing.as_slice());
+        }
+
+        true
     }
 
     fn check_imported_choice_match_exhaustiveness(
@@ -600,6 +696,36 @@ impl<'a> DeclarationTypeChecker<'a> {
         }
     }
 
+    fn enum_symbol_from_match_subject_type(&self, subject_type: TypeId) -> Option<SymbolId> {
+        let subject_type = self.resolve_alias_type(subject_type);
+
+        match self.layer.table().kind(subject_type).cloned() {
+            Some(TypeKind::Named { symbol }) => self.enum_symbol(symbol),
+            Some(TypeKind::GenericInstance { base, .. }) => {
+                let base = self.resolve_alias_type(base);
+
+                let Some(TypeKind::Named { symbol }) = self.layer.table().kind(base).cloned()
+                else {
+                    return None;
+                };
+
+                self.enum_symbol(symbol)
+            }
+            _ => None,
+        }
+    }
+
+    fn enum_symbol(&self, symbol: SymbolId) -> Option<SymbolId> {
+        let resolution = self.graph.resolution()?;
+        let symbol_data = resolution.symbol(symbol)?;
+
+        if symbol_data.kind() == SymbolKind::Enum {
+            Some(symbol)
+        } else {
+            None
+        }
+    }
+
     fn choice_symbol(&self, symbol: SymbolId) -> Option<SymbolId> {
         let resolution = self.graph.resolution()?;
         let symbol_data = resolution.symbol(symbol)?;
@@ -631,6 +757,75 @@ impl<'a> DeclarationTypeChecker<'a> {
         }
 
         variants
+    }
+
+    fn enum_variant_symbols_in_order(&self, enum_symbol: SymbolId) -> Vec<(SymbolId, String)> {
+        let Some(root) = self.graph.syntax().root() else {
+            return Vec::new();
+        };
+
+        let Some(enum_item) = self.enum_item_node_for_symbol(root, enum_symbol) else {
+            return Vec::new();
+        };
+
+        let Some(enum_node) = self.graph.syntax().node(enum_item) else {
+            return Vec::new();
+        };
+
+        let mut variants = Vec::new();
+
+        for child in enum_node.children() {
+            self.collect_enum_variant_symbols_in_order(*child, &mut variants);
+        }
+
+        variants
+    }
+
+    fn collect_enum_variant_symbols_in_order(
+        &self,
+        node: NodeId,
+        variants: &mut Vec<(SymbolId, String)>,
+    ) {
+        let Some(syntax_node) = self.graph.syntax().node(node) else {
+            return;
+        };
+
+        if syntax_node.kind() == SyntaxNodeKind::EnumVariant {
+            if let Some(symbol) = self.direct_identifier_symbol(node, SymbolKind::EnumVariant) {
+                let name = self.node_text(
+                    self.graph
+                        .syntax()
+                        .first_child_of_kind(node, SyntaxNodeKind::Identifier)
+                        .unwrap_or(node),
+                );
+
+                variants.push((symbol, name));
+            }
+
+            return;
+        }
+
+        for child in syntax_node.children() {
+            self.collect_enum_variant_symbols_in_order(*child, variants);
+        }
+    }
+
+    fn enum_item_node_for_symbol(&self, node: NodeId, enum_symbol: SymbolId) -> Option<NodeId> {
+        let syntax_node = self.graph.syntax().node(node)?;
+
+        if syntax_node.kind() == SyntaxNodeKind::EnumItem
+            && self.direct_identifier_symbol(node, SymbolKind::Enum) == Some(enum_symbol)
+        {
+            return Some(node);
+        }
+
+        for child in syntax_node.children() {
+            if let Some(found) = self.enum_item_node_for_symbol(*child, enum_symbol) {
+                return Some(found);
+            }
+        }
+
+        None
     }
 
     fn collect_choice_variant_symbols_in_order(

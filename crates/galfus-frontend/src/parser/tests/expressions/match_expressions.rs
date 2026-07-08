@@ -70,7 +70,7 @@ fn parse_match_expression_with_binding_pattern() {
 #[test]
 fn parse_match_expression_with_variant_patterns() {
     let source = source(
-        "fn main(): null {\n  match result {\n    Result::Ok(user) => {\n      print(user.name)\n    }\n    Result::Error(message) => {\n      print(message)\n    }\n  }\n  return\n}",
+        "fn main(): null {\n  match result {\n    Result::Ok(user) => {\n      print(user.name)\n    },\n    Result::Error(message) => {\n      print(message)\n    }\n  }\n  return\n}",
     );
 
     let result = parse(&source);
@@ -158,7 +158,7 @@ fn parse_match_expression_rejects_dot_variant_pattern() {
 #[test]
 fn parse_match_expression_with_literal_patterns() {
     let source = source(
-        "fn main(): null {\n  match code {\n    200 => {\n      print(\"ok\")\n    }\n    404 => {\n      print(\"not found\")\n    }\n  }\n  return\n}",
+        "fn main(): null {\n  match code {\n    200 => {\n      print(\"ok\")\n    },\n    404 => {\n      print(\"not found\")\n    }\n  }\n  return\n}",
     );
 
     let result = parse(&source);

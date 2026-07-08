@@ -363,6 +363,78 @@ impl<'a> DeclarationTypeChecker<'a> {
         ));
     }
 
+    pub(super) fn report_non_exhaustive_instanceof(
+        &mut self,
+        instanceof_expression: NodeId,
+        subject_type: TypeId,
+        missing_types: &[String],
+    ) {
+        let span = self
+            .graph
+            .syntax()
+            .node(instanceof_expression)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        let subject_type = self.describe_type_for_diagnostic(subject_type);
+        let missing = missing_types
+            .iter()
+            .map(|ty| format!("`{ty}`"))
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+            TypeDiagnosticCode::NonExhaustiveMatch,
+            format!("instanceof over `{subject_type}` is not exhaustive; missing {missing}"),
+            span,
+        ));
+    }
+
+    pub(super) fn report_catch_all_pattern_not_final(&mut self, pattern: NodeId) {
+        let span = self
+            .graph
+            .syntax()
+            .node(pattern)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+            TypeDiagnosticCode::InvalidPatternOrder,
+            "catch-all pattern must be the final arm",
+            span,
+        ));
+    }
+
+    pub(super) fn report_unreachable_pattern(&mut self, pattern: NodeId) {
+        let span = self
+            .graph
+            .syntax()
+            .node(pattern)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        self.diagnostics.push(Diagnostic::warning_with_message(
+            TypeDiagnosticCode::UnreachablePattern,
+            "pattern is unreachable",
+            span,
+        ));
+    }
+
+    pub(super) fn report_unreachable_code(&mut self, node: NodeId) {
+        let span = self
+            .graph
+            .syntax()
+            .node(node)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        self.diagnostics.push(Diagnostic::warning_with_message(
+            TypeDiagnosticCode::UnreachableCode,
+            "statement is unreachable",
+            span,
+        ));
+    }
+
     pub(super) fn report_invalid_decorator_usage(
         &mut self,
         node: NodeId,

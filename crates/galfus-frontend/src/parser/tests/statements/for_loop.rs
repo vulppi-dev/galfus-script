@@ -241,6 +241,12 @@ fn parse_for_statement_with_ignored_binding() {
     assert_eq!(binding_node.kind(), SyntaxNodeKind::ForBinding);
     assert_eq!(binding_node.child_count(), 1);
     assert_eq!(source.slice(binding_node.span()), Some("_"));
+
+    let wildcard = binding_node.first_child().unwrap();
+    assert_eq!(
+        syntax.node(wildcard).unwrap().kind(),
+        SyntaxNodeKind::WildcardPattern
+    );
 }
 
 #[test]

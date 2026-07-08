@@ -70,7 +70,7 @@ impl<'a> DeclarationTypeChecker<'a> {
         }
     }
 
-    pub(super) fn check_node(&mut self, node: NodeId) {
+    pub(super) fn bind_node_types(&mut self, node: NodeId) {
         let Some(syntax_node) = self.graph.syntax().node(node) else {
             return;
         };
@@ -118,7 +118,7 @@ impl<'a> DeclarationTypeChecker<'a> {
         }
 
         for child in syntax_node.children() {
-            self.check_node(*child);
+            self.bind_node_types(*child);
         }
     }
 

@@ -318,6 +318,12 @@ facade/concrete narrowing
 
 `_` must be final when present.
 
+Fallback bindings consume the remaining possible type set and bind that remaining type.
+
+Wildcard fallback consumes the remaining possible type set without creating a binding.
+
+The `instanceof` subject must be a real input expression. `_` is invalid as the subject.
+
 Unreachable non-wildcard patterns are warnings.
 
 ## 15.18 Loop and For Lowering

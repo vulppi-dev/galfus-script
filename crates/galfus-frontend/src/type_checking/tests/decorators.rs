@@ -102,7 +102,7 @@ fn check_reports_omitted_decorator_argument() {
           return target
         }
 
-        @tag(,1)
+        @tag(_, 1)
         fn save(): null {
           return
         }
@@ -143,7 +143,7 @@ fn check_accepts_omitted_default_decorator_argument() {
           return target
         }
 
-        @tag(,1)
+        @tag(_, 1)
         fn save(): null {
           return
         }

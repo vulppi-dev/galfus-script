@@ -113,7 +113,8 @@ impl<'a> DeclarationTypeChecker<'a> {
             return;
         };
 
-        self.check_node(root);
+        self.bind_node_types(root);
+
         self.check_decorators(root);
         self.check_keyword_metadata(root);
         self.check_control_flow(root);

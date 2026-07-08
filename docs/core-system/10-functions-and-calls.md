@@ -107,7 +107,8 @@ call(1, _, 3)
 Argument gaps are invalid.
 
 ```galfus
-call(1,,3) // invalid
+call(1, _, 3) // valid: b uses its default
+call(1,,3)    // invalid: omitted middle defaults require `_`
 ```
 
 ## 10.5 Rest Parameters

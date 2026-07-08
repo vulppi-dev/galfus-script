@@ -118,7 +118,7 @@ fn resolve_instanceof_type_pattern_binding_reaches_block_arm_body() {
             instanceof value {
                 int32 count => {
                     return count
-                }
+                },
                 _ => {
                     return 0
                 }
