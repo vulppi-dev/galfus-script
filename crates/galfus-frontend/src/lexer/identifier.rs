@@ -54,7 +54,7 @@ impl Lexer<'_> {
         Self::is_identifier_extra(ch) || unicode_ident::is_xid_continue(ch)
     }
 
-    pub(super) fn lex_identifier(&mut self, start: u32) -> TokenKind {
+    pub(super) fn lex_identifier(&mut self, start: usize) -> TokenKind {
         while let Some(ch) = self.peek() {
             if !Self::is_identifier_continue(ch) {
                 break;
@@ -63,7 +63,7 @@ impl Lexer<'_> {
             self.bump();
         }
 
-        let text = &self.text[start as usize..self.offset as usize];
+        let text = &self.text[start..self.offset];
 
         Self::keyword_kind(text).unwrap_or(TokenKind::Identifier)
     }

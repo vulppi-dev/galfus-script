@@ -53,7 +53,7 @@ impl LexResult {
 pub struct Lexer<'a> {
     source: &'a SourceFile,
     text: &'a str,
-    offset: u32,
+    offset: usize,
     diagnostics: DiagnosticBag,
     previous_significant_kind: Option<TokenKind>,
 }
@@ -78,18 +78,14 @@ impl<'a> Lexer<'a> {
     }
 
     fn make_token(&mut self, kind: TokenKind, span: Span) -> Token {
-        if Self::is_significant_token(&kind) {
+        if !matches!(
+            kind,
+            TokenKind::Newline | TokenKind::Unknown | TokenKind::Eof
+        ) {
             self.previous_significant_kind = Some(kind.clone());
         }
 
         Token::new(kind, span)
-    }
-
-    fn is_significant_token(kind: &TokenKind) -> bool {
-        !matches!(
-            kind,
-            TokenKind::Newline | TokenKind::Unknown | TokenKind::Eof
-        )
     }
 }
 

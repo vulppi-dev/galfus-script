@@ -2,11 +2,11 @@ use super::*;
 
 impl Lexer<'_> {
     pub(super) fn is_eof(&self) -> bool {
-        self.offset as usize >= self.text.len()
+        self.offset >= self.text.len()
     }
 
     pub(super) fn current_text(&self) -> &str {
-        &self.text[self.offset as usize..]
+        &self.text[self.offset..]
     }
 
     pub(super) fn peek(&self) -> Option<char> {
@@ -15,7 +15,7 @@ impl Lexer<'_> {
 
     pub(super) fn bump(&mut self) -> Option<char> {
         let ch = self.peek()?;
-        self.offset += ch.len_utf8() as u32;
+        self.offset += ch.len_utf8();
         Some(ch)
     }
 

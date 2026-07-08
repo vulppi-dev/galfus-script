@@ -131,6 +131,6 @@ fn lexer_reports_unterminated_multiline_string() {
     );
     assert_eq!(
         diagnostic.span(),
-        Span::new(SourceId::new(0), 0, "`line 1\nline 2".len() as u32)
+        Span::new(SourceId::new(0), 0, "`line 1\nline 2".len())
     );
 }

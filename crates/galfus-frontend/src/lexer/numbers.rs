@@ -26,7 +26,7 @@ impl Lexer<'_> {
         }
     }
 
-    pub(super) fn lex_number(&mut self, start: u32) -> TokenKind {
+    pub(super) fn lex_number(&mut self, start: usize) -> TokenKind {
         let (base, digits_start) = self.consume_number_prefix(start);
 
         while let Some(ch) = self.peek() {
@@ -58,10 +58,10 @@ impl Lexer<'_> {
         kind
     }
 
-    pub(super) fn consume_number_prefix(&mut self, start: u32) -> (NumberBase, u32) {
+    pub(super) fn consume_number_prefix(&mut self, start: usize) -> (NumberBase, usize) {
         let after_first_digit = self.offset;
 
-        if self.text.get(start as usize..after_first_digit as usize) != Some("0") {
+        if self.text.get(start..after_first_digit) != Some("0") {
             return (NumberBase::Decimal, start);
         }
 
@@ -94,15 +94,20 @@ impl Lexer<'_> {
         matches!(self.peek_next(), Some(ch) if Self::is_decimal_digit(ch))
     }
 
-    pub(super) fn validate_number_separators(&mut self, start: u32, end: u32, base: NumberBase) {
-        let text = &self.text[start as usize..end as usize];
+    pub(super) fn validate_number_separators(
+        &mut self,
+        start: usize,
+        end: usize,
+        base: NumberBase,
+    ) {
+        let text = &self.text[start..end];
 
         let mut previous_was_digit = false;
         let mut previous_was_separator = false;
 
         for (relative_offset, ch) in text.char_indices() {
             if ch == '_' {
-                let absolute_offset = start + relative_offset as u32;
+                let absolute_offset = start + relative_offset;
 
                 if !previous_was_digit || previous_was_separator {
                     let span = Span::new(self.source.id(), absolute_offset, absolute_offset + 1);
