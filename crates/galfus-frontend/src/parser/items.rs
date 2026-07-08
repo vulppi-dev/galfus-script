@@ -135,6 +135,7 @@ impl Parser {
 
     pub(super) fn parse_function_item(&mut self, decorators: Option<NodeId>) -> Option<NodeId> {
         let fn_token = self.expect(TokenKind::Fn)?;
+
         self.skip_newlines();
 
         let metadata = self.parse_optional_keyword_metadata(false);

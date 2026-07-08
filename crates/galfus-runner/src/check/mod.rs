@@ -473,14 +473,8 @@ pub fn check_file(path: &str) -> Result<()> {
     Ok(())
 }
 
-fn is_relative_import(source: &str) -> bool {
-    source.starts_with("./") || source.starts_with("../")
-}
-
-fn is_builtin_import(source: &str) -> bool {
-    galfus_builtins::is_builtin_module(source)
-}
-
 fn is_resolvable_import(source: &str) -> bool {
-    is_relative_import(source) || is_builtin_import(source)
+    source.starts_with("./")
+        || source.starts_with("../")
+        || galfus_builtins::is_builtin_module(source)
 }
