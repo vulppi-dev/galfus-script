@@ -625,7 +625,7 @@ fn parseNull(s: [uint8]): ParseResult<null> {
 }
 
 export fn parse<T: Parsed>(s: [uint8]): ParseResult<T> {
-  return type T {
+  return typeof T {
     int8 => parseInt8(s),
     int16 => parseInt16(s),
     int32 => parseInt32(s),

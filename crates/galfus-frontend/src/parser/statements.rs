@@ -48,6 +48,10 @@ impl Parser {
             return self.parse_instanceof_statement();
         }
 
+        if self.at(&TokenKind::Typeof) {
+            return self.parse_typeof_statement();
+        }
+
         if self.at(&TokenKind::Transaction) {
             return self.parse_transaction_statement();
         }
@@ -376,6 +380,15 @@ impl Parser {
 
     pub(super) fn parse_instanceof_statement(&mut self) -> Option<NodeId> {
         let expression = self.parse_instanceof_expression()?;
+        self.expect_statement_end();
+
+        let span = self.node_span(expression);
+
+        Some(self.add_node(SyntaxNodeKind::ExpressionStatement, span, vec![expression]))
+    }
+
+    pub(super) fn parse_typeof_statement(&mut self) -> Option<NodeId> {
+        let expression = self.parse_typeof_expression()?;
         self.expect_statement_end();
 
         let span = self.node_span(expression);

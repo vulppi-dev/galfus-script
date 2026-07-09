@@ -23,6 +23,7 @@ impl Parser {
                 | TokenKind::Tilde
                 | TokenKind::Match
                 | TokenKind::Instanceof
+                | TokenKind::Typeof
         )
     }
 

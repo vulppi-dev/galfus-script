@@ -309,11 +309,7 @@ impl Parser {
 
         self.skip_newlines();
 
-        if self.at(&TokenKind::LeftParen) {
-            let binding = self.parse_type_pattern_binding(true)?;
-            end_span = self.node_span(binding);
-            children.push(binding);
-        } else if self.at(&TokenKind::Identifier) {
+        if self.at(&TokenKind::Identifier) {
             let binding = self.parse_type_pattern_binding(false)?;
             end_span = self.node_span(binding);
             children.push(binding);
