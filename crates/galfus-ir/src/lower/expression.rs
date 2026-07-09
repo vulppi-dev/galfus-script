@@ -528,6 +528,20 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
 
                 self.free_temps(1);
             }
+            RValue::NewArrayZeroedDynamic {
+                array_type, length, ..
+            } => {
+                let type_idx = self.ctx.lower_type(*array_type);
+                let len_reg = self.operand_reg(length);
+
+                self.instructions.push(Instruction::NewArray {
+                    dest,
+                    type_idx,
+                    len_reg,
+                });
+
+                self.free_temp_if_operand(length);
+            }
         }
     }
 

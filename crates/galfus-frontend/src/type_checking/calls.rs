@@ -25,8 +25,6 @@ impl<'a> DeclarationTypeChecker<'a> {
         let arguments = self.graph.syntax().child(node, 1)?;
         let target_type = self.infer_expression_type(target)?;
 
-        self.validate_buffer_create_explicit_type_argument(target);
-
         let function = match self.layer.table().kind(target_type).cloned() {
             Some(TypeKind::Function(function)) => function,
             Some(TypeKind::Error) => return Some(self.layer.table_mut().error()),
@@ -104,46 +102,6 @@ impl<'a> DeclarationTypeChecker<'a> {
         self.check_call_arguments(node, &substituted_function, call_arguments.as_slice());
 
         Some(substituted_function.return_type())
-    }
-
-    fn validate_buffer_create_explicit_type_argument(&mut self, target: NodeId) {
-        if !self.is_buffer_create_call(target) {
-            return;
-        }
-
-        let Some(type_arguments) = self
-            .graph
-            .syntax()
-            .first_child_of_kind(target, SyntaxNodeKind::TypeArgumentList)
-        else {
-            return;
-        };
-
-        let argument_nodes = self
-            .graph
-            .syntax()
-            .node(type_arguments)
-            .map(|node| node.children().to_vec())
-            .unwrap_or_default();
-
-        for argument in argument_nodes {
-            let Some(type_node) = self.first_type_child(argument) else {
-                continue;
-            };
-
-            let Some(argument_type) = self.layer.node_type(type_node) else {
-                continue;
-            };
-
-            let resolved_arg = self.resolve_alias_type(argument_type);
-            if matches!(self.layer.table().kind(resolved_arg), Some(TypeKind::Error)) {
-                continue;
-            }
-
-            if !self.is_defaultable_or_nullable(argument_type) {
-                self.report_invalid_buffer_element(target, argument_type);
-            }
-        }
     }
 
     fn infer_substitutions_from_types(

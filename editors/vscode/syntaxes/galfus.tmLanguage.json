@@ -5,12 +5,12 @@
   "patterns": [
     { "include": "#comments" },
     { "include": "#strings" },
-    { "include": "#decorators" },
-    { "include": "#function-calls" },
     { "include": "#keywords" },
+    { "include": "#decorators" },
     { "include": "#operators" },
     { "include": "#types" },
-    { "include": "#numbers" }
+    { "include": "#numbers" },
+    { "include": "#function-calls" }
   ],
   "repository": {
     "comments": {
@@ -72,7 +72,7 @@
       "patterns": [
         {
           "name": "keyword.control.gfs",
-          "match": "\\b(import|from|export|fn|var|const|struct|enum|choice|constraint|type|external|if|else|for|in|loop|break|continue|return|match|instanceof|transaction|rollback|weak|satisfies|new|copy)\\b"
+          "match": "\\b(import|from|export|fn|var|const|struct|enum|choice|constraint|type|external|if|else|for|in|loop|break|continue|return|match|instanceof|transaction|rollback|weak|satisfies|new|copy|self)\\b"
         },
         {
           "name": "constant.language.gfs",

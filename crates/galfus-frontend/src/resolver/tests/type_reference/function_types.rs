@@ -43,7 +43,7 @@ fn resolve_accepts_struct_function_anchor() {
             name: [int8],
         }
 
-        fn User::rename(self: User, name: [int8]): User {
+        fn User::rename(self, name: [int8]): User {
             return self
         }
         "#,
@@ -80,7 +80,7 @@ fn resolve_reports_non_struct_function_anchor() {
             Err(F),
         }
 
-        fn Result::map(self: Result<int32, [int8]>): Result<int32, [int8]> {
+        fn Result::map(self): Result<int32, [int8]> {
             return self
         }
         "#,

@@ -58,6 +58,10 @@ impl<'a> DeclarationTypeChecker<'a> {
             SyntaxNodeKind::StructLiteral => self.infer_struct_literal_type(node),
 
             SyntaxNodeKind::InferredStructLiteral => {
+                if let Some(expected) = expected {
+                    return self.infer_inferred_struct_literal_type(node, expected);
+                }
+
                 self.report_cannot_infer_type(
                     node,
                     "inferred struct literal requires an expected struct type",
@@ -178,7 +182,37 @@ impl<'a> DeclarationTypeChecker<'a> {
                 | PrimitiveType::Float32
                 | PrimitiveType::Float64,
             )) => Some(expected),
+            Some(TypeKind::GenericParameter { symbol }) => {
+                if self.generic_parameter_allows_integer_literal(*symbol) {
+                    Some(expected)
+                } else {
+                    None
+                }
+            }
             _ => None,
+        }
+    }
+
+    fn generic_parameter_allows_integer_literal(&self, symbol: SymbolId) -> bool {
+        let Some(bound) = self.generic_parameter_bound_type(symbol) else {
+            return false;
+        };
+
+        self.type_allows_integer_literal(bound)
+    }
+
+    fn type_allows_integer_literal(&self, ty: TypeId) -> bool {
+        let ty = self.resolve_alias_type(ty);
+
+        match self.layer.table().kind(ty) {
+            Some(TypeKind::Primitive(primitive)) => {
+                primitive.is_int() || primitive.is_uint() || primitive.is_float()
+            }
+            Some(TypeKind::Union { members }) => members
+                .iter()
+                .copied()
+                .all(|member| self.type_allows_integer_literal(member)),
+            _ => false,
         }
     }
 
@@ -292,9 +326,17 @@ impl<'a> DeclarationTypeChecker<'a> {
         // The type resolver processes all type nodes in the graph before expression
         // inference runs, so node_type should already be populated.
         // Fall back to first_type_child for safety (e.g. if child 0 is a wrapper).
-        self.layer.node_type(type_node).or_else(|| {
+        let ty = self.layer.node_type(type_node).or_else(|| {
             self.first_type_child(node)
                 .and_then(|n| self.layer.node_type(n))
-        })
+        })?;
+
+        if let Some(TypeKind::Array { element }) = self.layer.table().kind(ty)
+            && !self.is_defaultable_or_nullable(*element)
+        {
+            self.report_invalid_buffer_element(node, *element);
+        }
+
+        Some(ty)
     }
 }

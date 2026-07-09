@@ -123,7 +123,7 @@ fn resolve_declares_constraint_member_symbols_in_constraint_scope() {
         r#"
         constraint Entity<T> {
             id: int64,
-            fn toString(self: T): [int8]
+            fn toString(self): [int8]
         }
         "#,
     );

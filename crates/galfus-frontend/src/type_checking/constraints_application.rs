@@ -105,18 +105,25 @@ impl<'a> DeclarationTypeChecker<'a> {
 
         let explicit_arguments = self.constraint_application_argument_types(type_node);
 
-        if constraint.generic_parameter_count != explicit_arguments.len() {
+        if constraint.generic_parameters.len() != explicit_arguments.len() {
             return Err(ConstraintApplicationError::GenericArgumentCountMismatch {
                 constraint_name: constraint.name.clone(),
-                expected: constraint.generic_parameter_count,
+                expected: constraint.generic_parameters.len(),
                 actual: explicit_arguments.len(),
             });
         }
 
+        let substitution = constraint
+            .generic_parameters
+            .iter()
+            .copied()
+            .zip(explicit_arguments)
+            .collect::<TypeSubstitution>();
+
         Ok(ConstraintApplication {
             symbol,
             constraint_name: constraint.name.clone(),
-            substitution: TypeSubstitution::new(),
+            substitution,
             imported_constraint: Some(constraint.clone()),
         })
     }
@@ -261,11 +268,6 @@ impl<'a> DeclarationTypeChecker<'a> {
                 self.layer.table_mut().intern_array(element)
             }
 
-            Some(TypeKind::FixedArray { element, size }) => {
-                let element = self.substitute_type(element, substitution);
-                self.layer.table_mut().intern_fixed_array(element, size)
-            }
-
             Some(TypeKind::Union { members }) => {
                 let members = members
                     .into_iter()
@@ -361,7 +363,7 @@ impl<'a> DeclarationTypeChecker<'a> {
         None
     }
 
-    fn type_item_for_symbol(&self, symbol: SymbolId) -> Option<NodeId> {
+    pub(super) fn type_item_for_symbol(&self, symbol: SymbolId) -> Option<NodeId> {
         let resolution = self.graph.resolution()?;
         let member_scope = resolution.member_scope(symbol)?;
         let scope = resolution.scope(member_scope)?;
@@ -462,9 +464,6 @@ impl<'a> DeclarationTypeChecker<'a> {
         match self.layer.table().kind(ty).cloned() {
             Some(TypeKind::Primitive(_)) => true,
             Some(TypeKind::Array { element }) => self.is_valid_generic_bound_type_id(element),
-            Some(TypeKind::FixedArray { element, .. }) => {
-                self.is_valid_generic_bound_type_id(element)
-            }
             Some(TypeKind::Union { members }) => members
                 .into_iter()
                 .all(|member| self.is_valid_generic_bound_type_id(member)),
@@ -484,19 +483,6 @@ impl<'a> DeclarationTypeChecker<'a> {
         target: NodeId,
         substitution: &TypeSubstitution,
     ) {
-        if self.is_buffer_create_call(target) {
-            for (&_parameter, &argument) in substitution {
-                let resolved_arg = self.resolve_alias_type(argument);
-                if matches!(self.layer.table().kind(resolved_arg), Some(TypeKind::Error)) {
-                    continue;
-                }
-                if !self.is_defaultable_or_nullable(argument) {
-                    self.report_invalid_buffer_element(target, argument);
-                }
-            }
-            return;
-        }
-
         for (&parameter, &argument) in substitution {
             let sat = self.generic_argument_satisfies_bound(parameter, argument);
             if sat {
@@ -625,7 +611,6 @@ impl<'a> DeclarationTypeChecker<'a> {
                     | SyntaxNodeKind::Path
                     | SyntaxNodeKind::GenericType
                     | SyntaxNodeKind::ArrayType
-                    | SyntaxNodeKind::FixedArrayType
                     | SyntaxNodeKind::UnionType
                     | SyntaxNodeKind::TypeNull
             ) {
@@ -649,7 +634,6 @@ impl<'a> DeclarationTypeChecker<'a> {
         match self.layer.table().kind(ty) {
             Some(TypeKind::Primitive(_)) => true,
             Some(TypeKind::Array { .. })
-            | Some(TypeKind::FixedArray { .. })
             | Some(TypeKind::Range { .. })
             | Some(TypeKind::Tuple { .. })
             | Some(TypeKind::Function(_)) => true,
@@ -680,87 +664,5 @@ impl<'a> DeclarationTypeChecker<'a> {
             Some(TypeKind::GenericParameter { .. }) => true,
             _ => false,
         }
-    }
-
-    pub(super) fn is_buffer_create_call(&self, node: NodeId) -> bool {
-        let Some(resolution) = self.graph.resolution() else {
-            return false;
-        };
-
-        let mut current = node;
-        while let Some(syntax_node) = self.graph.syntax().node(current) {
-            if syntax_node.kind() == SyntaxNodeKind::CallExpression {
-                if let Some(child) = self.graph.syntax().child(current, 0) {
-                    current = child;
-                } else {
-                    break;
-                }
-            } else if syntax_node.kind() == SyntaxNodeKind::GenericExpression {
-                if let Some(child) = self.graph.syntax().child(current, 0) {
-                    current = child;
-                } else {
-                    break;
-                }
-            } else {
-                break;
-            }
-        }
-
-        let syntax_node = match self.graph.syntax().node(current) {
-            Some(n) => n,
-            None => return false,
-        };
-
-        match syntax_node.kind() {
-            SyntaxNodeKind::MemberExpression | SyntaxNodeKind::PathExpression => {
-                let namespace_expr = self.graph.syntax().child(current, 0).unwrap();
-                let member_expr = self.graph.syntax().child(current, 1).unwrap();
-                let member_name = self.node_text(member_expr);
-
-                if member_name != "create" {
-                    return false;
-                }
-
-                let ns_sym = resolution.reference_symbol(namespace_expr).or_else(|| {
-                    let identifier = self
-                        .graph
-                        .syntax()
-                        .first_child_of_kind(namespace_expr, SyntaxNodeKind::Identifier)?;
-                    resolution.reference_symbol(identifier)
-                });
-
-                if let Some(ns_sym) = ns_sym {
-                    if let Some(imp_id) = resolution.import_for_symbol(ns_sym) {
-                        if let Some(import_rec) = resolution.import(imp_id) {
-                            return import_rec.source() == "std/buffer";
-                        }
-                    }
-                }
-            }
-            SyntaxNodeKind::NameExpression | SyntaxNodeKind::Identifier => {
-                let sym = resolution.reference_symbol(current).or_else(|| {
-                    let identifier = self
-                        .graph
-                        .syntax()
-                        .first_child_of_kind(current, SyntaxNodeKind::Identifier)?;
-                    resolution.reference_symbol(identifier)
-                });
-
-                if let Some(sym) = sym {
-                    if let Some(imp_id) = resolution.import_for_symbol(sym) {
-                        if let Some(import_rec) = resolution.import(imp_id) {
-                            if import_rec.source() == "std/buffer" {
-                                return import_rec.imported_name() == Some("create")
-                                    || (import_rec.imported_name().is_none()
-                                        && import_rec.local_name() == "create");
-                            }
-                        }
-                    }
-                }
-            }
-            _ => {}
-        }
-
-        false
     }
 }

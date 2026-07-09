@@ -161,7 +161,7 @@ impl<'a> DeclarationTypeChecker<'a> {
             .node(parameters_node)?
             .children()
             .iter()
-            .filter_map(|parameter| self.lower_function_parameter_type(*parameter))
+            .filter_map(|parameter| self.lower_function_parameter_type(*parameter, node))
             .collect::<Vec<_>>();
 
         let return_type = self.layer.node_type(return_type_node)?;
@@ -176,6 +176,7 @@ impl<'a> DeclarationTypeChecker<'a> {
     fn lower_function_parameter_type(
         &mut self,
         parameter: NodeId,
+        signature: NodeId,
     ) -> Option<FunctionParameterType> {
         let parameter_node = self.graph.syntax().node(parameter)?;
 
@@ -185,8 +186,11 @@ impl<'a> DeclarationTypeChecker<'a> {
             _ => return None,
         }
 
-        let type_node = self.first_type_child(parameter)?;
-        let ty = self.layer.node_type(type_node)?;
+        let ty = match self.first_type_child(parameter) {
+            Some(type_node) => self.layer.node_type(type_node)?,
+            None if self.is_self_parameter(parameter) => self.infer_self_parameter_type(signature),
+            None => return None,
+        };
 
         let has_default = self
             .graph
@@ -203,6 +207,88 @@ impl<'a> DeclarationTypeChecker<'a> {
         }
 
         Some(FunctionParameterType::new(ty))
+    }
+
+    fn is_self_parameter(&self, parameter: NodeId) -> bool {
+        self.graph
+            .syntax()
+            .first_child_of_kind(parameter, SyntaxNodeKind::Identifier)
+            .is_some_and(|name| self.node_text(name) == "self")
+    }
+
+    fn infer_self_parameter_type(&mut self, signature: NodeId) -> TypeId {
+        let Some(signature_node) = self.graph.syntax().node(signature) else {
+            return self.layer.table_mut().error();
+        };
+
+        if signature_node.kind() == SyntaxNodeKind::ConstraintFunctionSignature {
+            return self.layer.table_mut().error();
+        }
+
+        let Some(anchor) = self
+            .graph
+            .syntax()
+            .first_child_of_kind(signature, SyntaxNodeKind::FunctionAnchor)
+        else {
+            return self.layer.table_mut().error();
+        };
+
+        let Some(anchor_type) = self.graph.syntax().first_child(anchor) else {
+            return self.layer.table_mut().error();
+        };
+
+        if self
+            .graph
+            .syntax()
+            .node(anchor_type)
+            .is_some_and(|node| node.kind() == SyntaxNodeKind::GenericType)
+            && let Some(ty) = self.layer.node_type(anchor_type)
+        {
+            return ty;
+        }
+
+        let Some(base_type) = self.layer.node_type(anchor_type) else {
+            return self.layer.table_mut().error();
+        };
+
+        let parameters = self.anchor_struct_generic_parameters(anchor_type);
+
+        if parameters.is_empty() {
+            return base_type;
+        }
+
+        let arguments = parameters
+            .into_iter()
+            .filter_map(|parameter| self.layer.symbol_type(parameter))
+            .collect::<Vec<_>>();
+
+        if arguments.is_empty() {
+            return base_type;
+        }
+
+        self.layer
+            .table_mut()
+            .intern_generic_instance(base_type, arguments)
+    }
+
+    fn anchor_struct_generic_parameters(&self, anchor_type: NodeId) -> Vec<galfus_core::SymbolId> {
+        let Some(resolution) = self.graph.resolution() else {
+            return Vec::new();
+        };
+
+        let symbol = resolution
+            .type_reference_symbol(anchor_type)
+            .or_else(|| resolution.type_path_reference_symbol(anchor_type));
+
+        let Some(symbol) = symbol else {
+            return Vec::new();
+        };
+
+        let Some(struct_item) = self.type_item_for_symbol(symbol) else {
+            return Vec::new();
+        };
+
+        self.declaration_symbols_in_node(struct_item, &[SymbolKind::GenericParameter])
     }
 
     fn bind_direct_declaration_type(&mut self, node: NodeId, kinds: &[SymbolKind]) {

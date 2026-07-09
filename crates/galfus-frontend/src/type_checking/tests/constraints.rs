@@ -331,14 +331,14 @@ fn check_accepts_generic_constraint_function_explicit_argument() {
     let (_source, _graph, result) = check_source(
         r#"
 constraint Stringable<T> {
-  fn toString(self: T): [uint8],
+  fn toString(self): [uint8],
 }
 
 struct User satisfies Stringable<User> {
   name: [uint8],
 }
 
-fn User::toString(self: User): [uint8] {
+fn User::toString(self): [uint8] {
   return self.name
 }
 "#,
@@ -348,19 +348,40 @@ fn User::toString(self: User): [uint8] {
 }
 
 #[test]
-fn check_reports_generic_constraint_function_self_type_mismatch() {
+fn check_accepts_anchored_function_using_struct_generic_parameter() {
+    let (_source, _graph, result) = check_source(
+        r#"
+constraint Unwrap<Self, Value> {
+  fn unwrap(self): Self,
+}
+
+struct Box<T: int32 | float64> satisfies Unwrap<Box<T>, T> {
+  value: T,
+}
+
+fn Box::unwrap(self): Box<T> {
+  return self
+}
+"#,
+    );
+
+    assert!(!result.has_errors());
+}
+
+#[test]
+fn check_reports_generic_constraint_function_return_type_mismatch() {
     let source = source(
         r#"
 constraint Stringable<T> {
-  fn toString(self: T): [uint8],
+  fn toString(self): [uint8],
 }
 
 struct User satisfies Stringable<User> {
   name: [uint8],
 }
 
-fn User::toString(self: int32): [uint8] {
-  return "invalid"
+fn User::toString(self): int32 {
+  return 1
 }
 "#,
     );
@@ -433,14 +454,14 @@ fn check_reports_generic_constraint_missing_argument() {
     let source = source(
         r#"
 constraint Stringable<T> {
-  fn toString(self: T): [uint8],
+  fn toString(self): [uint8],
 }
 
 struct User satisfies Stringable {
   name: [uint8],
 }
 
-fn User::toString(self: User): [uint8] {
+fn User::toString(self): [uint8] {
   return self.name
 }
 "#,

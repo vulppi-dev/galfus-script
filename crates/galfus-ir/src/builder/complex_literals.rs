@@ -288,14 +288,11 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
         Operand::Local(temp_id)
     }
 
-    /// Lower `new([T; N])` / `new([T; N], shared)`.
+    /// Lower `new([T], size)` / `new([T], size, shared)`.
     ///
-    /// child 0: `FixedArrayType` node
-    /// child 1: optional storage-tag `Identifier`, for example `shared`.
-    ///
-    /// Runtime-sized `[T]` allocation is intentionally not handled here.
-    /// That will be introduced later through `std/buffer`, where the length
-    /// comes from a runtime value.
+    /// child 0: `ArrayType` node
+    /// child 1: length expression
+    /// child 2: optional storage-tag `Identifier`, for example `shared`.
     pub(super) fn lower_new_array_expression(
         &mut self,
         expr_id: NodeId,
@@ -315,11 +312,25 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
 
         let resolved_array_type = self.builder.resolve_alias_type(array_type);
 
-        let (element_type, size) = match type_layer.table().kind(resolved_array_type) {
+        let allocation = match type_layer.table().kind(resolved_array_type) {
+            Some(TypeKind::Array { element }) => {
+                let Some(length_node) = node.child(1) else {
+                    return Operand::Constant(Constant::Null);
+                };
+
+                let length = self.lower_expression(length_node, _statements);
+                NewArrayZeroedAllocation::Dynamic {
+                    element_type: *element,
+                    length,
+                }
+            }
             Some(TypeKind::FixedArray {
                 element,
                 size: ArraySize::Known(size),
-            }) => (*element, *size as usize),
+            }) => NewArrayZeroedAllocation::Fixed {
+                element_type: *element,
+                size: *size as usize,
+            },
 
             _ => return Operand::Constant(Constant::Null),
         };
@@ -349,31 +360,44 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
             } else {
                 StorageMetadata::Local
             }
-        } else if node.child_count() > 1 {
-            let storage_ident = node.child(1).unwrap();
-            let tag = self.builder.node_text(storage_ident);
-
-            if tag == "shared" {
-                StorageMetadata::Shared
-            } else {
-                StorageMetadata::Local
-            }
         } else {
             StorageMetadata::Local
         };
 
         let temp_id = self.declare_local(None, array_type);
 
-        self.current_instructions.push(Instruction::Assign(
-            temp_id,
-            RValue::NewArrayZeroed {
+        let rvalue = match allocation {
+            NewArrayZeroedAllocation::Fixed { element_type, size } => RValue::NewArrayZeroed {
                 array_type,
                 element_type,
                 size,
                 storage,
             },
-        ));
+            NewArrayZeroedAllocation::Dynamic {
+                element_type,
+                length,
+            } => RValue::NewArrayZeroedDynamic {
+                array_type,
+                element_type,
+                length,
+                storage,
+            },
+        };
+
+        self.current_instructions
+            .push(Instruction::Assign(temp_id, rvalue));
 
         Operand::Local(temp_id)
     }
+}
+
+enum NewArrayZeroedAllocation {
+    Fixed {
+        element_type: TypeId,
+        size: usize,
+    },
+    Dynamic {
+        element_type: TypeId,
+        length: Operand,
+    },
 }

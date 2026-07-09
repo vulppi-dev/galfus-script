@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use galfus_core::{NodeId, SymbolId, TypeId};
 
@@ -48,7 +48,7 @@ impl<'a> DeclarationTypeChecker<'a> {
         target_type: TypeId,
         struct_name: String,
     ) -> TypeId {
-        let expected_fields = self.struct_fields(struct_symbol);
+        let expected_fields = self.struct_fields_for_target(struct_symbol, target_type);
         let mut provided = HashSet::new();
         let mut explicit = HashSet::new();
         let mut has_error = false;
@@ -178,6 +178,56 @@ impl<'a> DeclarationTypeChecker<'a> {
     pub(super) fn struct_fields(&self, struct_symbol: SymbolId) -> Vec<StructFieldInfo> {
         let mut visited = HashSet::new();
         self.struct_fields_with_visited(struct_symbol, &mut visited)
+    }
+
+    fn struct_fields_for_target(
+        &mut self,
+        struct_symbol: SymbolId,
+        target_type: TypeId,
+    ) -> Vec<StructFieldInfo> {
+        let mut fields = self.struct_fields(struct_symbol);
+        let substitution = self.struct_generic_substitution(struct_symbol, target_type);
+
+        if substitution.is_empty() {
+            return fields;
+        }
+
+        for field in fields.iter_mut() {
+            field.ty = self.substitute_generic_expression_type(field.ty, &substitution);
+        }
+
+        fields
+    }
+
+    fn struct_generic_substitution(
+        &self,
+        struct_symbol: SymbolId,
+        target_type: TypeId,
+    ) -> HashMap<SymbolId, TypeId> {
+        let target_type = self.resolve_alias_type(target_type);
+
+        let Some(TypeKind::GenericInstance { base, arguments }) =
+            self.layer.table().kind(target_type).cloned()
+        else {
+            return HashMap::new();
+        };
+
+        let Some(TypeKind::Named { symbol }) = self.layer.table().kind(base) else {
+            return HashMap::new();
+        };
+
+        if *symbol != struct_symbol {
+            return HashMap::new();
+        }
+
+        let Some(struct_item) = self.type_item_for_symbol(struct_symbol) else {
+            return HashMap::new();
+        };
+
+        self.declaration_symbols_in_node(struct_item, &[SymbolKind::GenericParameter])
+            .into_iter()
+            .zip(arguments)
+            .collect()
     }
 
     fn struct_fields_with_visited(

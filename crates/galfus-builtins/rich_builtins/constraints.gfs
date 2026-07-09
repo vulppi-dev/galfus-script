@@ -2,8 +2,8 @@ export constraint Iterator<Item> {
   fn next(self): Item | null
 }
 
-export constraint Iterable<Iter: Iterator> {
-  fn iter(self): Iter
+export constraint Iterable<Item> {
+  fn iter(self): Iterator<Item>
 }
 
 export constraint Comparable<Value> {

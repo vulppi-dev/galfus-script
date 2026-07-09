@@ -7,6 +7,7 @@ impl Parser {
         matches!(
             self.current().kind(),
             TokenKind::Identifier
+                | TokenKind::SelfKw
                 | TokenKind::Integer
                 | TokenKind::Float
                 | TokenKind::String

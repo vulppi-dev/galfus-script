@@ -46,16 +46,14 @@ var values: [int32] = [1, 2, 3]
     let ty = result.layer().node_type(array).unwrap();
 
     match result.layer().table().kind(ty) {
-        Some(TypeKind::FixedArray { element, size }) => {
-            assert_eq!(*size, ArraySize::Known(3));
-
+        Some(TypeKind::Array { element }) => {
             assert_eq!(
                 result.layer().table().kind(*element),
                 Some(&TypeKind::Primitive(PrimitiveType::Int32))
             );
         }
 
-        other => panic!("expected fixed array type, got {other:?}"),
+        other => panic!("expected array type, got {other:?}"),
     }
 }
 

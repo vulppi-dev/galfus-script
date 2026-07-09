@@ -73,6 +73,11 @@ impl Parser {
         &self.source_text[span.start() as usize..span.end() as usize]
     }
 
+    fn node_text(&self, node: NodeId) -> &str {
+        let span = self.node_span(node);
+        &self.source_text[span.start() as usize..span.end() as usize]
+    }
+
     pub fn finish(mut self) -> ParseResult {
         self.graph.syntax_mut().set_tokens(self.tokens);
 

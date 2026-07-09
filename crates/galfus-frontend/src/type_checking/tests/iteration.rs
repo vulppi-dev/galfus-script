@@ -19,7 +19,7 @@ fn main(values: [int32]): null {
 }
 
 #[test]
-fn check_accepts_for_over_fixed_array_literal() {
+fn check_accepts_for_over_array_literal() {
     let (_source, _graph, result) = check_source(
         r#"
 fn main(): null {
@@ -163,11 +163,11 @@ fn check_accepts_for_over_iterable_struct() {
     let (_source, _graph, result) = check_source(
         r#"
         constraint Iterator<T, Item> {
-          fn next(self: T): Item | null
+          fn next(self): Item | null
         }
 
         constraint Iterable<T, Item, Iter> {
-          fn iter(self: T): Iter
+          fn iter(self): Iter
         }
 
         struct Numbers satisfies Iterable<Numbers, int32, NumbersIterator> {
@@ -179,14 +179,14 @@ fn check_accepts_for_over_iterable_struct() {
           index: int32,
         }
 
-        fn Numbers::iter(self: Numbers): NumbersIterator {
+        fn Numbers::iter(self): NumbersIterator {
           return new(NumbersIterator) {
             values: self.values,
             index: 0,
           }
         }
 
-        fn NumbersIterator::next(self: NumbersIterator): int32 | null {
+        fn NumbersIterator::next(self): int32 | null {
           return self.values[self.index]
         }
 
@@ -212,11 +212,11 @@ fn check_binds_for_binding_type_from_iterable_struct() {
     let (source, graph, result) = check_source(
         r#"
         constraint Iterator<T, Item> {
-          fn next(self: T): Item | null
+          fn next(self): Item | null
         }
 
         constraint Iterable<T, Item, Iter> {
-          fn iter(self: T): Iter
+          fn iter(self): Iter
         }
 
         struct Numbers satisfies Iterable<Numbers, int32, NumbersIterator> {
@@ -228,14 +228,14 @@ fn check_binds_for_binding_type_from_iterable_struct() {
           index: int32,
         }
 
-        fn Numbers::iter(self: Numbers): NumbersIterator {
+        fn Numbers::iter(self): NumbersIterator {
           return new(NumbersIterator) {
             values: self.values,
             index: 0,
           }
         }
 
-        fn NumbersIterator::next(self: NumbersIterator): int32 | null {
+        fn NumbersIterator::next(self): int32 | null {
           return self.values[self.index]
         }
 
@@ -269,18 +269,18 @@ fn check_reports_iterable_with_non_iterator_iter_type() {
     let source = source(
         r#"
 constraint Iterator<T, Item> {
-  fn next(self: T): Item | null
+  fn next(self): Item | null
 }
 
 constraint Iterable<T, Item, Iter> {
-  fn iter(self: T): Iter
+  fn iter(self): Iter
 }
 
 struct Iter {}
 
 struct Source satisfies Iterable<Source, int32, Iter> {}
 
-fn Source::iter(self: Source): Iter {
+fn Source::iter(self): Iter {
   return new(Iter) {}
 }
 
@@ -319,12 +319,12 @@ fn check_reports_iterator_next_return_type_mismatch() {
     let source = source(
         r#"
         constraint Iterator<T, Item> {
-          fn next(self: T): Item | null
+          fn next(self): Item | null
         }
 
         struct BadIterator satisfies Iterator<BadIterator, int32> {}
 
-        fn BadIterator::next(self: BadIterator): bool {
+        fn BadIterator::next(self): bool {
           return true
         }
         "#,
@@ -351,12 +351,12 @@ fn check_accepts_comparable_constraint() {
     let (_source, _graph, result) = check_source(
         r#"
         constraint Comparable<Pattern, Value> {
-          fn compare(self: Pattern, value: Value): bool
+          fn compare(self, value: Value): bool
         }
 
         struct Pattern satisfies Comparable<Pattern, [uint8]> {}
 
-        fn Pattern::compare(self: Pattern, value: [uint8]): bool {
+        fn Pattern::compare(self, value: [uint8]): bool {
           return true
         }
         "#,
@@ -371,7 +371,7 @@ fn check_reports_direct_builtin_constraint_without_import() {
         r#"
 struct Pattern satisfies Comparable<Pattern, [uint8]> {}
 
-fn Pattern::compare(self: Pattern, value: [uint8]): bool {
+fn Pattern::compare(self, value: [uint8]): bool {
   return true
 }
 "#,
@@ -398,18 +398,18 @@ fn check_reports_iterable_iter_return_type_mismatch() {
     let source = source(
         r#"
 constraint Iterator<T, Item> {
-  fn next(self: T): Item | null
+  fn next(self): Item | null
 }
 
 constraint Iterable<T, Item, Iter> {
-  fn iter(self: T): Iter
+  fn iter(self): Iter
 }
 
 struct Iter {}
 
 struct Source satisfies Iterable<Source, int32, Iter> {}
 
-fn Source::iter(self: Source): bool {
+fn Source::iter(self): bool {
   return true
 }
 "#,
@@ -436,12 +436,12 @@ fn check_reports_iterator_next_item_type_mismatch() {
     let source = source(
         r#"
 constraint Iterator<T, Item> {
-  fn next(self: T): Item | null
+  fn next(self): Item | null
 }
 
 struct BadIterator satisfies Iterator<BadIterator, int32> {}
 
-fn BadIterator::next(self: BadIterator): bool | null {
+fn BadIterator::next(self): bool | null {
   return true
 }
 "#,
@@ -468,12 +468,12 @@ fn check_reports_builtin_comparable_return_type_mismatch() {
     let source = source(
         r#"
 constraint Comparable<Pattern, Value> {
-  fn compare(self: Pattern, value: Value): bool
+  fn compare(self, value: Value): bool
 }
 
 struct Pattern satisfies Comparable<Pattern, [uint8]> {}
 
-fn Pattern::compare(self: Pattern, value: [uint8]): int32 {
+fn Pattern::compare(self, value: [uint8]): int32 {
   return 0
 }
 "#,
@@ -500,12 +500,12 @@ fn check_reports_for_over_iterator_without_iterable() {
     let source = source(
         r#"
 constraint Iterator<T, Item> {
-  fn next(self: T): Item | null
+  fn next(self): Item | null
 }
 
 struct Counter satisfies Iterator<Counter, int32> {}
 
-fn Counter::next(self: Counter): int32 | null {
+fn Counter::next(self): int32 | null {
   return 1
 }
 

@@ -48,7 +48,7 @@ fn resolve_records_exported_anchored_function_by_qualified_name() {
             name: [int8],
         }
 
-        export fn User::rename(self: User, name: [int8]): User {
+        export fn User::rename(self, name: [int8]): User {
             return self
         }
         "#,
@@ -94,7 +94,7 @@ fn resolve_records_exported_type_items() {
         }
 
         export constraint Stringable<T> {
-            fn toString(self: T): [int8]
+            fn toString(self): [int8]
         }
         "#,
     );

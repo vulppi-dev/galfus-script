@@ -1,6 +1,5 @@
 use crate::{
-    ArraySize, FunctionParameterType, ModuleGraph, PrimitiveType, SymbolKind, SyntaxNodeKind,
-    TypeLayer,
+    FunctionParameterType, ModuleGraph, PrimitiveType, SymbolKind, SyntaxNodeKind, TypeLayer,
 };
 use galfus_core::{NodeId, SourceFile, SymbolId, TypeId};
 
@@ -88,8 +87,6 @@ impl<'a> TypeLowerer<'a> {
             SyntaxNodeKind::Path => self.lower_path_type(node),
 
             SyntaxNodeKind::ArrayType => self.lower_array_type(node),
-
-            SyntaxNodeKind::FixedArrayType => self.lower_fixed_array_type(node),
 
             SyntaxNodeKind::TupleType => self.lower_tuple_type(node),
 
@@ -202,38 +199,6 @@ impl<'a> TypeLowerer<'a> {
 
         let element = self.lower_type(element);
         self.layer.table_mut().intern_array(element)
-    }
-
-    fn lower_fixed_array_type(&mut self, node: NodeId) -> TypeId {
-        let Some(element) = self.graph.syntax().child(node, 0) else {
-            return self.error_type();
-        };
-
-        let Some(size_node) = self.graph.syntax().child(node, 1) else {
-            return self.error_type();
-        };
-
-        let element = self.lower_type(element);
-        let size = self.lower_array_size(size_node);
-
-        self.layer.table_mut().intern_fixed_array(element, size)
-    }
-
-    fn lower_array_size(&self, node: NodeId) -> ArraySize {
-        let Some(integer) = self
-            .graph
-            .syntax()
-            .first_child_of_kind(node, SyntaxNodeKind::IntegerLiteral)
-        else {
-            return ArraySize::Unknown;
-        };
-
-        let text = self.node_text(integer);
-
-        match text.parse::<u64>() {
-            Ok(value) => ArraySize::Known(value),
-            Err(_) => ArraySize::Unknown,
-        }
     }
 
     fn lower_tuple_type(&mut self, node: NodeId) -> TypeId {
@@ -368,7 +333,6 @@ impl<'a> TypeLowerer<'a> {
                 | SyntaxNodeKind::NamedType
                 | SyntaxNodeKind::Path
                 | SyntaxNodeKind::ArrayType
-                | SyntaxNodeKind::FixedArrayType
                 | SyntaxNodeKind::TupleType
                 | SyntaxNodeKind::GroupedType
                 | SyntaxNodeKind::UnionType

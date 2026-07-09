@@ -3,8 +3,7 @@ use super::*;
 use galfus_core::{DiagnosticCodeKind, NodeId, SourceId, SymbolId};
 
 use crate::{
-    ArraySize, PrimitiveType, SymbolKind, SyntaxNodeKind, TypeDiagnosticCode, TypeKind, parse,
-    resolve,
+    PrimitiveType, SymbolKind, SyntaxNodeKind, TypeDiagnosticCode, TypeKind, parse, resolve,
 };
 
 mod access;

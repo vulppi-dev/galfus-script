@@ -63,7 +63,7 @@ struct DeclarationTypeChecker<'a> {
 #[derive(Debug, Clone)]
 struct LoweredImportedConstraint {
     name: String,
-    generic_parameter_count: usize,
+    generic_parameters: Vec<SymbolId>,
     fields: Vec<LoweredImportedConstraintMember>,
     functions: Vec<LoweredImportedConstraintMember>,
 }
@@ -186,7 +186,11 @@ impl<'a> DeclarationTypeChecker<'a> {
     ) -> LoweredImportedConstraint {
         LoweredImportedConstraint {
             name: imported_constraint.name().to_string(),
-            generic_parameter_count: imported_constraint.generic_parameter_count(),
+            generic_parameters: imported_constraint
+                .generic_parameters()
+                .iter()
+                .filter_map(|parameter| self.lower_imported_generic_parameter(parameter))
+                .collect(),
             fields: imported_constraint
                 .fields()
                 .iter()

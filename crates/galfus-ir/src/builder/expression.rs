@@ -451,8 +451,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                         .unwrap_or_else(|| FunctionId::new(0))
                 };
 
-                if !self.is_std_buffer_create_call_target(target_node)
-                    && let Some(symbol) = target_symbol
+                if let Some(symbol) = target_symbol
                     && let Some(specialized) =
                         self.specialize_generic_call(symbol, target_node, &arg_types)
                 {
@@ -649,53 +648,6 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                 .and_then(|inner| self.call_target_symbol(inner)),
             _ => None,
         }
-    }
-
-    fn is_std_buffer_create_call_target(&self, target: NodeId) -> bool {
-        let syntax = self.builder.graph.syntax();
-        let Some(resolution) = self.builder.graph.resolution() else {
-            return false;
-        };
-
-        let mut current = target;
-        while let Some(node) = syntax.node(current)
-            && node.kind() == SyntaxNodeKind::GenericExpression
-        {
-            if let Some(inner) = node.first_child() {
-                current = inner;
-            } else {
-                break;
-            }
-        }
-
-        let Some(node) = syntax.node(current) else {
-            return false;
-        };
-
-        if node.kind() != SyntaxNodeKind::PathExpression {
-            return false;
-        }
-
-        let Some(root_node) = node.child(0) else {
-            return false;
-        };
-        let Some(member_node) = node.child(1) else {
-            return false;
-        };
-
-        if self.builder.node_text(member_node) != "create" {
-            return false;
-        }
-
-        let root_symbol = resolution.reference_symbol(root_node).or_else(|| {
-            let identifier = syntax.first_child_of_kind(root_node, SyntaxNodeKind::Identifier)?;
-            resolution.reference_symbol(identifier)
-        });
-
-        root_symbol
-            .and_then(|symbol| resolution.import_for_symbol(symbol))
-            .and_then(|import_id| resolution.import(import_id))
-            .is_some_and(|import| import.source() == "std/buffer")
     }
 
     fn anchored_call_receiver(&self, target: NodeId) -> Option<NodeId> {

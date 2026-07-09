@@ -38,7 +38,7 @@ fn lexer_reads_keywords() {
         kinds(
             "import from export as var const fn return struct enum choice type constraint \
                  satisfies match instanceof if else for in loop break continue weak null true false new copy \
-                 transaction rollback"
+                 transaction rollback self"
         ),
         vec![
             TokenKind::Import,
@@ -72,6 +72,7 @@ fn lexer_reads_keywords() {
             TokenKind::Copy,
             TokenKind::Transaction,
             TokenKind::Rollback,
+            TokenKind::SelfKw,
             TokenKind::Eof,
         ]
     );

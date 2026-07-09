@@ -65,6 +65,7 @@ pub enum TokenKind {
     Copy,
     Transaction,
     Rollback,
+    SelfKw,
 
     // Delimiters
     LeftParen,    // (

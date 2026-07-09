@@ -293,7 +293,7 @@ fn parse_named_import_alias() {
 fn parse_export_constraint_item() {
     let source = source(
         "export constraint Stringable<T> {
-            fn toString(self: T): [int8]
+            fn toString(self): [int8]
         }",
     );
 

@@ -1,12 +1,12 @@
 import { Iterable, Iterator } from "std/constraints"
 
-export struct RangeExclusive satisfies Iterable<RangeExclusive>, Iterator<int64> {
+export struct RangeExclusive satisfies Iterable<int64>, Iterator<int64> {
   start: int64,
   end: int64,
   current: int64,
 }
 
-export struct RangeStepped<T: int64 | float64> satisfies Iterable<RangeStepped<T>>, Iterator<T> {
+export struct RangeStepped<T: int64 | float64> satisfies Iterable<T>, Iterator<T> {
   start: T,
   count: int64,
   step: T,
@@ -30,12 +30,12 @@ export fn rangeSteps<T: int64 | float64>(start: T, count: int64, step: T): Range
   }
 }
 
-export fn RangeExclusive::iter(self): RangeExclusive {
+fn RangeExclusive::iter(self): Iterator<int64> {
   self.current = 0
   return self
 }
 
-export fn RangeExclusive::next(self): int64 | null {
+fn RangeExclusive::next(self): int64 | null {
   const direction: int64 = match self.start < self.end {
     true => 1,
     false => -1,
@@ -50,12 +50,12 @@ export fn RangeExclusive::next(self): int64 | null {
   return value
 }
 
-export fn RangeStepped<T>::iter(self): RangeStepped<T> {
+fn RangeStepped<T>::iter(self): Iterator<T> {
   self.current = 0
   return self
 }
 
-export fn RangeStepped<T>::next(self): T | null {
+fn RangeStepped<T>::next(self): T | null {
   if self.current >= self.count {
     return null
   }

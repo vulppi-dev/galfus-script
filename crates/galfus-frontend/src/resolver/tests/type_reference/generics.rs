@@ -46,7 +46,7 @@ fn resolve_binds_constraint_generic_parameter_type_references() {
     let source = source(
         r#"
         constraint Stringable<T> {
-            fn toString(self: T): [int8]
+            fn toString(self): T
         }
         "#,
     );

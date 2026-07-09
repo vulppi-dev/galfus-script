@@ -109,6 +109,44 @@ fn main(value: int32): int32 {
 }
 
 #[test]
+fn check_accepts_inferred_struct_literal_return_with_expected_type() {
+    let (_source, _graph, result) = check_source(
+        r#"
+struct User {
+  id: int32,
+}
+
+fn main(): User {
+  return new {
+    id: 1,
+  }
+}
+"#,
+    );
+
+    assert!(!result.has_errors());
+}
+
+#[test]
+fn check_accepts_inferred_generic_struct_literal_return_with_expected_type() {
+    let (_source, _graph, result) = check_source(
+        r#"
+struct Box<T: int64 | float64> {
+  value: T,
+}
+
+fn main<T: int64 | float64>(): Box<T> {
+  return new {
+    value: 0,
+  }
+}
+"#,
+    );
+
+    assert!(!result.has_errors());
+}
+
+#[test]
 fn check_reports_missing_return_for_non_null_function() {
     let source = source(
         r#"

@@ -260,10 +260,8 @@ fn test_run_buffer_create_with_runtime_length() -> Result<()> {
         &root,
         "main.gfs",
         r#"
-        import buffer from "std/buffer"
-
         fn make(n: int32): [uint8] {
-            return buffer::create<uint8>(n)
+            return new([uint8], n)
         }
 
         export fn main(args: [[uint8]]): int32 {
@@ -293,10 +291,8 @@ fn test_run_buffer_create_allows_index_assignment() -> Result<()> {
         &root,
         "main.gfs",
         r#"
-        import buffer from "std/buffer"
-
         export fn main(args: [[uint8]]): int32 {
-            var values = buffer::create<int32>(3)
+            var values = new([int32], 3)
             values[0] = 10
             values[1] = 20
             values[2] = 30

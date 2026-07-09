@@ -23,7 +23,7 @@ fn resolve_declares_top_level_named_items() {
         }
 
         constraint Stringable<T> {
-            fn toString(self: T): [int8]
+            fn toString(self): [int8]
         }
         ",
     );
@@ -191,7 +191,7 @@ fn resolve_declares_anchored_function_by_qualified_name() {
             name: [int8],
         }
 
-        fn User::rename(self: User, name: [int8]): User {
+        fn User::rename(self, name: [int8]): User {
             return self
         }
         ",
@@ -229,11 +229,11 @@ fn resolve_allows_same_anchored_function_name_on_different_structs() {
             title: [int8],
         }
 
-        fn User::rename(self: User, name: [int8]): User {
+        fn User::rename(self, name: [int8]): User {
             return self
         }
 
-        fn Post::rename(self: Post, title: [int8]): Post {
+        fn Post::rename(self, title: [int8]): Post {
             return self
         }
         ",

@@ -173,7 +173,7 @@ impl ImportedConstraintMember {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ImportedConstraintSurface {
     name: String,
-    generic_parameter_count: usize,
+    generic_parameters: Vec<ImportedType>,
     fields: Vec<ImportedConstraintMember>,
     functions: Vec<ImportedConstraintMember>,
 }
@@ -181,13 +181,13 @@ pub struct ImportedConstraintSurface {
 impl ImportedConstraintSurface {
     pub fn new(
         name: String,
-        generic_parameter_count: usize,
+        generic_parameters: Vec<ImportedType>,
         fields: Vec<ImportedConstraintMember>,
         functions: Vec<ImportedConstraintMember>,
     ) -> Self {
         Self {
             name,
-            generic_parameter_count,
+            generic_parameters,
             fields,
             functions,
         }
@@ -198,7 +198,11 @@ impl ImportedConstraintSurface {
     }
 
     pub fn generic_parameter_count(&self) -> usize {
-        self.generic_parameter_count
+        self.generic_parameters.len()
+    }
+
+    pub fn generic_parameters(&self) -> &[ImportedType] {
+        self.generic_parameters.as_slice()
     }
 
     pub fn fields(&self) -> &[ImportedConstraintMember] {

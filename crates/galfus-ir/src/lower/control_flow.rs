@@ -2,7 +2,6 @@ use super::LowerCtx;
 use crate::mir::{
     Constant as MirConstant, Instruction as MirInstruction, MirBody, MirFunction, Terminator,
 };
-use galfus_frontend::SyntaxNodeKind;
 use galfus_image::Instruction;
 use galfus_image::instruction::{GlobalIdx, Reg};
 
@@ -247,26 +246,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                         destination,
                     } => {
                         let builtin_name = self.ctx.function_names.get(func).map(|s| s.as_str());
-                        if self.is_std_buffer_create_call_func(*func) {
-                            let len_reg = self.alloc_temp();
-                            self.load_operand_to(&args[0], len_reg);
-
-                            let dest_decl = self
-                                .func
-                                .locals
-                                .iter()
-                                .find(|local| local.id == *destination)
-                                .unwrap();
-                            let type_idx = self.ctx.lower_type(dest_decl.ty);
-
-                            self.instructions.push(Instruction::NewArray {
-                                dest: Reg(destination.raw() as u16),
-                                type_idx,
-                                len_reg,
-                            });
-
-                            self.free_temps(1);
-                        } else if builtin_name == Some("__builtin_write") {
+                        if builtin_name == Some("__builtin_write") {
                             let arg_reg = self.alloc_temp();
                             self.load_operand_to(&args[0], arg_reg);
                             self.instructions.push(Instruction::Write { src: arg_reg });
@@ -282,28 +262,6 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                             self.instructions.push(Instruction::Read {
                                 dest: Reg(destination.raw() as u16),
                             });
-                        } else if builtin_name
-                            .map(|s| s.starts_with("__builtin_create_buffer"))
-                            .unwrap_or(false)
-                        {
-                            let len_reg = self.alloc_temp();
-                            self.load_operand_to(&args[0], len_reg);
-
-                            let dest_decl = self
-                                .func
-                                .locals
-                                .iter()
-                                .find(|l| l.id == *destination)
-                                .unwrap();
-                            let type_idx = self.ctx.lower_type(dest_decl.ty);
-
-                            self.instructions.push(Instruction::NewArray {
-                                dest: Reg(destination.raw() as u16),
-                                type_idx,
-                                len_reg,
-                            });
-
-                            self.free_temps(1);
                         } else {
                             let start_reg = self.alloc_temp();
                             let mut temp_regs = vec![start_reg];
@@ -379,61 +337,5 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                 self.loop_stack.pop();
             }
         }
-    }
-
-    fn is_std_buffer_create_call_func(&self, func: galfus_core::FunctionId) -> bool {
-        const PATH_CALL_TARGET_TAG: u32 = 0x8000_0000;
-
-        let raw = func.raw();
-        if raw & PATH_CALL_TARGET_TAG == 0 {
-            return false;
-        }
-
-        let node_id = galfus_core::NodeId::new(raw & !PATH_CALL_TARGET_TAG);
-        let syntax = self.ctx.graph.syntax();
-        let Some(node) = syntax.node(node_id) else {
-            return false;
-        };
-
-        if node.kind() != SyntaxNodeKind::PathExpression {
-            return false;
-        }
-
-        let Some(root_node) = node.child(0) else {
-            return false;
-        };
-        let Some(member_node) = node.child(1) else {
-            return false;
-        };
-        let Some(member_node_data) = syntax.node(member_node) else {
-            return false;
-        };
-
-        let member_span = member_node_data.span();
-        let member_name = if member_span.start() as usize <= self.ctx.source_text.len()
-            && member_span.end() as usize <= self.ctx.source_text.len()
-        {
-            &self.ctx.source_text[member_span.start() as usize..member_span.end() as usize]
-        } else {
-            ""
-        };
-
-        if member_name != "create" {
-            return false;
-        }
-
-        let Some(resolution) = self.ctx.graph.resolution() else {
-            return false;
-        };
-
-        let root_symbol = resolution.reference_symbol(root_node).or_else(|| {
-            let identifier = syntax.first_child_of_kind(root_node, SyntaxNodeKind::Identifier)?;
-            resolution.reference_symbol(identifier)
-        });
-
-        root_symbol
-            .and_then(|symbol| resolution.import_for_symbol(symbol))
-            .and_then(|import_id| resolution.import(import_id))
-            .is_some_and(|import| import.source() == "std/buffer")
     }
 }

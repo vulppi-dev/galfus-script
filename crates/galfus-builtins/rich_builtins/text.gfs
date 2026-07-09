@@ -1,8 +1,6 @@
 // text - pure Galfus byte-level string utilities.
 // All strings are UTF-8 byte arrays.
 
-import buffer from "std/buffer"
-
 export fn length(s: [uint8]): int32 {
   var i: int32 = 0
   for byte in s {
@@ -14,7 +12,7 @@ export fn length(s: [uint8]): int32 {
 export fn concat(a: [uint8], b: [uint8]): [uint8] {
   var lenA = length(a)
   var lenB = length(b)
-  var result = buffer::create<uint8>(lenA + lenB)
+  var result = new([uint8], lenA + lenB)
   var i: int32 = 0
   for byte in a {
     result[i] = byte
@@ -30,7 +28,7 @@ export fn concat(a: [uint8], b: [uint8]): [uint8] {
 export fn slice(s: [uint8], start: int32, count: int32): [uint8] {
   var len = length(s)
   if count <= 0 || start >= len {
-    return buffer::create<uint8>(0)
+    return new([uint8], 0)
   }
   var end = start + count
   if end > len {
@@ -38,9 +36,9 @@ export fn slice(s: [uint8], start: int32, count: int32): [uint8] {
   }
   var sliceLen = end - start
   if sliceLen <= 0 {
-    return buffer::create<uint8>(0)
+    return new([uint8], 0)
   }
-  var result = buffer::create<uint8>(sliceLen)
+  var result = new([uint8], sliceLen)
   var index: int32 = 0
   var writeIndex: int32 = 0
   for byte in s {
@@ -55,10 +53,10 @@ export fn slice(s: [uint8], start: int32, count: int32): [uint8] {
 
 export fn repeat(s: [uint8], n: int32): [uint8] {
   if n <= 0 {
-    return buffer::create<uint8>(0)
+    return new([uint8], 0)
   }
   var len = length(s)
-  var result = buffer::create<uint8>(len * n)
+  var result = new([uint8], len * n)
   var destIdx: int32 = 0
   var i: int32 = 0
   loop {
@@ -139,7 +137,7 @@ export fn trim(s: [uint8]): [uint8] {
 
 export fn toUpper(s: [uint8]): [uint8] {
   var len = length(s)
-  var result = buffer::create<uint8>(len)
+  var result = new([uint8], len)
   var i: int32 = 0
   for byte in s {
     var code = <int32>byte
@@ -155,7 +153,7 @@ export fn toUpper(s: [uint8]): [uint8] {
 
 export fn toLower(s: [uint8]): [uint8] {
   var len = length(s)
-  var result = buffer::create<uint8>(len)
+  var result = new([uint8], len)
   var i: int32 = 0
   for byte in s {
     var code = <int32>byte

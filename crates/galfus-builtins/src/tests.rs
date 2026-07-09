@@ -37,12 +37,6 @@ fn test_std_io_source_checks() {
 }
 
 #[test]
-fn test_std_buffer_source_checks() {
-    assert_builtin_checks("std/buffer", BUFFER_SOURCE);
-    assert!(BUFFER_SOURCE.contains("create"));
-}
-
-#[test]
 fn test_text_source_checks() {
     assert_builtin_checks("text", TEXT_SOURCE);
     assert!(TEXT_SOURCE.contains("length"));

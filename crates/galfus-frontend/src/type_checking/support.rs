@@ -122,7 +122,6 @@ impl<'a> DeclarationTypeChecker<'a> {
                 | SyntaxNodeKind::NamedType
                 | SyntaxNodeKind::Path
                 | SyntaxNodeKind::ArrayType
-                | SyntaxNodeKind::FixedArrayType
                 | SyntaxNodeKind::TupleType
                 | SyntaxNodeKind::GroupedType
                 | SyntaxNodeKind::UnionType

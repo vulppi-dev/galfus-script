@@ -47,8 +47,16 @@ impl<'a> DeclarationTypeChecker<'a> {
     }
 
     fn expected_struct_target(&self, ty: TypeId) -> Option<(SymbolId, String)> {
-        let Some(TypeKind::Named { symbol }) = self.layer.table().kind(ty).cloned() else {
-            return None;
+        let symbol = match self.layer.table().kind(ty).cloned()? {
+            TypeKind::Named { symbol } => symbol,
+            TypeKind::GenericInstance { base, .. } => {
+                let TypeKind::Named { symbol } = self.layer.table().kind(base).cloned()? else {
+                    return None;
+                };
+
+                symbol
+            }
+            _ => return None,
         };
 
         let resolution = self.graph.resolution()?;

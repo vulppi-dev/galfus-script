@@ -323,7 +323,7 @@ fn resolve_binds_constraint_function_path_expression_member() {
     let source = source(
         r#"
         constraint Stringable<T> {
-            fn toString(self: T): [int8]
+            fn toString(self): [int8]
         }
 
         fn main(): null {

@@ -2,7 +2,7 @@ use super::*;
 
 #[test]
 fn parse_anchored_function_declaration() {
-    let source = source("fn User::rename(self: User, name: [int8]): User {\n  return self\n}");
+    let source = source("fn User::rename(self, name: [int8]): User {\n  return self\n}");
 
     let result = parse(&source);
 
@@ -103,7 +103,7 @@ fn parse_regular_function_declaration_shape_is_unchanged() {
 
 #[test]
 fn parse_anchored_generic_function_declaration() {
-    let source = source("fn User::convert<T>(self: User): T {\n  return self\n}");
+    let source = source("fn User::convert<T>(self): T {\n  return self\n}");
 
     let result = parse(&source);
 
@@ -159,8 +159,7 @@ fn parse_anchored_generic_function_declaration() {
 
 #[test]
 fn parse_exported_anchored_function_declaration() {
-    let source =
-        source("export fn User::rename(self: User, name: [int8]): User {\n  return self\n}");
+    let source = source("export fn User::rename(self, name: [int8]): User {\n  return self\n}");
 
     let result = parse(&source);
 
@@ -189,7 +188,7 @@ fn parse_exported_anchored_function_declaration() {
 
 #[test]
 fn parse_generic_anchored_function_declaration() {
-    let source = source("fn Box<T>::unwrap(self: Box<T>): T {\n  return self.value\n}");
+    let source = source("fn Box<T>::unwrap(self): T {\n  return self.value\n}");
 
     let result = parse(&source);
 
@@ -228,7 +227,7 @@ fn parse_generic_anchored_function_declaration() {
 #[test]
 fn parse_generic_anchor_with_generic_function_declaration() {
     let source =
-        source("fn Box<T>::map<U>(self: Box<T>, transform: fn (T): U): Box<U> {\n  return self\n}");
+        source("fn Box<T>::map<U>(self, transform: fn (T): U): Box<U> {\n  return self\n}");
 
     let result = parse(&source);
 
@@ -319,9 +318,7 @@ fn parse_generic_function_is_not_anchor() {
 
 #[test]
 fn parse_nested_generic_anchor_function_declaration() {
-    let source = source(
-        "fn Registry<Map<[int8], User>>::get(self: Registry<Map<[int8], User>>): User {\n  return user\n}",
-    );
+    let source = source("fn Registry<Map<[int8], User>>::get(self): User {\n  return user\n}");
 
     let result = parse(&source);
 

@@ -325,5 +325,8 @@ fn validate_rvalue_operands(
         RValue::NewArrayZeroed { .. } => {
             // No operands — size and types are compile-time constants.
         }
+        RValue::NewArrayZeroedDynamic { length, .. } => {
+            validate_operand(length, func, initialized, errors);
+        }
     }
 }

@@ -36,17 +36,17 @@ export fn style(): Style {
   }
 }
 
-export fn Style::bold(self: Style): Style {
+export fn Style::bold(self): Style {
   self._bold = true
   return self
 }
 
-export fn Style::dim(self: Style): Style {
+export fn Style::dim(self): Style {
   self._dim = true
   return self
 }
 
-export fn Style::rgb(self: Style, r: uint8, g: uint8, b: uint8): Style {
+export fn Style::rgb(self, r: uint8, g: uint8, b: uint8): Style {
   self._has_fg = true
   self._fg_r = r
   self._fg_g = g
@@ -54,7 +54,7 @@ export fn Style::rgb(self: Style, r: uint8, g: uint8, b: uint8): Style {
   return self
 }
 
-export fn Style::bg(self: Style, r: uint8, g: uint8, b: uint8): Style {
+export fn Style::bg(self, r: uint8, g: uint8, b: uint8): Style {
   self._has_bg = true
   self._bg_r = r
   self._bg_g = g
@@ -64,22 +64,23 @@ export fn Style::bg(self: Style, r: uint8, g: uint8, b: uint8): Style {
 
 // Append decimal bytes for an uint8 value into a byte array.
 fn appendDecimal(buf: [uint8], n: uint8): [uint8] {
+  var result = buf
   var val = <int32>n
   if val >= 100 {
-    buf = [...buf, <uint8>(val / 100 + 48)]
-    buf = [...buf, <uint8>(val / 10 % 10 + 48)]
-    buf = [...buf, <uint8>(val % 10 + 48)]
+    result = [...result, (val / 100 + 48)]
+    result = [...result, (val / 10 % 10 + 48)]
+    result = [...result, (val % 10 + 48)]
   } else if val >= 10 {
-    buf = [...buf, <uint8>(val / 10 + 48)]
-    buf = [...buf, <uint8>(val % 10 + 48)]
+    result = [...result, (val / 10 + 48)]
+    result = [...result, (val % 10 + 48)]
   } else {
-    buf = [...buf, <uint8>(val + 48)]
+    result = [...result, (val + 48)]
   }
-  return buf
+  return result
 }
 
 // Wrap `text` with the ANSI escape codes described by `self`, then reset.
-export fn Style::apply(self: Style, text: [uint8]): [uint8] {
+export fn Style::apply(self, text: [uint8]): [uint8] {
   // ESC = 27, '[' = 91, 'm' = 109, ';' = 59
   var codes: [uint8] = [27, 91]  // ESC [
 

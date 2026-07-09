@@ -90,7 +90,7 @@ impl ModuleSurfaceExport {
 
         ImportedConstraintSurface::new(
             self.name.clone(),
-            self.generic_parameters.len(),
+            self.generic_parameters.clone(),
             fields,
             functions,
         )

@@ -17,6 +17,22 @@ impl Parser {
         Some(self.add_node(SyntaxNodeKind::Identifier, token.span(), Vec::new()))
     }
 
+    pub(super) fn parse_identifier_or_self(&mut self) -> Option<NodeId> {
+        let token = if self.at(&TokenKind::Identifier) || self.at(&TokenKind::SelfKw) {
+            self.bump()
+        } else {
+            let found = self.current().clone();
+            self.graph.push_diagnostic(Diagnostic::error_with_message(
+                ParserDiagnosticCode::ExpectedToken,
+                format!("expected `Identifier`, found `{:?}`", found.kind()),
+                found.span(),
+            ));
+            return None;
+        };
+
+        Some(self.add_node(SyntaxNodeKind::Identifier, token.span(), Vec::new()))
+    }
+
     pub(super) fn parse_type(&mut self) -> Option<NodeId> {
         let first = self.parse_primary_type()?;
 
@@ -113,10 +129,37 @@ impl Parser {
             return self.parse_rest_parameter(decorators);
         }
 
-        let name = self.parse_identifier()?;
+        let name = self.parse_identifier_or_self()?;
         let name_span = self.node_span(name);
 
         self.skip_newlines();
+
+        if self.node_text(name) == "self" {
+            if self.at(&TokenKind::Colon) {
+                let colon = self.bump();
+                self.graph.push_diagnostic(Diagnostic::error_with_message(
+                    ParserDiagnosticCode::ExpectedToken,
+                    "`self` parameters are inferred and must not have a type annotation"
+                        .to_string(),
+                    colon.span(),
+                ));
+                self.skip_newlines();
+                let _ = self.parse_type();
+            }
+
+            let mut children = Vec::new();
+            if let Some(decorators) = decorators {
+                children.push(decorators);
+            }
+            children.push(name);
+
+            let start_span = decorators
+                .map(|decorators| self.node_span(decorators))
+                .unwrap_or(name_span);
+            let span = Span::cover(start_span, name_span).unwrap_or(name_span);
+
+            return Some(self.add_node(SyntaxNodeKind::Parameter, span, children));
+        }
 
         self.expect(TokenKind::Colon)?;
 

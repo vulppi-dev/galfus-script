@@ -18,7 +18,7 @@ impl Parser {
     }
 
     pub(super) fn parse_name_expression(&mut self) -> Option<NodeId> {
-        let identifier = self.parse_identifier()?;
+        let identifier = self.parse_identifier_or_self()?;
         let span = self.node_span(identifier);
 
         Some(self.add_node(SyntaxNodeKind::NameExpression, span, vec![identifier]))
@@ -81,7 +81,7 @@ impl Parser {
             ));
         }
 
-        if self.at(&TokenKind::Identifier) {
+        if self.at(&TokenKind::Identifier) || self.at(&TokenKind::SelfKw) {
             return self.parse_name_expression();
         }
 

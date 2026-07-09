@@ -1,7 +1,5 @@
 // format - pure Galfus formatting and parsing helpers.
 
-import buffer from "std/buffer"
-
 type Parsed = int | uint | float | bool | null 
 
 export choice ParseResult<V: Parsed> {
@@ -24,7 +22,7 @@ fn length(s: [uint8]): int32 {
 fn append(a: [uint8], b: [uint8]): [uint8] {
   var lenA = length(a)
   var lenB = length(b)
-  var result = buffer::create<uint8>(lenA + lenB)
+  var result = new([uint8], lenA + lenB)
   var i: int32 = 0
   for byte in a {
     result[i] = byte
@@ -85,7 +83,7 @@ fn stringifyUint64(value: uint64): [uint8] {
     n = n / 10
   }
 
-  var digits = buffer::create<uint8>(len)
+  var digits = new([uint8], len)
   n = value
   var i = len - 1
   loop {
@@ -627,7 +625,7 @@ fn parseNull(s: [uint8]): ParseResult<null> {
 }
 
 export fn parse<T: Parsed>(s: [uint8]): ParseResult<T> {
-  var dummy = new([T; 1])[0]
+  var dummy = new([T], 1)[0]
   return instanceof dummy {
     int8 => <ParseResult<T> > parseInt8(s),
     int16 => <ParseResult<T> > parseInt16(s),

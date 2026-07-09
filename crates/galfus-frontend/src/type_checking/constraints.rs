@@ -448,7 +448,36 @@ impl<'a> DeclarationTypeChecker<'a> {
                     .unwrap_or(false)
             })?;
 
-        Some((self.node_text(anchor), self.node_text(name)))
+        Some((
+            self.function_anchor_base_name(anchor)?,
+            self.node_text(name),
+        ))
+    }
+
+    fn function_anchor_base_name(&self, anchor: NodeId) -> Option<String> {
+        let anchor_type = self.graph.syntax().first_child(anchor)?;
+        self.type_base_name(anchor_type)
+    }
+
+    fn type_base_name(&self, node: NodeId) -> Option<String> {
+        let syntax_node = self.graph.syntax().node(node)?;
+
+        match syntax_node.kind() {
+            SyntaxNodeKind::NamedType | SyntaxNodeKind::Path => {
+                let identifier = self
+                    .graph
+                    .syntax()
+                    .first_child_of_kind(node, SyntaxNodeKind::Identifier)?;
+                Some(self.node_text(identifier))
+            }
+
+            SyntaxNodeKind::GenericType => {
+                let base = self.graph.syntax().first_child(node)?;
+                self.type_base_name(base)
+            }
+
+            _ => None,
+        }
     }
 
     fn function_item_symbol(&self, function: NodeId, function_name: &str) -> Option<SymbolId> {

@@ -139,13 +139,11 @@ fn check_path_accepts_buffer_create_for_nullable_struct() -> Result<()> {
         root.as_path(),
         "main.gfs",
         r##"
-import buffer from "std/buffer"
-
 struct User {
   id: int32,
 }
 
-var users = buffer::create<User | null>(3)
+var users = new([User | null], 3)
 
 fn main(): null {
   return
@@ -173,13 +171,11 @@ fn check_path_rejects_buffer_create_for_non_defaultable_struct() -> Result<()> {
         root.as_path(),
         "main.gfs",
         r##"
-import buffer from "std/buffer"
-
 struct User {
   id: int32,
 }
 
-var users = buffer::create<User>(3)
+var users = new([User], 3)
 
 fn main(): null {
   return

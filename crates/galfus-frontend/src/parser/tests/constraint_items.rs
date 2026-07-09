@@ -53,7 +53,7 @@ fn parse_constraint_with_field() {
 
 #[test]
 fn parse_constraint_with_function_signature() {
-    let source = source("constraint Stringable {\n  fn toString(self: T): [int8]\n}");
+    let source = source("constraint Stringable {\n  fn toString(self): [int8]\n}");
 
     let result = parse(&source);
 
@@ -78,7 +78,7 @@ fn parse_constraint_with_function_signature() {
 
     assert_eq!(
         source.slice(signature_node.span()),
-        Some("fn toString(self: T): [int8]")
+        Some("fn toString(self): [int8]")
     );
 
     assert_eq!(signature_node.child_count(), 3);
@@ -105,7 +105,7 @@ fn parse_constraint_with_function_signature() {
 
 #[test]
 fn parse_generic_constraint_with_constrained_parameter() {
-    let source = source("constraint ParseInteger<T: int> {\n  fn toInt(self: T): T\n}");
+    let source = source("constraint ParseInteger<T: int> {\n  fn toInt(self): T\n}");
 
     let result = parse(&source);
 
@@ -155,7 +155,7 @@ fn parse_generic_constraint_with_constrained_parameter() {
 
 #[test]
 fn parse_constraint_with_field_and_function() {
-    let source = source("constraint Entity {\n  id: int64,\n  fn toString(self: T): [int8]\n}");
+    let source = source("constraint Entity {\n  id: int64,\n  fn toString(self): [int8]\n}");
 
     let result = parse(&source);
 
