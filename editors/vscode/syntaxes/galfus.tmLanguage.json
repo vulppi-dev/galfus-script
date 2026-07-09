@@ -72,7 +72,7 @@
       "patterns": [
         {
           "name": "keyword.control.gfs",
-          "match": "\\b(import|from|export|fn|var|const|struct|enum|choice|constraint|type|external|if|else|for|in|loop|break|continue|return|match|instanceof|weak|satisfies|new|copy)\\b"
+          "match": "\\b(import|from|export|fn|var|const|struct|enum|choice|constraint|type|external|if|else|for|in|loop|break|continue|return|match|instanceof|transaction|rollback|weak|satisfies|new|copy)\\b"
         },
         {
           "name": "constant.language.gfs",
