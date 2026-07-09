@@ -50,9 +50,9 @@ impl<'a> DeclarationTypeChecker<'a> {
         start: NodeId,
         end: NodeId,
     ) -> Option<TypeId> {
-        let int64 = self.layer.table().primitive(PrimitiveType::Int64);
-        self.bind_range_operand_type(start, int64);
-        self.bind_range_operand_type(end, int64);
+        let int32 = self.layer.table().primitive(PrimitiveType::Int32);
+        self.bind_range_operand_type(start, int32);
+        self.bind_range_operand_type(end, int32);
 
         let start_value = self.integer_range_literal(start, "integer literal");
         let end_value = self.integer_range_literal(end, "integer literal");
@@ -61,11 +61,11 @@ impl<'a> DeclarationTypeChecker<'a> {
             match end_value.checked_sub(start_value) {
                 Some(0) => self.report_invalid_range_value(range, "range must not be empty"),
                 Some(_) => {}
-                None => self.report_invalid_range_value(range, "range difference overflows int64"),
+                None => self.report_invalid_range_value(range, "range difference overflows int32"),
             }
         }
 
-        Some(self.layer.table_mut().intern_range(int64))
+        Some(self.layer.table_mut().intern_range(int32))
     }
 
     fn infer_quantity_range_type(
@@ -79,16 +79,16 @@ impl<'a> DeclarationTypeChecker<'a> {
 
         let item_type = match start_value {
             Some(RangeLiteralValue::Integer(_)) => {
-                self.layer.table().primitive(PrimitiveType::Int64)
+                self.layer.table().primitive(PrimitiveType::Int32)
             }
             Some(RangeLiteralValue::Float(_)) => {
-                self.layer.table().primitive(PrimitiveType::Float64)
+                self.layer.table().primitive(PrimitiveType::Float32)
             }
             None => self.layer.table_mut().error(),
         };
 
         self.bind_range_operand_type(start, item_type);
-        self.bind_range_operand_type(count, self.layer.table().primitive(PrimitiveType::Int64));
+        self.bind_range_operand_type(count, self.layer.table().primitive(PrimitiveType::Int32));
 
         if let Some(count_value) = count_value
             && count_value <= 0
@@ -153,19 +153,19 @@ impl<'a> DeclarationTypeChecker<'a> {
         match (start_value, step_value) {
             (RangeLiteralValue::Integer(start), Some(RangeLiteralValue::Integer(step))) => {
                 let Some(offset) = (count_value - 1).checked_mul(step) else {
-                    self.report_invalid_range_value(range, "range end overflows int64");
+                    self.report_invalid_range_value(range, "range end overflows int32");
                     return;
                 };
 
-                if start.checked_add(offset).is_none() {
-                    self.report_invalid_range_value(range, "range end overflows int64");
+                match start.checked_add(offset) {
+                    Some(end) if i32::try_from(end).is_ok() => {}
+                    _ => self.report_invalid_range_value(range, "range end overflows int32"),
                 }
             }
-            (RangeLiteralValue::Integer(start), None) => {
-                if start.checked_add(count_value - 1).is_none() {
-                    self.report_invalid_range_value(range, "range end overflows int64");
-                }
-            }
+            (RangeLiteralValue::Integer(start), None) => match start.checked_add(count_value - 1) {
+                Some(end) if i32::try_from(end).is_ok() => {}
+                _ => self.report_invalid_range_value(range, "range end overflows int32"),
+            },
             (RangeLiteralValue::Float(start), Some(RangeLiteralValue::Float(step))) => {
                 let end = start + ((count_value - 1) as f64 * step);
                 if !end.is_finite() {
@@ -186,8 +186,8 @@ impl<'a> DeclarationTypeChecker<'a> {
         match self.range_literal(node, expected) {
             Some(RangeLiteralValue::Integer(value)) => Some(value),
             Some(RangeLiteralValue::Float(_)) => {
-                let float64 = self.layer.table().primitive(PrimitiveType::Float64);
-                self.report_invalid_range_operand_type(node, expected, float64);
+                let float32 = self.layer.table().primitive(PrimitiveType::Float32);
+                self.report_invalid_range_operand_type(node, expected, float32);
                 None
             }
             None => None,
@@ -199,9 +199,15 @@ impl<'a> DeclarationTypeChecker<'a> {
 
         match syntax_node.kind() {
             SyntaxNodeKind::IntegerLiteral => match self.parse_integer_literal_value(node) {
-                Some(value) => Some(RangeLiteralValue::Integer(value)),
+                Some(value) if i32::try_from(value).is_ok() => {
+                    Some(RangeLiteralValue::Integer(value))
+                }
                 None => {
-                    self.report_invalid_range_value(node, "range integer literal must fit int64");
+                    self.report_invalid_range_value(node, "range integer literal must fit int32");
+                    None
+                }
+                Some(_) => {
+                    self.report_invalid_range_value(node, "range integer literal must fit int32");
                     None
                 }
             },
@@ -267,11 +273,11 @@ impl<'a> DeclarationTypeChecker<'a> {
         match (literal, self.layer.table().kind(ty)) {
             (
                 Some(RangeLiteralValue::Integer(_)),
-                Some(TypeKind::Primitive(PrimitiveType::Int64)),
+                Some(TypeKind::Primitive(PrimitiveType::Int32)),
             ) => true,
             (
                 Some(RangeLiteralValue::Float(_)),
-                Some(TypeKind::Primitive(PrimitiveType::Float64)),
+                Some(TypeKind::Primitive(PrimitiveType::Float32)),
             ) => true,
             (None, Some(TypeKind::Error)) => true,
             _ => false,

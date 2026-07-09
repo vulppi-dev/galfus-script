@@ -545,7 +545,7 @@ fn check_accepts_for_over_exclusive_range() {
         r#"
         fn main(): null {
           for value in 1..10 {
-            var copied: int64 = value
+            var copied: int32 = value
           }
 
           return
@@ -562,7 +562,7 @@ fn check_accepts_for_over_quantity_range_with_step() {
         r#"
         fn main(): null {
           for value in 1::10%2 {
-            var copied: int64 = value
+            var copied: int32 = value
           }
 
           return
@@ -579,7 +579,7 @@ fn check_binds_for_binding_type_from_range() {
         r#"
         fn main(): null {
           for value in 1..10 {
-            var copied: int64 = value
+            var copied: int32 = value
           }
 
           return
@@ -594,7 +594,7 @@ fn check_binds_for_binding_type_from_range() {
 
     assert_eq!(
         result.layer().table().kind(ty),
-        Some(&TypeKind::Primitive(PrimitiveType::Int64))
+        Some(&TypeKind::Primitive(PrimitiveType::Int32))
     );
 }
 
@@ -621,7 +621,7 @@ fn check_reports_range_assigned_to_int() {
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
         diagnostic.message().contains("expected `int32`")
-            && diagnostic.message().contains("range<int64>")
+            && diagnostic.message().contains("range<int32>")
     }));
 }
 
@@ -631,7 +631,7 @@ fn check_accepts_for_over_quantity_range() {
         r#"
         fn main(): null {
           for value in 1::10 {
-            var copied: int64 = value
+            var copied: int32 = value
           }
 
           return
@@ -648,7 +648,7 @@ fn check_accepts_for_over_float_quantity_range() {
         r#"
         fn main(): null {
           for value in 1.0::3%0.5 {
-            var copied: float64 = value
+            var copied: float32 = value
           }
 
           return
@@ -665,7 +665,7 @@ fn check_accepts_descending_exclusive_range() {
         r#"
         fn main(): null {
           for value in 10..1 {
-            var copied: int64 = value
+            var copied: int32 = value
           }
 
           return
@@ -682,7 +682,7 @@ fn check_accepts_negative_range_step() {
         r#"
         fn main(): null {
           for value in 10::4%-2 {
-            var copied: int64 = value
+            var copied: int32 = value
           }
 
           return
@@ -699,7 +699,7 @@ fn check_reports_float_exclusive_range() {
         r#"
         fn main(): null {
           for value in 1.0..10.0 {
-            var copied: float64 = value
+            var copied: float32 = value
           }
 
           return
@@ -731,7 +731,7 @@ fn check_reports_empty_exclusive_range() {
         r#"
         fn main(): null {
           for value in 1..1 {
-            var copied: int64 = value
+            var copied: int32 = value
           }
 
           return
@@ -761,7 +761,7 @@ fn check_reports_non_positive_range_count() {
         r#"
         fn main(): null {
           for value in 1::0 {
-            var copied: int64 = value
+            var copied: int32 = value
           }
 
           return
@@ -793,7 +793,7 @@ fn check_reports_negative_range_count() {
         r#"
         fn main(): null {
           for value in 1::-1 {
-            var copied: int64 = value
+            var copied: int32 = value
           }
 
           return
@@ -824,8 +824,8 @@ fn check_reports_range_overflow() {
     let source = source(
         r#"
         fn main(): null {
-          for value in 9223372036854775800::20 {
-            var copied: int64 = value
+          for value in 2147483640::20 {
+            var copied: int32 = value
           }
 
           return
@@ -845,7 +845,7 @@ fn check_reports_range_overflow() {
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
         diagnostic.code().as_str() == TypeDiagnosticCode::InvalidRangeOperandType.as_code()
-            && diagnostic.message().contains("range end overflows int64")
+            && diagnostic.message().contains("range end overflows int32")
     }));
 }
 
@@ -855,7 +855,7 @@ fn check_reports_zero_range_step() {
         r#"
         fn main(): null {
           for value in 1::2%0 {
-            var copied: int64 = value
+            var copied: int32 = value
           }
 
           return
@@ -885,7 +885,7 @@ fn check_reports_mismatched_range_step_family() {
         r#"
         fn main(): null {
           for value in 1::2%0.5 {
-            var copied: int64 = value
+            var copied: int32 = value
           }
 
           return

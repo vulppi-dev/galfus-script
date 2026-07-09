@@ -170,6 +170,60 @@ var asset: Asset = Asset::Image("grass.png", 64, 64)
 }
 
 #[test]
+fn check_accepts_generic_choice_variant_inferred_from_payload() {
+    let (source, graph, result) = check_source(
+        r#"
+choice Outcome<T> {
+  Ok(T),
+  Err([uint8]),
+}
+
+var value = Outcome::Ok(42)
+"#,
+    );
+
+    assert!(!result.has_errors());
+
+    let call = find_node_by_kind_and_text(
+        &source,
+        &graph,
+        SyntaxNodeKind::CallExpression,
+        "Outcome::Ok(42)",
+    )
+    .unwrap();
+    let ty = result.layer().node_type(call).unwrap();
+    let outcome_symbol = symbol_by_name_and_kind(&graph, "Outcome", SymbolKind::Choice);
+    let outcome_type = result.layer().symbol_type(outcome_symbol).unwrap();
+    let int32_type = result.layer().table().primitive(PrimitiveType::Int32);
+
+    assert_eq!(
+        result.layer().table().kind(ty),
+        Some(&TypeKind::GenericInstance {
+            base: outcome_type,
+            arguments: vec![int32_type],
+        })
+    );
+}
+
+#[test]
+fn check_accepts_generic_choice_variant_inferred_from_expected() {
+    let (_source, _graph, result) = check_source(
+        r#"
+choice Outcome<T> {
+  Ok(T),
+  Err([uint8]),
+}
+
+fn make(): Outcome<int32> {
+  return Outcome::Ok(42)
+}
+"#,
+    );
+
+    assert!(!result.has_errors());
+}
+
+#[test]
 fn check_reports_choice_payload_required() {
     let source = source(
         r#"

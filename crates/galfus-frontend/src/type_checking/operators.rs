@@ -132,11 +132,11 @@ impl<'a> DeclarationTypeChecker<'a> {
         left: TypeId,
         right: TypeId,
     ) -> Option<TypeId> {
-        if self.is_same_numeric_type(left, right) {
-            return Some(left);
+        if let Some(common) = self.common_numeric_type(left, right) {
+            return Some(common);
         }
 
-        self.report_operator_type_error(operator, "numeric operands of the same type", left, right);
+        self.report_operator_type_error(operator, "compatible numeric operands", left, right);
         Some(self.layer.table_mut().error())
     }
 
@@ -146,11 +146,11 @@ impl<'a> DeclarationTypeChecker<'a> {
         left: TypeId,
         right: TypeId,
     ) -> Option<TypeId> {
-        if self.is_same_numeric_type(left, right) {
+        if self.common_numeric_type(left, right).is_some() {
             return Some(self.layer.table().primitive(PrimitiveType::Bool));
         }
 
-        self.report_operator_type_error(operator, "numeric operands of the same type", left, right);
+        self.report_operator_type_error(operator, "compatible numeric operands", left, right);
         Some(self.layer.table_mut().error())
     }
 
@@ -190,11 +190,11 @@ impl<'a> DeclarationTypeChecker<'a> {
         left: TypeId,
         right: TypeId,
     ) -> Option<TypeId> {
-        if self.is_same_integer_type(left, right) {
-            return Some(left);
+        if let Some(common) = self.common_integer_type(left, right) {
+            return Some(common);
         }
 
-        self.report_operator_type_error(operator, "integer operands of the same type", left, right);
+        self.report_operator_type_error(operator, "compatible integer operands", left, right);
         Some(self.layer.table_mut().error())
     }
 
@@ -257,6 +257,50 @@ impl<'a> DeclarationTypeChecker<'a> {
         left == right && self.is_integer_type(left)
     }
 
+    fn common_numeric_type(&self, left: TypeId, right: TypeId) -> Option<TypeId> {
+        if let Some(common) = self.common_integer_type(left, right) {
+            return Some(common);
+        }
+
+        let left = self.resolve_alias_type(left);
+        let right = self.resolve_alias_type(right);
+
+        match (
+            self.layer.table().kind(left),
+            self.layer.table().kind(right),
+        ) {
+            (Some(TypeKind::Error), _) => Some(left),
+            (_, Some(TypeKind::Error)) => Some(right),
+            (
+                Some(TypeKind::Primitive(left_primitive)),
+                Some(TypeKind::Primitive(right_primitive)),
+            ) => self
+                .common_float_numeric_primitive(*left_primitive, *right_primitive)
+                .map(|primitive| self.layer.table().primitive(primitive)),
+            _ => None,
+        }
+    }
+
+    fn common_integer_type(&self, left: TypeId, right: TypeId) -> Option<TypeId> {
+        let left = self.resolve_alias_type(left);
+        let right = self.resolve_alias_type(right);
+
+        match (
+            self.layer.table().kind(left),
+            self.layer.table().kind(right),
+        ) {
+            (Some(TypeKind::Error), _) => Some(left),
+            (_, Some(TypeKind::Error)) => Some(right),
+            (
+                Some(TypeKind::Primitive(left_primitive)),
+                Some(TypeKind::Primitive(right_primitive)),
+            ) => self
+                .common_integer_primitive(*left_primitive, *right_primitive)
+                .map(|primitive| self.layer.table().primitive(primitive)),
+            _ => None,
+        }
+    }
+
     pub(super) fn is_numeric_type(&self, ty: TypeId) -> bool {
         match self.layer.table().kind(ty) {
             Some(TypeKind::Primitive(primitive)) => self.is_numeric_primitive(*primitive),
@@ -302,5 +346,64 @@ impl<'a> DeclarationTypeChecker<'a> {
                 | PrimitiveType::Uint32
                 | PrimitiveType::Uint64
         )
+    }
+
+    fn common_integer_primitive(
+        &self,
+        left: PrimitiveType,
+        right: PrimitiveType,
+    ) -> Option<PrimitiveType> {
+        if left.is_int() && right.is_int() {
+            return Some(if self.integer_rank(left) >= self.integer_rank(right) {
+                left
+            } else {
+                right
+            });
+        }
+
+        if left.is_uint() && right.is_uint() {
+            return Some(if self.integer_rank(left) >= self.integer_rank(right) {
+                left
+            } else {
+                right
+            });
+        }
+
+        None
+    }
+
+    fn common_float_numeric_primitive(
+        &self,
+        left: PrimitiveType,
+        right: PrimitiveType,
+    ) -> Option<PrimitiveType> {
+        if left.is_float() && right.is_float() {
+            return Some(if self.float_rank(left) >= self.float_rank(right) {
+                left
+            } else {
+                right
+            });
+        }
+
+        None
+    }
+
+    fn integer_rank(&self, primitive: PrimitiveType) -> u8 {
+        match primitive {
+            PrimitiveType::Int8 | PrimitiveType::Uint8 => 8,
+            PrimitiveType::Int16 | PrimitiveType::Uint16 => 16,
+            PrimitiveType::Int32 | PrimitiveType::Uint32 => 32,
+            PrimitiveType::Int64 | PrimitiveType::Uint64 => 64,
+            _ => 0,
+        }
+    }
+
+    fn float_rank(&self, primitive: PrimitiveType) -> u8 {
+        match primitive {
+            PrimitiveType::Float16 => 16,
+            PrimitiveType::Float32 => 32,
+            PrimitiveType::Float64 => 64,
+            _ => 0,
+        }
     }
 }

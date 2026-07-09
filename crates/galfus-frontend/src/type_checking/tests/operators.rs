@@ -12,6 +12,74 @@ var value: int32 = 1 + 2
 }
 
 #[test]
+fn check_promotes_integer_binary_expression_to_wider_type() {
+    let (source, graph, result) = check_source(
+        r#"
+var left: int32 = 1
+var right: int64 = 2
+var value = left + right
+"#,
+    );
+
+    assert!(!result.has_errors());
+
+    let expression = find_node_by_kind_and_text(
+        &source,
+        &graph,
+        SyntaxNodeKind::BinaryExpression,
+        "left + right",
+    )
+    .unwrap();
+    let ty = result.layer().node_type(expression).unwrap();
+
+    assert_eq!(
+        result.layer().table().kind(ty),
+        Some(&TypeKind::Primitive(PrimitiveType::Int64))
+    );
+}
+
+#[test]
+fn check_reports_mixed_integer_float_binary_expression_type_error() {
+    let source = source(
+        r#"
+var left: int32 = 1
+var right: float32 = 2.0
+var value = left + right
+"#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.into_graph();
+    let result = check_declaration_types(&source, &graph);
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::UnsupportedOperator.as_code()
+            && diagnostic.message().contains("compatible numeric operands")
+            && diagnostic.message().contains("int32")
+            && diagnostic.message().contains("float32")
+    }));
+}
+
+#[test]
+fn check_accepts_mixed_numeric_comparison_expression() {
+    let (_source, _graph, result) = check_source(
+        r#"
+var left: int32 = 1
+var right: int64 = 2
+var value: bool = left < right
+"#,
+    );
+
+    assert!(!result.has_errors());
+}
+
+#[test]
 fn check_reports_numeric_binary_expression_type_error() {
     let source = source(
         r#"

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use galfus_core::{NodeId, SymbolId, TypeId};
 
 use crate::{PathReferenceKind, SymbolKind, SyntaxNodeKind, TypeKind};
@@ -7,6 +9,7 @@ use super::DeclarationTypeChecker;
 #[derive(Debug, Clone)]
 struct VariantPayload {
     variant_name: String,
+    owner_symbol: SymbolId,
     owner_type: TypeId,
     payload_types: Vec<TypeId>,
 }
@@ -34,11 +37,15 @@ impl<'a> DeclarationTypeChecker<'a> {
         }
     }
 
-    pub(super) fn infer_choice_variant_call_type(&mut self, call: NodeId) -> Option<TypeId> {
+    pub(super) fn infer_choice_variant_call_type(
+        &mut self,
+        call: NodeId,
+        expected: Option<TypeId>,
+    ) -> Option<TypeId> {
         let target = self.graph.syntax().child(call, 0)?;
         let arguments = self.graph.syntax().child(call, 1)?;
 
-        let Some(payload) = self.choice_variant_payload(target) else {
+        let Some(mut payload) = self.choice_variant_payload(target) else {
             return None;
         };
 
@@ -55,12 +62,20 @@ impl<'a> DeclarationTypeChecker<'a> {
 
         self.check_variant_argument_count(call, payload.payload_types.len(), argument_nodes.len());
 
+        self.specialize_choice_variant_payload_from_expected(target, expected, &mut payload);
+        self.specialize_choice_variant_payload_from_arguments(
+            target,
+            argument_nodes.as_slice(),
+            &mut payload,
+        );
+
         for (index, argument) in argument_nodes.iter().copied().enumerate() {
             let Some(expected) = payload.payload_types.get(index).copied() else {
                 continue;
             };
 
-            let Some(actual) = self.infer_expression_type(argument) else {
+            let Some(actual) = self.infer_expression_type_with_expected(argument, Some(expected))
+            else {
                 continue;
             };
 
@@ -218,9 +233,135 @@ impl<'a> DeclarationTypeChecker<'a> {
 
         Some(VariantPayload {
             variant_name,
+            owner_symbol,
             owner_type,
             payload_types,
         })
+    }
+
+    fn specialize_choice_variant_payload_from_expected(
+        &mut self,
+        target: NodeId,
+        expected: Option<TypeId>,
+        payload: &mut VariantPayload,
+    ) {
+        let Some(expected) = expected else {
+            return;
+        };
+
+        let expected = self.resolve_alias_type(expected);
+        let Some(TypeKind::GenericInstance { base, arguments }) =
+            self.layer.table().kind(expected).cloned()
+        else {
+            return;
+        };
+
+        let base = self.resolve_alias_type(base);
+        let Some(TypeKind::Named { symbol }) = self.layer.table().kind(base) else {
+            return;
+        };
+
+        if *symbol != payload.owner_symbol {
+            return;
+        }
+
+        self.apply_choice_variant_generic_arguments(target, arguments, payload);
+    }
+
+    fn specialize_choice_variant_payload_from_arguments(
+        &mut self,
+        target: NodeId,
+        argument_nodes: &[NodeId],
+        payload: &mut VariantPayload,
+    ) {
+        let parameters = self.choice_variant_generic_parameters(target, payload.owner_symbol);
+        if parameters.is_empty() {
+            return;
+        }
+
+        let mut substitutions = HashMap::new();
+
+        for (index, argument) in argument_nodes.iter().copied().enumerate() {
+            let Some(expected_payload) = payload.payload_types.get(index).copied() else {
+                continue;
+            };
+
+            let contextual_payload =
+                self.substitute_generic_expression_type(expected_payload, &substitutions);
+            let Some(actual) =
+                self.infer_expression_type_with_expected(argument, Some(contextual_payload))
+            else {
+                continue;
+            };
+
+            self.infer_substitutions_from_types(
+                parameters.as_slice(),
+                expected_payload,
+                actual,
+                &mut substitutions,
+            );
+        }
+
+        if substitutions.is_empty() {
+            return;
+        }
+
+        let mut arguments = Vec::new();
+        for parameter in &parameters {
+            let Some(argument) = substitutions.get(parameter).copied() else {
+                return;
+            };
+            arguments.push(argument);
+        }
+
+        self.validate_generic_substitution_bounds(target, &substitutions);
+        self.apply_choice_variant_generic_arguments(target, arguments, payload);
+    }
+
+    fn apply_choice_variant_generic_arguments(
+        &mut self,
+        target: NodeId,
+        arguments: Vec<TypeId>,
+        payload: &mut VariantPayload,
+    ) {
+        let choice_type = self
+            .layer
+            .symbol_type(payload.owner_symbol)
+            .unwrap_or_else(|| self.layer.table_mut().intern_named(payload.owner_symbol));
+        let parameters = self.choice_variant_generic_parameters(target, payload.owner_symbol);
+        let substitution = parameters
+            .into_iter()
+            .zip(arguments.iter().copied())
+            .collect::<HashMap<SymbolId, TypeId>>();
+
+        payload.owner_type = self
+            .layer
+            .table_mut()
+            .intern_generic_instance(choice_type, arguments);
+
+        for payload_type in &mut payload.payload_types {
+            *payload_type = self.substitute_generic_expression_type(*payload_type, &substitution);
+        }
+    }
+
+    fn choice_variant_generic_parameters(
+        &mut self,
+        target: NodeId,
+        owner_symbol: SymbolId,
+    ) -> Vec<SymbolId> {
+        let choice_type = self
+            .layer
+            .symbol_type(owner_symbol)
+            .unwrap_or_else(|| self.layer.table_mut().intern_named(owner_symbol));
+
+        if let Some(target) = self.graph.syntax().child(target, 0) {
+            let parameters = self.generic_expression_parameter_symbols(target, choice_type);
+            if !parameters.is_empty() {
+                return parameters;
+            }
+        }
+
+        self.generic_parameter_symbols_from_type(choice_type)
     }
 
     pub(super) fn choice_variant_payload_types(

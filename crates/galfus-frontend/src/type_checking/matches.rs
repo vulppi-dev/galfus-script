@@ -203,7 +203,20 @@ impl<'a> DeclarationTypeChecker<'a> {
             .symbol_type(owner_symbol)
             .unwrap_or_else(|| self.layer.table_mut().intern_named(owner_symbol));
 
+        let mut expected_choice_type = expected;
         let mut generic_arguments = Vec::new();
+        if let Some(TypeKind::GenericInstance { base, arguments }) =
+            self.layer.table().kind(expected).cloned()
+        {
+            let base = self.resolve_alias_type(base);
+            if let Some(TypeKind::Named { symbol }) = self.layer.table().kind(base)
+                && *symbol == owner_symbol
+            {
+                expected_choice_type = base;
+                generic_arguments = arguments;
+            }
+        }
+
         if let Some(target) = self.graph.syntax().child(pattern, 0) {
             if let Some(target_type) = self.infer_expression_type(target) {
                 let resolved = self.resolve_alias_type(target_type);
@@ -216,8 +229,8 @@ impl<'a> DeclarationTypeChecker<'a> {
             }
         }
 
-        if !self.is_assignable(expected, owner_type) {
-            self.report_invalid_match_pattern_type(pattern, expected, owner_type);
+        if !self.is_assignable(expected_choice_type, owner_type) {
+            self.report_invalid_match_pattern_type(pattern, expected_choice_type, owner_type);
             return;
         }
 

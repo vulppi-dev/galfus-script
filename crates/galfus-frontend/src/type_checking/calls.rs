@@ -19,7 +19,7 @@ impl<'a> DeclarationTypeChecker<'a> {
         let target = self.graph.syntax().child(node, 0)?;
 
         if self.is_choice_variant_call_target(target) {
-            return self.infer_choice_variant_call_type(node);
+            return self.infer_choice_variant_call_type(node, expected);
         }
 
         let arguments = self.graph.syntax().child(node, 1)?;
@@ -104,7 +104,7 @@ impl<'a> DeclarationTypeChecker<'a> {
         Some(substituted_function.return_type())
     }
 
-    fn infer_substitutions_from_types(
+    pub(super) fn infer_substitutions_from_types(
         &self,
         generic_params: &[SymbolId],
         param_ty: TypeId,

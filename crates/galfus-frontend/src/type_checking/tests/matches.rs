@@ -120,6 +120,27 @@ fn unwrap(result: Result): int32 {
 }
 
 #[test]
+fn check_accepts_generic_choice_payload_pattern_from_subject() {
+    let (_source, _graph, result) = check_source(
+        r#"
+choice Outcome<T> {
+  Ok(T),
+  Err([uint8]),
+}
+
+fn unwrap(value: Outcome<int32>): int32 {
+  return match value {
+    Outcome::Ok(result) => result,
+    Outcome::Err(message) => 0,
+  }
+}
+"#,
+    );
+
+    assert!(!result.has_errors());
+}
+
+#[test]
 fn check_reports_choice_payload_pattern_count_mismatch() {
     let source = source(
         r#"
