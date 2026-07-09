@@ -1,0 +1,195 @@
+import { println } from "std/io"
+
+type Bytes = [uint8]
+type Scalar = int32 | bool | null
+
+enum(int16) Direction {
+  North,
+  South,
+  East,
+  West,
+}
+
+choice Outcome<T> {
+  Ok(T),
+  Err(Bytes),
+}
+
+constraint Renderable {
+  fn render(self): Bytes
+}
+
+struct Point {
+  x: int32,
+  y: int32,
+}
+
+struct Box<T: Scalar> {
+  value: T,
+}
+
+fn Point::move(self, dx: int32, dy: int32): Point {
+  return new {
+    x: self.x + dx,
+    y: self.y + dy,
+  }
+}
+
+fn bindings_and_literals(): int32 {
+  const base = 10
+  var total = base + 5
+  total += 3
+  return total
+}
+
+fn arrays_and_spread(): [int32] {
+  const first = [1, 2, 3]
+  return [...first, 4, 5]
+}
+
+fn new_dynamic_array(size: int32): [uint8] {
+  return new([uint8], size)
+}
+
+fn structs_and_methods(): Point {
+  const point = new(Point) {
+    x: 1,
+    y: 2,
+  }
+
+  return point::move(3, 4)
+}
+
+fn choices_and_match(value: Outcome<int32>): int32 {
+  return match value {
+    Outcome::Ok(number) => number,
+    Outcome::Err(_) => 0,
+  }
+}
+
+fn narrowing(value: Scalar): int32 {
+  return instanceof value {
+    int32 number => number,
+    bool flag => 1,
+    null => 0,
+  }
+}
+
+fn loops_and_ranges(): int32 {
+  var total = 0
+
+  for value in 0..10 {
+    total += value
+  }
+
+  for _, index in [10, 20, 30] {
+    total += index
+  }
+
+  return total
+}
+
+fn quantity_ranges(): int32 {
+  var total = 0
+
+  for value in 2::4%2 {
+    total += value
+  }
+
+  return total
+}
+
+fn loop_controls(limit: int32): int32 {
+  var count = 0
+  var total = 0
+
+  loop {
+    count += 1
+
+    if count == 2 {
+      continue
+    }
+
+    total += count
+
+    if count >= limit {
+      break
+    }
+  }
+
+  return total
+}
+
+fn named_loop_controls(): int32 {
+  var count = 0
+
+  loop(name: root) {
+    loop {
+      count += 1
+
+      if count >= 3 {
+        break root
+      }
+
+      continue
+    }
+  }
+
+  return count
+}
+
+fn type_dispatch<T: Scalar>(): int32 {
+  return typeof T {
+    int32 => 32,
+    bool => 1,
+    null => 0,
+    _ => -1,
+  }
+}
+
+fn arrow_functions(): int32 {
+  const double = (value: int32): int32 => value * 2
+  const add = (left: int32, right: int32): int32 => {
+    return left + right
+  }
+
+  return add(double(2), 3)
+}
+
+fn casts_and_copy(point: Point): Point {
+  const value = <int32>1
+  const cloned = copy point
+
+  return cloned::move(value, value)
+}
+
+fn transactions(): int32 {
+  var value = 1
+
+  transaction {
+    value += 1
+
+    if value > 10 {
+      rollback
+    }
+  }
+
+  return value
+}
+
+export fn main(_args: [[uint8]]): int32 {
+  const point = structs_and_methods()
+  const result = choices_and_match(Outcome::Ok(bindings_and_literals()))
+  const narrowed = narrowing(result)
+  const ranged = loops_and_ranges() + quantity_ranges()
+  const looped = loop_controls(5)
+  const namedLooped = named_loop_controls()
+  const dispatched = type_dispatch<int32>()
+  const arrow = arrow_functions()
+  const copied = casts_and_copy(point)
+  const bytes = new_dynamic_array(16)
+
+  println(bytes)
+
+  return narrowed + ranged + looped + namedLooped + dispatched + arrow + copied.x
+}
