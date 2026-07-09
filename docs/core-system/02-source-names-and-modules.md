@@ -201,6 +201,7 @@ Standard module names are not keywords.
 std/text
 std/math
 std/constraints
+std/range
 ```
 
 They are resolved by import resolution, not by lexical reservation.

@@ -352,9 +352,9 @@ start::count
 start::count%step
 ```
 
-`start..end` lowers as `range<int64>`.
+`start..end` lowers conceptually through `std/range::range(start, end)` and has type `RangeExclusive`.
 
-`start::count` and `start::count%step` lower as `range<int64>` when the start is an integer literal, or `range<float64>` when the start is a float literal. `count` is always an integer literal. `step`, when present, must use the same numeric family as `start`.
+`start::count` and `start::count%step` lower conceptually through `std/range::rangeSteps(start, count, step)` and have type `RangeStepped<int64>` or `RangeStepped<float64>`. `count` is always an integer literal. If `start` or `step` is a float literal, integer literals are promoted and the stepped range uses `float64`.
 
 Invalid:
 

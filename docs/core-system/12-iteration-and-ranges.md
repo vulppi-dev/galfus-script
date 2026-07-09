@@ -88,7 +88,7 @@ repeat next()
 
 ## 12.5 Compiler-Known Iteration Concepts
 
-`Iterable` and `Iterator` are known by the compiler for validation and lowering. Range literals are compiler-known expression forms. A range literal does not expose a required source-visible `Range` type/constraint initially.
+`Iterable` and `Iterator` are known by the compiler for validation and lowering. Range literals are compiler-known expression forms backed by `std/range`.
 
 If source code references `Iterable` or `Iterator` directly, it must import them.
 
@@ -107,7 +107,7 @@ constraint Iterator<Item> {
   fn next(self): Item | null
 }
 
-constraint Iterable<Item, Iter> {
+constraint Iterable<Iter: Iterator> {
   fn iter(self): Iter
 }
 ```
@@ -164,11 +164,11 @@ Examples:
 
 Range operands must be literals. Dynamic expressions are not range operands.
 
-`start..end` accepts integer literals only and produces `range<int64>`.
+`start..end` accepts integer literals only and produces `RangeExclusive`.
 
-`start::count` accepts an integer or float literal start, an integer literal count, and produces `range<int64>` or `range<float64>`.
+`start::count` accepts an integer or float literal start, an integer literal count, and produces `RangeStepped<int64>` or `RangeStepped<float64>`.
 
-`start::count%step` accepts an integer or float literal start, an integer literal count, and an integer or float literal step. `start` and `step` must use the same numeric family, producing `range<int64>` or `range<float64>`.
+`start::count%step` accepts an integer or float literal start, an integer literal count, and an integer or float literal step. If either `start` or `step` is a float literal, integer literals are promoted and the result is `RangeStepped<float64>`. Otherwise the result is `RangeStepped<int64>`.
 
 Invalid:
 
@@ -176,7 +176,6 @@ Invalid:
 a..b
 start::count
 1.5..10.5
-1::4%0.5
 ```
 
 Dynamic ranges should be built through explicit functions/modules if needed later.
@@ -288,12 +287,12 @@ Produces:
 2
 ```
 
-Step must use the same numeric family as start:
+Step chooses the stepped range numeric family:
 
 ```galfus
-1::4%2       // valid: range<int64>
-1.0::4%0.5  // valid: range<float64>
-1::4%0.5    // invalid
+1::4%2       // valid: RangeStepped<int64>
+1.0::4%0.5  // valid: RangeStepped<float64>
+1::4%0.5    // valid: RangeStepped<float64>
 ```
 
 ## 12.12 Range Allocation

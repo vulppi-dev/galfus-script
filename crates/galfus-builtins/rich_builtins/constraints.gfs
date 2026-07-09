@@ -1,0 +1,11 @@
+export constraint Iterator<Item> {
+  fn next(self): Item | null
+}
+
+export constraint Iterable<Iter: Iterator> {
+  fn iter(self): Iter
+}
+
+export constraint Comparable<Value> {
+  fn compare(self, value: Value): bool
+}
