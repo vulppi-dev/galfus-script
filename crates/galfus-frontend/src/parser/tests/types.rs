@@ -65,61 +65,6 @@ fn parse_nested_array_type() {
 }
 
 #[test]
-fn parse_fixed_array_type_with_integer_size() {
-    let source = source("fn take(values: [int32; 3]): null { return }");
-
-    let result = parse(&source);
-
-    assert!(!result.has_errors());
-
-    let syntax = result.graph().syntax();
-
-    let root = syntax.root().unwrap();
-    let function = syntax.node(root).unwrap().first_child().unwrap();
-    let function_node = syntax.node(function).unwrap();
-
-    let parameters = function_node.child(1).unwrap();
-    let parameter = syntax.node(parameters).unwrap().first_child().unwrap();
-    let parameter_node = syntax.node(parameter).unwrap();
-
-    let parameter_type = parameter_node.child(1).unwrap();
-    let parameter_type_node = syntax.node(parameter_type).unwrap();
-
-    assert_eq!(parameter_type_node.kind(), SyntaxNodeKind::FixedArrayType);
-    assert_eq!(source.slice(parameter_type_node.span()), Some("[int32; 3]"));
-
-    let size = parameter_type_node.child(1).unwrap();
-    let size_node = syntax.node(size).unwrap();
-
-    assert_eq!(size_node.kind(), SyntaxNodeKind::ArraySize);
-    assert_eq!(source.slice(size_node.span()), Some("3"));
-
-    let size_value = size_node.first_child().unwrap();
-
-    assert_eq!(
-        syntax.node(size_value).unwrap().kind(),
-        SyntaxNodeKind::IntegerLiteral
-    );
-}
-
-#[test]
-fn parse_reports_named_fixed_array_size_as_error() {
-    let source = source("fn take(values: [int32; n]): null { return }");
-
-    let result = parse(&source);
-
-    assert!(result.has_errors());
-
-    let diagnostic = result.diagnostics().iter().next().unwrap();
-
-    assert_eq!(diagnostic.code().as_str(), "P0001");
-    assert_eq!(
-        diagnostic.message(),
-        "expected array size integer literal, found `Identifier`"
-    );
-}
-
-#[test]
 fn parse_union_return_type() {
     let source = source("fn find(): User | null { return }");
 

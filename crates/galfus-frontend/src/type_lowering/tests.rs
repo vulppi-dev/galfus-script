@@ -108,39 +108,6 @@ fn main(values: [int32]): null {
 }
 
 #[test]
-fn lower_binds_fixed_array_type() {
-    let source = source(
-        r#"
-fn main(values: [int32; 4]): null {
-  return
-}
-"#,
-    );
-
-    let parse_result = parse(&source);
-    assert!(!parse_result.has_errors());
-
-    let resolve_result = resolve(&source, parse_result.into_graph());
-    assert!(!resolve_result.has_errors());
-
-    let result = lower_types(&source, resolve_result.graph());
-    let graph = resolve_result.graph();
-
-    let array_node =
-        find_node_by_kind_and_text(&source, graph, SyntaxNodeKind::FixedArrayType, "[int32; 4]")
-            .unwrap();
-
-    let ty = result.layer().node_type(array_node).unwrap();
-
-    match result.layer().table().kind(ty) {
-        Some(TypeKind::FixedArray { size, .. }) => {
-            assert_eq!(*size, ArraySize::Known(4));
-        }
-        other => panic!("expected fixed array type, got {other:?}"),
-    }
-}
-
-#[test]
 fn lower_normalizes_union_type() {
     let source = source(
         r#"

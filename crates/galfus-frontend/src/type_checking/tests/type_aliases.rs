@@ -68,44 +68,16 @@ var name: Bytes = ""
 }
 
 #[test]
-fn check_accepts_fixed_array_type_alias_assignment() {
+fn check_accepts_array_type_alias_assignment() {
     let (_source, _graph, result) = check_source(
         r#"
-type Triple = [int32; 3]
+type Ints = [int32]
 
-var values: Triple = [1, 2, 3]
+var values: Ints = [1, 2, 3]
 "#,
     );
 
     assert!(!result.has_errors());
-}
-
-#[test]
-fn check_reports_fixed_array_type_alias_size_mismatch() {
-    let source = source(
-        r#"
-type Pair = [int32; 2]
-
-var values: Pair = [1, 2, 3]
-"#,
-    );
-
-    let parse_result = parse(&source);
-    assert!(!parse_result.has_errors());
-
-    let resolve_result = resolve(&source, parse_result.into_graph());
-    assert!(!resolve_result.has_errors());
-
-    let graph = resolve_result.into_graph();
-    let result = check_declaration_types(&source, &graph);
-
-    assert!(result.has_errors());
-    assert!(result.diagnostics().iter().any(|diagnostic| {
-        diagnostic.code().as_str() == TypeDiagnosticCode::TypeMismatch.as_code()
-            && diagnostic
-                .message()
-                .contains("expected `[int32; 2]`, got `[int32; 3]`")
-    }));
 }
 
 #[test]

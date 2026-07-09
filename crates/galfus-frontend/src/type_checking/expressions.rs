@@ -286,7 +286,7 @@ impl<'a> DeclarationTypeChecker<'a> {
     }
 
     fn infer_new_array_expression_type(&mut self, node: NodeId) -> Option<TypeId> {
-        // child 0 is the type node ([T] or [T; N]); child 1 (if present) is the
+        // child 0 is the type node ([T]); child 1 (if present) is the
         // storage identifier — not relevant for the type of the expression.
         let type_node = self.graph.syntax().child(node, 0)?;
         // The type resolver processes all type nodes in the graph before expression

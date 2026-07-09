@@ -175,7 +175,7 @@ var pair: (uint8, uint16) = (27, 300)
 fn check_accepts_array_literal_spread() {
     let (_source, _graph, result) = check_source(
         r#"
-var base: [int32; 2] = [1, 2]
+var base: [int32] = [1, 2]
 var values: [int32] = [0, ...base, 3]
 "#,
     );
@@ -268,32 +268,6 @@ var values: [int32] = [0, ...base, 3]
     );
 
     assert!(!result.has_errors());
-}
-
-#[test]
-fn check_reports_fixed_array_size_mismatch() {
-    let source = source(
-        r#"
-var values: [int32; 2] = [1, 2, 3]
-"#,
-    );
-
-    let parse_result = parse(&source);
-    assert!(!parse_result.has_errors());
-
-    let resolve_result = resolve(&source, parse_result.into_graph());
-    assert!(!resolve_result.has_errors());
-
-    let graph = resolve_result.into_graph();
-    let result = check_declaration_types(&source, &graph);
-
-    assert!(result.has_errors());
-    assert!(result.diagnostics().iter().any(|diagnostic| {
-        diagnostic.code().as_str() == TypeDiagnosticCode::TypeMismatch.as_code()
-            && diagnostic
-                .message()
-                .contains("expected `[int32; 2]`, got `[int32; 3]`")
-    }));
 }
 
 #[test]

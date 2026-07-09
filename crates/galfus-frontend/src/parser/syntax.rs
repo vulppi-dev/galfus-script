@@ -209,48 +209,11 @@ impl Parser {
 
         let element_type = self.parse_type()?;
 
-        if self.at(&TokenKind::Semicolon) {
-            self.bump();
-
-            let size = self.parse_array_size()?;
-            let right = self.expect(TokenKind::RightBracket)?;
-
-            let span = Span::cover(left.span(), right.span()).unwrap_or(left.span());
-
-            return Some(self.add_node(
-                SyntaxNodeKind::FixedArrayType,
-                span,
-                vec![element_type, size],
-            ));
-        }
-
         let right = self.expect(TokenKind::RightBracket)?;
 
         let span = Span::cover(left.span(), right.span()).unwrap_or(left.span());
 
         Some(self.add_node(SyntaxNodeKind::ArrayType, span, vec![element_type]))
-    }
-
-    pub(super) fn parse_array_size(&mut self) -> Option<NodeId> {
-        if !self.at(&TokenKind::Integer) {
-            let found = self.bump();
-
-            self.graph.push_diagnostic(Diagnostic::error_with_message(
-                ParserDiagnosticCode::ExpectedToken,
-                format!(
-                    "expected array size integer literal, found `{:?}`",
-                    found.kind()
-                ),
-                found.span(),
-            ));
-
-            return None;
-        }
-
-        let value = self.parse_integer_literal()?;
-        let span = self.node_span(value);
-
-        Some(self.add_node(SyntaxNodeKind::ArraySize, span, vec![value]))
     }
 
     pub(super) fn parse_import_clause(&mut self) -> Option<NodeId> {
