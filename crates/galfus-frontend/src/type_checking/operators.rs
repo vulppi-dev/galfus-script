@@ -46,12 +46,35 @@ impl<'a> DeclarationTypeChecker<'a> {
         res
     }
 
-    pub(super) fn infer_unary_expression_type(&mut self, node: NodeId) -> Option<TypeId> {
+    pub(super) fn infer_unary_expression_type(
+        &mut self,
+        node: NodeId,
+        expected: Option<TypeId>,
+    ) -> Option<TypeId> {
         let operator = self.graph.syntax().child(node, 0)?;
         let operand = self.graph.syntax().child(node, 1)?;
 
-        let operand_type = self.infer_expression_type(operand)?;
         let operator_text = self.node_text(operator);
+        let operand_type = if matches!(operator_text.as_str(), "+" | "-")
+            && self
+                .graph
+                .syntax()
+                .node(operand)
+                .is_some_and(|node| node.kind() == SyntaxNodeKind::IntegerLiteral)
+        {
+            let expected = self
+                .expected_integer_literal_type(expected)
+                .unwrap_or_else(|| self.layer.table().primitive(PrimitiveType::Int32));
+            let ty = self.checked_integer_literal_type_with_sign(
+                operand,
+                expected,
+                operator_text == "-",
+            );
+            self.layer.bind_node_type(operand, ty);
+            ty
+        } else {
+            self.infer_expression_type(operand)?
+        };
 
         let ty = match operator_text.as_str() {
             "+" | "-" => self.check_numeric_unary_operator(operator, operand_type)?,

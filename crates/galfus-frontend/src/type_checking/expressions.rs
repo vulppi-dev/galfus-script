@@ -20,8 +20,9 @@ impl<'a> DeclarationTypeChecker<'a> {
             match syntax_node.kind() {
                 SyntaxNodeKind::IntegerLiteral => {
                     if let Some(expected) = self.expected_integer_literal_type(expected) {
-                        self.layer.bind_node_type(node, expected);
-                        return Some(expected);
+                        let ty = self.checked_integer_literal_type(node, expected);
+                        self.layer.bind_node_type(node, ty);
+                        return Some(ty);
                     }
                 }
                 SyntaxNodeKind::FloatLiteral => {
@@ -37,10 +38,12 @@ impl<'a> DeclarationTypeChecker<'a> {
         }
 
         let ty = match syntax_node.kind() {
-            SyntaxNodeKind::IntegerLiteral => Some(
-                self.expected_integer_literal_type(expected)
-                    .unwrap_or_else(|| self.layer.table().primitive(PrimitiveType::Int32)),
-            ),
+            SyntaxNodeKind::IntegerLiteral => {
+                let expected = self
+                    .expected_integer_literal_type(expected)
+                    .unwrap_or_else(|| self.layer.table().primitive(PrimitiveType::Int32));
+                Some(self.checked_integer_literal_type(node, expected))
+            }
 
             SyntaxNodeKind::FloatLiteral => Some(
                 self.expected_float_literal_type(expected)
@@ -110,7 +113,7 @@ impl<'a> DeclarationTypeChecker<'a> {
 
             SyntaxNodeKind::BinaryExpression => self.infer_binary_expression_type(node, expected),
 
-            SyntaxNodeKind::UnaryExpression => self.infer_unary_expression_type(node),
+            SyntaxNodeKind::UnaryExpression => self.infer_unary_expression_type(node, expected),
 
             SyntaxNodeKind::RangeExpression => self.infer_range_expression_type(node),
 
@@ -165,7 +168,96 @@ impl<'a> DeclarationTypeChecker<'a> {
             .map(|ty| self.apply_active_type_substitutions(ty))
     }
 
-    fn expected_integer_literal_type(&self, expected: Option<TypeId>) -> Option<TypeId> {
+    pub(super) fn checked_integer_literal_type(
+        &mut self,
+        node: NodeId,
+        expected: TypeId,
+    ) -> TypeId {
+        self.checked_integer_literal_type_with_sign(node, expected, false)
+    }
+
+    pub(super) fn checked_integer_literal_type_with_sign(
+        &mut self,
+        node: NodeId,
+        expected: TypeId,
+        negative: bool,
+    ) -> TypeId {
+        if self.integer_literal_fits_type(node, expected, negative) {
+            return expected;
+        }
+
+        let mut literal_text = self.node_text(node);
+        if negative {
+            literal_text = format!("-{literal_text}");
+        }
+        self.report_integer_literal_out_of_range(node, literal_text.as_str(), expected);
+        self.layer.table_mut().error()
+    }
+
+    fn integer_literal_fits_type(&self, node: NodeId, expected: TypeId, negative: bool) -> bool {
+        let expected = self.resolve_alias_type(expected);
+
+        let Some(TypeKind::Primitive(primitive)) = self.layer.table().kind(expected) else {
+            return true;
+        };
+
+        let Some((min, max)) = self.integer_primitive_bounds(*primitive) else {
+            return true;
+        };
+
+        let Some(value) = self.parse_contextual_integer_literal_value(node) else {
+            return false;
+        };
+
+        let value = if negative { -value } else { value };
+
+        value >= min && value <= max
+    }
+
+    fn integer_primitive_bounds(&self, primitive: PrimitiveType) -> Option<(i128, i128)> {
+        match primitive {
+            PrimitiveType::Int8 => Some((i8::MIN as i128, i8::MAX as i128)),
+            PrimitiveType::Int16 => Some((i16::MIN as i128, i16::MAX as i128)),
+            PrimitiveType::Int32 => Some((i32::MIN as i128, i32::MAX as i128)),
+            PrimitiveType::Int64 => Some((i64::MIN as i128, i64::MAX as i128)),
+            PrimitiveType::Uint8 => Some((u8::MIN as i128, u8::MAX as i128)),
+            PrimitiveType::Uint16 => Some((u16::MIN as i128, u16::MAX as i128)),
+            PrimitiveType::Uint32 => Some((u32::MIN as i128, u32::MAX as i128)),
+            PrimitiveType::Uint64 => Some((u64::MIN as i128, u64::MAX as i128)),
+            _ => None,
+        }
+    }
+
+    fn parse_contextual_integer_literal_value(&self, node: NodeId) -> Option<i128> {
+        let text = self.node_text(node);
+        let text = text.replace('_', "");
+
+        let (negative, digits) = text
+            .strip_prefix('-')
+            .map(|digits| (true, digits))
+            .unwrap_or((false, text.as_str()));
+
+        let (radix, digits) = if let Some(digits) = digits.strip_prefix("0x") {
+            (16, digits)
+        } else if let Some(digits) = digits.strip_prefix("0X") {
+            (16, digits)
+        } else if let Some(digits) = digits.strip_prefix("0b") {
+            (2, digits)
+        } else if let Some(digits) = digits.strip_prefix("0B") {
+            (2, digits)
+        } else if let Some(digits) = digits.strip_prefix("0o") {
+            (8, digits)
+        } else if let Some(digits) = digits.strip_prefix("0O") {
+            (8, digits)
+        } else {
+            (10, digits)
+        };
+
+        let value = i128::from_str_radix(digits, radix).ok()?;
+        Some(if negative { -value } else { value })
+    }
+
+    pub(super) fn expected_integer_literal_type(&self, expected: Option<TypeId>) -> Option<TypeId> {
         let expected = self.resolve_alias_type(expected?);
 
         match self.layer.table().kind(expected) {

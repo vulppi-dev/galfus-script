@@ -4,6 +4,10 @@ use super::*;
 
 impl Parser {
     pub(super) fn can_start_expression(&self) -> bool {
+        if self.at(&TokenKind::Less) {
+            return self.can_parse_cast_expression();
+        }
+
         matches!(
             self.current().kind(),
             TokenKind::Identifier

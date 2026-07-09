@@ -28,6 +28,28 @@ impl<'a> DeclarationTypeChecker<'a> {
         ));
     }
 
+    pub(super) fn report_integer_literal_out_of_range(
+        &mut self,
+        literal: NodeId,
+        literal_text: &str,
+        expected: TypeId,
+    ) {
+        let span = self
+            .graph
+            .syntax()
+            .node(literal)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        let expected = self.describe_type_for_diagnostic(expected);
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+            TypeDiagnosticCode::TypeMismatch,
+            format!("integer literal `{literal_text}` does not fit `{expected}`"),
+            span,
+        ));
+    }
+
     pub(super) fn report_not_callable(&mut self, target: NodeId, target_type: TypeId) {
         let span = self
             .graph

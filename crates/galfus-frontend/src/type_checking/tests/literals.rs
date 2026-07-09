@@ -32,6 +32,32 @@ var bytes: [uint8] = [27, 91]
 }
 
 #[test]
+fn check_reports_integer_array_element_out_of_range() {
+    let source = source(
+        r#"
+var bytes: [uint8] = [27, 300]
+"#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.into_graph();
+    let result = check_declaration_types(&source, &graph);
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::TypeMismatch.as_code()
+            && diagnostic
+                .message()
+                .contains("integer literal `300` does not fit `uint8`")
+    }));
+}
+
+#[test]
 fn check_binds_array_literal_type() {
     let (source, graph, result) = check_source(
         r#"

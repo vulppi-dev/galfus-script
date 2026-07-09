@@ -32,6 +32,69 @@ var byte: uint8 = 27
 }
 
 #[test]
+fn check_reports_integer_initializer_out_of_range() {
+    let source = source(
+        r#"
+var byte: uint8 = 300
+"#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.into_graph();
+    let result = check_declaration_types(&source, &graph);
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::TypeMismatch.as_code()
+            && diagnostic
+                .message()
+                .contains("integer literal `300` does not fit `uint8`")
+    }));
+}
+
+#[test]
+fn check_accepts_signed_integer_initializer_lower_bound() {
+    let (_source, _graph, result) = check_source(
+        r#"
+var byte: int8 = -128
+"#,
+    );
+
+    assert!(!result.has_errors());
+}
+
+#[test]
+fn check_reports_signed_integer_initializer_below_lower_bound() {
+    let source = source(
+        r#"
+var byte: int8 = -129
+"#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(!parse_result.has_errors());
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(!resolve_result.has_errors());
+
+    let graph = resolve_result.into_graph();
+    let result = check_declaration_types(&source, &graph);
+
+    assert!(result.has_errors());
+    assert!(result.diagnostics().iter().any(|diagnostic| {
+        diagnostic.code().as_str() == TypeDiagnosticCode::TypeMismatch.as_code()
+            && diagnostic
+                .message()
+                .contains("integer literal `-129` does not fit `int8`")
+    }));
+}
+
+#[test]
 fn check_reports_var_initializer_type_mismatch() {
     let source = source(
         r#"
