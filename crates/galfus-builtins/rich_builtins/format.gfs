@@ -137,7 +137,7 @@ fn stringifyBool(value: bool): [uint8] {
   return "false"
 }
 
-export fn stringify(value: int8 | int16 | int32 | int64 | uint8 | uint16 | uint32 | uint64 | float32 | float64 | bool | null | [uint8] | Stringable): [uint8] {
+export fn stringify(value: Parsed | [uint8] | Stringable): [uint8] {
   return instanceof value {
     [uint8] text => text,
     bool flag => stringifyBool(flag),
@@ -625,22 +625,23 @@ fn parseNull(s: [uint8]): ParseResult<null> {
 }
 
 export fn parse<T: Parsed>(s: [uint8]): ParseResult<T> {
-  var dummy = new([T], 1)[0]
-  return instanceof dummy {
-    int8 => <ParseResult<T> > parseInt8(s),
-    int16 => <ParseResult<T> > parseInt16(s),
-    int32 => <ParseResult<T> > parseInt32(s),
-    int64 => <ParseResult<T> > parseInt64(s),
+  return type T {
+    int8 => parseInt8(s),
+    int16 => parseInt16(s),
+    int32 => parseInt32(s),
+    int64 => parseInt64(s),
 
-    uint8 => <ParseResult<T> > parseUint8(s),
-    uint16 => <ParseResult<T> > parseUint16(s),
-    uint32 => <ParseResult<T> > parseUint32(s),
-    uint64 => <ParseResult<T> > parseUint64(s),
+    uint8 => parseUint8(s),
+    uint16 => parseUint16(s),
+    uint32 => parseUint32(s),
+    uint64 => parseUint64(s),
 
-    float32 => <ParseResult<T> > parseFloat32(s),
-    float64 => <ParseResult<T> > parseFloat64(s),
+    float32 => parseFloat32(s),
+    float64 => parseFloat64(s),
 
-    bool => <ParseResult<T> > parseBool(s),
+    bool => parseBool(s),
     null => parseNull(s),
+
+    _ => ParseResult<T>::Err("unsupported type for parse")
   }
 }

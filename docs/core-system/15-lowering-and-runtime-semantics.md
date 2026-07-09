@@ -303,7 +303,7 @@ Payloads participate in the ownership graph.
 
 `match` lowers to deterministic pattern selection.
 
-`instanceof` is the single narrowing expression.
+`instanceof` is the value narrowing expression.
 
 It handles:
 
@@ -325,6 +325,12 @@ Wildcard fallback consumes the remaining possible type set without creating a bi
 The `instanceof` subject must be a real input expression. `_` is invalid as the subject.
 
 Unreachable non-wildcard patterns are warnings.
+
+`typeof` lowers to deterministic type-set dispatch.
+
+`typeof` over a bounded generic must be exhaustive over the bound or provide a final `_` wildcard arm.
+
+`typeof` over an unconstrained generic must provide a final `_` wildcard arm.
 
 ## 15.18 Loop and For Lowering
 
@@ -461,7 +467,7 @@ Lowering MUST:
 - Share complex assignment graphs.
 - Lower `copy` as explicit deep copy with weak validation.
 - Reject `copy` of fieldless structs.
-- Use `instanceof` as the only narrowing expression.
+- Use `instanceof` for value narrowing and `typeof` for type dispatch.
 - Keep ranges as integer literal iterables.
 - Preserve reproducible builds.
 

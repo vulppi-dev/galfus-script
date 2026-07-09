@@ -244,9 +244,9 @@ constraint facade target
 
 Invalid assignments should report expected type, actual type, span, reason, and possible explicit cast.
 
-## 4.15 `instanceof` and Type Sets
+## 4.15 `instanceof`, `typeof`, and Type Sets
 
-`instanceof` is the single narrowing expression.
+`instanceof` is the value narrowing expression.
 
 It can narrow only through statically known possible type sets.
 
@@ -262,7 +262,25 @@ fn render<T: int32 | [uint8] | bool>(value: T): [uint8] {
 }
 ```
 
-`typeof` does not exist.
+`typeof` dispatches over a type expression instead of a value expression.
+
+```galfus
+fn parse<T: int32 | [uint8] | bool>(text: [uint8]): T | null {
+  return typeof T {
+    int32 => parseInt32(text),
+    [uint8] => text,
+    bool => parseBool(text),
+  }
+}
+```
+
+`typeof` arms are type arms. A bare identifier arm names a type; it does not create a binding.
+
+When the input type has a bounded known type set, `typeof` must cover every possible member or provide a final `_` wildcard arm.
+
+When the input type is an unconstrained generic, `typeof` cannot prove a closed set and must provide a final `_` wildcard arm.
+
+Inside each non-wildcard arm, the checker specializes the input generic to the matched arm type for expected type propagation.
 
 ## 4.16 Contract
 

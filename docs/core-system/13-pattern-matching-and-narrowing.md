@@ -175,7 +175,7 @@ match user {
 
 ## 13.10 `instanceof`
 
-`instanceof` is the single narrowing expression.
+`instanceof` is the value narrowing expression.
 
 It handles:
 
@@ -277,7 +277,48 @@ fn render<T>(value: T): [uint8] {
 }
 ```
 
-## 13.12 Destructuring Bindings
+## 13.12 `typeof`
+
+`typeof` dispatches over a type expression.
+
+```galfus
+var result = typeof T {
+  int8 => parseInt8(bytes),
+  uint8 => parseUint8(bytes),
+  bool => parseBool(bytes),
+  _ => null,
+}
+```
+
+`typeof` arms are type arms. They do not bind values.
+
+`_ =>` is a wildcard for the remaining possible type set and must be final.
+
+For bounded generic input, the expression must cover all members of the bound or include a final `_`.
+
+```galfus
+fn parse<T: int8 | uint8 | bool>(bytes: [uint8]): T | null {
+  return typeof T {
+    int8 => parseInt8(bytes),
+    uint8 => parseUint8(bytes),
+    bool => parseBool(bytes),
+  }
+}
+```
+
+For unconstrained generic input, `_` is required.
+
+```galfus
+fn parse<T>(bytes: [uint8]): T | null {
+  return typeof T {
+    _ => null,
+  }
+}
+```
+
+Inside each concrete arm, the checker narrows the input generic to the arm type for expected type propagation.
+
+## 13.13 Destructuring Bindings
 
 Patterns may be used in destructuring bindings.
 
@@ -296,7 +337,7 @@ const (a, b) = point
 
 This differs from match/instanceof bindings, which are const by default.
 
-## 13.13 No Pattern Guards
+## 13.14 No Pattern Guards
 
 Pattern guards are not part of Galfus.
 
@@ -311,7 +352,7 @@ match value {
 
 Custom conditional matching should be expressed through explicit comparable behavior or normal code inside an arm.
 
-## 13.14 Comparable Matching
+## 13.15 Comparable Matching
 
 For custom value comparison patterns, the type must provide deterministic comparable behavior.
 
@@ -323,7 +364,7 @@ import { Comparable } from "std/constraints"
 
 Operators are still not overloaded.
 
-## 13.15 Unreachable Patterns
+## 13.16 Unreachable Patterns
 
 Unreachable non-wildcard patterns are warnings.
 
@@ -339,7 +380,7 @@ The second `0` is unreachable.
 
 Wildcard before the final arm is an error.
 
-## 13.16 Contract
+## 13.17 Contract
 
 The checker MUST:
 

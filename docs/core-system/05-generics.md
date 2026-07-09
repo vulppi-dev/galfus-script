@@ -179,7 +179,7 @@ Generic array forms:
 [T]
 ```
 
-## 5.11 `instanceof` with Generics
+## 5.11 `instanceof` and `typeof` with Generics
 
 `instanceof` may narrow generic values only when the possible runtime type set is statically known.
 
@@ -207,6 +207,42 @@ fn render<T>(value: T): [uint8] {
 ```
 
 There is no implicit unknown fallback.
+
+`typeof` may dispatch on a generic type parameter.
+
+```galfus
+fn parse<T: int8 | uint8 | bool>(s: [uint8]): T | null {
+  return typeof T {
+    int8 => parseInt8(s),
+    uint8 => parseUint8(s),
+    bool => parseBool(s),
+  }
+}
+```
+
+For a bounded generic, `typeof` must be exhaustive over the bound or end with `_`.
+
+```galfus
+fn parse<T: int8 | uint8 | bool>(s: [uint8]): T | null {
+  return typeof T {
+    int8 => parseInt8(s),
+    uint8 => parseUint8(s),
+    _ => null,
+  }
+}
+```
+
+For an unconstrained generic, `typeof` must include a final `_` arm because the checker has no closed type set.
+
+```galfus
+fn parse<T>(s: [uint8]): T | null {
+  return typeof T {
+    _ => null,
+  }
+}
+```
+
+Inside each concrete `typeof` arm, expected type propagation treats the matched generic as that arm type.
 
 ## 5.12 Generic Recursion
 

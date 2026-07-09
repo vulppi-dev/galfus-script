@@ -46,7 +46,7 @@ Galfus Script MUST preserve these invariants:
 - Operators have fixed meanings and are not overloaded.
 - Complex assignment does not deep-copy.
 - Deep copy is explicit through `copy`.
-- `instanceof` is the single narrowing expression.
+- `instanceof` narrows values and `typeof` dispatches over types.
 - `for` and function parameters create constant bindings by default.
 - Keyword metadata is not the same thing as decorators.
 - Decorators are typed transformer functions.

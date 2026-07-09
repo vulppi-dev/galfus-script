@@ -49,6 +49,7 @@ if
 else
 match
 instanceof
+typeof
 for
 in
 loop
@@ -72,7 +73,6 @@ try
 catch
 throw
 commit
-typeof
 ```
 
 `commit` is not a keyword because transaction commit is implicit when a transaction block completes without `rollback`.
