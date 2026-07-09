@@ -137,7 +137,7 @@ match point {
 }
 ```
 
-Array patterns are initially recommended for fixed-size arrays.
+Array patterns match elements and lengths of dynamic arrays at runtime.
 
 ```galfus
 match pair {

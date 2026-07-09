@@ -14,7 +14,6 @@ Core data forms:
 
 ```txt
 array
-fixed-size array
 byte string as [uint8]
 tuple
 struct
@@ -26,18 +25,11 @@ Rich behavior belongs to explicit functions, constraints, or modules.
 
 ## 7.2 Arrays
 
-Runtime-sized array type:
+Array type:
 
 ```galfus
 [int32]
 [User]
-```
-
-Fixed-size array type:
-
-```galfus
-[int32; 10]
-[User | null; 4]
 ```
 
 Array literal:
@@ -48,26 +40,12 @@ var values = [1, 2, 3]
 
 All elements must be compatible with the element type.
 
-## 7.3 Fixed-Size Arrays
+## 7.3 Array Construction with `new`
 
-A fixed-size array includes length in the type.
-
-```galfus
-var values: [int32; 3] = [1, 2, 3]
-```
-
-Invalid length mismatch:
+Array construction uses a type and a size expression.
 
 ```galfus
-var values: [int32; 3] = [1, 2]
-```
-
-## 7.4 Array Construction with `new`
-
-Array construction uses a fully defined fixed-size array type and no body.
-
-```galfus
-var values = new([int32; 10])
+var values = new([int32], 10)
 ```
 
 Default element initialization:

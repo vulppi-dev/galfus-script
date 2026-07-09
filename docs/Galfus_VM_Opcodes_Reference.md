@@ -98,7 +98,7 @@ Handles allocation on both Local and Shared heaps, object instantiations, and pr
 | **`LOAD_FIELD`**   | `0x42` | `dest: Reg`, `obj: Reg`, `field: FieldIdx`                           | Read field from a local struct/object.                         |
 | **`STORE_FIELD`**  | `0x43` | `obj: Reg`, `field: FieldIdx`, `val: Reg`                            | Write value to local struct/object field.                      |
 | **`NEW_ARRAY`**    | `0x44` | `dest: Reg`, `type_idx: TypeIdx`, `len_reg: Reg`                     | Create array of length `len_reg`.                              |
-| **`LOAD_INDEX`**   | `0x45` | `dest: Reg`, `arr: Reg`, `idx: Reg`                                  | Read element `arr[idx]`. Panics/throws error if out of bounds. |
+| **`LOAD_INDEX`**   | `0x45` | `dest: Reg`, `arr: Reg`, `idx: Reg`                                  | Read element `arr[idx]`. Returns `null` if out of bounds.      |
 | **`STORE_INDEX`**  | `0x46` | `arr: Reg`, `idx: Reg`, `val: Reg`                                   | Write `arr[idx] = val`. Panics/throws error if out of bounds.  |
 | **`NEW_TUPLE`**    | `0x47` | `dest: Reg`, `type_idx: TypeIdx`, `start: Reg`, `count: u8`          | Create tuple from contiguous registers.                        |
 | **`NEW_CHOICE`**   | `0x48` | `dest: Reg`, `type_idx: TypeIdx`, `variant_idx: u16`, `payload: Reg` | Create choice (tagged union) variant. payload can be `null`.   |

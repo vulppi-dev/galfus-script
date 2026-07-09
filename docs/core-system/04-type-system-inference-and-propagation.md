@@ -40,18 +40,11 @@ Type names are case-sensitive.
 
 ## 4.3 Arrays
 
-Runtime-sized array type:
+Array type:
 
 ```galfus
 [int32]
 [User]
-```
-
-Fixed-size array type:
-
-```galfus
-[int32; 4]
-[User | null; 8]
 ```
 
 String literals are `[uint8]`.

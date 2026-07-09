@@ -269,10 +269,10 @@ Weak observers become `null` when their target is released.
 
 Arrays lower to array values.
 
-Fixed-size construction:
+Array construction:
 
 ```galfus
-new([int32; 4])
+new([int32], 4)
 ```
 
 Arrays expose only:

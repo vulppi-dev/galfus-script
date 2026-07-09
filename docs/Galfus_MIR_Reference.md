@@ -7,6 +7,7 @@ This document defines the architecture, design, and key structures of the Galfus
 ## 1. Architectural Decisions
 
 Based on the compiler requirements and design goals, the MIR is specified as:
+
 1. **SSA (Static Single Assignment) with Block Parameters**: Every virtual register is assigned exactly once. Merging control flow uses block parameters (arguments passed to blocks) rather than traditional $\phi$ (phi) nodes, which simplifies liveness calculations.
 2. **Structured Control Flow**: Instead of an entirely flattened Control Flow Graph (CFG) of raw jumps, the MIR retains hierarchical blocks (`Block`, `If`, `Loop`). This preserves lexical scope boundaries, making lifetime analysis for the Owner Graph direct and precise.
 3. **Implicit Owner Graph Integration**: The MIR focuses on pure computation and generic `Drop(x)` statements where lifetimes end. The VM and the bytecode generator infer ownership graph updates (anchors, edges, weak links) using variable type metadata and allocation policies (e.g., local heap vs. shared thread memory).
@@ -30,7 +31,9 @@ graph TD
 ```
 
 ### 2.1 Virtual Registers (Locals)
+
 All values (including parameters, local variables, and intermediate results) are stored in typed, immutable virtual registers (`LocalId`).
+
 - Each local has a unique name/ID (e.g. `_0`, `_1`).
 - Re-assignments in the source code are lowered to new virtual registers.
 
@@ -63,7 +66,9 @@ pub enum MirBody {
 ```
 
 ### 3.1 Block Parameters
+
 To merge values at join points (such as the end of an `if-else` block returning a value), blocks can define parameters:
+
 - A `Block` can accept values, which are bound to new SSA virtual registers when entering that block.
 
 ---
@@ -71,6 +76,7 @@ To merge values at join points (such as the end of an `if-else` block returning 
 ## 4. Key Data Forms
 
 ### 4.1 Operands & Constants
+
 ```rust
 pub enum Operand {
     /// A literal constant (e.g. 10, true, "text", null)
@@ -81,6 +87,7 @@ pub enum Operand {
 ```
 
 ### 4.2 RValues (Right-Hand Side Expressions)
+
 An `RValue` is a single computational step, always assigned to a virtual register.
 
 ```rust
@@ -92,29 +99,60 @@ pub enum RValue {
     /// Binary operator
     BinaryOp(BinaryOperatorKind, Operand, Operand),
     /// Cast to another type
-    Cast(Operand, Type),
-    
+    Cast(Operand, TypeId),
+    /// Deep copy value
+    Copy(Operand),
+
     /// Instantiate structures (with metadata parameters like allocation space)
     NewStruct {
-        type_id: StructTypeId,
+        struct_type: TypeId,
         fields: Vec<Operand>,
         /// Metadata describing the storage class (e.g. thread-shared vs thread-local)
         storage_meta: StorageMetadata,
     },
-    NewArray(ArrayTypeId, Vec<Operand>),
-    NewTuple(TupleTypeId, Vec<Operand>),
-    
-    /// Read field or index
-    MemberAccess(Operand, MemberField),
+    /// Data-initialized array creation from array literal elements: `[a, b, c]`
+    NewArray(TypeId, Vec<Operand>),
+    /// Dynamic data-initialized array creation with spreads: `[a, ...b, c]`
+    NewArrayDynamic(TypeId, Vec<ArrayLiteralElement>),
+    /// Zero-initialised allocation: `new([T], size)` or `new([T], size, shared)`
+    NewArrayZeroed {
+        array_type: TypeId,
+        element_type: TypeId,
+        size: Operand,
+        storage: StorageMetadata,
+    },
+    /// Create tuple: `(a, b)`
+    NewTuple(TypeId, Vec<Operand>),
+
+    /// Read field of a struct
+    MemberAccess(Operand, String),
+    /// Read element by index: `arr[idx]`
+    ArrayIndex(Operand, Operand),
     /// Construct choice variant
-    Choice(ChoiceVariantId, Option<Operand>),
+    Choice(TypeId, String, Option<Operand>),
     /// Dynamic type/variant check
-    Instanceof(Operand, Type),
+    Instanceof(Operand, TypeId),
+    /// Load global variable
+    LoadGlobal(String),
+    /// Get length of array, string, or tuple
+    Len(Operand),
+}
+
+pub enum ArrayLiteralElement {
+    Single(Operand),
+    Spread(Operand),
 }
 ```
 
+### 4.3 Array and Range Spreads lowering
+
+When an array literal contains range spread expressions (for example, `[...0..10]` or `[...0::5%-1]`), the spread targets are resolved as Iterables.
+The compiler/MIR builder lowers range spreads within array literals to `RValue::NewArrayDynamic` where range objects are evaluated. At compile-time/MIR level, range spreads are treated as dynamic iterable spreads, and during MIR lowering they are expanded into collection/copy loops using the range's `Iterator` methods (`iter` and `next`), dynamically populating the target array.
+
 ### 4.3 Instructions & Terminators
+
 An instruction is non-branching:
+
 ```rust
 pub enum Instruction {
     /// Assign the result of an RValue to an SSA register
@@ -125,6 +163,7 @@ pub enum Instruction {
 ```
 
 A terminator completes a sequence of instructions within a structured block:
+
 ```rust
 pub enum Terminator {
     /// Return from the current function
@@ -149,6 +188,7 @@ pub enum Terminator {
 ## 5. Implicit Memory & Ownership (Owner Graph)
 
 The Owner Graph is managed implicitly by the VM and the bytecode generator using **Type Metadata** and **Life Boundaries**:
+
 1. **Allocation Metadata**: Instructions like `NewStruct` hold metadata (`StorageMetadata`) telling the VM whether to allocate on the thread-local heap, stack, or shared concurrent heap.
 2. **Deterministic Drops**: The compiler inserts `Drop(local)` at the exact point in the MIR where the local variable's virtual register is no longer alive (computed via SSA liveness analysis).
 3. **VM Execution**: The VM interprets `Drop(local)` and implicitly:

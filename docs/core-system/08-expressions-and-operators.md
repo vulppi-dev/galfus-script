@@ -94,10 +94,10 @@ new(User, shared) {
 }
 ```
 
-Fixed-size array construction:
+Array construction:
 
 ```galfus
-new([int32; 10])
+new([int32], 10)
 ```
 
 Inferred struct construction requires expected type.
