@@ -152,6 +152,9 @@ pub enum SyntaxNodeKind {
     InstanceofExpression,
     InstanceofArmList,
     InstanceofArm,
+    TypeofExpression,
+    TypeofArmList,
+    TypeofArm,
     NewArrayExpression,
 
     // Operators

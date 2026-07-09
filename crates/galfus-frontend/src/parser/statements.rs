@@ -392,12 +392,33 @@ impl Parser {
 
         self.skip_newlines();
 
-        let body = self.parse_match_arm_body()?;
+        let body = self.parse_arm_body()?;
 
         let span = Span::cover(self.node_span(pattern), self.node_span(body))
             .unwrap_or_else(|| self.node_span(pattern));
 
         Some(self.add_node(SyntaxNodeKind::InstanceofArm, span, vec![pattern, body]))
+    }
+
+    pub(super) fn parse_typeof_arm(&mut self) -> Option<NodeId> {
+        let pattern = if self.at(&TokenKind::Underscore) {
+            self.parse_wildcard_pattern()
+        } else {
+            self.parse_type()
+        }?;
+
+        self.skip_newlines();
+
+        self.expect(TokenKind::Arrow)?;
+
+        self.skip_newlines();
+
+        let body = self.parse_arm_body()?;
+
+        let span = Span::cover(self.node_span(pattern), self.node_span(body))
+            .unwrap_or_else(|| self.node_span(pattern));
+
+        Some(self.add_node(SyntaxNodeKind::TypeofArm, span, vec![pattern, body]))
     }
 
     pub(super) fn parse_transaction_statement(&mut self) -> Option<NodeId> {

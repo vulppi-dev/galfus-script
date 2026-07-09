@@ -270,7 +270,7 @@ impl Parser {
 
         self.skip_newlines();
 
-        let body = self.parse_match_arm_body()?;
+        let body = self.parse_arm_body()?;
 
         let span = Span::cover(self.node_span(pattern), self.node_span(body))
             .unwrap_or_else(|| self.node_span(pattern));
@@ -339,7 +339,7 @@ impl Parser {
         self.parse_type_pattern()
     }
 
-    pub(super) fn parse_match_arm_body(&mut self) -> Option<NodeId> {
+    pub(super) fn parse_arm_body(&mut self) -> Option<NodeId> {
         if self.at(&TokenKind::LeftBrace) {
             return self.parse_block();
         }

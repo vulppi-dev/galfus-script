@@ -288,6 +288,15 @@ impl Parser {
         )
     }
 
+    pub(super) fn parse_typeof_arm_list(&mut self) -> Option<NodeId> {
+        self.parse_delimited_list(
+            TokenKind::LeftBrace,
+            TokenKind::RightBrace,
+            SyntaxNodeKind::TypeofArmList,
+            |parser| parser.parse_typeof_arm(),
+        )
+    }
+
     pub(super) fn parse_type_argument_list(&mut self) -> Option<NodeId> {
         let left = self.expect(TokenKind::Less)?;
 

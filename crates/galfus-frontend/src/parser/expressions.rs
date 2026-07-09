@@ -52,6 +52,10 @@ impl Parser {
             return self.parse_instanceof_expression();
         }
 
+        if self.at(&TokenKind::Typeof) {
+            return self.parse_typeof_expression();
+        }
+
         if self.at(&TokenKind::Integer) {
             return self.parse_integer_literal();
         }
