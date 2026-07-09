@@ -177,10 +177,7 @@ Generic array forms:
 
 ```galfus
 [T]
-[T; 4]
 ```
-
-Fixed array length is not a generic parameter initially.
 
 ## 5.11 `instanceof` with Generics
 

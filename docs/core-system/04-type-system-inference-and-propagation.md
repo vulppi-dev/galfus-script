@@ -16,7 +16,6 @@ null
 named type
 path type
 runtime-sized array
-fixed-size array
 tuple
 function
 union

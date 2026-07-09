@@ -60,7 +60,7 @@ float -> 0.0
 Invalid when no default exists:
 
 ```galfus
-var users = new([User; 4])
+var users = new([User | null], 4)
 ```
 
 ## 7.5 Array Indexing and Length
