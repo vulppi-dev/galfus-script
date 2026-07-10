@@ -39,6 +39,7 @@ mod returns;
 mod semantics;
 mod structs;
 mod support;
+mod typeofs;
 mod variants;
 
 mod model;

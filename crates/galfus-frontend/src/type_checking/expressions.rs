@@ -103,6 +103,8 @@ impl<'a> DeclarationTypeChecker<'a> {
                 self.infer_instanceof_expression_type(node, expected)
             }
 
+            SyntaxNodeKind::TypeofExpression => self.infer_typeof_expression_type(node, expected),
+
             SyntaxNodeKind::MemberExpression => self.infer_member_expression_type(node, false),
 
             SyntaxNodeKind::NullSafeMemberExpression => {

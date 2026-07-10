@@ -47,6 +47,45 @@ fn normalize(value: int32 | null): int32 {
 }
 
 #[test]
+fn check_narrows_instanceof_alias_union_member_inside_larger_union() {
+    let (source, graph, result) = check_source(
+        r#"
+type Parsed = int32 | bool | null
+
+constraint Stringable {
+  fn stringify(): [uint8]
+}
+
+fn stringifyBool(value: bool): [uint8] {
+  return "bool"
+}
+
+fn stringify(value: Parsed | [uint8] | Stringable): [uint8] {
+  return instanceof value {
+    [uint8] text => text,
+    bool flag => stringifyBool(flag),
+    null => "null",
+    int32 n => "int",
+    Stringable item => item::stringify(),
+    _ => "unknown",
+  }
+}
+"#,
+    );
+
+    let binding =
+        find_node_by_kind_and_text(&source, &graph, SyntaxNodeKind::TypePatternBinding, "flag")
+            .unwrap();
+
+    let ty = result.layer().node_type(binding).unwrap();
+
+    assert_eq!(
+        result.layer().table().kind(ty),
+        Some(&TypeKind::Primitive(PrimitiveType::Bool))
+    );
+}
+
+#[test]
 fn check_narrows_instanceof_subject_in_type_pattern_arm() {
     let (_source, _graph, result) = check_source(
         r#"
@@ -63,12 +102,12 @@ fn normalize(value: int32 | null): int32 {
 }
 
 #[test]
-fn check_accepts_instanceof_parenthesized_type_pattern_binding() {
+fn check_accepts_instanceof_type_pattern_binding_with_adjacent_name() {
     let (_source, _graph, result) = check_source(
         r#"
 fn normalize(value: int32 | null): int32 {
   return instanceof value {
-    int32(number) => number,
+    int32 number => number,
     _ => 0,
   }
 }

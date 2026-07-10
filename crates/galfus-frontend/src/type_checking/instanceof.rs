@@ -180,11 +180,15 @@ impl<'a> DeclarationTypeChecker<'a> {
         let subject_type = self.resolve_alias_type(subject_type);
 
         match self.layer.table().kind(subject_type) {
-            Some(TypeKind::Union { members }) => members.clone(),
+            Some(TypeKind::Union { members }) => members
+                .iter()
+                .copied()
+                .flat_map(|member| self.instanceof_possible_members(member))
+                .collect(),
             Some(TypeKind::GenericParameter { symbol }) => self
                 .generic_parameter_bound_type(*symbol)
                 .map(|bound| self.instanceof_possible_members(bound))
-                .unwrap_or_else(|| vec![subject_type]),
+                .unwrap_or_default(),
             Some(TypeKind::Error) => Vec::new(),
             _ => vec![subject_type],
         }
@@ -292,13 +296,17 @@ impl<'a> DeclarationTypeChecker<'a> {
             return None;
         };
 
-        if !self.is_instanceof_pattern_compatible(subject_type, pattern_type) {
+        if !self.is_instanceof_pattern_compatible(pattern_type, remaining_members) {
             self.report_invalid_instanceof_pattern_type(pattern, subject_type, pattern_type);
             return None;
         }
 
         let matching_members = self.matching_instanceof_members(pattern_type, remaining_members);
-        let narrowed_type = self.instanceof_remaining_type(matching_members.as_slice());
+        let narrowed_type = if remaining_members.is_empty() {
+            pattern_type
+        } else {
+            self.instanceof_remaining_type(matching_members.as_slice())
+        };
 
         remaining_members.retain(|member| !self.instanceof_type_matches(pattern_type, *member));
 
@@ -399,9 +407,18 @@ impl<'a> DeclarationTypeChecker<'a> {
         self.layer.bind_node_type(pattern, ty);
     }
 
-    fn is_instanceof_pattern_compatible(&self, subject_type: TypeId, pattern_type: TypeId) -> bool {
-        self.instanceof_possible_members(subject_type)
-            .into_iter()
+    fn is_instanceof_pattern_compatible(
+        &self,
+        pattern_type: TypeId,
+        remaining_members: &[TypeId],
+    ) -> bool {
+        if remaining_members.is_empty() {
+            return true;
+        }
+
+        remaining_members
+            .iter()
+            .copied()
             .any(|member| self.instanceof_type_matches(pattern_type, member))
     }
 
@@ -458,7 +475,7 @@ impl<'a> DeclarationTypeChecker<'a> {
         matches!(self.layer.table().kind(ty), Some(TypeKind::Error))
     }
 
-    fn generic_parameter_symbol(&self, ty: TypeId) -> Option<galfus_core::SymbolId> {
+    pub(super) fn generic_parameter_symbol(&self, ty: TypeId) -> Option<galfus_core::SymbolId> {
         let ty = self.resolve_alias_type(ty);
 
         match self.layer.table().kind(ty) {
@@ -471,7 +488,7 @@ impl<'a> DeclarationTypeChecker<'a> {
         }
     }
 
-    fn branch_expected_type(
+    pub(super) fn branch_expected_type(
         &mut self,
         expected: TypeId,
         subject_generic: Option<galfus_core::SymbolId>,

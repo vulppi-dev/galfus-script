@@ -598,4 +598,50 @@ impl<'a> DeclarationTypeChecker<'a> {
             span,
         ));
     }
+
+    pub(super) fn report_invalid_typeof_arm_type(
+        &mut self,
+        pattern: NodeId,
+        expected: TypeId,
+        actual: TypeId,
+    ) {
+        let span = self
+            .graph
+            .syntax()
+            .node(pattern)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        let expected = self.layer.table().describe(expected);
+        let actual = self.layer.table().describe(actual);
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+            TypeDiagnosticCode::InvalidMatchPatternType,
+            format!("typeof arm type must be compatible with `{expected}`, got `{actual}`"),
+            span,
+        ));
+    }
+
+    pub(super) fn report_incompatible_typeof_arm_type(
+        &mut self,
+        body: NodeId,
+        expected: TypeId,
+        actual: TypeId,
+    ) {
+        let span = self
+            .graph
+            .syntax()
+            .node(body)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        let expected = self.layer.table().describe(expected);
+        let actual = self.layer.table().describe(actual);
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+            TypeDiagnosticCode::IncompatibleMatchArmType,
+            format!("typeof arm body must be compatible with `{expected}`, got `{actual}`"),
+            span,
+        ));
+    }
 }

@@ -390,6 +390,33 @@ impl<'a> DeclarationTypeChecker<'a> {
         ));
     }
 
+    pub(super) fn report_non_exhaustive_typeof(
+        &mut self,
+        typeof_expression: NodeId,
+        subject_type: TypeId,
+        missing_types: &[String],
+    ) {
+        let span = self
+            .graph
+            .syntax()
+            .node(typeof_expression)
+            .map(|node| node.span())
+            .unwrap_or_else(|| self.source.span());
+
+        let subject_type = self.describe_type_for_diagnostic(subject_type);
+        let missing = missing_types
+            .iter()
+            .map(|ty| format!("`{ty}`"))
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        self.diagnostics.push(Diagnostic::error_with_message(
+            TypeDiagnosticCode::NonExhaustiveMatch,
+            format!("typeof over `{subject_type}` is not exhaustive; missing {missing}"),
+            span,
+        ));
+    }
+
     pub(super) fn report_catch_all_pattern_not_final(&mut self, pattern: NodeId) {
         let span = self
             .graph
