@@ -78,10 +78,7 @@ impl<'a> Lexer<'a> {
     }
 
     fn make_token(&mut self, kind: TokenKind, span: Span) -> Token {
-        if !matches!(
-            kind,
-            TokenKind::Newline | TokenKind::Unknown | TokenKind::Eof
-        ) {
+        if kind.is_significant() {
             self.previous_significant_kind = Some(kind.clone());
         }
 

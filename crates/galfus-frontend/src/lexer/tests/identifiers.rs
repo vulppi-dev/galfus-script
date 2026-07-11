@@ -127,7 +127,7 @@ fn lex_other_identifiers_and_metadata() {
             TokenKind::Identifier,
             TokenKind::Identifier,
             TokenKind::Identifier,
-            TokenKind::Identifier,
+            TokenKind::Typeof,
             TokenKind::Eof,
         ]
     );

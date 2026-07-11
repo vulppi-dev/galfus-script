@@ -96,7 +96,7 @@ fn resolve_reports_non_struct_function_anchor() {
     let graph = resolve_result.graph();
 
     assert!(graph.diagnostics().iter().any(|diagnostic| {
-        diagnostic.code().as_str() == "R0004"
+        diagnostic.code().as_str() == "S0004"
             && diagnostic
                 .message()
                 .contains("function anchor `Result` must be a struct")
