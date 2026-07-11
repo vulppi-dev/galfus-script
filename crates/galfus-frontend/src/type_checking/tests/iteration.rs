@@ -5,9 +5,9 @@ use crate::ResolverDiagnosticCode;
 fn check_accepts_for_over_dynamic_array() {
     let (_source, _graph, result) = check_source(
         r#"
-fn main(values: [int32]): null {
+fn main(values: [i32]): null {
   for value in values {
-    var copied: int32 = value
+    var copied: i32 = value
   }
 
   return
@@ -24,7 +24,7 @@ fn check_accepts_for_over_array_literal() {
         r#"
 fn main(): null {
   for value in [1, 2, 3] {
-    var copied: int32 = value
+    var copied: i32 = value
   }
 
   return
@@ -41,7 +41,7 @@ fn check_accepts_for_over_string_literal_as_uint8_array() {
         r#"
 fn main(): null {
   for byte in "Ana" {
-    var copied: uint8 = byte
+    var copied: u8 = byte
   }
 
   return
@@ -58,7 +58,7 @@ fn check_accepts_for_over_empty_string_literal() {
         r#"
 fn main(): null {
   for byte in "" {
-    var copied: uint8 = byte
+    var copied: u8 = byte
   }
 
   return
@@ -75,7 +75,7 @@ fn check_reports_for_over_non_array() {
         r#"
 fn main(): null {
   for value in 10 {
-    var copied: int32 = value
+    var copied: i32 = value
   }
 
   return
@@ -97,7 +97,7 @@ fn main(): null {
         diagnostic.code().as_str() == TypeDiagnosticCode::InvalidIterableType.as_code()
             && diagnostic
                 .message()
-                .contains("for iterable must satisfy `Iterable`, got `int32`")
+                .contains("for iterable must satisfy `Iterable`, got `i32`")
     }));
 }
 
@@ -105,9 +105,9 @@ fn main(): null {
 fn check_binds_for_binding_type_from_dynamic_array() {
     let (source, graph, result) = check_source(
         r#"
-fn main(values: [int32]): null {
+fn main(values: [i32]): null {
   for value in values {
-    var copied: int32 = value
+    var copied: i32 = value
   }
 
   return
@@ -130,7 +130,7 @@ fn main(values: [int32]): null {
 fn check_reports_for_binding_type_mismatch_in_body() {
     let source = source(
         r#"
-fn main(values: [int32]): null {
+fn main(values: [i32]): null {
   for value in values {
     var copied: bool = value
   }
@@ -152,9 +152,7 @@ fn main(values: [int32]): null {
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
         diagnostic.code().as_str() == TypeDiagnosticCode::TypeMismatch.as_code()
-            && diagnostic
-                .message()
-                .contains("expected `bool`, got `int32`")
+            && diagnostic.message().contains("expected `bool`, got `i32`")
     }));
 }
 
@@ -170,13 +168,13 @@ fn check_accepts_for_over_iterable_struct() {
           fn iter(self): Iter
         }
 
-        struct Numbers satisfies Iterable<Numbers, int32, NumbersIterator> {
-          values: [int32],
+        struct Numbers satisfies Iterable<Numbers, i32, NumbersIterator> {
+          values: [i32],
         }
 
-        struct NumbersIterator satisfies Iterator<NumbersIterator, int32> {
-          values: [int32],
-          index: int32,
+        struct NumbersIterator satisfies Iterator<NumbersIterator, i32> {
+          values: [i32],
+          index: i32,
         }
 
         fn Numbers::iter(self): NumbersIterator {
@@ -186,7 +184,7 @@ fn check_accepts_for_over_iterable_struct() {
           }
         }
 
-        fn NumbersIterator::next(self): int32 | null {
+        fn NumbersIterator::next(self): i32 | null {
           return self.values[self.index]
         }
 
@@ -196,7 +194,7 @@ fn check_accepts_for_over_iterable_struct() {
           }
 
           for value in nums {
-            var copied: int32 = value
+            var copied: i32 = value
           }
 
           return
@@ -219,13 +217,13 @@ fn check_binds_for_binding_type_from_iterable_struct() {
           fn iter(self): Iter
         }
 
-        struct Numbers satisfies Iterable<Numbers, int32, NumbersIterator> {
-          values: [int32],
+        struct Numbers satisfies Iterable<Numbers, i32, NumbersIterator> {
+          values: [i32],
         }
 
-        struct NumbersIterator satisfies Iterator<NumbersIterator, int32> {
-          values: [int32],
-          index: int32,
+        struct NumbersIterator satisfies Iterator<NumbersIterator, i32> {
+          values: [i32],
+          index: i32,
         }
 
         fn Numbers::iter(self): NumbersIterator {
@@ -235,7 +233,7 @@ fn check_binds_for_binding_type_from_iterable_struct() {
           }
         }
 
-        fn NumbersIterator::next(self): int32 | null {
+        fn NumbersIterator::next(self): i32 | null {
           return self.values[self.index]
         }
 
@@ -245,7 +243,7 @@ fn check_binds_for_binding_type_from_iterable_struct() {
           }
 
           for value in nums {
-            var copied: int32 = value
+            var copied: i32 = value
           }
 
           return
@@ -278,7 +276,7 @@ constraint Iterable<T, Item, Iter> {
 
 struct Iter {}
 
-struct Source satisfies Iterable<Source, int32, Iter> {}
+struct Source satisfies Iterable<Source, i32, Iter> {}
 
 fn Source::iter(self): Iter {
   return new(Iter) {}
@@ -288,7 +286,7 @@ fn main(): null {
   var source = new(Source) {}
 
   for item in source {
-    var copied: int32 = item
+    var copied: i32 = item
   }
 
   return
@@ -322,7 +320,7 @@ fn check_reports_iterator_next_return_type_mismatch() {
           fn next(self): Item | null
         }
 
-        struct BadIterator satisfies Iterator<BadIterator, int32> {}
+        struct BadIterator satisfies Iterator<BadIterator, i32> {}
 
         fn BadIterator::next(self): bool {
           return true
@@ -354,9 +352,9 @@ fn check_accepts_comparable_constraint() {
           fn compare(self, value: Value): bool
         }
 
-        struct Pattern satisfies Comparable<Pattern, [uint8]> {}
+        struct Pattern satisfies Comparable<Pattern, [u8]> {}
 
-        fn Pattern::compare(self, value: [uint8]): bool {
+        fn Pattern::compare(self, value: [u8]): bool {
           return true
         }
         "#,
@@ -369,9 +367,9 @@ fn check_accepts_comparable_constraint() {
 fn check_reports_direct_builtin_constraint_without_import() {
     let source = source(
         r#"
-struct Pattern satisfies Comparable<Pattern, [uint8]> {}
+struct Pattern satisfies Comparable<Pattern, [u8]> {}
 
-fn Pattern::compare(self, value: [uint8]): bool {
+fn Pattern::compare(self, value: [u8]): bool {
   return true
 }
 "#,
@@ -407,7 +405,7 @@ constraint Iterable<T, Item, Iter> {
 
 struct Iter {}
 
-struct Source satisfies Iterable<Source, int32, Iter> {}
+struct Source satisfies Iterable<Source, i32, Iter> {}
 
 fn Source::iter(self): bool {
   return true
@@ -439,7 +437,7 @@ constraint Iterator<T, Item> {
   fn next(self): Item | null
 }
 
-struct BadIterator satisfies Iterator<BadIterator, int32> {}
+struct BadIterator satisfies Iterator<BadIterator, i32> {}
 
 fn BadIterator::next(self): bool | null {
   return true
@@ -471,9 +469,9 @@ constraint Comparable<Pattern, Value> {
   fn compare(self, value: Value): bool
 }
 
-struct Pattern satisfies Comparable<Pattern, [uint8]> {}
+struct Pattern satisfies Comparable<Pattern, [u8]> {}
 
-fn Pattern::compare(self, value: [uint8]): int32 {
+fn Pattern::compare(self, value: [u8]): i32 {
   return 0
 }
 "#,
@@ -503,9 +501,9 @@ constraint Iterator<T, Item> {
   fn next(self): Item | null
 }
 
-struct Counter satisfies Iterator<Counter, int32> {}
+struct Counter satisfies Iterator<Counter, i32> {}
 
-fn Counter::next(self): int32 | null {
+fn Counter::next(self): i32 | null {
   return 1
 }
 
@@ -513,7 +511,7 @@ fn main(): null {
   var counter = new(Counter) {}
 
   for value in counter {
-    var copied: int32 = value
+    var copied: i32 = value
   }
 
   return
@@ -545,7 +543,7 @@ fn check_accepts_for_over_exclusive_range() {
         r#"
         fn main(): null {
           for value in 1..10 {
-            var copied: int32 = value
+            var copied: i32 = value
           }
 
           return
@@ -562,7 +560,7 @@ fn check_accepts_for_over_quantity_range_with_step() {
         r#"
         fn main(): null {
           for value in 1::10%2 {
-            var copied: int32 = value
+            var copied: i32 = value
           }
 
           return
@@ -579,7 +577,7 @@ fn check_binds_for_binding_type_from_range() {
         r#"
         fn main(): null {
           for value in 1..10 {
-            var copied: int32 = value
+            var copied: i32 = value
           }
 
           return
@@ -603,7 +601,7 @@ fn check_reports_range_assigned_to_int() {
     let source = source(
         r#"
         fn main(): null {
-          var seq: int32 = 1::10
+          var seq: i32 = 1::10
           return
         }
         "#,
@@ -620,8 +618,8 @@ fn check_reports_range_assigned_to_int() {
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
-        diagnostic.message().contains("expected `int32`")
-            && diagnostic.message().contains("range<int32>")
+        diagnostic.message().contains("expected `i32`")
+            && diagnostic.message().contains("range<i32>")
     }));
 }
 
@@ -631,7 +629,7 @@ fn check_accepts_for_over_quantity_range() {
         r#"
         fn main(): null {
           for value in 1::10 {
-            var copied: int32 = value
+            var copied: i32 = value
           }
 
           return
@@ -648,7 +646,7 @@ fn check_accepts_for_over_float_quantity_range() {
         r#"
         fn main(): null {
           for value in 1.0::3%0.5 {
-            var copied: float32 = value
+            var copied: f32 = value
           }
 
           return
@@ -665,7 +663,7 @@ fn check_accepts_descending_exclusive_range() {
         r#"
         fn main(): null {
           for value in 10..1 {
-            var copied: int32 = value
+            var copied: i32 = value
           }
 
           return
@@ -682,7 +680,7 @@ fn check_accepts_negative_range_step() {
         r#"
         fn main(): null {
           for value in 10::4%-2 {
-            var copied: int32 = value
+            var copied: i32 = value
           }
 
           return
@@ -699,7 +697,7 @@ fn check_reports_float_exclusive_range() {
         r#"
         fn main(): null {
           for value in 1.0..10.0 {
-            var copied: float32 = value
+            var copied: f32 = value
           }
 
           return
@@ -731,7 +729,7 @@ fn check_reports_empty_exclusive_range() {
         r#"
         fn main(): null {
           for value in 1..1 {
-            var copied: int32 = value
+            var copied: i32 = value
           }
 
           return
@@ -761,7 +759,7 @@ fn check_reports_non_positive_range_count() {
         r#"
         fn main(): null {
           for value in 1::0 {
-            var copied: int32 = value
+            var copied: i32 = value
           }
 
           return
@@ -793,7 +791,7 @@ fn check_reports_negative_range_count() {
         r#"
         fn main(): null {
           for value in 1::-1 {
-            var copied: int32 = value
+            var copied: i32 = value
           }
 
           return
@@ -825,7 +823,7 @@ fn check_reports_range_overflow() {
         r#"
         fn main(): null {
           for value in 2147483640::20 {
-            var copied: int32 = value
+            var copied: i32 = value
           }
 
           return
@@ -845,7 +843,7 @@ fn check_reports_range_overflow() {
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
         diagnostic.code().as_str() == TypeDiagnosticCode::InvalidRangeOperandType.as_code()
-            && diagnostic.message().contains("range end overflows int32")
+            && diagnostic.message().contains("range end overflows i32")
     }));
 }
 
@@ -855,7 +853,7 @@ fn check_reports_zero_range_step() {
         r#"
         fn main(): null {
           for value in 1::2%0 {
-            var copied: int32 = value
+            var copied: i32 = value
           }
 
           return
@@ -885,7 +883,7 @@ fn check_reports_mismatched_range_step_family() {
         r#"
         fn main(): null {
           for value in 1::2%0.5 {
-            var copied: int32 = value
+            var copied: i32 = value
           }
 
           return
@@ -915,9 +913,9 @@ fn check_reports_mismatched_range_step_family() {
 fn check_accepts_ignored_for_binding() {
     let (_source, _graph, result) = check_source(
         r#"
-fn main(values: [int32]): null {
+fn main(values: [i32]): null {
   for _ in values {
-    var copied: int32 = 1
+    var copied: i32 = 1
   }
 
   return
@@ -932,10 +930,10 @@ fn main(values: [int32]): null {
 fn check_binds_for_index_as_int32() {
     let (source, graph, result) = check_source(
         r#"
-fn main(values: [int32]): null {
+fn main(values: [i32]): null {
   for value, index in values {
-    var copied: int32 = value
-    var position: int32 = index
+    var copied: i32 = value
+    var position: i32 = index
   }
 
   return
@@ -958,9 +956,9 @@ fn main(values: [int32]): null {
 fn check_ignored_for_binding_does_not_create_referenceable_symbol() {
     let source = source(
         r#"
-fn main(values: [int32]): null {
+fn main(values: [i32]): null {
   for _ in values {
-    var copied: int32 = _
+    var copied: i32 = _
   }
 
   return

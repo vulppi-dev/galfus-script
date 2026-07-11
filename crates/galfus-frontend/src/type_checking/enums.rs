@@ -107,8 +107,8 @@ impl<'a> DeclarationTypeChecker<'a> {
         match type_node {
             Some(type_node) => self.layer.node_type(type_node).map(|ty| (type_node, ty)),
             None => {
-                let int32 = self.layer.table().primitive(PrimitiveType::Int32);
-                Some((enum_item, int32))
+                let i32 = self.layer.table().primitive(PrimitiveType::Int32);
+                Some((enum_item, i32))
             }
         }
     }

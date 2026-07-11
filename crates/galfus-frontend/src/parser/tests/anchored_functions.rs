@@ -2,7 +2,7 @@ use super::*;
 
 #[test]
 fn parse_anchored_function_declaration() {
-    let source = source("fn User::rename(self, name: [int8]): User {\n  return self\n}");
+    let source = source("fn User::rename(self, name: [i8]): User {\n  return self\n}");
 
     let result = parse(&source);
 
@@ -159,7 +159,7 @@ fn parse_anchored_generic_function_declaration() {
 
 #[test]
 fn parse_exported_anchored_function_declaration() {
-    let source = source("export fn User::rename(self, name: [int8]): User {\n  return self\n}");
+    let source = source("export fn User::rename(self, name: [i8]): User {\n  return self\n}");
 
     let result = parse(&source);
 
@@ -318,7 +318,7 @@ fn parse_generic_function_is_not_anchor() {
 
 #[test]
 fn parse_nested_generic_anchor_function_declaration() {
-    let source = source("fn Registry<Map<[int8], User>>::get(self): User {\n  return user\n}");
+    let source = source("fn Registry<Map<[i8], User>>::get(self): User {\n  return user\n}");
 
     let result = parse(&source);
 
@@ -337,7 +337,7 @@ fn parse_nested_generic_anchor_function_declaration() {
 
     assert_eq!(
         source.slice(anchor_node.span()),
-        Some("Registry<Map<[int8], User>>")
+        Some("Registry<Map<[i8], User>>")
     );
 
     let anchor_type = anchor_node.first_child().unwrap();

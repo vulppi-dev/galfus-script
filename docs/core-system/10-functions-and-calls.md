@@ -9,7 +9,7 @@ This document defines function declarations, return types, parameters, defaults,
 ## 10.1 Function Declaration
 
 ```galfus
-fn sum(a: int32, b: int32): int32 {
+fn sum(a: i32, b: i32): i32 {
   return a + b
 }
 ```
@@ -58,7 +58,7 @@ A non-null function must return a compatible value on all reachable paths.
 Invalid:
 
 ```galfus
-fn value(): int32 {
+fn value(): i32 {
 }
 ```
 
@@ -67,7 +67,7 @@ fn value(): int32 {
 Function parameters are constant bindings by default.
 
 ```galfus
-fn call(value: int32): null {
+fn call(value: i32): null {
   value = 10 // invalid
 }
 ```
@@ -75,7 +75,7 @@ fn call(value: int32): null {
 Complex parameters share the same graph, but the parameter binding cannot be rebound.
 
 ```galfus
-fn rename(user: User, name: [uint8]): null {
+fn rename(user: User, name: [u8]): null {
   user.name = name // valid if field is mutable
 }
 ```
@@ -83,7 +83,7 @@ fn rename(user: User, name: [uint8]): null {
 ## 10.4 Default Parameters
 
 ```galfus
-fn connect(host: [uint8], port: int32 = 80): bool {
+fn connect(host: [u8], port: i32 = 80): bool {
   return true
 }
 
@@ -96,7 +96,7 @@ Trailing default parameters may be omitted.
 Middle default parameters require `_`.
 
 ```galfus
-fn call(a: int32, b: int32 = 2, c: int32 = 3): null {
+fn call(a: i32, b: i32 = 2, c: i32 = 3): null {
 }
 
 call(1)
@@ -116,7 +116,7 @@ call(1,,3)    // invalid: omitted middle defaults require `_`
 A rest parameter receives a runtime-sized sequence of positional arguments.
 
 ```galfus
-fn summarize(...values: [int32]): int32 {
+fn summarize(...values: [i32]): i32 {
   var total = 0
 
   for value in values {
@@ -158,7 +158,7 @@ Arguments evaluate left to right after the target is resolved/evaluated.
 ## 10.7 Anchor Functions
 
 ```galfus
-fn User::rename(self, name: [uint8]): User {
+fn User::rename(self, name: [u8]): User {
   self.name = name
   return self
 }
@@ -183,7 +183,7 @@ user = user::rename("Ana")
 Stamped functions use keyword metadata.
 
 ```galfus
-fn(stamp) max(a: int32, b: int32): int32 {
+fn(stamp) max(a: i32, b: i32): i32 {
   if a > b {
     return a
   }
@@ -208,7 +208,7 @@ Invalid:
 
 ```galfus
 @trace("max")
-fn(stamp) max(a: int32, b: int32): int32 {
+fn(stamp) max(a: i32, b: i32): i32 {
   return a
 }
 ```
@@ -220,7 +220,7 @@ fn identity<T>(value: T): T {
   return value
 }
 
-identity<int64>(10)
+identity<i64>(10)
 ```
 
 Explicit generic argument lists must be complete or omitted initially.
@@ -230,13 +230,13 @@ Explicit generic argument lists must be complete or omitted initially.
 Expression body:
 
 ```galfus
-var double = (value: int32): int32 => value * 2
+var double = (value: i32): i32 => value * 2
 ```
 
 Block body:
 
 ```galfus
-var double = (value: int32): int32 => {
+var double = (value: i32): i32 => {
   return value * 2
 }
 ```
@@ -248,14 +248,14 @@ Captured complex values participate in ownership.
 ## 10.11 Function Types
 
 ```galfus
-fn(int32, int32): int32
-fn([uint8]): null
+fn(i32, i32): i32
+fn([u8]): null
 ```
 
 Named functions may be used as values.
 
 ```galfus
-var operation: fn(int32, int32): int32 = sum
+var operation: fn(i32, i32): i32 = sum
 ```
 
 Function types are invariant by default.
@@ -267,11 +267,11 @@ Function overloading by parameter type is not supported.
 Invalid:
 
 ```galfus
-fn format(value: int32): [uint8] {
+fn format(value: i32): [u8] {
   return "int"
 }
 
-fn format(value: bool): [uint8] {
+fn format(value: bool): [u8] {
   return "bool"
 }
 ```

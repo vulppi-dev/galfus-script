@@ -45,7 +45,7 @@ fn main(): null {
         diagnostic.code().as_str() == TypeDiagnosticCode::InvalidConditionType.as_code()
             && diagnostic
                 .message()
-                .contains("condition must be `bool`, got `int32`")
+                .contains("condition must be `bool`, got `i32`")
     }));
 }
 
@@ -163,7 +163,7 @@ fn main(): null {
 fn check_accepts_named_for_control_target() {
     let (_source, _graph, result) = check_source(
         r#"
-fn main(values: [int32]): null {
+fn main(values: [i32]): null {
   for(name: values) value in values {
     continue values
   }

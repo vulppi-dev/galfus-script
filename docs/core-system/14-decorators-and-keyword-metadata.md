@@ -18,7 +18,7 @@ Decorator:
 
 ```galfus
 @trace("sum")
-fn sum(a: int32, b: int32): int32 {
+fn sum(a: i32, b: i32): i32 {
   return a + b
 }
 ```
@@ -26,7 +26,7 @@ fn sum(a: int32, b: int32): int32 {
 Keyword metadata:
 
 ```galfus
-fn(stamp) max(a: int32, b: int32): int32 {
+fn(stamp) max(a: i32, b: i32): i32 {
   return a
 }
 ```
@@ -53,7 +53,7 @@ The decorator receives the target and returns a transformed target of the same t
 
 ```galfus
 @trace("sum")
-fn sum(a: int32, b: int32): int32 {
+fn sum(a: i32, b: i32): i32 {
   return a + b
 }
 ```
@@ -122,7 +122,7 @@ A function decorator transforms a function while preserving its function type.
 
 ```galfus
 @trace("sum")
-fn sum(a: int32, b: int32): int32 {
+fn sum(a: i32, b: i32): i32 {
   return a + b
 }
 ```
@@ -130,7 +130,7 @@ fn sum(a: int32, b: int32): int32 {
 The decorator must accept and return:
 
 ```txt
-fn(int32, int32): int32
+fn(i32, i32): i32
 ```
 
 It cannot change the function signature.
@@ -138,7 +138,7 @@ It cannot change the function signature.
 ## 14.7 Parameter Decorators
 
 ```galfus
-fn route(@normalize path: [uint8]): null {
+fn route(@normalize path: [u8]): null {
 }
 ```
 
@@ -151,8 +151,8 @@ Parameter decorators cannot change the fact that parameters are const bindings b
 ```galfus
 @deriveDebug
 struct User {
-  id: int64,
-  name: [uint8],
+  id: i64,
+  name: [u8],
 }
 ```
 
@@ -165,7 +165,7 @@ It may generate associated behavior, but it must not turn the struct into anothe
 ```galfus
 struct User {
   @clamp(0, 120)
-  age: int32,
+  age: i32,
 }
 ```
 
@@ -210,7 +210,7 @@ Invalid:
 
 ```galfus
 @repr("c")
-enum(uint8) Kind {
+enum(u8) Kind {
   A(1),
 }
 ```
@@ -218,7 +218,7 @@ enum(uint8) Kind {
 Enum representation uses keyword metadata.
 
 ```galfus
-enum(uint8) Kind {
+enum(u8) Kind {
   A(1),
 }
 ```
@@ -229,7 +229,7 @@ Invalid:
 
 ```galfus
 @trace("max")
-fn(stamp) max(a: int32, b: int32): int32 {
+fn(stamp) max(a: i32, b: i32): i32 {
   return a
 }
 ```
@@ -273,7 +273,7 @@ new(User, shared) {
   id: 1,
 }
 
-enum(int64) BigKind {
+enum(i64) BigKind {
   A(1),
 }
 ```

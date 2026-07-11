@@ -4,7 +4,7 @@ use super::*;
 fn check_accepts_match_literal_patterns() {
     let (_source, _graph, result) = check_source(
         r#"
-fn code(value: int32): int32 {
+fn code(value: i32): i32 {
   return match value {
     1 => 10,
     2 => 20,
@@ -21,7 +21,7 @@ fn code(value: int32): int32 {
 fn check_reports_match_literal_pattern_type_mismatch() {
     let source = source(
         r#"
-fn code(value: int32): int32 {
+fn code(value: i32): i32 {
   return match value {
     true => 1,
     fallback => fallback,
@@ -50,7 +50,7 @@ fn code(value: int32): int32 {
 fn check_reports_incompatible_match_arm_type() {
     let source = source(
         r#"
-fn code(value: int32): int32 {
+fn code(value: i32): i32 {
   return match value {
     1 => 10,
     fallback => true,
@@ -73,7 +73,7 @@ fn code(value: int32): int32 {
         diagnostic.code().as_str() == TypeDiagnosticCode::IncompatibleMatchArmType.as_code()
             && diagnostic
                 .message()
-                .contains("match arm body must be compatible with `int32`, got `bool`")
+                .contains("match arm body must be compatible with `i32`, got `bool`")
     }));
 }
 
@@ -86,7 +86,7 @@ enum Direction {
   South,
 }
 
-fn code(direction: Direction): int32 {
+fn code(direction: Direction): i32 {
   return match direction {
     Direction::North => 1,
     Direction::South => 2,
@@ -103,11 +103,11 @@ fn check_accepts_choice_payload_pattern() {
     let (_source, _graph, result) = check_source(
         r#"
 choice Result {
-  Ok(int32),
-  Err([uint8]),
+  Ok(i32),
+  Err([u8]),
 }
 
-fn unwrap(result: Result): int32 {
+fn unwrap(result: Result): i32 {
   return match result {
     Result::Ok(value) => value,
     Result::Err(message) => 0,
@@ -125,10 +125,10 @@ fn check_accepts_generic_choice_payload_pattern_from_subject() {
         r#"
 choice Outcome<T> {
   Ok(T),
-  Err([uint8]),
+  Err([u8]),
 }
 
-fn unwrap(value: Outcome<int32>): int32 {
+fn unwrap(value: Outcome<i32>): i32 {
   return match value {
     Outcome::Ok(result) => result,
     Outcome::Err(message) => 0,
@@ -145,10 +145,10 @@ fn check_reports_choice_payload_pattern_count_mismatch() {
     let source = source(
         r#"
 choice Result {
-  Ok(int32),
+  Ok(i32),
 }
 
-fn unwrap(result: Result): int32 {
+fn unwrap(result: Result): i32 {
   return match result {
     Result::Ok() => 0,
   }
@@ -177,10 +177,10 @@ fn check_reports_choice_payload_pattern_type_mismatch() {
     let source = source(
         r#"
 choice Result {
-  Ok(int32),
+  Ok(i32),
 }
 
-fn unwrap(result: Result): int32 {
+fn unwrap(result: Result): i32 {
   return match result {
     Result::Ok(true) => 0,
   }
@@ -209,11 +209,11 @@ fn check_accepts_exhaustive_choice_match() {
     let (_source, _graph, result) = check_source(
         r#"
         choice Result {
-          Ok(int32),
-          Err([uint8]),
+          Ok(i32),
+          Err([u8]),
         }
 
-        fn unwrap(result: Result): int32 {
+        fn unwrap(result: Result): i32 {
           return match result {
             Result::Ok(value) => value,
             Result::Err(message) => 0,
@@ -230,11 +230,11 @@ fn check_accepts_choice_match_with_wildcard_default() {
     let (_source, _graph, result) = check_source(
         r#"
         choice Result {
-          Ok(int32),
-          Err([uint8]),
+          Ok(i32),
+          Err([u8]),
         }
 
-        fn unwrap(result: Result): int32 {
+        fn unwrap(result: Result): i32 {
           return match result {
             Result::Ok(value) => value,
             _ => 0,
@@ -251,11 +251,11 @@ fn check_accepts_choice_match_with_binding_default() {
     let (_source, _graph, result) = check_source(
         r#"
         choice Result {
-          Ok(int32),
-          Err([uint8]),
+          Ok(i32),
+          Err([u8]),
         }
 
-        fn unwrap(result: Result): int32 {
+        fn unwrap(result: Result): i32 {
           return match result {
             Result::Ok(value) => value,
             fallback => 0,
@@ -272,11 +272,11 @@ fn check_reports_non_exhaustive_choice_match() {
     let source = source(
         r#"
         choice Result {
-          Ok(int32),
-          Err([uint8]),
+          Ok(i32),
+          Err([u8]),
         }
 
-        fn unwrap(result: Result): int32 {
+        fn unwrap(result: Result): i32 {
           return match result {
             Result::Ok(value) => value,
           }
@@ -315,10 +315,10 @@ fn check_reports_multiple_missing_choice_match_variants() {
         choice State {
           Loading,
           Ready,
-          Failed([uint8]),
+          Failed([u8]),
         }
 
-        fn code(state: State): int32 {
+        fn code(state: State): i32 {
           return match state {
             State::Loading => 0,
           }
@@ -360,7 +360,7 @@ fn check_reports_non_exhaustive_enum_match() {
           South,
         }
 
-        fn code(direction: Direction): int32 {
+        fn code(direction: Direction): i32 {
           return match direction {
             Direction::North => 1,
           }
@@ -396,7 +396,7 @@ fn check_reports_non_exhaustive_enum_match() {
 fn check_reports_catch_all_match_pattern_before_final_arm() {
     let source = source(
         r#"
-fn code(value: int32): int32 {
+fn code(value: i32): i32 {
   return match value {
     fallback => fallback,
     1 => 10,

@@ -5,7 +5,7 @@ fn resolve_binds_struct_field_named_type() {
     let source = source(
         r#"
         struct Profile {
-            bio: [int8],
+            bio: [i8],
         }
 
         struct User {
@@ -39,7 +39,7 @@ fn resolve_binds_struct_field_named_type() {
 fn resolve_binds_builtin_named_types() {
     let source = source(
         r#"
-        fn main(value: int32): [int8] {
+        fn main(value: i32): [i8] {
             return "ok"
         }
         "#,
@@ -58,8 +58,8 @@ fn resolve_binds_builtin_named_types() {
 
     let root = syntax.root().unwrap();
 
-    let int_type = find_named_type_by_text(syntax, &source, root, "int32").unwrap();
-    let int8_type = find_named_type_by_text(syntax, &source, root, "int8").unwrap();
+    let int_type = find_named_type_by_text(syntax, &source, root, "i32").unwrap();
+    let int8_type = find_named_type_by_text(syntax, &source, root, "i8").unwrap();
 
     let int_symbol = resolution
         .symbol(resolution.type_reference_symbol(int_type).unwrap())
@@ -70,10 +70,10 @@ fn resolve_binds_builtin_named_types() {
         .unwrap();
 
     assert_eq!(int_symbol.kind(), SymbolKind::BuiltinType);
-    assert_eq!(int_symbol.name(), "int32");
+    assert_eq!(int_symbol.name(), "i32");
 
     assert_eq!(int8_symbol.kind(), SymbolKind::BuiltinType);
-    assert_eq!(int8_symbol.name(), "int8");
+    assert_eq!(int8_symbol.name(), "i8");
 }
 
 #[test]
@@ -112,7 +112,7 @@ fn resolve_binds_local_type_path_root() {
     let source = source(
         r#"
         struct User {
-            Id: int32,
+            Id: i32,
         }
 
         type LocalUserId = User::Id
@@ -145,7 +145,7 @@ fn resolve_binds_local_type_path_member() {
     let source = source(
         r#"
         struct User {
-            Id: int32,
+            Id: i32,
         }
 
         type LocalUserId = User::Id
@@ -185,7 +185,7 @@ fn resolve_binds_constraint_field_type_path_member() {
     let source = source(
         r#"
         constraint Entity {
-            Id: int64,
+            Id: i64,
         }
 
         type EntityId = Entity::Id
@@ -225,7 +225,7 @@ fn resolve_reports_unknown_local_type_path_member() {
     let source = source(
         r#"
         struct User {
-            Id: int32,
+            Id: i32,
         }
 
         type LocalUserName = User::Name

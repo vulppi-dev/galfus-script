@@ -34,7 +34,7 @@ fn resolve_creates_function_scope() {
 fn resolve_declares_function_parameters() {
     let source = source(
         r#"
-        fn sum(a: int32, b: int32): int32 {
+        fn sum(a: i32, b: i32): i32 {
             return a + b
         }
         "#,
@@ -73,7 +73,7 @@ fn resolve_declares_function_parameters() {
 fn resolve_declares_rest_parameter() {
     let source = source(
         r#"
-        fn log(...messages: [[int8]]): null {
+        fn log(...messages: [[i8]]): null {
             return
         }
         "#,
@@ -107,7 +107,7 @@ fn resolve_declares_rest_parameter() {
 fn resolve_binds_parameter_declaration_to_symbol() {
     let source = source(
         r#"
-        fn main(value: int32): null {
+        fn main(value: i32): null {
             return
         }
         "#,
@@ -147,7 +147,7 @@ fn resolve_binds_parameter_declaration_to_symbol() {
 fn resolve_reports_duplicate_parameter() {
     let source = source(
         r#"
-        fn main(value: int32, value: int32): null {
+        fn main(value: i32, value: i32): null {
             return
         }
         "#,
@@ -189,7 +189,7 @@ fn resolve_reports_duplicate_parameter() {
 fn resolve_creates_function_scope_for_exported_function() {
     let source = source(
         r#"
-        export fn main(value: int32): null {
+        export fn main(value: i32): null {
             return
         }
         "#,

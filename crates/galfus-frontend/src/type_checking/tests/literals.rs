@@ -4,7 +4,7 @@ use super::*;
 fn check_accepts_int_array_literal() {
     let (_source, _graph, result) = check_source(
         r#"
-var values: [int32] = [1, 2, 3]
+var values: [i32] = [1, 2, 3]
 "#,
     );
 
@@ -15,7 +15,7 @@ var values: [int32] = [1, 2, 3]
 fn check_contextual_integer_array_element_type() {
     let (source, graph, result) = check_source(
         r#"
-var bytes: [uint8] = [27, 91]
+var bytes: [u8] = [27, 91]
 "#,
     );
 
@@ -35,7 +35,7 @@ var bytes: [uint8] = [27, 91]
 fn check_reports_integer_array_element_out_of_range() {
     let source = source(
         r#"
-var bytes: [uint8] = [27, 300]
+var bytes: [u8] = [27, 300]
 "#,
     );
 
@@ -53,7 +53,7 @@ var bytes: [uint8] = [27, 300]
         diagnostic.code().as_str() == TypeDiagnosticCode::TypeMismatch.as_code()
             && diagnostic
                 .message()
-                .contains("integer literal `300` does not fit `uint8`")
+                .contains("integer literal `300` does not fit `u8`")
     }));
 }
 
@@ -61,7 +61,7 @@ var bytes: [uint8] = [27, 300]
 fn check_binds_array_literal_type() {
     let (source, graph, result) = check_source(
         r#"
-var values: [int32] = [1, 2, 3]
+var values: [i32] = [1, 2, 3]
 "#,
     );
 
@@ -87,7 +87,7 @@ var values: [int32] = [1, 2, 3]
 fn check_reports_mixed_array_literal_element_type() {
     let source = source(
         r#"
-var values: [int32] = [1, true]
+var values: [i32] = [1, true]
 "#,
     );
 
@@ -103,9 +103,7 @@ var values: [int32] = [1, true]
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
         diagnostic.code().as_str() == TypeDiagnosticCode::TypeMismatch.as_code()
-            && diagnostic
-                .message()
-                .contains("expected `int32`, got `bool`")
+            && diagnostic.message().contains("expected `i32`, got `bool`")
     }));
 }
 
@@ -124,7 +122,7 @@ var values: [bool] = [true, false]
 fn check_accepts_string_literal_as_uint8_array() {
     let (_source, _graph, result) = check_source(
         r#"
-var name: [uint8] = "Renato"
+var name: [u8] = "Renato"
 "#,
     );
 
@@ -135,7 +133,7 @@ var name: [uint8] = "Renato"
 fn check_binds_string_literal_type_as_uint8_array() {
     let (source, graph, result) = check_source(
         r#"
-var name: [uint8] = "Renato"
+var name: [u8] = "Renato"
 "#,
     );
 
@@ -153,7 +151,7 @@ var name: [uint8] = "Renato"
             );
         }
 
-        other => panic!("expected [uint8], got {other:?}"),
+        other => panic!("expected [u8], got {other:?}"),
     }
 }
 
@@ -161,7 +159,7 @@ var name: [uint8] = "Renato"
 fn check_accepts_tuple_literal() {
     let (_source, _graph, result) = check_source(
         r#"
-var point: (int32, bool) = (1, true)
+var point: (i32, bool) = (1, true)
 "#,
     );
 
@@ -172,7 +170,7 @@ var point: (int32, bool) = (1, true)
 fn check_contextual_integer_tuple_element_type() {
     let (source, graph, result) = check_source(
         r#"
-var pair: (uint8, uint16) = (27, 300)
+var pair: (u8, u16) = (27, 300)
 "#,
     );
 
@@ -199,8 +197,8 @@ var pair: (uint8, uint16) = (27, 300)
 fn check_accepts_array_literal_spread() {
     let (_source, _graph, result) = check_source(
         r#"
-var base: [int32] = [1, 2]
-var values: [int32] = [0, ...base, 3]
+var base: [i32] = [1, 2]
+var values: [i32] = [0, ...base, 3]
 "#,
     );
 
@@ -211,7 +209,7 @@ var values: [int32] = [0, ...base, 3]
 fn check_accepts_string_literal_spread() {
     let (_source, _graph, result) = check_source(
         r#"
-var values: [uint8] = [..."Hello", ..."Galfus!", ..."\n"]
+var values: [u8] = [..."Hello", ..."Galfus!", ..."\n"]
 "#,
     );
 
@@ -222,8 +220,8 @@ var values: [uint8] = [..."Hello", ..."Galfus!", ..."\n"]
 fn check_reports_invalid_array_literal_spread_target() {
     let source = source(
         r#"
-var base: int32 = 1
-var values: [int32] = [0, ...base, 3]
+var base: i32 = 1
+var values: [i32] = [0, ...base, 3]
 "#,
     );
 
@@ -275,7 +273,7 @@ var values = []
 fn check_accepts_empty_string_literal_as_dynamic_uint8_array() {
     let (_source, _graph, result) = check_source(
         r#"
-var value: [uint8] = ""
+var value: [u8] = ""
 "#,
     );
 
@@ -286,8 +284,8 @@ var value: [uint8] = ""
 fn check_accepts_dynamic_array_literal_spread() {
     let (_source, _graph, result) = check_source(
         r#"
-var base: [int32] = [1, 2]
-var values: [int32] = [0, ...base, 3]
+var base: [i32] = [1, 2]
+var values: [i32] = [0, ...base, 3]
 "#,
     );
 
@@ -299,7 +297,7 @@ fn check_accepts_builtin_int_and_float_union_arrays() {
     let (_source, _graph, result) = check_source(
         r#"
 var ints: [int] = [1, 2, 3]
-var uints: [uint] = [<uint32>1, <uint32>2, <uint32>3]
+var uints: [uint] = [<u32>1, <u32>2, <u32>3]
 var floats: [float] = [1.0, 2.0, 3.0]
 "#,
     );
@@ -311,7 +309,7 @@ var floats: [float] = [1.0, 2.0, 3.0]
 fn check_accepts_union_array_literal_with_expected_type() {
     let (_source, _graph, result) = check_source(
         r#"
-var values: [int32] = [1, 2, 3]
+var values: [i32] = [1, 2, 3]
 "#,
     );
 

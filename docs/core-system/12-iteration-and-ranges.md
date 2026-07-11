@@ -166,9 +166,9 @@ Range operands must be literals. Dynamic expressions are not range operands.
 
 `start..end` accepts integer literals only and produces `RangeExclusive`.
 
-`start::count` accepts an integer or float literal start, an integer literal count, and produces `RangeStepped<int64>` or `RangeStepped<float64>`.
+`start::count` accepts an integer or float literal start, an integer literal count, and produces `RangeStepped<i64>` or `RangeStepped<f64>`.
 
-`start::count%step` accepts an integer or float literal start, an integer literal count, and an integer or float literal step. If either `start` or `step` is a float literal, integer literals are promoted and the result is `RangeStepped<float64>`. Otherwise the result is `RangeStepped<int64>`.
+`start::count%step` accepts an integer or float literal start, an integer literal count, and an integer or float literal step. If either `start` or `step` is a float literal, integer literals are promoted and the result is `RangeStepped<f64>`. Otherwise the result is `RangeStepped<i64>`.
 
 Invalid:
 
@@ -220,7 +220,7 @@ Produces:
 2
 ```
 
-Exclusive range items use `int64` by default.
+Exclusive range items use `i64` by default.
 
 ## 12.10 Quantity Range `start::count`
 
@@ -248,7 +248,7 @@ Invalid:
 1::-1
 ```
 
-If start is an integer literal, items use `int64` by default. If start is a float literal, items use `float64` by default.
+If start is an integer literal, items use `i64` by default. If start is a float literal, items use `f64` by default.
 
 ## 12.11 Quantity Range with Step
 
@@ -290,9 +290,9 @@ Produces:
 Step chooses the stepped range numeric family:
 
 ```galfus
-1::4%2       // valid: RangeStepped<int64>
-1.0::4%0.5  // valid: RangeStepped<float64>
-1::4%0.5    // valid: RangeStepped<float64>
+1::4%2       // valid: RangeStepped<i64>
+1.0::4%0.5  // valid: RangeStepped<f64>
+1::4%0.5    // valid: RangeStepped<f64>
 ```
 
 ## 12.12 Range Allocation

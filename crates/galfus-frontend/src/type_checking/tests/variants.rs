@@ -52,7 +52,7 @@ var direction: Direction = Direction::North
 fn check_accepts_integer_enum_base_type() {
     let (_source, _graph, result) = check_source(
         r#"
-enum(uint8) Mode {
+enum(u8) Mode {
   Off(0),
   On(1),
 }
@@ -97,7 +97,7 @@ enum(bool) Mode {
 fn check_reports_enum_discriminant_type_mismatch() {
     let source = source(
         r#"
-enum(uint8) Mode {
+enum(u8) Mode {
   Off(true),
   On(1),
 }
@@ -116,9 +116,7 @@ enum(uint8) Mode {
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
         diagnostic.code().as_str() == TypeDiagnosticCode::TypeMismatch.as_code()
-            && diagnostic
-                .message()
-                .contains("expected `uint8`, got `bool`")
+            && diagnostic.message().contains("expected `u8`, got `bool`")
     }));
 }
 
@@ -128,7 +126,7 @@ fn check_accepts_choice_variant_without_payload() {
         r#"
 choice Asset {
   None,
-  Texture([uint8]),
+  Texture([u8]),
 }
 
 var asset: Asset = Asset::None
@@ -144,7 +142,7 @@ fn check_accepts_choice_variant_with_payload() {
         r#"
 choice Asset {
   None,
-  Texture([uint8]),
+  Texture([u8]),
 }
 
 var asset: Asset = Asset::Texture("grass.png")
@@ -159,7 +157,7 @@ fn check_accepts_choice_variant_with_multiple_payload_items() {
     let (_source, _graph, result) = check_source(
         r#"
 choice Asset {
-  Image([uint8], int32, int32),
+  Image([u8], i32, i32),
 }
 
 var asset: Asset = Asset::Image("grass.png", 64, 64)
@@ -175,7 +173,7 @@ fn check_accepts_generic_choice_variant_inferred_from_payload() {
         r#"
 choice Outcome<T> {
   Ok(T),
-  Err([uint8]),
+  Err([u8]),
 }
 
 var value = Outcome::Ok(42)
@@ -211,10 +209,10 @@ fn check_accepts_generic_choice_variant_inferred_from_expected() {
         r#"
 choice Outcome<T> {
   Ok(T),
-  Err([uint8]),
+  Err([u8]),
 }
 
-fn make(): Outcome<int32> {
+fn make(): Outcome<i32> {
   return Outcome::Ok(42)
 }
 "#,
@@ -228,7 +226,7 @@ fn check_reports_choice_payload_required() {
     let source = source(
         r#"
 choice Asset {
-  Texture([uint8]),
+  Texture([u8]),
 }
 
 var asset: Asset = Asset::Texture
@@ -284,7 +282,7 @@ fn check_reports_choice_payload_argument_count_mismatch() {
     let source = source(
         r#"
 choice Asset {
-  Image([uint8], int32, int32),
+  Image([u8], i32, i32),
 }
 
 var asset: Asset = Asset::Image("grass.png", 64)
@@ -312,7 +310,7 @@ fn check_reports_choice_payload_type_mismatch() {
     let source = source(
         r#"
 choice Asset {
-  Image([uint8], int32, int32),
+  Image([u8], i32, i32),
 }
 
 var asset: Asset = Asset::Image("grass.png", true, 64)
@@ -331,8 +329,6 @@ var asset: Asset = Asset::Image("grass.png", true, 64)
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
         diagnostic.code().as_str() == TypeDiagnosticCode::TypeMismatch.as_code()
-            && diagnostic
-                .message()
-                .contains("expected `int32`, got `bool`")
+            && diagnostic.message().contains("expected `i32`, got `bool`")
     }));
 }

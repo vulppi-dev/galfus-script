@@ -93,7 +93,7 @@ integer
 float
 bool
 null
-string as [uint8]
+string as [u8]
 ```
 
 ## 13.6 Enum Patterns
@@ -192,8 +192,8 @@ Example:
 
 ```galfus
 var size = instanceof value {
-  int32 number => number,
-  [uint8] text => text.length,
+  i32 number => number,
+  [u8] text => text.length,
   null => 0,
 }
 ```
@@ -202,8 +202,8 @@ Fallback binding:
 
 ```galfus
 var value = instanceof entry {
-  int32 x => 1,
-  int16 x => {
+  i32 x => 1,
+  i16 x => {
     return 2
   },
   x => 0,
@@ -216,7 +216,7 @@ Wildcard fallback:
 
 ```galfus
 var value = instanceof entry {
-  int32 x => 1,
+  i32 x => 1,
   _ => 0,
 }
 ```
@@ -257,10 +257,10 @@ var label = instanceof item {
 Valid only when possible runtime type set is statically known.
 
 ```galfus
-fn render<T: int32 | [uint8] | bool>(value: T): [uint8] {
+fn render<T: i32 | [u8] | bool>(value: T): [u8] {
   return instanceof value {
-    int32 number => "number",
-    [uint8] text => text,
+    i32 number => "number",
+    [u8] text => text,
     _ => "other",
   }
 }
@@ -269,9 +269,9 @@ fn render<T: int32 | [uint8] | bool>(value: T): [uint8] {
 Invalid over unconstrained `T`.
 
 ```galfus
-fn render<T>(value: T): [uint8] {
+fn render<T>(value: T): [u8] {
   return instanceof value {
-    int32 number => "number",
+    i32 number => "number",
     _ => "other",
   }
 }
@@ -283,8 +283,8 @@ fn render<T>(value: T): [uint8] {
 
 ```galfus
 var result = typeof T {
-  int8 => parseInt8(bytes),
-  uint8 => parseUint8(bytes),
+  i8 => parseInt8(bytes),
+  u8 => parseUint8(bytes),
   bool => parseBool(bytes),
   _ => null,
 }
@@ -297,10 +297,10 @@ var result = typeof T {
 For bounded generic input, the expression must cover all members of the bound or include a final `_`.
 
 ```galfus
-fn parse<T: int8 | uint8 | bool>(bytes: [uint8]): T | null {
+fn parse<T: i8 | u8 | bool>(bytes: [u8]): T | null {
   return typeof T {
-    int8 => parseInt8(bytes),
-    uint8 => parseUint8(bytes),
+    i8 => parseInt8(bytes),
+    u8 => parseUint8(bytes),
     bool => parseBool(bytes),
   }
 }
@@ -309,7 +309,7 @@ fn parse<T: int8 | uint8 | bool>(bytes: [uint8]): T | null {
 For unconstrained generic input, `_` is required.
 
 ```galfus
-fn parse<T>(bytes: [uint8]): T | null {
+fn parse<T>(bytes: [u8]): T | null {
   return typeof T {
     _ => null,
   }

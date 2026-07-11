@@ -19,7 +19,7 @@ pub enum RuntimeError {
         expected: usize,
         found: usize,
     },
-    #[error("entry function `{name}` must return int32")]
+    #[error("entry function `{name}` must return i32")]
     EntryReturnTypeMismatch { name: String },
     #[error("entry arguments require image type `{0}`")]
     MissingArgumentType(&'static str),
@@ -236,17 +236,17 @@ impl Runtime {
 
 fn build_entry_args(vm: &mut VirtualMachine, args: &[Vec<u8>]) -> Result<VmValue, RuntimeError> {
     let uint8_ty = find_type(&vm.image, |ty| matches!(ty, galfus_image::ImageType::Uint8))
-        .ok_or(RuntimeError::MissingArgumentType("uint8"))?;
+        .ok_or(RuntimeError::MissingArgumentType("u8"))?;
     let byte_array_ty = find_type(
         &vm.image,
         |ty| matches!(ty, galfus_image::ImageType::Array(element) if *element == uint8_ty),
     )
-    .ok_or(RuntimeError::MissingArgumentType("[uint8]"))?;
+    .ok_or(RuntimeError::MissingArgumentType("[u8]"))?;
     let args_array_ty = find_type(
         &vm.image,
         |ty| matches!(ty, galfus_image::ImageType::Array(element) if *element == byte_array_ty),
     )
-    .ok_or(RuntimeError::MissingArgumentType("[[uint8]]"))?;
+    .ok_or(RuntimeError::MissingArgumentType("[[u8]]"))?;
 
     let mut arg_values = Vec::with_capacity(args.len());
     for arg in args {

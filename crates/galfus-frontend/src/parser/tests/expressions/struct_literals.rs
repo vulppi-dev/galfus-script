@@ -416,7 +416,7 @@ fn parse_struct_expansion_field() {
     let source = source(
         "struct Person {
             ...User,
-            age: int32,
+            age: i32,
         }",
     );
 

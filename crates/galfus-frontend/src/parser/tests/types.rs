@@ -2,7 +2,7 @@ use super::*;
 
 #[test]
 fn parse_array_type_in_parameter() {
-    let source = source("fn first(values: [int32]): int32 { return }");
+    let source = source("fn first(values: [i32]): i32 { return }");
 
     let result = parse(&source);
 
@@ -24,18 +24,18 @@ fn parse_array_type_in_parameter() {
     let parameter_type_node = syntax.node(parameter_type).unwrap();
 
     assert_eq!(parameter_type_node.kind(), SyntaxNodeKind::ArrayType);
-    assert_eq!(source.slice(parameter_type_node.span()), Some("[int32]"));
+    assert_eq!(source.slice(parameter_type_node.span()), Some("[i32]"));
 
     let element_type = parameter_type_node.first_child().unwrap();
     let element_type_node = syntax.node(element_type).unwrap();
 
     assert_eq!(element_type_node.kind(), SyntaxNodeKind::NamedType);
-    assert_eq!(source.slice(element_type_node.span()), Some("int32"));
+    assert_eq!(source.slice(element_type_node.span()), Some("i32"));
 }
 
 #[test]
 fn parse_nested_array_type() {
-    let source = source("fn matrix(values: [[int32]]): null { return }");
+    let source = source("fn matrix(values: [[i32]]): null { return }");
 
     let result = parse(&source);
 
@@ -55,13 +55,13 @@ fn parse_nested_array_type() {
     let outer_array_node = syntax.node(outer_array).unwrap();
 
     assert_eq!(outer_array_node.kind(), SyntaxNodeKind::ArrayType);
-    assert_eq!(source.slice(outer_array_node.span()), Some("[[int32]]"));
+    assert_eq!(source.slice(outer_array_node.span()), Some("[[i32]]"));
 
     let inner_array = outer_array_node.first_child().unwrap();
     let inner_array_node = syntax.node(inner_array).unwrap();
 
     assert_eq!(inner_array_node.kind(), SyntaxNodeKind::ArrayType);
-    assert_eq!(source.slice(inner_array_node.span()), Some("[int32]"));
+    assert_eq!(source.slice(inner_array_node.span()), Some("[i32]"));
 }
 
 #[test]
@@ -190,7 +190,7 @@ fn parse_qualified_type_as_path() {
 
 #[test]
 fn parse_qualified_generic_type_uses_path_base() {
-    let source = source("fn main(value: collections::List<int32>): null { return }");
+    let source = source("fn main(value: collections::List<i32>): null { return }");
 
     let result = parse(&source);
 
@@ -212,7 +212,7 @@ fn parse_qualified_generic_type_uses_path_base() {
     assert_eq!(parameter_type_node.kind(), SyntaxNodeKind::GenericType);
     assert_eq!(
         source.slice(parameter_type_node.span()),
-        Some("collections::List<int32>")
+        Some("collections::List<i32>")
     );
 
     let base = parameter_type_node.first_child().unwrap();
@@ -391,7 +391,7 @@ fn parse_chained_path_expression() {
 
 #[test]
 fn parse_grouped_type_still_works() {
-    let source = source("fn main(value: (int32)): null { return }");
+    let source = source("fn main(value: (i32)): null { return }");
 
     let result = parse(&source);
 
@@ -413,7 +413,7 @@ fn parse_grouped_type_still_works() {
 
 #[test]
 fn parse_tuple_type() {
-    let source = source("fn main(value: (int32, [int8])): null { return }");
+    let source = source("fn main(value: (i32, [i8])): null { return }");
 
     let result = parse(&source);
 
@@ -443,7 +443,7 @@ fn parse_tuple_type() {
 
 #[test]
 fn parse_tuple_type_with_trailing_comma() {
-    let source = source("fn main(value: (int32, [int8],)): null { return }");
+    let source = source("fn main(value: (i32, [i8],)): null { return }");
 
     let result = parse(&source);
 

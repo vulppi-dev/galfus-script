@@ -14,7 +14,7 @@ Core data forms:
 
 ```txt
 array
-byte string as [uint8]
+byte string as [u8]
 tuple
 struct
 enum
@@ -28,7 +28,7 @@ Rich behavior belongs to explicit functions, constraints, or modules.
 Array type:
 
 ```galfus
-[int32]
+[i32]
 [User]
 ```
 
@@ -45,7 +45,7 @@ All elements must be compatible with the element type.
 Array construction uses a type and a size expression.
 
 ```galfus
-var values = new([int32], 10)
+var values = new([i32], 10)
 ```
 
 Default element initialization:
@@ -101,13 +101,13 @@ values.map(callback)
 A string literal is a UTF-8 byte array.
 
 ```galfus
-var name: [uint8] = "Ana"
+var name: [u8] = "Ana"
 ```
 
-`[uint8]` may also contain arbitrary bytes.
+`[u8]` may also contain arbitrary bytes.
 
 ```galfus
-var bytes: [uint8] = [65, 66, 67]
+var bytes: [u8] = [65, 66, 67]
 ```
 
 There is no core `String` object.
@@ -136,8 +136,8 @@ A struct is nominal and field-based.
 
 ```galfus
 struct User {
-  id: int64,
-  name: [uint8],
+  id: i64,
+  name: [u8],
 }
 ```
 
@@ -156,9 +156,9 @@ Structs are nominal. Two structs with the same fields are still distinct types.
 
 ```galfus
 struct User {
-  id: int64,
-  name: [uint8],
-  age: int32 = 0,
+  id: i64,
+  name: [u8],
+  age: i32 = 0,
 }
 ```
 
@@ -170,8 +170,8 @@ Fields without defaults must be provided.
 
 ```galfus
 struct User {
-  const id: int64,
-  name: [uint8],
+  const id: i64,
+  name: [u8],
 }
 ```
 
@@ -242,7 +242,7 @@ Struct expansion copies field declarations into a new struct declaration.
 ```galfus
 struct Employee {
   ...User,
-  role: [uint8],
+  role: [u8],
 }
 ```
 
@@ -266,15 +266,15 @@ enum Direction {
 Explicit base type uses keyword metadata:
 
 ```galfus
-enum(uint8) SmallKind {
+enum(u8) SmallKind {
   A(1),
   B(2),
 }
 ```
 
-Default base type is `int32`.
+Default base type is `i32`.
 
-`enum<int64>` is not used.
+`enum<i64>` is not used.
 
 Enum-to-integer conversion requires explicit cast.
 
@@ -300,8 +300,8 @@ multiple values
 ```galfus
 choice Asset {
   None,
-  Texture([uint8]),
-  Image([uint8], int32, int32),
+  Texture([u8]),
+  Image([u8], i32, i32),
 }
 ```
 
@@ -311,7 +311,7 @@ A field may be weak.
 
 ```galfus
 struct Node {
-  value: int32,
+  value: i32,
   weak parent: Node | null,
 }
 ```
@@ -368,7 +368,7 @@ The checker MUST:
 
 - Treat arrays as single-element-type sequences.
 - Expose only `.length` as built-in array property.
-- Type strings as `[uint8]`.
+- Type strings as `[u8]`.
 - Keep structs nominal.
 - Reject invalid missing struct fields.
 - Reject reassignment to `const` fields.

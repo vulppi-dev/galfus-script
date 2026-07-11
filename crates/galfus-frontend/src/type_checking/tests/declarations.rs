@@ -4,7 +4,7 @@ use super::*;
 fn check_binds_function_symbol_type() {
     let (_source, graph, result) = check_source(
         r#"
-fn main(value: int32): null {
+fn main(value: i32): null {
   return
 }
 "#,
@@ -36,7 +36,7 @@ fn main(value: int32): null {
 fn check_binds_parameter_symbol_type() {
     let (_source, graph, result) = check_source(
         r#"
-fn main(value: int32): null {
+fn main(value: i32): null {
   return
 }
 "#,
@@ -55,7 +55,7 @@ fn main(value: int32): null {
 fn check_binds_rest_parameter_symbol_type() {
     let (_source, graph, result) = check_source(
         r#"
-fn main(...values: [int32]): null {
+fn main(...values: [i32]): null {
   return
 }
 "#,
@@ -75,7 +75,7 @@ fn check_binds_struct_field_symbol_type() {
     let (_source, graph, result) = check_source(
         r#"
 struct User {
-  id: int64,
+  id: i64,
 }
 "#,
     );
@@ -93,7 +93,7 @@ struct User {
 fn check_binds_var_annotation_symbol_type() {
     let (_source, graph, result) = check_source(
         r#"
-var age: int32 = 10
+var age: i32 = 10
 "#,
     );
 
@@ -127,7 +127,7 @@ const enabled: bool = true
 fn check_binds_type_alias_symbol_type() {
     let (_source, graph, result) = check_source(
         r#"
-type MaybeInt = int32 | null
+type MaybeInt = i32 | null
 "#,
     );
 
@@ -145,7 +145,7 @@ fn check_binds_named_type_definition_symbol_type() {
     let (_source, graph, result) = check_source(
         r#"
 struct User {
-  id: int64,
+  id: i64,
 }
 "#,
     );
@@ -183,7 +183,7 @@ fn check_binds_struct_destructuring_field_types() {
     let (_source, graph, result) = check_source(
         r#"
 struct Point {
-  x: int32,
+  x: i32,
   y: bool,
 }
 

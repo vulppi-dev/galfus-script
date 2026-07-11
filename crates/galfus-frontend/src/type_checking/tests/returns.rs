@@ -17,7 +17,7 @@ fn main(): null {
 fn check_accepts_matching_return_type() {
     let (_source, _graph, result) = check_source(
         r#"
-fn main(): int32 {
+fn main(): i32 {
   return 10
 }
 "#,
@@ -30,7 +30,7 @@ fn main(): int32 {
 fn check_reports_return_type_mismatch() {
     let source = source(
         r#"
-fn main(): int32 {
+fn main(): i32 {
   return true
 }
 "#,
@@ -48,9 +48,7 @@ fn main(): int32 {
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
         diagnostic.code().as_str() == TypeDiagnosticCode::TypeMismatch.as_code()
-            && diagnostic
-                .message()
-                .contains("expected `int32`, got `bool`")
+            && diagnostic.message().contains("expected `i32`, got `bool`")
     }));
 }
 
@@ -58,7 +56,7 @@ fn main(): int32 {
 fn check_reports_empty_return_for_non_null_function() {
     let source = source(
         r#"
-fn main(): int32 {
+fn main(): i32 {
   return
 }
 "#,
@@ -76,9 +74,7 @@ fn main(): int32 {
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
         diagnostic.code().as_str() == TypeDiagnosticCode::TypeMismatch.as_code()
-            && diagnostic
-                .message()
-                .contains("expected `int32`, got `null`")
+            && diagnostic.message().contains("expected `i32`, got `null`")
     }));
 }
 
@@ -86,7 +82,7 @@ fn main(): int32 {
 fn check_accepts_nullable_return_type() {
     let (_source, _graph, result) = check_source(
         r#"
-fn main(): int32 | null {
+fn main(): i32 | null {
   return null
 }
 "#,
@@ -99,7 +95,7 @@ fn main(): int32 | null {
 fn check_accepts_name_return_with_matching_type() {
     let (_source, _graph, result) = check_source(
         r#"
-fn main(value: int32): int32 {
+fn main(value: i32): i32 {
   return value
 }
 "#,
@@ -113,7 +109,7 @@ fn check_accepts_inferred_struct_literal_return_with_expected_type() {
     let (_source, _graph, result) = check_source(
         r#"
 struct User {
-  id: int32,
+  id: i32,
 }
 
 fn main(): User {
@@ -131,11 +127,11 @@ fn main(): User {
 fn check_accepts_inferred_generic_struct_literal_return_with_expected_type() {
     let (_source, _graph, result) = check_source(
         r#"
-struct Box<T: int64 | float64> {
+struct Box<T: i64 | f64> {
   value: T,
 }
 
-fn main<T: int64 | float64>(): Box<T> {
+fn main<T: i64 | f64>(): Box<T> {
   return new {
     value: 0,
   }
@@ -150,7 +146,7 @@ fn main<T: int64 | float64>(): Box<T> {
 fn check_reports_missing_return_for_non_null_function() {
     let source = source(
         r#"
-fn one(): int32 {
+fn one(): i32 {
   var value = 1
 }
 "#,
@@ -170,7 +166,7 @@ fn one(): int32 {
         diagnostic.code().as_str() == TypeDiagnosticCode::MissingReturn.as_code()
             && diagnostic
                 .message()
-                .contains("function must return `int32` on every path")
+                .contains("function must return `i32` on every path")
     }));
 }
 
@@ -178,7 +174,7 @@ fn one(): int32 {
 fn check_accepts_if_else_when_both_paths_return() {
     let (_source, _graph, result) = check_source(
         r#"
-fn one(flag: bool): int32 {
+fn one(flag: bool): i32 {
   if flag {
     return 1
   } else {
@@ -195,7 +191,7 @@ fn one(flag: bool): int32 {
 fn check_reports_missing_return_when_if_has_no_else_return_path() {
     let source = source(
         r#"
-fn one(flag: bool): int32 {
+fn one(flag: bool): i32 {
   if flag {
     return 1
   }

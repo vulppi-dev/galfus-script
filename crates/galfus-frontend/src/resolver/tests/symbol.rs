@@ -6,7 +6,7 @@ fn resolve_declares_top_level_named_items() {
         "
         fn main(): null { return }
 
-        type UserId = int64
+        type UserId = i64
 
         struct User {
             id: UserId,
@@ -23,7 +23,7 @@ fn resolve_declares_top_level_named_items() {
         }
 
         constraint Stringable<T> {
-            fn toString(self): [int8]
+            fn toString(self): [i8]
         }
         ",
     );
@@ -188,10 +188,10 @@ fn resolve_declares_anchored_function_by_qualified_name() {
     let source = source(
         "
         struct User {
-            name: [int8],
+            name: [i8],
         }
 
-        fn User::rename(self, name: [int8]): User {
+        fn User::rename(self, name: [i8]): User {
             return self
         }
         ",
@@ -222,18 +222,18 @@ fn resolve_allows_same_anchored_function_name_on_different_structs() {
     let source = source(
         "
         struct User {
-            name: [int8],
+            name: [i8],
         }
 
         struct Post {
-            title: [int8],
+            title: [i8],
         }
 
-        fn User::rename(self, name: [int8]): User {
+        fn User::rename(self, name: [i8]): User {
             return self
         }
 
-        fn Post::rename(self, title: [int8]): Post {
+        fn Post::rename(self, title: [i8]): Post {
             return self
         }
         ",

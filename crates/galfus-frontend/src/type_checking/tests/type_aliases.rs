@@ -4,7 +4,7 @@ use super::*;
 fn check_accepts_primitive_type_alias_assignment() {
     let (_source, _graph, result) = check_source(
         r#"
-type UserId = int32
+type UserId = i32
 
 var id: UserId = 1
 "#,
@@ -17,7 +17,7 @@ var id: UserId = 1
 fn check_reports_primitive_type_alias_assignment_mismatch() {
     let source = source(
         r#"
-type UserId = int32
+type UserId = i32
 
 var id: UserId = true
 "#,
@@ -35,9 +35,7 @@ var id: UserId = true
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
         diagnostic.code().as_str() == TypeDiagnosticCode::TypeMismatch.as_code()
-            && diagnostic
-                .message()
-                .contains("expected `int32`, got `bool`")
+            && diagnostic.message().contains("expected `i32`, got `bool`")
     }));
 }
 
@@ -45,7 +43,7 @@ var id: UserId = true
 fn check_accepts_union_type_alias_assignment() {
     let (_source, _graph, result) = check_source(
         r#"
-type MaybeInt = int32 | null
+type MaybeInt = i32 | null
 
 var value: MaybeInt = null
 "#,
@@ -58,7 +56,7 @@ var value: MaybeInt = null
 fn check_accepts_dynamic_array_type_alias_assignment() {
     let (_source, _graph, result) = check_source(
         r#"
-type Bytes = [uint8]
+type Bytes = [u8]
 
 var name: Bytes = ""
 "#,
@@ -71,7 +69,7 @@ var name: Bytes = ""
 fn check_accepts_array_type_alias_assignment() {
     let (_source, _graph, result) = check_source(
         r#"
-type Ints = [int32]
+type Ints = [i32]
 
 var values: Ints = [1, 2, 3]
 "#,
@@ -84,11 +82,11 @@ var values: Ints = [1, 2, 3]
 fn check_accepts_for_over_dynamic_array_type_alias() {
     let (_source, _graph, result) = check_source(
         r#"
-type Ints = [int32]
+type Ints = [i32]
 
 fn main(values: Ints): null {
   for value in values {
-    var copied: int32 = value
+    var copied: i32 = value
   }
 
   return
@@ -103,7 +101,7 @@ fn main(values: Ints): null {
 fn check_accepts_struct_field_type_alias() {
     let (_source, _graph, result) = check_source(
         r#"
-type Bytes = [uint8]
+type Bytes = [u8]
 
 struct User {
   name: Bytes,
@@ -122,11 +120,11 @@ var user: User = new(User) {
 fn check_accepts_instanceof_with_union_type_alias() {
     let (_source, _graph, result) = check_source(
         r#"
-type MaybeInt = int32 | null
+type MaybeInt = i32 | null
 
-fn normalize(value: MaybeInt): int32 {
+fn normalize(value: MaybeInt): i32 {
   return instanceof value {
-    int32 number => number,
+    i32 number => number,
     _ => 0,
   }
 }

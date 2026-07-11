@@ -4,7 +4,7 @@ use super::*;
 
 #[test]
 fn parse_struct_item() {
-    let source = source("struct User { name: [int8], age: int32 }");
+    let source = source("struct User { name: [i8], age: i32 }");
 
     let result = parse(&source);
 
@@ -40,7 +40,7 @@ fn parse_struct_item() {
     let first_field_node = syntax.node(first_field).unwrap();
 
     assert_eq!(first_field_node.kind(), SyntaxNodeKind::StructField);
-    assert_eq!(source.slice(first_field_node.span()), Some("name: [int8]"));
+    assert_eq!(source.slice(first_field_node.span()), Some("name: [i8]"));
 
     let first_field_name = first_field_node.first_child().unwrap();
     let first_field_type = first_field_node.child(1).unwrap();
@@ -57,13 +57,13 @@ fn parse_struct_item() {
 
     assert_eq!(
         source.slice(syntax.node(first_field_type).unwrap().span()),
-        Some("[int8]")
+        Some("[i8]")
     );
 }
 
 #[test]
 fn parse_struct_fields_with_commas() {
-    let source = source("struct User { name: [int8], age: int32, }");
+    let source = source("struct User { name: [i8], age: i32, }");
 
     let result = parse(&source);
 
@@ -85,13 +85,13 @@ fn parse_struct_fields_with_commas() {
 
     assert_eq!(
         source.slice(syntax.node(second_field).unwrap().span()),
-        Some("age: int32")
+        Some("age: i32")
     );
 }
 
 #[test]
 fn parse_struct_followed_by_function() {
-    let source = source("struct User { name: [int8] }\nfn main(): null { return }");
+    let source = source("struct User { name: [i8] }\nfn main(): null { return }");
 
     let result = parse(&source);
 
@@ -120,7 +120,7 @@ fn parse_struct_followed_by_function() {
 
 #[test]
 fn parse_export_struct_item() {
-    let source = source("export struct User { name: [int8] }");
+    let source = source("export struct User { name: [i8] }");
 
     let result = parse(&source);
 
@@ -139,7 +139,7 @@ fn parse_export_struct_item() {
     assert_eq!(export_node.kind(), SyntaxNodeKind::ExportItem);
     assert_eq!(
         source.slice(export_node.span()),
-        Some("export struct User { name: [int8] }")
+        Some("export struct User { name: [i8] }")
     );
     assert_eq!(export_node.child_count(), 1);
 
@@ -158,7 +158,7 @@ fn parse_export_struct_item() {
 
 #[test]
 fn parse_struct_requires_commas_between_fields() {
-    let source = source("struct User { name: [int8] age: int32 }");
+    let source = source("struct User { name: [i8] age: i32 }");
 
     let result = parse(&source);
 
@@ -186,7 +186,7 @@ fn parse_enum_requires_commas_between_variants() {
 
 #[test]
 fn parse_choice_item_with_payload_variants() {
-    let source = source("choice Result { Ok(User), SomeError(int32, [int8]), }");
+    let source = source("choice Result { Ok(User), SomeError(i32, [i8]), }");
 
     let result = parse(&source);
 
@@ -248,7 +248,7 @@ fn parse_choice_item_with_payload_variants() {
 
 #[test]
 fn parse_choice_variant_with_multiple_payload_types() {
-    let source = source("choice Result { SomeError(int32, [int8]), }");
+    let source = source("choice Result { SomeError(i32, [i8]), }");
 
     let result = parse(&source);
 
@@ -266,7 +266,7 @@ fn parse_choice_variant_with_multiple_payload_types() {
 
     assert_eq!(
         source.slice(variant_node.span()),
-        Some("SomeError(int32, [int8])")
+        Some("SomeError(i32, [i8])")
     );
 
     let payload = variant_node.child(1).unwrap();
@@ -292,12 +292,12 @@ fn parse_choice_variant_with_multiple_payload_types() {
 
     assert_eq!(
         source.slice(syntax.node(first_type).unwrap().span()),
-        Some("int32")
+        Some("i32")
     );
 
     assert_eq!(
         source.slice(syntax.node(second_type).unwrap().span()),
-        Some("[int8]")
+        Some("[i8]")
     );
 }
 
@@ -368,7 +368,7 @@ fn parse_generic_choice_item() {
 #[test]
 fn parse_enum_with_base_type() {
     let source = source(
-        "enum(int64) TextureType {
+        "enum(i64) TextureType {
             Float32,
             Float64,
         }",
@@ -393,7 +393,7 @@ fn parse_enum_with_base_type() {
     assert!(syntax.node(base_type).unwrap().kind().is_type());
     assert_eq!(
         source.slice(syntax.node(base_type).unwrap().span()),
-        Some("int64")
+        Some("i64")
     );
     assert_eq!(
         syntax.node(name).unwrap().kind(),
@@ -449,7 +449,7 @@ fn parse_enum_variant_with_numeric_discriminant() {
 #[test]
 fn parse_enum_variant_with_binary_discriminant_expression() {
     let source = source(
-        "enum(int64) TextureType {
+        "enum(i64) TextureType {
             Float32(1 << 32),
             Float64,
         }",
@@ -496,8 +496,8 @@ fn parse_choice_payload_item_decorator() {
     let source = source(
         r#"
         choice Asset {
-            Texture(@path [uint8]),
-            Image(@path [uint8], @min(1) int32, @min(1) int32),
+            Texture(@path [u8]),
+            Image(@path [u8], @min(1) i32, @min(1) i32),
         }
         "#,
     );

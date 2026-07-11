@@ -28,7 +28,7 @@ entry = "src/main.gfs"
         r#"
 import a from "./a"
 
-export fn main(args: [[uint8]]): int32 {
+export fn main(args: [[u8]]): i32 {
   return a::value()
 }
 "#,
@@ -39,7 +39,7 @@ export fn main(args: [[uint8]]): int32 {
         r#"
 import b from "./b"
 
-export fn value(): int32 {
+export fn value(): i32 {
   return b::value()
 }
 "#,
@@ -48,7 +48,7 @@ export fn value(): int32 {
     fs::write(
         src.join("b.gfs"),
         r#"
-export fn value(): int32 {
+export fn value(): i32 {
   return 42
 }
 "#,

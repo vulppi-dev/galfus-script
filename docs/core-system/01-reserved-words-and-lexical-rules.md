@@ -84,18 +84,18 @@ Core primitive names:
 ```txt
 bool
 null
-int8
-int16
-int32
-int64
-int128
-uint8
-uint16
-uint32
-uint64
-uint128
-float32
-float64
+i8
+i16
+i32
+i64
+i128
+u8
+u16
+u32
+u64
+u128
+f32
+f64
 ```
 
 These names are reserved as built-in type names.
@@ -117,7 +117,7 @@ any
 unknown
 ```
 
-A string literal has type `[uint8]`, not `String`.
+A string literal has type `[u8]`, not `String`.
 
 `float128` is not core because Galfus avoids depending on unstable or target-fragile floating-point support for the base language.
 
@@ -167,7 +167,7 @@ Anchor functions use `self` without an explicit type annotation.
 Valid:
 
 ```galfus
-fn User::rename(self, name: [uint8]): User {
+fn User::rename(self, name: [u8]): User {
   self.name = name
   return self
 }
@@ -176,7 +176,7 @@ fn User::rename(self, name: [uint8]): User {
 Invalid:
 
 ```galfus
-fn User::rename(self: User, name: [uint8]): User {
+fn User::rename(self: User, name: [u8]): User {
   return self
 }
 ```
@@ -227,7 +227,7 @@ instanceof _ {
 `_` may request a default argument in a function call.
 
 ```galfus
-fn call(a: int32, b: int32 = 2, c: int32 = 3): null {
+fn call(a: i32, b: i32 = 2, c: i32 = 3): null {
 }
 
 call(1, _, 3)
@@ -246,7 +246,7 @@ c = 3
 Invalid:
 
 ```galfus
-fn call(a: int32, b: int32): null {
+fn call(a: i32, b: i32): null {
 }
 
 call(1, _)

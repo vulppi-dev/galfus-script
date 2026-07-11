@@ -27,7 +27,7 @@ integer
 float
 bool
 null
-string as [uint8]
+string as [u8]
 array literal
 ```
 
@@ -97,7 +97,7 @@ new(User, shared) {
 Array construction:
 
 ```galfus
-new([int32], 10)
+new([i32], 10)
 ```
 
 Inferred struct construction requires expected type.
@@ -183,7 +183,7 @@ Out-of-bounds read returns `null`.
 Explicit cast syntax:
 
 ```galfus
-<int8> value
+<i8> value
 <bool> count
 ```
 

@@ -284,7 +284,7 @@ fn resolve_binds_choice_variant_path_expression_member() {
             Err(F),
         }
 
-        fn main(value: int32): null {
+        fn main(value: i32): null {
             var current = Result::Ok
             return
         }
@@ -323,7 +323,7 @@ fn resolve_binds_constraint_function_path_expression_member() {
     let source = source(
         r#"
         constraint Stringable<T> {
-            fn toString(self): [int8]
+            fn toString(self): [i8]
         }
 
         fn main(): null {

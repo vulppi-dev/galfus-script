@@ -5,8 +5,8 @@ fn check_accepts_struct_literal_spread_from_same_struct() {
     let (_source, _graph, result) = check_source(
         r#"
 struct User {
-  id: int32,
-  name: [uint8],
+  id: i32,
+  name: [u8],
 }
 
 var base: User = new(User) {
@@ -29,10 +29,10 @@ fn check_reports_invalid_struct_literal_spread_target() {
     let source = source(
         r#"
 struct User {
-  id: int32,
+  id: i32,
 }
 
-var base: int32 = 1
+var base: i32 = 1
 var user: User = new(User) {
   ...base,
   id: 2,
@@ -63,8 +63,8 @@ fn check_reports_invalid_struct_expansion_target() {
     let source = source(
         r#"
 struct User {
-  ...int32,
-  id: int32,
+  ...i32,
+  id: i32,
 }
 "#,
     );
@@ -92,13 +92,13 @@ fn check_accepts_struct_expansion_fields_in_literal() {
     let (_source, _graph, result) = check_source(
         r#"
 struct User {
-  id: int32,
-  name: [uint8],
+  id: i32,
+  name: [u8],
 }
 
 struct Admin {
   ...User,
-  role: [uint8],
+  role: [u8],
 }
 
 var admin: Admin = new(Admin) {
@@ -117,12 +117,12 @@ fn check_accepts_member_access_to_struct_expansion_field() {
     let (_source, _graph, result) = check_source(
         r#"
 struct User {
-  id: int32,
+  id: i32,
 }
 
 struct Admin {
   ...User,
-  role: [uint8],
+  role: [u8],
 }
 
 var admin: Admin = new(Admin) {
@@ -130,7 +130,7 @@ var admin: Admin = new(Admin) {
   role: "root",
 }
 
-var id: int32 = admin.id
+var id: i32 = admin.id
 "#,
     );
 
@@ -142,7 +142,7 @@ fn check_binds_copy_expression_to_original_value_type() {
     let (source, graph, result) = check_source(
         r#"
 struct User {
-  id: int32,
+  id: i32,
 }
 
 var user: User = new(User) { id: 1 }
@@ -170,7 +170,7 @@ fn check_collects_weak_field_ownership_metadata() {
     let (_source, graph, result) = check_source(
         r#"
 struct Node {
-  value: int32,
+  value: i32,
   weak parent: Node | null,
 }
 "#,

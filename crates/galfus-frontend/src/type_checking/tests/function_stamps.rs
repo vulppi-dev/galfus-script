@@ -4,11 +4,11 @@ use super::*;
 fn check_accepts_function_stamp_without_stamp_recursion() {
     let (_source, _graph, result) = check_source(
         r#"
-fn base(value: int32): int32 {
+fn base(value: i32): i32 {
   return value
 }
 
-fn(stamp) doubled(value: int32): int32 {
+fn(stamp) doubled(value: i32): i32 {
   return base(value) + base(value)
 }
 "#,
@@ -21,7 +21,7 @@ fn(stamp) doubled(value: int32): int32 {
 fn check_accepts_regular_recursive_function() {
     let (_source, _graph, result) = check_source(
         r#"
-fn repeat(value: int32): int32 {
+fn repeat(value: i32): i32 {
   return repeat(value)
 }
 "#,
@@ -34,7 +34,7 @@ fn repeat(value: int32): int32 {
 fn check_reports_direct_recursive_function_stamp() {
     let source = source(
         r#"
-fn(stamp) repeat(value: int32): int32 {
+fn(stamp) repeat(value: i32): i32 {
   return repeat(value)
 }
 "#,
@@ -102,11 +102,11 @@ fn(stamp) repeat<T>(value: T): T {
 fn check_reports_indirect_recursive_function_stamp() {
     let source = source(
         r#"
-fn(stamp) first(value: int32): int32 {
+fn(stamp) first(value: i32): i32 {
   return second(value)
 }
 
-fn(stamp) second(value: int32): int32 {
+fn(stamp) second(value: i32): i32 {
   return first(value)
 }
 "#,

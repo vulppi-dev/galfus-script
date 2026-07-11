@@ -170,7 +170,7 @@ Non-null functions must return on all reachable paths.
 Unreachable code is a warning.
 
 ```galfus
-fn value(): int32 {
+fn value(): i32 {
   return 10
 
   var unused = 20

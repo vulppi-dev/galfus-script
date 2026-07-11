@@ -4,7 +4,7 @@ use super::*;
 fn check_accepts_numeric_binary_expression() {
     let (_source, _graph, result) = check_source(
         r#"
-var value: int32 = 1 + 2
+var value: i32 = 1 + 2
 "#,
     );
 
@@ -15,8 +15,8 @@ var value: int32 = 1 + 2
 fn check_promotes_integer_binary_expression_to_wider_type() {
     let (source, graph, result) = check_source(
         r#"
-var left: int32 = 1
-var right: int64 = 2
+var left: i32 = 1
+var right: i64 = 2
 var value = left + right
 "#,
     );
@@ -42,8 +42,8 @@ var value = left + right
 fn check_reports_mixed_integer_float_binary_expression_type_error() {
     let source = source(
         r#"
-var left: int32 = 1
-var right: float32 = 2.0
+var left: i32 = 1
+var right: f32 = 2.0
 var value = left + right
 "#,
     );
@@ -61,8 +61,8 @@ var value = left + right
     assert!(result.diagnostics().iter().any(|diagnostic| {
         diagnostic.code().as_str() == TypeDiagnosticCode::UnsupportedOperator.as_code()
             && diagnostic.message().contains("compatible numeric operands")
-            && diagnostic.message().contains("int32")
-            && diagnostic.message().contains("float32")
+            && diagnostic.message().contains("i32")
+            && diagnostic.message().contains("f32")
     }));
 }
 
@@ -70,8 +70,8 @@ var value = left + right
 fn check_accepts_mixed_numeric_comparison_expression() {
     let (_source, _graph, result) = check_source(
         r#"
-var left: int32 = 1
-var right: int64 = 2
+var left: i32 = 1
+var right: i64 = 2
 var value: bool = left < right
 "#,
     );
@@ -83,7 +83,7 @@ var value: bool = left < right
 fn check_reports_numeric_binary_expression_type_error() {
     let source = source(
         r#"
-var value: int32 = 1 + true
+var value: i32 = 1 + true
 "#,
     );
 
@@ -188,7 +188,7 @@ var value: bool = true && 1
 fn check_accepts_numeric_unary_expression() {
     let (_source, _graph, result) = check_source(
         r#"
-var value: int32 = -1
+var value: i32 = -1
 "#,
     );
 
@@ -234,7 +234,7 @@ var value: bool = !1
 fn check_accepts_integer_bitwise_expression() {
     let (_source, _graph, result) = check_source(
         r#"
-var value: int32 = 1 & 2
+var value: i32 = 1 & 2
 "#,
     );
 
@@ -245,7 +245,7 @@ var value: int32 = 1 & 2
 fn check_accepts_integer_shift_expression() {
     let (_source, _graph, result) = check_source(
         r#"
-var value: int32 = 1 << 2
+var value: i32 = 1 << 2
 "#,
     );
 

@@ -4,7 +4,7 @@ use super::*;
 fn check_infers_arrow_function_expression_body_type() {
     let (source, graph, result) = check_source(
         r#"
-        var double = (value: int32): int32 => value * 2
+        var double = (value: i32): i32 => value * 2
         "#,
     );
 
@@ -30,7 +30,7 @@ fn check_infers_arrow_function_expression_body_type() {
 
     assert_eq!(
         source.slice(graph.syntax().node(arrow).unwrap().span()),
-        Some("(value: int32): int32 => value * 2")
+        Some("(value: i32): i32 => value * 2")
     );
 }
 
@@ -38,7 +38,7 @@ fn check_infers_arrow_function_expression_body_type() {
 fn check_infers_arrow_function_return_type_without_annotation() {
     let (_source, graph, result) = check_source(
         r#"
-        var double = (value: int32) => value * 2
+        var double = (value: i32) => value * 2
         "#,
     );
 
@@ -60,7 +60,7 @@ fn check_infers_arrow_function_return_type_without_annotation() {
 fn check_accepts_arrow_function_block_body() {
     let (_source, _graph, result) = check_source(
         r#"
-        var printer = (value: int32): null => {
+        var printer = (value: i32): null => {
           return
         }
         "#,
@@ -73,11 +73,11 @@ fn check_accepts_arrow_function_block_body() {
 fn check_accepts_arrow_function_as_call_argument() {
     let (_source, _graph, result) = check_source(
         r#"
-        fn apply(callback: fn(int32): int32): int32 {
+        fn apply(callback: fn(i32): i32): i32 {
           return callback(1)
         }
 
-        var result = apply((value: int32): int32 => value * 2)
+        var result = apply((value: i32): i32 => value * 2)
         "#,
     );
 
@@ -89,7 +89,7 @@ fn check_collects_closure_capture_ownership_metadata() {
     let (_source, graph, result) = check_source(
         r#"
         struct Box {
-          value: int32,
+          value: i32,
         }
 
         var captured: Box = new(Box) { value: 2 }
@@ -122,7 +122,7 @@ fn check_collects_closure_capture_ownership_metadata() {
 fn check_does_not_capture_arrow_local_parameter() {
     let (_source, _graph, result) = check_source(
         r#"
-        var double = (value: int32): int32 => value * 2
+        var double = (value: i32): i32 => value * 2
         "#,
     );
 
@@ -134,7 +134,7 @@ fn check_does_not_leak_arrow_block_return_to_outer_function() {
     let (_source, _graph, result) = check_source(
         r#"
         fn main(): null {
-          var callback = (value: int32): int32 => {
+          var callback = (value: i32): i32 => {
             return value
           }
 
@@ -150,7 +150,7 @@ fn check_does_not_leak_arrow_block_return_to_outer_function() {
 fn check_reports_arrow_function_expression_body_return_mismatch() {
     let source = source(
         r#"
-        var bad = (value: int32): bool => value * 2
+        var bad = (value: i32): bool => value * 2
         "#,
     );
 
@@ -174,9 +174,7 @@ fn check_reports_arrow_function_expression_body_return_mismatch() {
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
         diagnostic.code().as_str() == TypeDiagnosticCode::TypeMismatch.as_code()
-            && diagnostic
-                .message()
-                .contains("expected `bool`, got `int32`")
+            && diagnostic.message().contains("expected `bool`, got `i32`")
     }));
 }
 
@@ -184,7 +182,7 @@ fn check_reports_arrow_function_expression_body_return_mismatch() {
 fn check_reports_arrow_function_assignment_mismatch() {
     let source = source(
         r#"
-        var callback: fn(int32): bool = (value: int32): int32 => value * 2
+        var callback: fn(i32): bool = (value: i32): i32 => value * 2
         "#,
     );
 

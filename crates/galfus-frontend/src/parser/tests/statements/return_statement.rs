@@ -2,7 +2,7 @@ use super::super::*;
 
 #[test]
 fn parse_return_statement_with_integer_expression() {
-    let source = source("fn one(): int32 { return 1 }");
+    let source = source("fn one(): i32 { return 1 }");
 
     let result = parse(&source);
 
@@ -71,7 +71,7 @@ fn parse_return_statement_with_null_expression() {
 
 #[test]
 fn parse_return_statement_with_cast_expression() {
-    let source = source("fn byte(): uint8 { return <uint8> 300 }");
+    let source = source("fn byte(): u8 { return <u8> 300 }");
 
     let result = parse(&source);
 
@@ -90,7 +90,7 @@ fn parse_return_statement_with_cast_expression() {
     let return_node = syntax.node(return_statement).unwrap();
 
     assert_eq!(return_node.kind(), SyntaxNodeKind::ReturnStatement);
-    assert_eq!(source.slice(return_node.span()), Some("return <uint8> 300"));
+    assert_eq!(source.slice(return_node.span()), Some("return <u8> 300"));
     assert_eq!(return_node.child_count(), 1);
 
     let expression = return_node.first_child().unwrap();

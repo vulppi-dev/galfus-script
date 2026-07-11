@@ -41,9 +41,9 @@ fn resolve_creates_builtin_scope() {
     let builtin_scope = resolution.scope(builtin_scope).unwrap();
 
     assert_eq!(builtin_scope.kind(), ScopeKind::Builtin);
-    assert!(builtin_scope.symbol("int8").is_some());
-    assert!(builtin_scope.symbol("int32").is_some());
-    assert!(builtin_scope.symbol("float16").is_some());
+    assert!(builtin_scope.symbol("i8").is_some());
+    assert!(builtin_scope.symbol("i32").is_some());
+    assert!(builtin_scope.symbol("f16").is_some());
     assert!(builtin_scope.symbol("String").is_none());
     assert!(builtin_scope.symbol("char").is_none());
 }

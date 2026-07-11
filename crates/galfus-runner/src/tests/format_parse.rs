@@ -12,8 +12,8 @@ fn format_parse_int32_success() -> anyhow::Result<()> {
         r#"
 import format from "format"
 
-export fn main(args: [[uint8]]): int32 {
-  var parsed = format::parse<int32>("123")
+export fn main(args: [[u8]]): i32 {
+  var parsed = format::parse<i32>("123")
 
   return match parsed {
     format::ParseResult::Ok(value) => value,
@@ -34,10 +34,10 @@ fn format_parse_bool_success() -> anyhow::Result<()> {
         r#"
 import format from "format"
 
-export fn main(args: [[uint8]]): int32 {
+export fn main(args: [[u8]]): i32 {
   var parsed = format::parse<bool>("true")
 
-  var res: int32 = 0
+  var res: i32 = 0
   match parsed {
     format::ParseResult::Ok(value) => {
       if value {
@@ -66,10 +66,10 @@ fn format_parse_invalid_returns_err() -> anyhow::Result<()> {
         r#"
 import format from "format"
 
-export fn main(args: [[uint8]]): int32 {
-  var parsed = format::parse<int32>("abc")
+export fn main(args: [[u8]]): i32 {
+  var parsed = format::parse<i32>("abc")
 
-  var res: int32 = 7
+  var res: i32 = 7
   match parsed {
     format::ParseResult::Ok(value) => {
       res = 0
@@ -94,10 +94,10 @@ fn format_parse_float64_standard_decimal_success() -> anyhow::Result<()> {
         r#"
 import format from "format"
 
-export fn main(args: [[uint8]]): int32 {
-  var parsed = format::parse<float64>("-0.1")
+export fn main(args: [[u8]]): i32 {
+  var parsed = format::parse<f64>("-0.1")
 
-  var res: int32 = 0
+  var res: i32 = 0
   match parsed {
     format::ParseResult::Ok(value) => {
       res = 1
@@ -122,10 +122,10 @@ fn format_parse_float64_rejects_leading_dot() -> anyhow::Result<()> {
         r#"
 import format from "format"
 
-export fn main(args: [[uint8]]): int32 {
-  var parsed = format::parse<float64>(".1")
+export fn main(args: [[u8]]): i32 {
+  var parsed = format::parse<f64>(".1")
 
-  var res: int32 = 1
+  var res: i32 = 1
   match parsed {
     format::ParseResult::Ok(value) => {
       res = 0
@@ -150,10 +150,10 @@ fn format_parse_float64_rejects_exponent() -> anyhow::Result<()> {
         r#"
 import format from "format"
 
-export fn main(args: [[uint8]]): int32 {
-  var parsed = format::parse<float64>("1e2")
+export fn main(args: [[u8]]): i32 {
+  var parsed = format::parse<f64>("1e2")
 
-  var res: int32 = 1
+  var res: i32 = 1
   match parsed {
     format::ParseResult::Ok(value) => {
       res = 0

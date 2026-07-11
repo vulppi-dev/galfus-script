@@ -563,12 +563,12 @@ tuple
 array
 enum
 choice
-string literal as [uint8]
+string literal as [u8]
 ```
 
 These are data/layout forms. They do not carry built-in behavior or methods.
 
-String literals are represented as UTF-8 `[uint8]` values. There is no mandatory core `String` object.
+String literals are represented as UTF-8 `[u8]` values. There is no mandatory core `String` object.
 
 Examples of data-only forms:
 

@@ -86,7 +86,7 @@ Each resolved `.gfs` file is a source module.
 Symbols are private by default.
 
 ```galfus
-fn helper(): int32 {
+fn helper(): i32 {
   return 10
 }
 ```
@@ -94,7 +94,7 @@ fn helper(): int32 {
 A symbol becomes public only with `export`.
 
 ```galfus
-export fn value(): int32 {
+export fn value(): i32 {
   return helper()
 }
 ```
@@ -142,11 +142,11 @@ Only explicitly exported declarations are visible from other modules.
 
 ```galfus
 export struct User {
-  id: int64,
-  name: [uint8],
+  id: i64,
+  name: [u8],
 }
 
-export fn createUser(id: int64, name: [uint8]): User {
+export fn createUser(id: i64, name: [u8]): User {
   return new(User) {
     id,
     name,
@@ -174,11 +174,11 @@ Entry points and exports are defined by workspace/module configuration, not by m
 Duplicate top-level symbols in the same source module are invalid.
 
 ```galfus
-fn value(): int32 {
+fn value(): i32 {
   return 1
 }
 
-fn value(): int32 {
+fn value(): i32 {
   return 2
 }
 ```
@@ -189,7 +189,7 @@ Import binding conflicts are invalid in the same module scope.
 import { User } from "./user"
 
 struct User {
-  id: int64,
+  id: i64,
 }
 ```
 

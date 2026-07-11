@@ -13,7 +13,7 @@ fn source(text: &str) -> SourceFile {
 fn module_surface_records_exported_type_definitions() {
     let source = source(
         r#"
-        export type UserId = int64
+        export type UserId = i64
 
         export struct User {
             id: UserId,
@@ -57,7 +57,7 @@ fn module_surface_imports_exported_type_as_local_binding() {
     let source = source(
         r#"
         export struct User {
-            id: int64,
+            id: i64,
         }
         "#,
     );
@@ -88,7 +88,7 @@ fn module_surface_imports_exported_type_as_namespace_path() {
     let source = source(
         r#"
         export struct User {
-            id: int64,
+            id: i64,
         }
         "#,
     );
@@ -119,7 +119,7 @@ fn module_surface_imports_exported_type_as_namespace_path() {
 fn module_surface_records_exported_function_signature() {
     let source = source(
         r#"
-        export fn add(a: int32, b: int32 = 1): int32 {
+        export fn add(a: i32, b: i32 = 1): i32 {
             return a
         }
 

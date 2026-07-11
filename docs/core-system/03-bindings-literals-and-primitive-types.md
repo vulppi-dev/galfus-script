@@ -36,7 +36,7 @@ A binding with an initializer infers or checks its type.
 
 ```galfus
 var count = 10
-var total: int64 = 10
+var total: i64 = 10
 ```
 
 A binding without initializer is valid only with an explicit type and a valid default.
@@ -44,7 +44,7 @@ A binding without initializer is valid only with an explicit type and a valid de
 Valid:
 
 ```galfus
-var count: int32
+var count: i32
 var enabled: bool
 var user: User | null
 ```
@@ -75,9 +75,9 @@ Core primitive scalar types:
 
 ```txt
 bool
-int8 int16 int32 int64 int128
-uint8 uint16 uint32 uint64 uint128
-float32 float64
+i8 i16 i32 i64 i128
+u8 u16 u32 u64 u128
+f32 f64
 ```
 
 `null` is a literal and type used for nullable values.
@@ -104,21 +104,21 @@ Examples:
 0x0A
 ```
 
-Default integer literal type is `int32` unless an expected type refines it.
+Default integer literal type is `i32` unless an expected type refines it.
 
 ```galfus
-var value: int64 = 10
+var value: i64 = 10
 ```
 
 The literal is checked against the expected type.
 
 ## 3.5 Float Literals
 
-Float literals default to `float32` unless an expected type refines them.
+Float literals default to `f32` unless an expected type refines them.
 
 ```galfus
 var value = 10.5
-var precise: float64 = 10.5
+var precise: f64 = 10.5
 ```
 
 `float128` is not a core primitive type.
@@ -188,7 +188,7 @@ var name = "Ana"
 Type:
 
 ```txt
-[uint8]
+[u8]
 ```
 
 There is no core `String` object.
@@ -201,7 +201,7 @@ Array literals infer an element type or use an expected type.
 
 ```galfus
 var values = [1, 2, 3]
-var wide: [int64] = [1, 2, 3]
+var wide: [i64] = [1, 2, 3]
 ```
 
 Empty array literals require expected type.
@@ -215,7 +215,7 @@ var values = []
 Valid:
 
 ```galfus
-var values: [int32] = []
+var values: [i32] = []
 ```
 
 ## 3.11 Boolean Contexts
@@ -265,7 +265,7 @@ The checker MUST:
 - Require explicit type for uninitialized bindings.
 - Allow default initialization only for supported defaultable types.
 - Reject plain `var value = null` when no expected nullable type exists.
-- Type string literals as `[uint8]`.
+- Type string literals as `[u8]`.
 - Reject `undefined`.
 - Reject same-block shadowing.
 - Treat function parameters and `for` item/index bindings as constant bindings.

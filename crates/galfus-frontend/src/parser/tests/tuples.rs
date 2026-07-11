@@ -143,7 +143,7 @@ fn parse_rejects_single_element_tuple_expression() {
 fn parse_rejects_single_element_tuple_type() {
     let source = source(
         r#"
-        type Value = (int32,)
+        type Value = (i32,)
         "#,
     );
 

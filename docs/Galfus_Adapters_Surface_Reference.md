@@ -130,8 +130,8 @@ external struct PhysicsBody {}
 
 fn createWorld(): PhysicsWorld
 fn createBody(world: PhysicsWorld): PhysicsBody
-fn step(world: PhysicsWorld, delta: float32): null
-fn applyForce(body: PhysicsBody, x: float32, y: float32): null
+fn step(world: PhysicsWorld, delta: f32): null
+fn applyForce(body: PhysicsBody, x: f32, y: f32): null
 fn destroyBody(body: PhysicsBody): null
 ```
 
@@ -372,16 +372,16 @@ Typical primitive mappings:
 
 ```txt
 bool    -> adapter-defined bool representation, usually uint8_t or _Bool
-int8    -> int8_t
-int16   -> int16_t
-int32   -> int32_t
-int64   -> int64_t
-uint8   -> uint8_t
-uint16  -> uint16_t
-uint32  -> uint32_t
-uint64  -> uint64_t
-float32 -> float
-float64 -> double
+i8    -> int8_t
+i16   -> int16_t
+i32   -> int32_t
+i64   -> int64_t
+u8   -> uint8_t
+u16  -> uint16_t
+u32  -> uint32_t
+u64  -> uint64_t
+f32 -> float
+f64 -> double
 null    -> no payload or nullable marker according to ABI policy
 ```
 
@@ -529,7 +529,7 @@ memory_unsafe:
 Normal Galfus code may use safe memory abstractions such as:
 
 ```galfus
-var bytes: [uint8] = "hello"
+var bytes: [u8] = "hello"
 ```
 
 or adapter-defined safe views:
@@ -693,8 +693,8 @@ external struct PhysicsBody {}
 
 fn createWorld(): PhysicsWorld
 fn createBody(world: PhysicsWorld): PhysicsBody
-fn applyForce(body: PhysicsBody, x: float32, y: float32): null
-fn step(world: PhysicsWorld, delta: float32): null
+fn applyForce(body: PhysicsBody, x: f32, y: f32): null
+fn step(world: PhysicsWorld, delta: f32): null
 ```
 
 Conceptual C ABI target:

@@ -2,7 +2,7 @@ use super::*;
 
 #[test]
 fn parse_struct_field_default() {
-    let source = source("struct Person {\n  name: [int8] = \"Anonymous\",\n  age: uint32 = 0,\n}");
+    let source = source("struct Person {\n  name: [i8] = \"Anonymous\",\n  age: u32 = 0,\n}");
 
     let result = parse(&source);
 
@@ -27,7 +27,7 @@ fn parse_struct_field_default() {
     assert_eq!(first_field_node.kind(), SyntaxNodeKind::StructField);
     assert_eq!(
         source.slice(first_field_node.span()),
-        Some("name: [int8] = \"Anonymous\"")
+        Some("name: [i8] = \"Anonymous\"")
     );
 
     assert_eq!(first_field_node.child_count(), 3);
@@ -41,7 +41,7 @@ fn parse_struct_field_default() {
 
 #[test]
 fn parse_struct_field_default_with_union_null() {
-    let source = source("struct Person {\n  email: [int8] | null = null,\n}");
+    let source = source("struct Person {\n  email: [i8] | null = null,\n}");
 
     let result = parse(&source);
 
@@ -72,13 +72,13 @@ fn parse_struct_field_default_with_union_null() {
 
     assert_eq!(
         source.slice(field_node.span()),
-        Some("email: [int8] | null = null")
+        Some("email: [i8] | null = null")
     );
 }
 
 #[test]
 fn parse_const_struct_field() {
-    let source = source("struct User {\n  const id: int64,\n  name: [uint8],\n}");
+    let source = source("struct User {\n  const id: i64,\n  name: [u8],\n}");
 
     let result = parse(&source);
 
@@ -93,7 +93,7 @@ fn parse_const_struct_field() {
     let field_node = syntax.node(field).unwrap();
 
     assert_eq!(field_node.kind(), SyntaxNodeKind::StructField);
-    assert_eq!(source.slice(field_node.span()), Some("const id: int64"));
+    assert_eq!(source.slice(field_node.span()), Some("const id: i64"));
     assert_eq!(field_node.child_count(), 3);
 
     let marker = field_node.first_child().unwrap();
@@ -113,7 +113,7 @@ fn parse_const_struct_field() {
 
 #[test]
 fn parse_regular_struct_field_still_uses_struct_field() {
-    let source = source("struct User {\n  name: [int8] = \"Anonymous\",\n}");
+    let source = source("struct User {\n  name: [i8] = \"Anonymous\",\n}");
 
     let result = parse(&source);
 

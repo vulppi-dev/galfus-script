@@ -29,7 +29,7 @@ fn test_run_single_file_success() -> Result<()> {
         &root,
         "main.gfs",
         r#"
-        export fn main(args: [[uint8]]): int32 {
+        export fn main(args: [[u8]]): i32 {
             var x = 10
             var y = 20
             return x + y
@@ -67,7 +67,7 @@ fn test_run_workspace_success() -> Result<()> {
         r#"
         import math from "./math"
 
-        export fn main(args: [[uint8]]): int32 {
+        export fn main(args: [[u8]]): i32 {
             return math::add(5, 7)
         }
         "#,
@@ -77,7 +77,7 @@ fn test_run_workspace_success() -> Result<()> {
         &root,
         "src/math.gfs",
         r#"
-        export fn add(a: int32, b: int32): int32 {
+        export fn add(a: i32, b: i32): i32 {
             return a + b
         }
         "#,
@@ -111,7 +111,7 @@ fn test_run_workspace_custom_entry_success() -> Result<()> {
         &root,
         "src/main.gfs",
         r#"
-        export fn start(args: [[uint8]]): int32 {
+        export fn start(args: [[u8]]): i32 {
             return 9
         }
         "#,
@@ -131,7 +131,7 @@ fn test_run_requires_exported_entry() -> Result<()> {
         &root,
         "main.gfs",
         r#"
-        fn main(args: [[uint8]]): int32 {
+        fn main(args: [[u8]]): i32 {
             return 0
         }
         "#,
@@ -158,7 +158,7 @@ fn test_run_validation_failure() -> Result<()> {
         &root,
         "invalid.gfs",
         r#"
-        export fn main(args: [[uint8]]): int32 {
+        export fn main(args: [[u8]]): i32 {
             return "not an integer"
         }
         "#,
@@ -180,11 +180,11 @@ fn test_run_vm_panic() -> Result<()> {
         &root,
         "panic.gfs",
         r#"
-        fn cause_panic(): int32 {
+        fn cause_panic(): i32 {
             return 10 / 0
         }
 
-        export fn main(args: [[uint8]]): int32 {
+        export fn main(args: [[u8]]): i32 {
             return cause_panic()
         }
         "#,
@@ -209,7 +209,7 @@ fn test_run_std_io_print() -> Result<()> {
         r#"
         import { print } from 'std/io'
 
-        export fn main(args: [[uint8]]): int32 {
+        export fn main(args: [[u8]]): i32 {
             print('Hello from test!')
             return 0
         }
@@ -233,7 +233,7 @@ fn test_run_format_stringify_core_values() -> Result<()> {
         import { println } from 'std/io'
         import { stringify } from 'format'
 
-        export fn main(args: [[uint8]]): int32 {
+        export fn main(args: [[u8]]): i32 {
             println(stringify(2548))
             println(stringify(10.42))
             println(stringify(true))
@@ -260,11 +260,11 @@ fn test_run_buffer_create_with_runtime_length() -> Result<()> {
         &root,
         "main.gfs",
         r#"
-        fn make(n: int32): [uint8] {
-            return new([uint8], n)
+        fn make(n: i32): [u8] {
+            return new([u8], n)
         }
 
-        export fn main(args: [[uint8]]): int32 {
+        export fn main(args: [[u8]]): i32 {
             var bytes = make(5)
             if bytes.length != 5 {
                 return 1 / 0
@@ -291,8 +291,8 @@ fn test_run_buffer_create_allows_index_assignment() -> Result<()> {
         &root,
         "main.gfs",
         r#"
-        export fn main(args: [[uint8]]): int32 {
-            var values = new([int32], 3)
+        export fn main(args: [[u8]]): i32 {
+            var values = new([i32], 3)
             values[0] = 10
             values[1] = 20
             values[2] = 30
@@ -340,7 +340,7 @@ fn test_run_workspace_with_args() -> Result<()> {
         r#"
         import { println } from 'std/io'
 
-        export fn main(args: [[uint8]]): int32 {
+        export fn main(args: [[u8]]): i32 {
             for v in args {
                 println(v)
             }
@@ -370,7 +370,7 @@ fn test_run_ansi_apply_with_stringify_string() -> Result<()> {
         import { stringify } from 'format'
         import { red } from 'format/ansi'
 
-        export fn main(args: [[uint8]]): int32 {
+        export fn main(args: [[u8]]): i32 {
             println(red()::apply(stringify("Hello")))
             return 0
         }

@@ -4,7 +4,7 @@ use super::super::*;
 
 #[test]
 fn parse_binary_addition_expression() {
-    let source = source("fn main(): int32 {\n  return 1 + 2\n}");
+    let source = source("fn main(): i32 {\n  return 1 + 2\n}");
 
     let result = parse(&source);
 
@@ -56,7 +56,7 @@ fn parse_binary_addition_expression() {
 
 #[test]
 fn parse_binary_expression_respects_precedence() {
-    let source = source("fn main(): int32 {\n  return 1 + 2 * 3\n}");
+    let source = source("fn main(): i32 {\n  return 1 + 2 * 3\n}");
 
     let result = parse(&source);
 
@@ -102,7 +102,7 @@ fn parse_binary_expression_respects_precedence() {
 
 #[test]
 fn parse_power_expression_is_right_associative() {
-    let source = source("fn main(): int32 {\n  return 2 ** 3 ** 4\n}");
+    let source = source("fn main(): i32 {\n  return 2 ** 3 ** 4\n}");
 
     let result = parse(&source);
 
@@ -148,7 +148,7 @@ fn parse_power_expression_is_right_associative() {
 
 #[test]
 fn parse_binary_expression_allows_newline_before_operator() {
-    let source = source("fn main(): int32 {\n  return 1\n  + 2\n}");
+    let source = source("fn main(): i32 {\n  return 1\n  + 2\n}");
 
     let result = parse(&source);
 
@@ -175,7 +175,7 @@ fn parse_binary_expression_allows_newline_before_operator() {
 
 #[test]
 fn parse_binary_expression_allows_newline_after_operator() {
-    let source = source("fn main(): int32 {\n  return 1 +\n  2\n}");
+    let source = source("fn main(): i32 {\n  return 1 +\n  2\n}");
 
     let result = parse(&source);
 

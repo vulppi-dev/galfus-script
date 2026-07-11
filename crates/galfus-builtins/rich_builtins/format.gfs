@@ -4,26 +4,26 @@ type Parsed = int | uint | float | bool | null
 
 export choice ParseResult<V: Parsed> {
   Ok(V),
-  Err([uint8]),
+  Err([u8]),
 }
 
 export constraint Stringable {
-  fn stringify(): [uint8]
+  fn stringify(): [u8]
 }
 
-fn length(s: [uint8]): int32 {
-  var i: int32 = 0
+fn length(s: [u8]): i32 {
+  var i: i32 = 0
   for byte in s {
     i += 1
   }
   return i
 }
 
-fn append(a: [uint8], b: [uint8]): [uint8] {
+fn append(a: [u8], b: [u8]): [u8] {
   var lenA = length(a)
   var lenB = length(b)
-  var result = new([uint8], lenA + lenB)
-  var i: int32 = 0
+  var result = new([u8], lenA + lenB)
+  var i: i32 = 0
   for byte in a {
     result[i] = byte
     i += 1
@@ -35,7 +35,7 @@ fn append(a: [uint8], b: [uint8]): [uint8] {
   return result
 }
 
-fn bytesEqual(a: [uint8], b: [uint8]): bool {
+fn bytesEqual(a: [u8], b: [u8]): bool {
   var lenA = 0
 
   for _ in a {
@@ -68,13 +68,13 @@ fn bytesEqual(a: [uint8], b: [uint8]): bool {
   return true
 }
 
-fn stringifyUint64(value: uint64): [uint8] {
+fn stringifyUint64(value: u64): [u8] {
   if value == 0 {
     return "0"
   }
 
   var n = value
-  var len: int32 = 0
+  var len: i32 = 0
   loop {
     if n <= 0 {
       break
@@ -83,7 +83,7 @@ fn stringifyUint64(value: uint64): [uint8] {
     n = n / 10
   }
 
-  var digits = new([uint8], len)
+  var digits = new([u8], len)
   n = value
   var i = len - 1
   loop {
@@ -98,22 +98,22 @@ fn stringifyUint64(value: uint64): [uint8] {
   return digits
 }
 
-fn stringifyInt64(value: int64): [uint8] {
+fn stringifyInt64(value: i64): [u8] {
   if value < 0 {
-    return append("-", stringifyUint64(<uint64> -value))
+    return append("-", stringifyUint64(<u64> -value))
   }
 
-  return stringifyUint64(<uint64> value)
+  return stringifyUint64(<u64> value)
 }
 
-fn stringifyFloat64(value: float64): [uint8] {
+fn stringifyFloat64(value: f64): [u8] {
   if value < 0 {
     return append("-", stringifyFloat64(-value))
   }
 
-  var whole = <uint64> value
-  var fraction = value - <float64> whole
-  var cents = <uint64> ((fraction * 100.0) + 0.5)
+  var whole = <u64> value
+  var fraction = value - <f64> whole
+  var cents = <u64> ((fraction * 100.0) + 0.5)
 
   if cents == 100 {
     whole = whole + 1
@@ -129,7 +129,7 @@ fn stringifyFloat64(value: float64): [uint8] {
   return append(append(stringifyUint64(whole), "."), decimals)
 }
 
-fn stringifyBool(value: bool): [uint8] {
+fn stringifyBool(value: bool): [u8] {
   if value {
     return "true"
   }
@@ -137,24 +137,24 @@ fn stringifyBool(value: bool): [uint8] {
   return "false"
 }
 
-export fn stringify(value: Parsed | [uint8] | Stringable): [uint8] {
+export fn stringify(value: Parsed | [u8] | Stringable): [u8] {
   return instanceof value {
-    [uint8] text => text,
+    [u8] text => text,
     bool flag => stringifyBool(flag),
     null => "null",
 
-    int8 n => stringifyInt64(n),
-    int16 n => stringifyInt64(n),
-    int32 n => stringifyInt64(n),
-    int64 n => stringifyInt64(n),
+    i8 n => stringifyInt64(n),
+    i16 n => stringifyInt64(n),
+    i32 n => stringifyInt64(n),
+    i64 n => stringifyInt64(n),
 
-    uint8 n => stringifyUint64(n),
-    uint16 n => stringifyUint64(n),
-    uint32 n => stringifyUint64(n),
-    uint64 n => stringifyUint64(n),
+    u8 n => stringifyUint64(n),
+    u16 n => stringifyUint64(n),
+    u32 n => stringifyUint64(n),
+    u64 n => stringifyUint64(n),
 
-    float32 n => stringifyFloat64(n),
-    float64 n => stringifyFloat64(n),
+    f32 n => stringifyFloat64(n),
+    f64 n => stringifyFloat64(n),
 
     Stringable item => item::stringify(),
 
@@ -162,13 +162,13 @@ export fn stringify(value: Parsed | [uint8] | Stringable): [uint8] {
   }
 }
 
-fn parseUint64Raw(s: [uint8]): ParseResult<uint64> {
-  var value: uint64 = 0
+fn parseUint64Raw(s: [u8]): ParseResult<u64> {
+  var value: u64 = 0
   var hasDigit = false
 
   for byte in s {
     if byte < 48 || byte > 57 {
-      return ParseResult<uint64>::Err("invalid digit")
+      return ParseResult<u64>::Err("invalid digit")
     }
 
     hasDigit = true
@@ -176,14 +176,14 @@ fn parseUint64Raw(s: [uint8]): ParseResult<uint64> {
   }
 
   if !hasDigit {
-    return ParseResult<uint64>::Err("empty input")
+    return ParseResult<u64>::Err("empty input")
   }
 
-  return ParseResult<uint64>::Ok(value)
+  return ParseResult<u64>::Ok(value)
 }
 
-fn parseInt64Raw(s: [uint8]): ParseResult<int64> {
-  var value: int64 = 0
+fn parseInt64Raw(s: [u8]): ParseResult<i64> {
+  var value: i64 = 0
   var negative = false
   var hasDigit = false
   var index = 0
@@ -193,30 +193,30 @@ fn parseInt64Raw(s: [uint8]): ParseResult<int64> {
       negative = true
     } else {
       if byte < 48 || byte > 57 {
-        return ParseResult<int64>::Err("invalid digit")
+        return ParseResult<i64>::Err("invalid digit")
       }
 
       hasDigit = true
-      value = value * 10 + <int64> (byte - 48)
+      value = value * 10 + <i64> (byte - 48)
     }
     index += 1
   }
 
   if !hasDigit {
-    return ParseResult<int64>::Err("empty input")
+    return ParseResult<i64>::Err("empty input")
   }
 
   if negative {
-    return ParseResult<int64>::Ok(-value)
+    return ParseResult<i64>::Ok(-value)
   }
 
-  return ParseResult<int64>::Ok(value)
+  return ParseResult<i64>::Ok(value)
 }
 
-fn parseFloat64Raw(s: [uint8]): ParseResult<float64> {
-  var value: float64 = 0.0
-  var fraction: float64 = 0.0
-  var divisor: float64 = 10.0
+fn parseFloat64Raw(s: [u8]): ParseResult<f64> {
+  var value: f64 = 0.0
+  var fraction: f64 = 0.0
+  var divisor: f64 = 10.0
   var negative = false
   var hasWholeDigit = false
   var hasFractionDigit = false
@@ -228,16 +228,16 @@ fn parseFloat64Raw(s: [uint8]): ParseResult<float64> {
       negative = true
     } else if byte == 46 {
       if afterDot || !hasWholeDigit {
-        return ParseResult<float64>::Err("invalid float")
+        return ParseResult<f64>::Err("invalid float")
       }
 
       afterDot = true
     } else {
       if byte < 48 || byte > 57 {
-        return ParseResult<float64>::Err("invalid digit")
+        return ParseResult<f64>::Err("invalid digit")
       }
 
-      var digit = <float64> (byte - 48)
+      var digit = <f64> (byte - 48)
 
       if afterDot {
         hasFractionDigit = true
@@ -252,23 +252,23 @@ fn parseFloat64Raw(s: [uint8]): ParseResult<float64> {
   }
 
   if !hasWholeDigit {
-    return ParseResult<float64>::Err("empty input")
+    return ParseResult<f64>::Err("empty input")
   }
 
   if !afterDot || !hasFractionDigit {
-    return ParseResult<float64>::Err("invalid float")
+    return ParseResult<f64>::Err("invalid float")
   }
 
   value = value + fraction
 
   if negative {
-    return ParseResult<float64>::Ok(-value)
+    return ParseResult<f64>::Ok(-value)
   }
 
-  return ParseResult<float64>::Ok(value)
+  return ParseResult<f64>::Ok(value)
 }
 
-fn parseBoolRaw(s: [uint8]): ParseResult<bool> {
+fn parseBoolRaw(s: [u8]): ParseResult<bool> {
   if length(s) == 4 {
     var ok = true
     var index = 0
@@ -323,8 +323,8 @@ fn parseBoolRaw(s: [uint8]): ParseResult<bool> {
   return ParseResult<bool>::Err("invalid bool")
 }
 
-fn parseInt8(s: [uint8]): ParseResult<int8> {
-  var value: int64 = 0
+fn parseInt8(s: [u8]): ParseResult<i8> {
+  var value: i64 = 0
   var negative = false
   var hasDigit = false
   var index = 0
@@ -334,28 +334,28 @@ fn parseInt8(s: [uint8]): ParseResult<int8> {
       negative = true
     } else {
       if byte < 48 || byte > 57 {
-        return ParseResult<int8>::Err("invalid digit")
+        return ParseResult<i8>::Err("invalid digit")
       }
 
       hasDigit = true
-      value = value * 10 + <int64> (byte - 48)
+      value = value * 10 + <i64> (byte - 48)
     }
     index += 1
   }
 
   if !hasDigit {
-    return ParseResult<int8>::Err("empty input")
+    return ParseResult<i8>::Err("empty input")
   }
 
   if negative {
-    return ParseResult<int8>::Ok(-value)
+    return ParseResult<i8>::Ok(-value)
   }
 
-  return ParseResult<int8>::Ok(value)
+  return ParseResult<i8>::Ok(value)
 }
 
-fn parseInt16(s: [uint8]): ParseResult<int16> {
-  var value: int64 = 0
+fn parseInt16(s: [u8]): ParseResult<i16> {
+  var value: i64 = 0
   var negative = false
   var hasDigit = false
   var index = 0
@@ -365,28 +365,28 @@ fn parseInt16(s: [uint8]): ParseResult<int16> {
       negative = true
     } else {
       if byte < 48 || byte > 57 {
-        return ParseResult<int16>::Err("invalid digit")
+        return ParseResult<i16>::Err("invalid digit")
       }
 
       hasDigit = true
-      value = value * 10 + <int64> (byte - 48)
+      value = value * 10 + <i64> (byte - 48)
     }
     index += 1
   }
 
   if !hasDigit {
-    return ParseResult<int16>::Err("empty input")
+    return ParseResult<i16>::Err("empty input")
   }
 
   if negative {
-    return ParseResult<int16>::Ok(-value)
+    return ParseResult<i16>::Ok(-value)
   }
 
-  return ParseResult<int16>::Ok(value)
+  return ParseResult<i16>::Ok(value)
 }
 
-fn parseInt32(s: [uint8]): ParseResult<int32> {
-  var value: int64 = 0
+fn parseInt32(s: [u8]): ParseResult<i32> {
+  var value: i64 = 0
   var negative = false
   var hasDigit = false
   var index = 0
@@ -396,37 +396,37 @@ fn parseInt32(s: [uint8]): ParseResult<int32> {
       negative = true
     } else {
       if byte < 48 || byte > 57 {
-        return ParseResult<int32>::Err("invalid digit")
+        return ParseResult<i32>::Err("invalid digit")
       }
 
       hasDigit = true
-      value = value * 10 + <int64> (byte - 48)
+      value = value * 10 + <i64> (byte - 48)
     }
     index += 1
   }
 
   if !hasDigit {
-    return ParseResult<int32>::Err("empty input")
+    return ParseResult<i32>::Err("empty input")
   }
 
   if negative {
-    return ParseResult<int32>::Ok(-value)
+    return ParseResult<i32>::Ok(-value)
   }
 
-  return ParseResult<int32>::Ok(value)
+  return ParseResult<i32>::Ok(value)
 }
 
-fn parseInt64(s: [uint8]): ParseResult<int64> {
+fn parseInt64(s: [u8]): ParseResult<i64> {
   return parseInt64Raw(s)
 }
 
-fn parseUint8(s: [uint8]): ParseResult<uint8> {
-  var value: uint64 = 0
+fn parseUint8(s: [u8]): ParseResult<u8> {
+  var value: u64 = 0
   var hasDigit = false
 
   for byte in s {
     if byte < 48 || byte > 57 {
-      return ParseResult<uint8>::Err("invalid digit")
+      return ParseResult<u8>::Err("invalid digit")
     }
 
     hasDigit = true
@@ -434,19 +434,19 @@ fn parseUint8(s: [uint8]): ParseResult<uint8> {
   }
 
   if !hasDigit {
-    return ParseResult<uint8>::Err("empty input")
+    return ParseResult<u8>::Err("empty input")
   }
 
-  return ParseResult<uint8>::Ok(value)
+  return ParseResult<u8>::Ok(value)
 }
 
-fn parseUint16(s: [uint8]): ParseResult<uint16> {
-  var value: uint64 = 0
+fn parseUint16(s: [u8]): ParseResult<u16> {
+  var value: u64 = 0
   var hasDigit = false
 
   for byte in s {
     if byte < 48 || byte > 57 {
-      return ParseResult<uint16>::Err("invalid digit")
+      return ParseResult<u16>::Err("invalid digit")
     }
 
     hasDigit = true
@@ -454,19 +454,19 @@ fn parseUint16(s: [uint8]): ParseResult<uint16> {
   }
 
   if !hasDigit {
-    return ParseResult<uint16>::Err("empty input")
+    return ParseResult<u16>::Err("empty input")
   }
 
-  return ParseResult<uint16>::Ok(value)
+  return ParseResult<u16>::Ok(value)
 }
 
-fn parseUint32(s: [uint8]): ParseResult<uint32> {
-  var value: uint64 = 0
+fn parseUint32(s: [u8]): ParseResult<u32> {
+  var value: u64 = 0
   var hasDigit = false
 
   for byte in s {
     if byte < 48 || byte > 57 {
-      return ParseResult<uint32>::Err("invalid digit")
+      return ParseResult<u32>::Err("invalid digit")
     }
 
     hasDigit = true
@@ -474,20 +474,20 @@ fn parseUint32(s: [uint8]): ParseResult<uint32> {
   }
 
   if !hasDigit {
-    return ParseResult<uint32>::Err("empty input")
+    return ParseResult<u32>::Err("empty input")
   }
 
-  return ParseResult<uint32>::Ok(value)
+  return ParseResult<u32>::Ok(value)
 }
 
-fn parseUint64(s: [uint8]): ParseResult<uint64> {
+fn parseUint64(s: [u8]): ParseResult<u64> {
   return parseUint64Raw(s)
 }
 
-fn parseFloat32(s: [uint8]): ParseResult<float32> {
-  var value: float64 = 0.0
-  var fraction: float64 = 0.0
-  var divisor: float64 = 10.0
+fn parseFloat32(s: [u8]): ParseResult<f32> {
+  var value: f64 = 0.0
+  var fraction: f64 = 0.0
+  var divisor: f64 = 10.0
   var negative = false
   var hasWholeDigit = false
   var hasFractionDigit = false
@@ -499,16 +499,16 @@ fn parseFloat32(s: [uint8]): ParseResult<float32> {
       negative = true
     } else if byte == 46 {
       if afterDot || !hasWholeDigit {
-        return ParseResult<float32>::Err("invalid float")
+        return ParseResult<f32>::Err("invalid float")
       }
 
       afterDot = true
     } else {
       if byte < 48 || byte > 57 {
-        return ParseResult<float32>::Err("invalid digit")
+        return ParseResult<f32>::Err("invalid digit")
       }
 
-      var digit = <float64> (byte - 48)
+      var digit = <f64> (byte - 48)
 
       if afterDot {
         hasFractionDigit = true
@@ -523,26 +523,26 @@ fn parseFloat32(s: [uint8]): ParseResult<float32> {
   }
 
   if !hasWholeDigit {
-    return ParseResult<float32>::Err("empty input")
+    return ParseResult<f32>::Err("empty input")
   }
 
   if !afterDot || !hasFractionDigit {
-    return ParseResult<float32>::Err("invalid float")
+    return ParseResult<f32>::Err("invalid float")
   }
 
   value = value + fraction
 
   if negative {
-    return ParseResult<float32>::Ok(-value)
+    return ParseResult<f32>::Ok(-value)
   }
 
-  return ParseResult<float32>::Ok(value)
+  return ParseResult<f32>::Ok(value)
 }
 
-fn parseFloat64(s: [uint8]): ParseResult<float64> {
-  var value: float64 = 0.0
-  var fraction: float64 = 0.0
-  var divisor: float64 = 10.0
+fn parseFloat64(s: [u8]): ParseResult<f64> {
+  var value: f64 = 0.0
+  var fraction: f64 = 0.0
+  var divisor: f64 = 10.0
   var negative = false
   var hasWholeDigit = false
   var hasFractionDigit = false
@@ -554,16 +554,16 @@ fn parseFloat64(s: [uint8]): ParseResult<float64> {
       negative = true
     } else if byte == 46 {
       if afterDot || !hasWholeDigit {
-        return ParseResult<float64>::Err("invalid float")
+        return ParseResult<f64>::Err("invalid float")
       }
 
       afterDot = true
     } else {
       if byte < 48 || byte > 57 {
-        return ParseResult<float64>::Err("invalid digit")
+        return ParseResult<f64>::Err("invalid digit")
       }
 
-      var digit = <float64> (byte - 48)
+      var digit = <f64> (byte - 48)
 
       if afterDot {
         hasFractionDigit = true
@@ -578,27 +578,27 @@ fn parseFloat64(s: [uint8]): ParseResult<float64> {
   }
 
   if !hasWholeDigit {
-    return ParseResult<float64>::Err("empty input")
+    return ParseResult<f64>::Err("empty input")
   }
 
   if !afterDot || !hasFractionDigit {
-    return ParseResult<float64>::Err("invalid float")
+    return ParseResult<f64>::Err("invalid float")
   }
 
   value = value + fraction
 
   if negative {
-    return ParseResult<float64>::Ok(-value)
+    return ParseResult<f64>::Ok(-value)
   }
 
-  return ParseResult<float64>::Ok(value)
+  return ParseResult<f64>::Ok(value)
 }
 
-fn parseBool(s: [uint8]): ParseResult<bool> {
+fn parseBool(s: [u8]): ParseResult<bool> {
   return parseBoolRaw(s)
 }
 
-fn parseNull(s: [uint8]): ParseResult<null> {
+fn parseNull(s: [u8]): ParseResult<null> {
   if length(s) == 4 {
     var ok = true
     var index = 0
@@ -626,20 +626,20 @@ fn parseNull(s: [uint8]): ParseResult<null> {
   return ParseResult<null>::Err("invalid null")
 }
 
-export fn parse<T: Parsed>(s: [uint8]): ParseResult<T> {
+export fn parse<T: Parsed>(s: [u8]): ParseResult<T> {
   return typeof T {
-    int8 => parseInt8(s),
-    int16 => parseInt16(s),
-    int32 => parseInt32(s),
-    int64 => parseInt64(s),
+    i8 => parseInt8(s),
+    i16 => parseInt16(s),
+    i32 => parseInt32(s),
+    i64 => parseInt64(s),
 
-    uint8 => parseUint8(s),
-    uint16 => parseUint16(s),
-    uint32 => parseUint32(s),
-    uint64 => parseUint64(s),
+    u8 => parseUint8(s),
+    u16 => parseUint16(s),
+    u32 => parseUint32(s),
+    u64 => parseUint64(s),
 
-    float32 => parseFloat32(s),
-    float64 => parseFloat64(s),
+    f32 => parseFloat32(s),
+    f64 => parseFloat64(s),
 
     bool => parseBool(s),
     null => parseNull(s),

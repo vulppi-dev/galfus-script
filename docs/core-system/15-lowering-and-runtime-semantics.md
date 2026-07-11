@@ -272,7 +272,7 @@ Arrays lower to array values.
 Array construction:
 
 ```galfus
-new([int32], 4)
+new([i32], 4)
 ```
 
 Arrays expose only:
@@ -285,13 +285,13 @@ Out-of-bounds read returns `null`.
 
 Out-of-bounds write is a runtime error.
 
-String literals lower to UTF-8 `[uint8]` arrays.
+String literals lower to UTF-8 `[u8]` arrays.
 
 ## 15.16 Enums and Choices
 
 Enums lower to nominal discriminant values.
 
-Default enum base type is `int32`.
+Default enum base type is `i32`.
 
 Explicit base type uses `enum(T)`.
 
@@ -360,7 +360,7 @@ start::count%step
 
 `start..end` lowers conceptually through `std/range::range(start, end)` and has type `RangeExclusive`.
 
-`start::count` and `start::count%step` lower conceptually through `std/range::rangeSteps(start, count, step)` and have type `RangeStepped<int64>` or `RangeStepped<float64>`. `count` is always an integer literal. If `start` or `step` is a float literal, integer literals are promoted and the stepped range uses `float64`.
+`start::count` and `start::count%step` lower conceptually through `std/range::rangeSteps(start, count, step)` and have type `RangeStepped<i64>` or `RangeStepped<f64>`. `count` is always an integer literal. If `start` or `step` is a float literal, integer literals are promoted and the stepped range uses `f64`.
 
 Invalid:
 

@@ -42,17 +42,17 @@ impl PrimitiveType {
         match self {
             Self::Null => "null",
             Self::Bool => "bool",
-            Self::Int8 => "int8",
-            Self::Int16 => "int16",
-            Self::Int32 => "int32",
-            Self::Int64 => "int64",
-            Self::Uint8 => "uint8",
-            Self::Uint16 => "uint16",
-            Self::Uint32 => "uint32",
-            Self::Uint64 => "uint64",
-            Self::Float16 => "float16",
-            Self::Float32 => "float32",
-            Self::Float64 => "float64",
+            Self::Int8 => "i8",
+            Self::Int16 => "i16",
+            Self::Int32 => "i32",
+            Self::Int64 => "i64",
+            Self::Uint8 => "u8",
+            Self::Uint16 => "u16",
+            Self::Uint32 => "u32",
+            Self::Uint64 => "u64",
+            Self::Float16 => "f16",
+            Self::Float32 => "f32",
+            Self::Float64 => "f64",
         }
     }
 

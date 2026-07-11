@@ -275,7 +275,7 @@ fn parse_match_expression_with_wildcard_pattern() {
 #[test]
 fn parse_match_expression_with_expression_arms() {
     let source = source(
-        "fn describe(value: int32): [int8] {\n  return match value {\n    0 => \"zero\",\n    1 => \"one\",\n    _ => \"many\",\n  }\n}",
+        "fn describe(value: i32): [i8] {\n  return match value {\n    0 => \"zero\",\n    1 => \"one\",\n    _ => \"many\",\n  }\n}",
     );
 
     let result = parse(&source);
@@ -309,7 +309,7 @@ fn parse_match_expression_with_expression_arms() {
 #[test]
 fn parse_match_expression_in_binding_initializer() {
     let source = source(
-        "fn main(value: int32): null {\n  var label = match value {\n    0 => \"zero\",\n    _ => \"many\",\n  }\n  return\n}",
+        "fn main(value: i32): null {\n  var label = match value {\n    0 => \"zero\",\n    _ => \"many\",\n  }\n  return\n}",
     );
 
     let result = parse(&source);

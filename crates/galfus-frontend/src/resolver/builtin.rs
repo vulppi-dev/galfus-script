@@ -2,8 +2,8 @@ use super::*;
 use galfus_core::ScopeId;
 
 const BUILTIN_TYPES: &[&str] = &[
-    "null", "bool", "int8", "int16", "int32", "int64", "uint8", "uint16", "uint32", "uint64",
-    "float16", "float32", "float64", "int", "uint", "float",
+    "null", "bool", "i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f16", "f32", "f64",
+    "int", "uint", "float",
 ];
 
 struct BuiltinConstraint {

@@ -5,7 +5,7 @@ use galfus_core::FunctionId;
 fn test_mir_builder_basic() {
     let source_id = SourceId::new(0);
     let code = r#"
-        fn add(a: int32, b: int32): int32 {
+        fn add(a: i32, b: i32): i32 {
             return a + b
         }
     "#;
@@ -59,7 +59,7 @@ fn test_mir_builder_basic() {
 fn test_mir_serialization() {
     let source_id = SourceId::new(0);
     let code = r#"
-        fn add(a: int32, b: int32): int32 {
+        fn add(a: i32, b: i32): i32 {
             return a + b
         }
     "#;
@@ -90,7 +90,7 @@ fn test_mir_builder_lowers_copy_expression() {
     let source_id = SourceId::new(0);
     let code = r#"
         struct User {
-            id: int32,
+            id: i32,
         }
 
         fn clone_user(user: User): User {
@@ -137,10 +137,10 @@ fn test_mir_builder_lowers_copy_expression() {
 fn test_mir_builder_lowers_concrete_typeof_branch() {
     let source_id = SourceId::new(0);
     let code = r#"
-        fn label(): [uint8] {
-            var dummy: int32 = 0
+        fn label(): [u8] {
+            var dummy: i32 = 0
             return instanceof dummy {
-                int32 v => "number",
+                i32 v => "number",
                 _ => "other",
             }
         }
@@ -168,16 +168,16 @@ fn test_mir_builder_lowers_concrete_typeof_branch() {
 fn test_mir_builder_specializes_generic_typeof_call() {
     let source_id = SourceId::new(0);
     let code = r#"
-        fn label<T: int32 | bool>(): [uint8] {
+        fn label<T: i32 | bool>(): [u8] {
             var dummy = new([T; 1])[0]
             return instanceof dummy {
-                int32 v => "number",
+                i32 v => "number",
                 bool v => "flag",
             }
         }
 
-        fn main(): [uint8] {
-            return label<int32>()
+        fn main(): [u8] {
+            return label<i32>()
         }
     "#;
     let source = SourceFile::new(source_id, "test.gfs".to_string(), code.to_string());
@@ -265,14 +265,14 @@ fn has_string_assignment(body: &MirBody, expected_value: &str) -> bool {
 fn test_mir_builder_phase1() {
     let source_id = SourceId::new(0);
     let code = r#"
-        fn complex_expr(x: int32): int32 {
+        fn complex_expr(x: i32): i32 {
             var a = 42;
             const b = 3.14;
             var s = "hello";
             var bl = true;
             var n = null;
             a = x + 10;
-            var c = <int32>b;
+            var c = <i32>b;
             return a
         }
     "#;
@@ -328,11 +328,11 @@ fn test_mir_builder_phase1() {
 fn test_mir_builder_phase2() {
     let source_id = SourceId::new(0);
     let code = r#"
-        fn other_func(x: int32): int32 {
+        fn other_func(x: i32): i32 {
             return x * 2
         }
 
-        fn control_flow(cond: bool, val: int32): int32 {
+        fn control_flow(cond: bool, val: i32): i32 {
             var res = 0;
             if cond {
                 res = other_func(val);
@@ -431,28 +431,28 @@ fn test_mir_builder_phase3() {
     let source_id = SourceId::new(0);
     let code = r#"
         struct Point {
-            x: int32,
-            y: int32 = 42,
+            x: i32,
+            y: i32 = 42,
         }
 
         struct Point3D {
             ...Point,
-            z: int32,
+            z: i32,
         }
 
         choice Shape {
-            Circle(int32),
-            Rect(int32, int32),
+            Circle(i32),
+            Rect(i32, i32),
             Point,
         }
 
-        fn test_structs_arrays_tuples(p: Point): int32 {
+        fn test_structs_arrays_tuples(p: Point): i32 {
             var p1 = new(Point) { x: 10, y: 20 };
             var p2 = new(Point) { x: 5 }; // default y
             var p3 = new(Point3D) { ...p1, z: 100 }; // spread struct
 
             var arr1 = [1, 2, 3];
-            var arr2: [int32; 5] = [...arr1, 4, 5]; // spread array
+            var arr2: [i32; 5] = [...arr1, 4, 5]; // spread array
 
             var t1 = (10, 20, 30);
 
@@ -462,7 +462,7 @@ fn test_mir_builder_phase3() {
             return x_val
         }
 
-        fn test_matches(s: Shape): int32 {
+        fn test_matches(s: Shape): i32 {
             return match s {
                 Shape::Circle(r) => r,
                 Shape::Rect(w, h) => w + h,

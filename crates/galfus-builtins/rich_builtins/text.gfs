@@ -1,19 +1,19 @@
 // text - pure Galfus byte-level string utilities.
 // All strings are UTF-8 byte arrays.
 
-export fn length(s: [uint8]): int32 {
-  var i: int32 = 0
+export fn length(s: [u8]): i32 {
+  var i: i32 = 0
   for byte in s {
     i += 1
   }
   return i
 }
 
-export fn concat(a: [uint8], b: [uint8]): [uint8] {
+export fn concat(a: [u8], b: [u8]): [u8] {
   var lenA = length(a)
   var lenB = length(b)
-  var result = new([uint8], lenA + lenB)
-  var i: int32 = 0
+  var result = new([u8], lenA + lenB)
+  var i: i32 = 0
   for byte in a {
     result[i] = byte
     i += 1
@@ -25,10 +25,10 @@ export fn concat(a: [uint8], b: [uint8]): [uint8] {
   return result
 }
 
-export fn slice(s: [uint8], start: int32, count: int32): [uint8] {
+export fn slice(s: [u8], start: i32, count: i32): [u8] {
   var len = length(s)
   if count <= 0 || start >= len {
-    return new([uint8], 0)
+    return new([u8], 0)
   }
   var end = start + count
   if end > len {
@@ -36,11 +36,11 @@ export fn slice(s: [uint8], start: int32, count: int32): [uint8] {
   }
   var sliceLen = end - start
   if sliceLen <= 0 {
-    return new([uint8], 0)
+    return new([u8], 0)
   }
-  var result = new([uint8], sliceLen)
-  var index: int32 = 0
-  var writeIndex: int32 = 0
+  var result = new([u8], sliceLen)
+  var index: i32 = 0
+  var writeIndex: i32 = 0
   for byte in s {
     if index >= start && index < end {
       result[writeIndex] = byte
@@ -51,14 +51,14 @@ export fn slice(s: [uint8], start: int32, count: int32): [uint8] {
   return result
 }
 
-export fn repeat(s: [uint8], n: int32): [uint8] {
+export fn repeat(s: [u8], n: i32): [u8] {
   if n <= 0 {
-    return new([uint8], 0)
+    return new([u8], 0)
   }
   var len = length(s)
-  var result = new([uint8], len * n)
-  var destIdx: int32 = 0
-  var i: int32 = 0
+  var result = new([u8], len * n)
+  var destIdx: i32 = 0
+  var i: i32 = 0
   loop {
     if i >= n {
       break
@@ -72,7 +72,7 @@ export fn repeat(s: [uint8], n: int32): [uint8] {
   return result
 }
 
-export fn startsWith(s: [uint8], prefix: [uint8]): bool {
+export fn startsWith(s: [u8], prefix: [u8]): bool {
   var prefixLen = length(prefix)
   if prefixLen == 0 {
     return true
@@ -83,7 +83,7 @@ export fn startsWith(s: [uint8], prefix: [uint8]): bool {
   return slice(s, 0, prefixLen) == prefix
 }
 
-export fn endsWith(s: [uint8], suffix: [uint8]): bool {
+export fn endsWith(s: [u8], suffix: [u8]): bool {
   var suffixLen = length(suffix)
   if suffixLen == 0 {
     return true
@@ -97,13 +97,13 @@ export fn endsWith(s: [uint8], suffix: [uint8]): bool {
   return slice(s, len - suffixLen, suffixLen) == suffix
 }
 
-fn isAsciiSpace(byte: uint8): bool {
-  var code = <int32>byte
+fn isAsciiSpace(byte: u8): bool {
+  var code = <i32>byte
   return code == 32 || code == 9 || code == 10 || code == 13
 }
 
-export fn trimStart(s: [uint8]): [uint8] {
-  var start: int32 = 0
+export fn trimStart(s: [u8]): [u8] {
+  var start: i32 = 0
   var scanning = true
 
   for byte in s {
@@ -117,9 +117,9 @@ export fn trimStart(s: [uint8]): [uint8] {
   return slice(s, start, length(s) - start)
 }
 
-export fn trimEnd(s: [uint8]): [uint8] {
-  var end: int32 = 0
-  var index: int32 = 0
+export fn trimEnd(s: [u8]): [u8] {
+  var end: i32 = 0
+  var index: i32 = 0
 
   for byte in s {
     if !isAsciiSpace(byte) {
@@ -131,18 +131,18 @@ export fn trimEnd(s: [uint8]): [uint8] {
   return slice(s, 0, end)
 }
 
-export fn trim(s: [uint8]): [uint8] {
+export fn trim(s: [u8]): [u8] {
   return trimEnd(trimStart(s))
 }
 
-export fn toUpper(s: [uint8]): [uint8] {
+export fn toUpper(s: [u8]): [u8] {
   var len = length(s)
-  var result = new([uint8], len)
-  var i: int32 = 0
+  var result = new([u8], len)
+  var i: i32 = 0
   for byte in s {
-    var code = <int32>byte
+    var code = <i32>byte
     if code >= 97 && code <= 122 {
-      result[i] = <uint8>(code - 32)
+      result[i] = <u8>(code - 32)
     } else {
       result[i] = byte
     }
@@ -151,14 +151,14 @@ export fn toUpper(s: [uint8]): [uint8] {
   return result
 }
 
-export fn toLower(s: [uint8]): [uint8] {
+export fn toLower(s: [u8]): [u8] {
   var len = length(s)
-  var result = new([uint8], len)
-  var i: int32 = 0
+  var result = new([u8], len)
+  var i: i32 = 0
   for byte in s {
-    var code = <int32>byte
+    var code = <i32>byte
     if code >= 65 && code <= 90 {
-      result[i] = <uint8>(code + 32)
+      result[i] = <u8>(code + 32)
     } else {
       result[i] = byte
     }

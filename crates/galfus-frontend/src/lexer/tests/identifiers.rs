@@ -135,7 +135,7 @@ fn lex_other_identifiers_and_metadata() {
 
 #[test]
 fn lex_string_type_name_as_identifier() {
-    let tokens = kinds("String [uint8]");
+    let tokens = kinds("String [u8]");
 
     assert_eq!(
         tokens,

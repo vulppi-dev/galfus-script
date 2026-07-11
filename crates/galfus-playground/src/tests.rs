@@ -6,7 +6,7 @@ fn run_source_captures_stdout() {
         r#"
 import { println } from 'std/io'
 
-export fn main(args: [[uint8]]): int32 {
+export fn main(args: [[u8]]): i32 {
   println("hello")
   return 7
 }
@@ -25,9 +25,9 @@ fn run_source_passes_entry_arguments() {
         r#"
 import { println } from 'std/io'
 
-export fn main(args: [[uint8]]): int32 {
-  println(<[uint8]>args[0])
-  println(<[uint8]>args[1])
+export fn main(args: [[u8]]): i32 {
+  println(<[u8]>args[0])
+  println(<[u8]>args[1])
   return 3
 }
 "#,
@@ -47,7 +47,7 @@ import { println } from 'std/io'
 import text from "text"
 import ansi from "format/ansi"
 
-export fn main(args: [[uint8]]): int32 {
+export fn main(args: [[u8]]): i32 {
   println(text::concat("he", "llo"))
   println(ansi::red()::apply("error"))
   return 0

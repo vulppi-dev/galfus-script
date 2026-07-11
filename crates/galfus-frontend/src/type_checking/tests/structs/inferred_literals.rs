@@ -5,12 +5,12 @@ fn check_collects_anchor_and_temporary_ownership_metadata() {
     let (_source, graph, result) = check_source(
         r#"
 struct User {
-  name: [uint8],
+  name: [u8],
 }
 
 var global_user: User = new(User) { name: "Ana" }
 
-fn User::rename(user: User, name: [uint8]): User {
+fn User::rename(user: User, name: [u8]): User {
   var local_user: User = new(User) { name }
   return local_user
 }
@@ -117,8 +117,8 @@ fn check_accepts_inferred_struct_literal_with_expected_type() {
     let (_source, _graph, result) = check_source(
         r#"
         struct User {
-          id: int32,
-          name: [uint8],
+          id: i32,
+          name: [u8],
         }
 
         var user: User = new {
@@ -136,8 +136,8 @@ fn check_accepts_inferred_struct_literal_with_default_field() {
     let (_source, _graph, result) = check_source(
         r#"
         struct User {
-          name: [uint8],
-          age: int32 = 0,
+          name: [u8],
+          age: i32 = 0,
         }
 
         var user: User = new {
@@ -189,7 +189,7 @@ fn check_reports_inferred_struct_literal_without_expected_type() {
 fn check_reports_inferred_struct_literal_with_non_struct_expected_type() {
     let source = source(
         r#"
-        var value: int32 = new {
+        var value: i32 = new {
           id: 1,
         }
         "#,
@@ -226,7 +226,7 @@ fn check_reports_inferred_struct_literal_unknown_field() {
     let source = source(
         r#"
         struct User {
-          id: int32,
+          id: i32,
         }
 
         var user: User = new {
@@ -265,7 +265,7 @@ fn check_reports_inferred_struct_literal_field_type_mismatch() {
     let source = source(
         r#"
         struct User {
-          id: int32,
+          id: i32,
         }
 
         var user: User = new {
@@ -294,8 +294,6 @@ fn check_reports_inferred_struct_literal_field_type_mismatch() {
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
         diagnostic.code().as_str() == TypeDiagnosticCode::TypeMismatch.as_code()
-            && diagnostic
-                .message()
-                .contains("expected `int32`, got `bool`")
+            && diagnostic.message().contains("expected `i32`, got `bool`")
     }));
 }

@@ -11,13 +11,13 @@ export struct Style {
   _bold: bool,
   _dim: bool,
   _has_fg: bool,
-  _fg_r: uint8,
-  _fg_g: uint8,
-  _fg_b: uint8,
+  _fg_r: u8,
+  _fg_g: u8,
+  _fg_b: u8,
   _has_bg: bool,
-  _bg_r: uint8,
-  _bg_g: uint8,
-  _bg_b: uint8,
+  _bg_r: u8,
+  _bg_g: u8,
+  _bg_b: u8,
 }
 
 // Create a blank style with no attributes.
@@ -46,7 +46,7 @@ export fn Style::dim(self): Style {
   return self
 }
 
-export fn Style::rgb(self, r: uint8, g: uint8, b: uint8): Style {
+export fn Style::rgb(self, r: u8, g: u8, b: u8): Style {
   self._has_fg = true
   self._fg_r = r
   self._fg_g = g
@@ -54,7 +54,7 @@ export fn Style::rgb(self, r: uint8, g: uint8, b: uint8): Style {
   return self
 }
 
-export fn Style::bg(self, r: uint8, g: uint8, b: uint8): Style {
+export fn Style::bg(self, r: u8, g: u8, b: u8): Style {
   self._has_bg = true
   self._bg_r = r
   self._bg_g = g
@@ -62,10 +62,10 @@ export fn Style::bg(self, r: uint8, g: uint8, b: uint8): Style {
   return self
 }
 
-// Append decimal bytes for an uint8 value into a byte array.
-fn appendDecimal(buf: [uint8], n: uint8): [uint8] {
+// Append decimal bytes for an u8 value into a byte array.
+fn appendDecimal(buf: [u8], n: u8): [u8] {
   var result = buf
-  var val = <int32>n
+  var val = <i32>n
   if val >= 100 {
     result = [...result, (val / 100 + 48)]
     result = [...result, (val / 10 % 10 + 48)]
@@ -80,9 +80,9 @@ fn appendDecimal(buf: [uint8], n: uint8): [uint8] {
 }
 
 // Wrap `text` with the ANSI escape codes described by `self`, then reset.
-export fn Style::apply(self, text: [uint8]): [uint8] {
+export fn Style::apply(self, text: [u8]): [u8] {
   // ESC = 27, '[' = 91, 'm' = 109, ';' = 59
-  var codes: [uint8] = [27, 91]  // ESC [
+  var codes: [u8] = [27, 91]  // ESC [
 
   var first = true
 
@@ -130,9 +130,9 @@ export fn Style::apply(self, text: [uint8]): [uint8] {
   codes = [...codes, 109]  // 'm'
 
   // Reset sequence: ESC[0m
-  var reset: [uint8] = [27, 91, 48, 109]
+  var reset: [u8] = [27, 91, 48, 109]
 
-  var result: [uint8] = ""
+  var result: [u8] = ""
   for byte in codes {
     result = [...result, byte]
   }

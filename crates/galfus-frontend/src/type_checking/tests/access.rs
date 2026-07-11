@@ -5,10 +5,10 @@ fn check_accepts_struct_member_access() {
     let (_source, _graph, result) = check_source(
         r#"
 struct User {
-  id: int64,
+  id: i64,
 }
 
-fn getId(user: User): int64 {
+fn getId(user: User): i64 {
   return user.id
 }
 "#,
@@ -22,10 +22,10 @@ fn check_binds_struct_member_expression_type() {
     let (source, graph, result) = check_source(
         r#"
 struct User {
-  id: int64,
+  id: i64,
 }
 
-fn getId(user: User): int64 {
+fn getId(user: User): i64 {
   return user.id
 }
 "#,
@@ -48,10 +48,10 @@ fn check_reports_unknown_struct_member() {
     let source = source(
         r#"
 struct User {
-  id: int64,
+  id: i64,
 }
 
-fn getName(user: User): int64 {
+fn getName(user: User): i64 {
   return user.name
 }
 "#,
@@ -78,10 +78,10 @@ fn check_accepts_null_safe_member_access_for_nullable_target() {
     let (_source, _graph, result) = check_source(
         r#"
 struct User {
-  id: int64,
+  id: i64,
 }
 
-fn getId(user: User | null): int64 | null {
+fn getId(user: User | null): i64 | null {
   return user?.id
 }
 "#,
@@ -95,10 +95,10 @@ fn check_reports_direct_member_access_on_nullable_target() {
     let source = source(
         r#"
 struct User {
-  id: int64,
+  id: i64,
 }
 
-fn getId(user: User | null): int64 {
+fn getId(user: User | null): i64 {
   return user.id
 }
 "#,
@@ -124,7 +124,7 @@ fn getId(user: User | null): int64 {
 fn check_accepts_array_index_expression() {
     let (_source, _graph, result) = check_source(
         r#"
-fn get(values: [int32]): int32 | null {
+fn get(values: [i32]): i32 | null {
   return values[0]
 }
 "#,
@@ -137,7 +137,7 @@ fn get(values: [int32]): int32 | null {
 fn check_binds_array_index_expression_type_as_nullable_element() {
     let (source, graph, result) = check_source(
         r#"
-fn get(values: [int32]): int32 | null {
+fn get(values: [i32]): i32 | null {
   return values[0]
 }
 "#,
@@ -174,7 +174,7 @@ fn get(values: [int32]): int32 | null {
 fn check_reports_invalid_index_target() {
     let source = source(
         r#"
-fn get(value: int32): int32 | null {
+fn get(value: i32): i32 | null {
   return value[0]
 }
 "#,
@@ -200,7 +200,7 @@ fn get(value: int32): int32 | null {
 fn check_reports_invalid_index_type() {
     let source = source(
         r#"
-fn get(values: [int32]): int32 | null {
+fn get(values: [i32]): i32 | null {
   return values[true]
 }
 "#,

@@ -5,11 +5,11 @@ fn check_accepts_struct_satisfies_constraint_field() {
     let (_source, _graph, result) = check_source(
         r#"
 constraint Named {
-  name: [uint8],
+  name: [u8],
 }
 
 struct User satisfies Named {
-  name: [uint8],
+  name: [u8],
 }
 "#,
     );
@@ -22,11 +22,11 @@ fn check_reports_satisfies_non_constraint_target() {
     let source = source(
         r#"
 struct Other {
-  name: [uint8],
+  name: [u8],
 }
 
 struct User satisfies Other {
-  name: [uint8],
+  name: [u8],
 }
 "#,
     );
@@ -54,11 +54,11 @@ fn check_reports_missing_constraint_field() {
     let source = source(
         r#"
 constraint Named {
-  name: [uint8],
+  name: [u8],
 }
 
 struct User satisfies Named {
-  id: int32,
+  id: i32,
 }
 "#,
     );
@@ -84,11 +84,11 @@ fn check_reports_constraint_field_type_mismatch() {
     let source = source(
         r#"
 constraint Named {
-  name: [uint8],
+  name: [u8],
 }
 
 struct User satisfies Named {
-  name: int32,
+  name: i32,
 }
 "#,
     );
@@ -107,7 +107,7 @@ struct User satisfies Named {
         diagnostic.code().as_str() == TypeDiagnosticCode::ConstraintFieldTypeMismatch.as_code()
             && diagnostic
                 .message()
-                .contains("field `name` expected `[uint8]`, got `int32`")
+                .contains("field `name` expected `[u8]`, got `i32`")
     }));
 }
 
@@ -116,16 +116,16 @@ fn check_accepts_struct_satisfies_multiple_constraints() {
     let (_source, _graph, result) = check_source(
         r#"
 constraint Named {
-  name: [uint8],
+  name: [u8],
 }
 
 constraint Identified {
-  id: int32,
+  id: i32,
 }
 
 struct User satisfies Named, Identified {
-  id: int32,
-  name: [uint8],
+  id: i32,
+  name: [u8],
 }
 "#,
     );
@@ -137,14 +137,14 @@ struct User satisfies Named, Identified {
 fn check_accepts_constraint_field_type_alias() {
     let (_source, _graph, result) = check_source(
         r#"
-type Bytes = [uint8]
+type Bytes = [u8]
 
 constraint Named {
   name: Bytes,
 }
 
 struct User satisfies Named {
-  name: [uint8],
+  name: [u8],
 }
 "#,
     );
@@ -157,14 +157,14 @@ fn check_accepts_struct_satisfies_constraint_function() {
     let (_source, _graph, result) = check_source(
         r#"
 constraint Named {
-  fn name(): [uint8],
+  fn name(): [u8],
 }
 
 struct User satisfies Named {
-  name: [uint8],
+  name: [u8],
 }
 
-fn User::name(): [uint8] {
+fn User::name(): [u8] {
   return "Ana"
 }
 "#,
@@ -178,18 +178,18 @@ fn check_accepts_constraint_function_value_anchor_call() {
     let (_source, _graph, result) = check_source(
         r#"
 constraint Stringable {
-  fn stringify(): [uint8],
+  fn stringify(): [u8],
 }
 
 struct User satisfies Stringable {
-  name: [uint8],
+  name: [u8],
 }
 
-fn User::stringify(): [uint8] {
+fn User::stringify(): [u8] {
   return "Ana"
 }
 
-fn show(value: Stringable): [uint8] {
+fn show(value: Stringable): [u8] {
   return value::stringify()
 }
 "#,
@@ -203,10 +203,10 @@ fn check_reports_constraint_function_dot_call_as_unknown_member() {
     let source = source(
         r#"
 constraint Stringable {
-  fn stringify(): [uint8],
+  fn stringify(): [u8],
 }
 
-fn show(value: Stringable): [uint8] {
+fn show(value: Stringable): [u8] {
   return value.stringify()
 }
 "#,
@@ -233,11 +233,11 @@ fn check_reports_missing_constraint_function() {
     let source = source(
         r#"
 constraint Named {
-  fn name(): [uint8],
+  fn name(): [u8],
 }
 
 struct User satisfies Named {
-  name: [uint8],
+  name: [u8],
 }
 "#,
     );
@@ -263,14 +263,14 @@ fn check_reports_constraint_function_return_type_mismatch() {
     let source = source(
         r#"
 constraint Named {
-  fn name(): [uint8],
+  fn name(): [u8],
 }
 
 struct User satisfies Named {
-  name: [uint8],
+  name: [u8],
 }
 
-fn User::name(): int32 {
+fn User::name(): i32 {
   return 1
 }
 "#,
@@ -297,14 +297,14 @@ fn check_reports_constraint_function_parameter_type_mismatch() {
     let source = source(
         r#"
 constraint Setter {
-  fn set(value: [uint8]): null,
+  fn set(value: [u8]): null,
 }
 
 struct User satisfies Setter {
-  name: [uint8],
+  name: [u8],
 }
 
-fn User::set(value: int32): null {
+fn User::set(value: i32): null {
   return
 }
 "#,
@@ -331,14 +331,14 @@ fn check_accepts_generic_constraint_function_explicit_argument() {
     let (_source, _graph, result) = check_source(
         r#"
 constraint Stringable<T> {
-  fn toString(self): [uint8],
+  fn toString(self): [u8],
 }
 
 struct User satisfies Stringable<User> {
-  name: [uint8],
+  name: [u8],
 }
 
-fn User::toString(self): [uint8] {
+fn User::toString(self): [u8] {
   return self.name
 }
 "#,
@@ -355,7 +355,7 @@ constraint Unwrap<Self, Value> {
   fn unwrap(self): Self,
 }
 
-struct Box<T: int32 | float64> satisfies Unwrap<Box<T>, T> {
+struct Box<T: i32 | f64> satisfies Unwrap<Box<T>, T> {
   value: T,
 }
 
@@ -373,14 +373,14 @@ fn check_reports_generic_constraint_function_return_type_mismatch() {
     let source = source(
         r#"
 constraint Stringable<T> {
-  fn toString(self): [uint8],
+  fn toString(self): [u8],
 }
 
 struct User satisfies Stringable<User> {
-  name: [uint8],
+  name: [u8],
 }
 
-fn User::toString(self): int32 {
+fn User::toString(self): i32 {
   return 1
 }
 "#,
@@ -410,8 +410,8 @@ constraint HasValue<T> {
   value: T,
 }
 
-struct IntBox satisfies HasValue<int32> {
-  value: int32,
+struct IntBox satisfies HasValue<i32> {
+  value: i32,
 }
 "#,
     );
@@ -427,7 +427,7 @@ constraint HasValue<T> {
   value: T,
 }
 
-struct IntBox satisfies HasValue<int32> {
+struct IntBox satisfies HasValue<i32> {
   value: bool,
 }
 "#,
@@ -454,14 +454,14 @@ fn check_reports_generic_constraint_missing_argument() {
     let source = source(
         r#"
 constraint Stringable<T> {
-  fn toString(self): [uint8],
+  fn toString(self): [u8],
 }
 
 struct User satisfies Stringable {
-  name: [uint8],
+  name: [u8],
 }
 
-fn User::toString(self): [uint8] {
+fn User::toString(self): [u8] {
   return self.name
 }
 "#,
@@ -494,7 +494,7 @@ fn check_accepts_generic_parameter_constraint_bound() {
           value: T,
         }
 
-        fn read<T: HasValue<int32>>(value: T): null {
+        fn read<T: HasValue<i32>>(value: T): null {
           return
         }
         "#,
@@ -508,7 +508,7 @@ fn check_reports_generic_parameter_constraint_non_constraint_target() {
     let source = source(
         r#"
         struct Other {
-          value: int32,
+          value: i32,
         }
 
         fn read<T: Other>(value: T): null {
@@ -576,7 +576,7 @@ fn check_reports_generic_parameter_constraint_extra_argument() {
           value: T,
         }
 
-        fn read<T: HasValue<int32, bool>>(value: T): null {
+        fn read<T: HasValue<i32, bool>>(value: T): null {
           return
         }
         "#,

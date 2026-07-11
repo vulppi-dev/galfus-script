@@ -184,7 +184,7 @@ fn parse_reports_missing_statement_terminator() {
 
 #[test]
 fn parse_member_expression_in_return() {
-    let source = source("fn main(): [int8] {\n  return user.name\n}");
+    let source = source("fn main(): [i8] {\n  return user.name\n}");
 
     let result = parse(&source);
 

@@ -72,7 +72,7 @@ fn parse_generic_struct_declaration_with_multiple_parameters() {
 
 #[test]
 fn parse_regular_struct_declaration_shape_is_unchanged() {
-    let source = source("struct User {\n  name: [int8],\n}");
+    let source = source("struct User {\n  name: [i8],\n}");
 
     let result = parse(&source);
 

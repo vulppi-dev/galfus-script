@@ -122,7 +122,7 @@ target = "lib"
         "src/user.gfs",
         r#"
 export struct User {
-  id: int64,
+  id: i64,
 }
 "#,
     )?;
@@ -223,7 +223,7 @@ entry = "app.start"
         root.as_path(),
         "src/main.gfs",
         r#"
-export fn start(args: [[uint8]]): int32 {
+export fn start(args: [[u8]]): i32 {
   return 0
 }
 "#,

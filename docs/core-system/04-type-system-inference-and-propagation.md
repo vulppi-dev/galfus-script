@@ -42,32 +42,32 @@ Type names are case-sensitive.
 Array type:
 
 ```galfus
-[int32]
+[i32]
 [User]
 ```
 
-String literals are `[uint8]`.
+String literals are `[u8]`.
 
 ## 4.4 Tuples
 
 Tuple types are positional.
 
 ```galfus
-(int32, int32)
-([uint8], int32)
+(i32, i32)
+([u8], i32)
 ```
 
 A normal tuple has at least two elements.
 
-`(int32)` is a grouped type, not a tuple.
+`(i32)` is a grouped type, not a tuple.
 
 ## 4.5 Function Types
 
 Function types use `fn(...): Return`.
 
 ```galfus
-fn(int32, int32): int32
-fn([uint8]): null
+fn(i32, i32): i32
+fn([u8]): null
 ```
 
 Function types are invariant by default.
@@ -77,7 +77,7 @@ Function types are invariant by default.
 A union uses `|`.
 
 ```galfus
-int32 | int64
+i32 | i64
 User | null
 ```
 
@@ -94,7 +94,7 @@ The compiler SHOULD preserve aliases for diagnostics where useful.
 Type aliases are transparent for assignability but preserve their symbol for diagnostics and tooling.
 
 ```galfus
-type UserId = int64
+type UserId = i64
 
 var id: UserId = 10
 ```
@@ -141,21 +141,21 @@ explicit cast
 Example:
 
 ```galfus
-var value: int64 = 10
+var value: i64 = 10
 ```
 
-The literal `10` is typed as `int64`.
+The literal `10` is typed as `i64`.
 
 ## 4.10 Bottom-Up Local Typing
 
 Expressions are typed from their local structure first.
 
 ```galfus
-var small: int16 = 2
+var small: i16 = 2
 var result = 10 + small
 ```
 
-The literal `10` may refine to `int16` if it fits, and the result may be `int16`.
+The literal `10` may refine to `i16` if it fits, and the result may be `i16`.
 
 An outer expected type may then widen the final expression.
 
@@ -175,14 +175,14 @@ float-to-integer non-literal -> explicit cast
 Invalid without explicit cast:
 
 ```galfus
-var wide: int64 = 1000
-var small: int8 = wide
+var wide: i64 = 1000
+var small: i8 = wide
 ```
 
 Valid with explicit cast if allowed:
 
 ```galfus
-var small = <int8> wide
+var small = <i8> wide
 ```
 
 ## 4.12 Explicit Casts
@@ -190,7 +190,7 @@ var small = <int8> wide
 Explicit cast syntax:
 
 ```galfus
-<int8> value
+<i8> value
 <bool> count
 ```
 
@@ -253,10 +253,10 @@ It can narrow only through statically known possible type sets.
 For generics, this means `instanceof` is valid only when the generic bound defines a known possible runtime set.
 
 ```galfus
-fn render<T: int32 | [uint8] | bool>(value: T): [uint8] {
+fn render<T: i32 | [u8] | bool>(value: T): [u8] {
   return instanceof value {
-    int32 number => "number",
-    [uint8] text => text,
+    i32 number => "number",
+    [u8] text => text,
     _ => "other",
   }
 }
@@ -265,10 +265,10 @@ fn render<T: int32 | [uint8] | bool>(value: T): [uint8] {
 `typeof` dispatches over a type expression instead of a value expression.
 
 ```galfus
-fn parse<T: int32 | [uint8] | bool>(text: [uint8]): T | null {
+fn parse<T: i32 | [u8] | bool>(text: [u8]): T | null {
   return typeof T {
-    int32 => parseInt32(text),
-    [uint8] => text,
+    i32 => parseInt32(text),
+    [u8] => text,
     bool => parseBool(text),
   }
 }

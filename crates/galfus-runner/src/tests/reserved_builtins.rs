@@ -16,11 +16,11 @@ fn user_file_cannot_declare_builtin_function_key() -> anyhow::Result<()> {
     fs::write(
         src.join("main.gfs"),
         r#"
-fn __builtin_write(text: [uint8]): null {
+fn __builtin_write(text: [u8]): null {
   return
 }
 
-export fn main(args: [[uint8]]): int32 {
+export fn main(args: [[u8]]): i32 {
   return 0
 }
 "#,
@@ -49,7 +49,7 @@ fn user_file_cannot_reference_builtin_key_directly() -> anyhow::Result<()> {
     fs::write(
         src.join("main.gfs"),
         r#"
-export fn main(args: [[uint8]]): int32 {
+export fn main(args: [[u8]]): i32 {
   __builtin_write("x")
   return 0
 }
@@ -81,7 +81,7 @@ fn user_file_cannot_declare_reserved_builtin_variable() -> anyhow::Result<()> {
         r#"
 var __builtin_value = 1
 
-export fn main(args: [[uint8]]): int32 {
+export fn main(args: [[u8]]): i32 {
   return 0
 }
 "#,
@@ -112,7 +112,7 @@ fn std_io_builtin_surface_still_works_for_user_code() -> anyhow::Result<()> {
         r#"
 import io from "std/io"
 
-export fn main(args: [[uint8]]): int32 {
+export fn main(args: [[u8]]): i32 {
   io::print("ok")
   return 0
 }

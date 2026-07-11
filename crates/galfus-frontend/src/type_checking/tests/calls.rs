@@ -4,11 +4,11 @@ use super::*;
 fn check_accepts_call_with_matching_arguments() {
     let (_source, _graph, result) = check_source(
         r#"
-fn add(a: int32, b: int32): int32 {
+fn add(a: i32, b: i32): i32 {
   return a
 }
 
-var value: int32 = add(1, 2)
+var value: i32 = add(1, 2)
 "#,
     );
 
@@ -19,7 +19,7 @@ var value: int32 = add(1, 2)
 fn check_contextual_integer_call_argument_type() {
     let (source, graph, result) = check_source(
         r#"
-fn push(byte: uint8): null {
+fn push(byte: u8): null {
   return
 }
 
@@ -43,11 +43,11 @@ var value = push(27)
 fn check_binds_call_expression_return_type() {
     let (_source, graph, result) = check_source(
         r#"
-fn one(): int32 {
+fn one(): i32 {
   return 1
 }
 
-var value: int32 = one()
+var value: i32 = one()
 "#,
     );
 
@@ -55,11 +55,11 @@ var value: int32 = one()
         galfus_core::SourceId::new(0),
         "test.gfs".to_string(),
         r#"
-fn one(): int32 {
+fn one(): i32 {
   return 1
 }
 
-var value: int32 = one()
+var value: i32 = one()
 "#
         .to_string(),
     );
@@ -79,11 +79,11 @@ var value: int32 = one()
 fn check_reports_call_argument_type_mismatch() {
     let source = source(
         r#"
-fn add(a: int32, b: int32): int32 {
+fn add(a: i32, b: i32): i32 {
   return a
 }
 
-var value: int32 = add(true, 2)
+var value: i32 = add(true, 2)
 "#,
     );
 
@@ -99,9 +99,7 @@ var value: int32 = add(true, 2)
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
         diagnostic.code().as_str() == TypeDiagnosticCode::TypeMismatch.as_code()
-            && diagnostic
-                .message()
-                .contains("expected `int32`, got `bool`")
+            && diagnostic.message().contains("expected `i32`, got `bool`")
     }));
 }
 
@@ -109,11 +107,11 @@ var value: int32 = add(true, 2)
 fn check_reports_too_few_call_arguments() {
     let source = source(
         r#"
-fn add(a: int32, b: int32): int32 {
+fn add(a: i32, b: i32): i32 {
   return a
 }
 
-var value: int32 = add(1)
+var value: i32 = add(1)
 "#,
     );
 
@@ -137,11 +135,11 @@ var value: int32 = add(1)
 fn check_reports_too_many_call_arguments() {
     let source = source(
         r#"
-fn add(a: int32, b: int32): int32 {
+fn add(a: i32, b: i32): i32 {
   return a
 }
 
-var value: int32 = add(1, 2, 3)
+var value: i32 = add(1, 2, 3)
 "#,
     );
 
@@ -165,8 +163,8 @@ var value: int32 = add(1, 2, 3)
 fn check_reports_calling_non_function() {
     let source = source(
         r#"
-var age: int32 = 10
-var result: int32 = age()
+var age: i32 = 10
+var result: i32 = age()
 "#,
     );
 
@@ -190,11 +188,11 @@ var result: int32 = age()
 fn check_accepts_default_parameter_argument_count() {
     let (_source, _graph, result) = check_source(
         r#"
-fn add(a: int32, b: int32 = 1): int32 {
+fn add(a: i32, b: i32 = 1): i32 {
   return a
 }
 
-var value: int32 = add(1)
+var value: i32 = add(1)
 "#,
     );
 
@@ -205,11 +203,11 @@ var value: int32 = add(1)
 fn check_accepts_rest_parameter_argument_count() {
     let (_source, _graph, result) = check_source(
         r#"
-fn sum(...values: [int32]): int32 {
+fn sum(...values: [i32]): i32 {
   return 1
 }
 
-var value: int32 = sum(1, 2, 3)
+var value: i32 = sum(1, 2, 3)
 "#,
     );
 
@@ -220,11 +218,11 @@ var value: int32 = sum(1, 2, 3)
 fn check_accepts_omitted_default_argument() {
     let (_source, _graph, result) = check_source(
         r#"
-        fn call(a: int32, b: int32 = 2, c: int32 = 3): int32 {
+        fn call(a: i32, b: i32 = 2, c: i32 = 3): i32 {
           return a + b + c
         }
 
-        var value: int32 = call(1, _, 3)
+        var value: i32 = call(1, _, 3)
         "#,
     );
 
@@ -235,11 +233,11 @@ fn check_accepts_omitted_default_argument() {
 fn check_reports_omitted_required_argument() {
     let source = source(
         r#"
-        fn call(a: int32, b: int32 = 2): int32 {
+        fn call(a: i32, b: i32 = 2): i32 {
           return a + b
         }
 
-        var value: int32 = call(_, 2)
+        var value: i32 = call(_, 2)
         "#,
     );
 
@@ -271,15 +269,15 @@ fn check_reports_omitted_required_argument() {
 fn check_accepts_individual_arguments_for_rest_parameter() {
     let (_source, _graph, result) = check_source(
         r#"
-        fn sum(...values: [int32]): int32 {
+        fn sum(...values: [i32]): i32 {
           return 0
         }
 
-        fn call(...values: [int32]): null {
+        fn call(...values: [i32]): null {
           return
         }
 
-        var value: int32 = sum(1, 2, 3)
+        var value: i32 = sum(1, 2, 3)
 
         fn main(): null {
           call()
@@ -299,10 +297,10 @@ fn check_accepts_anchor_function_path_call() {
     let (_source, _graph, result) = check_source(
         r#"
 struct User {
-  name: [uint8],
+  name: [u8],
 }
 
-fn User::rename(user: User, name: [uint8]): User {
+fn User::rename(user: User, name: [u8]): User {
   return new(User) { name }
 }
 
@@ -319,10 +317,10 @@ fn check_binds_anchor_function_path_type() {
     let (source, graph, result) = check_source(
         r#"
 struct User {
-  name: [uint8],
+  name: [u8],
 }
 
-fn User::rename(user: User, name: [uint8]): User {
+fn User::rename(user: User, name: [u8]): User {
   return new(User) { name }
 }
 
@@ -350,7 +348,7 @@ var rename = User::rename
 fn check_reports_expression_statement_type_mismatch() {
     let source = source(
         r#"
-fn print(text: [uint8]): null {
+fn print(text: [u8]): null {
   return null
 }
 
@@ -379,7 +377,7 @@ fn main(): null {
 fn check_reports_restricted_builtin_symbol_declaration() {
     let source = source(
         r#"
-fn __builtin_write(text: [uint8]): null {
+fn __builtin_write(text: [u8]): null {
   return null
 }
 "#,
@@ -404,7 +402,7 @@ fn __builtin_write(text: [uint8]): null {
 fn check_reports_restricted_builtin_symbol_reference() {
     let source = source(
         r#"
-fn __builtin_write(text: [uint8]): null {
+fn __builtin_write(text: [u8]): null {
   return null
 }
 

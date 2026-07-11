@@ -5,7 +5,7 @@ fn check_accepts_matching_assignment_type() {
     let (_source, _graph, result) = check_source(
         r#"
 fn main(): null {
-  var age: int32 = 10
+  var age: i32 = 10
   age = 20
   return
 }
@@ -20,7 +20,7 @@ fn check_reports_assignment_type_mismatch() {
     let source = source(
         r#"
 fn main(): null {
-  var age: int32 = 10
+  var age: i32 = 10
   age = true
   return
 }
@@ -39,9 +39,7 @@ fn main(): null {
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
         diagnostic.code().as_str() == TypeDiagnosticCode::TypeMismatch.as_code()
-            && diagnostic
-                .message()
-                .contains("expected `int32`, got `bool`")
+            && diagnostic.message().contains("expected `i32`, got `bool`")
     }));
 }
 
@@ -50,7 +48,7 @@ fn check_reports_assignment_to_const() {
     let source = source(
         r#"
 fn main(): null {
-  const age: int32 = 10
+  const age: i32 = 10
   age = 20
   return
 }
@@ -79,7 +77,7 @@ fn main(): null {
 fn check_reports_assignment_to_parameter() {
     let source = source(
         r#"
-fn main(age: int32): null {
+fn main(age: i32): null {
   age = 20
   return
 }
@@ -108,7 +106,7 @@ fn main(age: int32): null {
 fn check_reports_assignment_to_for_binding() {
     let source = source(
         r#"
-fn main(values: [int32]): null {
+fn main(values: [i32]): null {
   for value in values {
     value = 20
   }
@@ -140,7 +138,7 @@ fn check_accepts_nullable_assignment() {
     let (_source, _graph, result) = check_source(
         r#"
 fn main(): null {
-  var maybe: int32 | null = null
+  var maybe: i32 | null = null
   maybe = 10
   return
 }
@@ -155,7 +153,7 @@ fn check_accepts_numeric_compound_assignment() {
     let (_source, _graph, result) = check_source(
         r#"
 fn main(): null {
-  var age: int32 = 10
+  var age: i32 = 10
   age += 1
   return
 }
@@ -170,7 +168,7 @@ fn check_reports_numeric_compound_assignment_type_error() {
     let source = source(
         r#"
 fn main(): null {
-  var age: int32 = 10
+  var age: i32 = 10
   age += true
   return
 }
@@ -198,7 +196,7 @@ fn check_accepts_bitwise_compound_assignment() {
     let (_source, _graph, result) = check_source(
         r#"
 fn main(): null {
-  var flags: int32 = 1
+  var flags: i32 = 1
   flags |= 2
   return
 }
@@ -213,7 +211,7 @@ fn check_accepts_shift_compound_assignment() {
     let (_source, _graph, result) = check_source(
         r#"
 fn main(): null {
-  var flags: int32 = 1
+  var flags: i32 = 1
   flags <<= 2
   return
 }
@@ -228,7 +226,7 @@ fn check_accepts_null_fallback_assignment_for_nullable_target() {
     let (_source, _graph, result) = check_source(
         r#"
 fn main(): null {
-  var maybe: int32 | null = null
+  var maybe: i32 | null = null
   maybe ??= 1
   return
 }
@@ -243,7 +241,7 @@ fn check_reports_null_fallback_assignment_for_non_nullable_target() {
     let source = source(
         r#"
 fn main(): null {
-  var value: int32 = 1
+  var value: i32 = 1
   value ??= 2
   return
 }

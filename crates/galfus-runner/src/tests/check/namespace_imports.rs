@@ -108,10 +108,10 @@ import text from "text"
 import format from "format"
 import ansi from "format/ansi"
 
-var joined: [uint8] = text::concat("a", "b")
-var rendered: [uint8] = format::stringify(42)
-var parsed: format::ParseResult<int32> = format::parse<int32>("42")
-var styled: [uint8] = ansi::red()::apply("error")
+var joined: [u8] = text::concat("a", "b")
+var rendered: [u8] = format::stringify(42)
+var parsed: format::ParseResult<i32> = format::parse<i32>("42")
+var styled: [u8] = ansi::red()::apply("error")
 
 fn main(): null {
   return
@@ -140,7 +140,7 @@ fn check_path_accepts_buffer_create_for_nullable_struct() -> Result<()> {
         "main.gfs",
         r##"
 struct User {
-  id: int32,
+  id: i32,
 }
 
 var users = new([User | null], 3)
@@ -172,7 +172,7 @@ fn check_path_rejects_buffer_create_for_non_defaultable_struct() -> Result<()> {
         "main.gfs",
         r##"
 struct User {
-  id: int32,
+  id: i32,
 }
 
 var users = new([User], 3)
@@ -204,7 +204,7 @@ fn check_path_typechecks_namespace_imported_function_call() -> Result<()> {
         r#"
         import math from "./math"
 
-        var value: int32 = math::add(true, 2)
+        var value: i32 = math::add(true, 2)
 
         fn main(): null {
             return
@@ -216,7 +216,7 @@ fn check_path_typechecks_namespace_imported_function_call() -> Result<()> {
         root.as_path(),
         "math.gfs",
         r#"
-        export fn add(a: int32, b: int32): int32 {
+        export fn add(a: i32, b: i32): i32 {
             return a
         }
         "#,
@@ -227,9 +227,7 @@ fn check_path_typechecks_namespace_imported_function_call() -> Result<()> {
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
         diagnostic.code().as_str() == TypeDiagnosticCode::TypeMismatch.as_code()
-            && diagnostic
-                .message()
-                .contains("expected `int32`, got `bool`")
+            && diagnostic.message().contains("expected `i32`, got `bool`")
     }));
 
     fs::remove_dir_all(root)?;
@@ -297,7 +295,7 @@ fn main(value: user::User): null {
         "user.gfs",
         r#"
 export struct User {
-  id: int64,
+  id: i64,
 }
 "#,
     )?;
@@ -335,7 +333,7 @@ fn check_path_typechecks_namespace_imported_type_path() -> Result<()> {
         "user.gfs",
         r#"
         export struct User {
-            id: int64,
+            id: i64,
         }
         "#,
     )?;
@@ -358,7 +356,7 @@ fn check_path_typechecks_namespace_imported_struct_field_access() -> Result<()> 
         r#"
         import user from "./user"
 
-        fn read(value: user::User): int64 {
+        fn read(value: user::User): i64 {
             return value.id
         }
 
@@ -373,7 +371,7 @@ fn check_path_typechecks_namespace_imported_struct_field_access() -> Result<()> 
         "user.gfs",
         r#"
         export struct User {
-            id: int64,
+            id: i64,
         }
         "#,
     )?;
@@ -446,8 +444,8 @@ fn check_path_typechecks_namespace_imported_choice_constructor() -> Result<()> {
         "result.gfs",
         r#"
         export choice Result {
-            Ok(int32),
-            Err([int8]),
+            Ok(i32),
+            Err([i8]),
         }
         "#,
     )?;
@@ -482,7 +480,7 @@ fn check_path_typechecks_namespace_imported_alias() -> Result<()> {
         root.as_path(),
         "ids.gfs",
         r#"
-        export type UserId = int32
+        export type UserId = i32
         "#,
     )?;
 
@@ -504,7 +502,7 @@ fn check_path_typechecks_namespace_imported_function_stamp() -> Result<()> {
         r#"
         import math from "./math"
 
-        var value: int32 = math::make(1)
+        var value: i32 = math::make(1)
 
         fn main(): null {
             return
@@ -516,7 +514,7 @@ fn check_path_typechecks_namespace_imported_function_stamp() -> Result<()> {
         root.as_path(),
         "math.gfs",
         r#"
-        export fn(stamp) make(value: int32): int32 {
+        export fn(stamp) make(value: i32): i32 {
             return value
         }
         "#,
@@ -555,10 +553,10 @@ fn check_path_typechecks_namespace_imported_anchor_function() -> Result<()> {
         "user.gfs",
         r#"
         export struct User {
-            name: [uint8],
+            name: [u8],
         }
 
-        export fn User::rename(self: User, name: [uint8]): User {
+        export fn User::rename(self: User, name: [u8]): User {
             return self
         }
         "#,
@@ -583,10 +581,10 @@ fn check_path_accepts_namespace_imported_constraint_application() -> Result<()> 
         import contracts from "./contracts"
 
         struct User satisfies contracts::Named {
-            name: [uint8],
+            name: [u8],
         }
 
-        fn User::label(): [uint8] {
+        fn User::label(): [u8] {
             return "Ana"
         }
 
@@ -601,8 +599,8 @@ fn check_path_accepts_namespace_imported_constraint_application() -> Result<()> 
         "contracts.gfs",
         r#"
         export constraint Named {
-            name: [uint8],
-            fn label(): [uint8],
+            name: [u8],
+            fn label(): [u8],
         }
         "#,
     )?;
@@ -626,7 +624,7 @@ fn check_path_reports_namespace_imported_constraint_generic_argument_count() -> 
         import contracts from "./contracts"
 
         struct User satisfies contracts::Boxed {
-            value: int64,
+            value: i64,
         }
 
         fn main(): null {
@@ -681,7 +679,7 @@ fn main(value: user::User): null {
         "user.gfs",
         r#"
 struct User {
-  id: int64,
+  id: i64,
 }
 "#,
     )?;

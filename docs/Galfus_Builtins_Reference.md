@@ -83,13 +83,13 @@ Basic console and standard input/output stream interaction.
 # Read bytes from standard input until the delimiter is reached or EOF.
 # The delimiter is not included in the returned bytes.
 # An empty delimiter is invalid.
-fn read(until: [uint8] = "\n"): [uint8]
+fn read(until: [u8] = "\n"): [u8]
 
 # Write raw UTF-8 bytes to standard output.
-fn print(text: [uint8]): null
+fn print(text: [u8]): null
 
 # Write raw UTF-8 bytes followed by a newline to standard output.
-fn println(text: [uint8]): null
+fn println(text: [u8]): null
 ```
 
 ### `std/fs`
@@ -100,26 +100,26 @@ Direct filesystem access, mapped to OS level operations.
 external struct FileHandle {}
 
 struct FileStat {
-  size: uint64,
+  size: u64,
   is_dir: bool,
-  modified: int64,
-  created: int64,
+  modified: i64,
+  created: i64,
 }
 
 # Open file path with mode and flags. Returns a FileHandle or null on failure
-fn open(path: [uint8], flags: int32, mode: int32): FileHandle
+fn open(path: [u8], flags: i32, mode: i32): FileHandle
 
 # Read bytes from a specific offset into the buffer. Returns bytes read
-fn read(file: FileHandle, offset: int64, buffer: [uint8]): int32
+fn read(file: FileHandle, offset: i64, buffer: [u8]): i32
 
 # Write bytes to a specific offset. Returns bytes written
-fn write(file: FileHandle, offset: int64, data: [uint8]): int32
+fn write(file: FileHandle, offset: i64, data: [u8]): i32
 
 # Close the file handle, releasing resources
 fn close(file: FileHandle): null
 
 # Query metadata for a given path
-fn stat(path: [uint8]): FileStat
+fn stat(path: [u8]): FileStat
 ```
 
 ### `std/net`
@@ -130,13 +130,13 @@ Raw TCP/UDP socket networking.
 external struct SocketHandle {}
 
 # Connect to a target remote host/port. Returns a SocketHandle or null on failure
-fn connect(address: [uint8]): SocketHandle
+fn connect(address: [u8]): SocketHandle
 
 # Send raw bytes over the connection. Returns bytes sent
-fn send(socket: SocketHandle, data: [uint8]): int32
+fn send(socket: SocketHandle, data: [u8]): i32
 
 # Receive raw bytes into the buffer. Returns bytes received
-fn recv(socket: SocketHandle, buffer: [uint8]): int32
+fn recv(socket: SocketHandle, buffer: [u8]): i32
 
 # Terminate the socket connection
 fn close(socket: SocketHandle): null
@@ -148,13 +148,13 @@ System-level and high-resolution timer access.
 
 ```galfus
 # Return UTC UNIX timestamp in milliseconds
-fn now(): int64
+fn now(): i64
 
 # Return monotonic time in nanoseconds/microseconds (for performance tracking)
-fn monotonic(): int64
+fn monotonic(): i64
 
 # Return system-specific timer ticks
-fn ticks(): int64
+fn ticks(): i64
 ```
 
 ### `std/env`
@@ -163,13 +163,13 @@ Process environment and runtime arguments.
 
 ```galfus
 # Return list of command line arguments
-fn args(): [[uint8]]
+fn args(): [[u8]]
 
 # Return value of environment variable key, or null if unset
-fn get(key: [uint8]): [uint8]
+fn get(key: [u8]): [u8]
 
 # Return current working directory path
-fn cwd(): [uint8]
+fn cwd(): [u8]
 ```
 
 ### `std/random`
@@ -178,7 +178,7 @@ Secure target entropy access.
 
 ```galfus
 # Fill target buffer with cryptographically secure random bytes from host entropy
-fn randomBytes(buffer: [uint8]): null
+fn randomBytes(buffer: [u8]): null
 ```
 
 ### `std/process`
@@ -187,7 +187,7 @@ Process termination and control. (Available only on desktop/server targets).
 
 ```galfus
 # Exit current process execution with the specified exit code status
-fn exit(code: int32): null
+fn exit(code: i32): null
 ```
 
 ---
@@ -198,17 +198,17 @@ These modules do not interact with the host OS directly unless using a configure
 
 ### `text`
 
-Byte-level text utilities for UTF-8 `[uint8]` arrays. Operations that inspect
+Byte-level text utilities for UTF-8 `[u8]` arrays. Operations that inspect
 characters currently operate on ASCII byte ranges.
 
-- `fn length(s: [uint8]): int32` - Returns the byte length.
-- `fn concat(a: [uint8], b: [uint8]): [uint8]` - Concatenates two byte arrays.
-- `fn slice(s: [uint8], start: int32, count: int32): [uint8]` - Extracts a byte range.
-- `fn repeat(s: [uint8], n: int32): [uint8]` - Repeats a byte array.
-- `fn startsWith(s: [uint8], prefix: [uint8]): bool` - Checks a byte prefix.
-- `fn endsWith(s: [uint8], suffix: [uint8]): bool` - Checks a byte suffix.
-- `fn trimStart(s: [uint8]): [uint8]` / `fn trimEnd(s: [uint8]): [uint8]` / `fn trim(s: [uint8]): [uint8]` - Trims ASCII whitespace.
-- `fn toUpper(s: [uint8]): [uint8]` / `fn toLower(s: [uint8]): [uint8]` - ASCII case mapping.
+- `fn length(s: [u8]): i32` - Returns the byte length.
+- `fn concat(a: [u8], b: [u8]): [u8]` - Concatenates two byte arrays.
+- `fn slice(s: [u8], start: i32, count: i32): [u8]` - Extracts a byte range.
+- `fn repeat(s: [u8], n: i32): [u8]` - Repeats a byte array.
+- `fn startsWith(s: [u8], prefix: [u8]): bool` - Checks a byte prefix.
+- `fn endsWith(s: [u8], suffix: [u8]): bool` - Checks a byte suffix.
+- `fn trimStart(s: [u8]): [u8]` / `fn trimEnd(s: [u8]): [u8]` / `fn trim(s: [u8]): [u8]` - Trims ASCII whitespace.
+- `fn toUpper(s: [u8]): [u8]` / `fn toLower(s: [u8]): [u8]` - ASCII case mapping.
 
 ### `format`
 
@@ -216,42 +216,42 @@ Base-level deterministic string conversion.
 
 ```galfus
 constraint Stringable {
-  fn stringify(self): [uint8]
+  fn stringify(self): [u8]
 }
 
-fn stringify<T>(value: T): [uint8]
-fn parse<T>(s: [uint8]): ParseResult<T>
+fn stringify<T>(value: T): [u8]
+fn parse<T>(s: [u8]): ParseResult<T>
 ```
 
-`stringify` is a conceptual generic builtin that returns compact bytes for booleans, `null`, raw `[uint8]`, concrete integer/float widths, and types implementing `Stringable`. Supported `T` types for `stringify<T>` are:
+`stringify` is a conceptual generic builtin that returns compact bytes for booleans, `null`, raw `[u8]`, concrete integer/float widths, and types implementing `Stringable`. Supported `T` types for `stringify<T>` are:
 
 - `bool`
 - `null`
-- `[uint8]`
-- concrete integer widths (`int8`, `int16`, `int32`, `int64`, `int128`, `uint8`, `uint16`, `uint32`, `uint64`, `uint128`)
-- concrete float widths (`float32`, `float64`)
+- `[u8]`
+- concrete integer widths (`i8`, `i16`, `i32`, `i64`, `i128`, `u8`, `u16`, `u32`, `u64`, `u128`)
+- concrete float widths (`f32`, `f64`)
 - any type satisfying the `Stringable` constraint
 
 `parse<T>` is a compiler-specialized builtin that parses numeric and primitive values, returning a `ParseResult<T>` containing the parsed value or an error. Supported target types `T` are:
 
 - `bool`
-- concrete integer widths (`int8`, `int16`, `int32`, `int64`, `int128`, `uint8`, `uint16`, `uint32`, `uint64`, `uint128`)
-- concrete float widths (`float32`, `float64`)
+- concrete integer widths (`i8`, `i16`, `i32`, `i64`, `i128`, `u8`, `u16`, `u32`, `u64`, `u128`)
+- concrete float widths (`f32`, `f64`)
 
 ### `json`
 
 Highly optimized JSON parsing and serialization.
 
-- `fn parse<T>(jsonBytes: [uint8]): ParseResult<T>` - Deserialize JSON bytes into a concrete structure or native types.
-- `fn stringify<T>(val: T): [uint8]` - Serialize structured data back into JSON UTF-8 bytes. Supported `T` types include `bool`, `null`, `[uint8]`, concrete integer/float widths, and arrays/structs composed of these supported types.
+- `fn parse<T>(jsonBytes: [u8]): ParseResult<T>` - Deserialize JSON bytes into a concrete structure or native types.
+- `fn stringify<T>(val: T): [u8]` - Serialize structured data back into JSON UTF-8 bytes. Supported `T` types include `bool`, `null`, `[u8]`, concrete integer/float widths, and arrays/structs composed of these supported types.
 
 ### `regex`
 
 Regular expression pattern matching.
 
-- `fn match(pattern: [uint8], text: [uint8]): bool` - Test if text matches regex.
-- `fn find(pattern: [uint8], text: [uint8]): [[uint8]]` - Find capture groups of regex match.
-- `fn replace(pattern: [uint8], text: [uint8], replacement: [uint8]): [uint8]` - Replace matches in text.
+- `fn match(pattern: [u8], text: [u8]): bool` - Test if text matches regex.
+- `fn find(pattern: [u8], text: [u8]): [[u8]]` - Find capture groups of regex match.
+- `fn replace(pattern: [u8], text: [u8], replacement: [u8]): [u8]` - Replace matches in text.
 
 ### `math`
 
@@ -264,18 +264,18 @@ Standard mathematical functions.
 
 Algorithmic file path manipulation (purely textual).
 
-- `fn join(parts: [[uint8]]): [uint8]` - Join path components safely according to target path separators.
-- `fn dirname(path: [uint8]): [uint8]` - Get parent directory path segment.
-- `fn basename(path: [uint8]): [uint8]` - Get filename portion.
-- `fn extname(path: [uint8]): [uint8]` - Get file extension portion.
+- `fn join(parts: [[u8]]): [u8]` - Join path components safely according to target path separators.
+- `fn dirname(path: [u8]): [u8]` - Get parent directory path segment.
+- `fn basename(path: [u8]): [u8]` - Get filename portion.
+- `fn extname(path: [u8]): [u8]` - Get file extension portion.
 
 ### `http`
 
 High-level HTTP client and listener capabilities (built on `std/net` and `std/time`).
 
-- `fn get(url: [uint8]): HttpResponse`
-- `fn post(url: [uint8], body: [uint8], headers: Map): HttpResponse`
-- `fn createServer(port: int32, handler: fn(HttpRequest): HttpResponse): HttpServer`
+- `fn get(url: [u8]): HttpResponse`
+- `fn post(url: [u8], body: [u8], headers: Map): HttpResponse`
+- `fn createServer(port: i32, handler: fn(HttpRequest): HttpResponse): HttpServer`
 
 ### `collections`
 
@@ -288,6 +288,6 @@ Standard utility structures and generic operations.
 
 Cryptographic primitives and utilities (built on `std/random`).
 
-- Hash functions: `sha256(data: [uint8]): [uint8]`, `md5(data: [uint8]): [uint8]`.
-- Cipher helpers: `encrypt(data: [uint8], key: [uint8]): [uint8]`, `decrypt(data: [uint8], key: [uint8]): [uint8]`.
-- Signatures: `sign(data: [uint8], privateKey: [uint8]): [uint8]`, `verify(data: [uint8], signature: [uint8], publicKey: [uint8]): bool`.
+- Hash functions: `sha256(data: [u8]): [u8]`, `md5(data: [u8]): [u8]`.
+- Cipher helpers: `encrypt(data: [u8], key: [u8]): [u8]`, `decrypt(data: [u8], key: [u8]): [u8]`.
+- Signatures: `sign(data: [u8], privateKey: [u8]): [u8]`, `verify(data: [u8], signature: [u8], publicKey: [u8]): bool`.

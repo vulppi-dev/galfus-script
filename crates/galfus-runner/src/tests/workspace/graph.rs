@@ -188,7 +188,7 @@ entry = "src/main.gfs"
         r#"
 import { add } from "./math"
 
-var value: int32 = add(true, 2)
+var value: i32 = add(true, 2)
 
 fn main(): null {
   return
@@ -200,7 +200,7 @@ fn main(): null {
         root.as_path(),
         "src/math.gfs",
         r#"
-export fn add(a: int32, b: int32): int32 {
+export fn add(a: i32, b: i32): i32 {
   return a
 }
 "#,
@@ -211,9 +211,7 @@ export fn add(a: int32, b: int32): int32 {
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
         diagnostic.code().as_str() == TypeDiagnosticCode::TypeMismatch.as_code()
-            && diagnostic
-                .message()
-                .contains("expected `int32`, got `bool`")
+            && diagnostic.message().contains("expected `i32`, got `bool`")
     }));
 
     fs::remove_dir_all(root)?;
@@ -253,7 +251,7 @@ fn main(value: user::User): null {
         "src/user.gfs",
         r#"
 export struct User {
-  id: int64,
+  id: i64,
 }
 
 export fn create(): null {

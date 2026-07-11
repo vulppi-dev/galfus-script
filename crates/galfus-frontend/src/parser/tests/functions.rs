@@ -110,7 +110,7 @@ fn parse_reports_expected_statement_inside_block() {
 
 #[test]
 fn parse_function_parameters() {
-    let source = source("fn sum(a: int32, b: int32): int32 { return }");
+    let source = source("fn sum(a: i32, b: i32): i32 { return }");
 
     let result = parse(&source);
 
@@ -134,7 +134,7 @@ fn parse_function_parameters() {
     let first_parameter_node = syntax.node(first_parameter).unwrap();
 
     assert_eq!(first_parameter_node.kind(), SyntaxNodeKind::Parameter);
-    assert_eq!(source.slice(first_parameter_node.span()), Some("a: int32"));
+    assert_eq!(source.slice(first_parameter_node.span()), Some("a: i32"));
 
     let first_name = first_parameter_node.first_child().unwrap();
     let first_type = first_parameter_node.child(1).unwrap();
@@ -149,13 +149,13 @@ fn parse_function_parameters() {
     );
     assert_eq!(
         source.slice(syntax.node(first_type).unwrap().span()),
-        Some("int32")
+        Some("i32")
     );
 
     let second_parameter = parameters_node.child(1).unwrap();
     let second_parameter_node = syntax.node(second_parameter).unwrap();
 
-    assert_eq!(source.slice(second_parameter_node.span()), Some("b: int32"));
+    assert_eq!(source.slice(second_parameter_node.span()), Some("b: i32"));
 }
 
 #[test]
@@ -181,7 +181,7 @@ fn parse_empty_parameter_list_still_works() {
 
 #[test]
 fn parse_parameter_list_accepts_trailing_comma() {
-    let source = source("fn sum(a: int32, b: int32,): int32 { return }");
+    let source = source("fn sum(a: i32, b: i32,): i32 { return }");
 
     let result = parse(&source);
 
@@ -202,7 +202,7 @@ fn parse_parameter_list_accepts_trailing_comma() {
 
 #[test]
 fn parse_parameter_list_accepts_multiline_trailing_comma() {
-    let source = source("fn sum(\n  a: int32,\n  b: int32,\n): int32 {\n  return\n}");
+    let source = source("fn sum(\n  a: i32,\n  b: i32,\n): i32 {\n  return\n}");
 
     let result = parse(&source);
 
@@ -225,7 +225,7 @@ fn parse_parameter_list_accepts_multiline_trailing_comma() {
 fn parse_stamp_function_item() {
     let source = source(
         r#"
-        fn(stamp) max(a: int32, b: int32): int32 {
+        fn(stamp) max(a: i32, b: i32): i32 {
             return a
         }
         "#,
@@ -247,7 +247,7 @@ fn parse_stamp_function_item() {
 fn parse_export_stamp_function_item() {
     let source = source(
         r#"
-        export fn(stamp) min(a: int32, b: int32): int32 {
+        export fn(stamp) min(a: i32, b: i32): i32 {
             return a
         }
         "#,
@@ -262,7 +262,7 @@ fn parse_export_stamp_function_item() {
 fn parse_decorated_rest_parameter() {
     let source = source(
         r#"
-        fn summarize(@nonempty ...values: [int32]): int32 {
+        fn summarize(@nonempty ...values: [i32]): i32 {
             return 0
         }
         "#,
@@ -277,7 +277,7 @@ fn parse_decorated_rest_parameter() {
 fn parse_rejects_function_without_return_type() {
     let source = source(
         r#"
-        fn log(message: [uint8]) {
+        fn log(message: [u8]) {
             return
         }
         "#,

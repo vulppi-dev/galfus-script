@@ -4,11 +4,11 @@ use super::*;
 fn check_accepts_exhaustive_typeof_over_bounded_generic() {
     let (_source, _graph, result) = check_source(
         r#"
-type Scalar = int32 | bool | null
+type Scalar = i32 | bool | null
 
-fn dispatch<T: Scalar>(): int32 {
+fn dispatch<T: Scalar>(): i32 {
   return typeof T {
-    int32 => 1,
+    i32 => 1,
     bool => 2,
     null => 3,
   }
@@ -23,11 +23,11 @@ fn dispatch<T: Scalar>(): int32 {
 fn check_accepts_typeof_wildcard_fallback() {
     let (_source, _graph, result) = check_source(
         r#"
-type Scalar = int32 | bool | null
+type Scalar = i32 | bool | null
 
-fn dispatch<T: Scalar>(): int32 {
+fn dispatch<T: Scalar>(): i32 {
   return typeof T {
-    int32 => 1,
+    i32 => 1,
     _ => 0,
   }
 }
@@ -41,7 +41,7 @@ fn dispatch<T: Scalar>(): int32 {
 fn check_typeof_propagates_generic_type_to_arm_body() {
     let (_source, _graph, result) = check_source(
         r#"
-type Scalar = int32 | bool
+type Scalar = i32 | bool
 
 choice Box<T: Scalar> {
   Value(T),
@@ -49,7 +49,7 @@ choice Box<T: Scalar> {
 
 fn make<T: Scalar>(): Box<T> {
   return typeof T {
-    int32 => Box::Value(1),
+    i32 => Box::Value(1),
     bool => Box::Value(true),
   }
 }
@@ -63,11 +63,11 @@ fn make<T: Scalar>(): Box<T> {
 fn check_reports_non_exhaustive_typeof_over_bounded_generic() {
     let source = source(
         r#"
-type Scalar = int32 | bool | null
+type Scalar = i32 | bool | null
 
-fn dispatch<T: Scalar>(): int32 {
+fn dispatch<T: Scalar>(): i32 {
   return typeof T {
-    int32 => 1,
+    i32 => 1,
     bool => 2,
   }
 }
@@ -95,9 +95,9 @@ fn dispatch<T: Scalar>(): int32 {
 fn check_reports_unbounded_typeof_without_wildcard() {
     let source = source(
         r#"
-fn dispatch<T>(): int32 {
+fn dispatch<T>(): i32 {
   return typeof T {
-    int32 => 1,
+    i32 => 1,
   }
 }
 "#,
@@ -123,11 +123,11 @@ fn dispatch<T>(): int32 {
 fn check_reports_incompatible_typeof_arm_body() {
     let source = source(
         r#"
-type Scalar = int32 | bool
+type Scalar = i32 | bool
 
 fn make<T: Scalar>(): T {
   return typeof T {
-    int32 => 1,
+    i32 => 1,
     bool => 2,
   }
 }

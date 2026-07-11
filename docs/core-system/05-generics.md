@@ -52,8 +52,8 @@ Generic arguments may be inferred from call arguments and expected return type.
 Explicit generic call syntax:
 
 ```galfus
-identity<int64>(10)
-math::max<int64>(a, b)
+identity<i64>(10)
+math::max<i64>(a, b)
 ```
 
 Initial rule:
@@ -71,12 +71,12 @@ struct Box<T> {
   value: T,
 }
 
-var box = new(Box<int32>) {
+var box = new(Box<i32>) {
   value: 10,
 }
 ```
 
-`Box<int32>` and `Box<int64>` are distinct concrete types.
+`Box<i32>` and `Box<i64>` are distinct concrete types.
 
 There is no implicit conversion between them.
 
@@ -94,7 +94,7 @@ choice Result<V, E> {
 Expected type may infer generic arguments.
 
 ```galfus
-var result: Result<int32, [uint8]> = Result::Ok(10)
+var result: Result<i32, [u8]> = Result::Ok(10)
 ```
 
 Invalid when generic arguments cannot be fully inferred:
@@ -158,7 +158,7 @@ fn add<T: Addable<T>>(a: T, b: T): T {
 Generic struct literals can infer from expected type or field values.
 
 ```galfus
-var box: Box<int32> = new(Box) {
+var box: Box<i32> = new(Box) {
   value: 10,
 }
 ```
@@ -186,10 +186,10 @@ Generic array forms:
 Valid:
 
 ```galfus
-fn render<T: int32 | [uint8] | bool>(value: T): [uint8] {
+fn render<T: i32 | [u8] | bool>(value: T): [u8] {
   return instanceof value {
-    int32 number => "number",
-    [uint8] text => text,
+    i32 number => "number",
+    [u8] text => text,
     _ => "other",
   }
 }
@@ -198,9 +198,9 @@ fn render<T: int32 | [uint8] | bool>(value: T): [uint8] {
 Invalid:
 
 ```galfus
-fn render<T>(value: T): [uint8] {
+fn render<T>(value: T): [u8] {
   return instanceof value {
-    int32 number => "number",
+    i32 number => "number",
     _ => "other",
   }
 }
@@ -211,10 +211,10 @@ There is no implicit unknown fallback.
 `typeof` may dispatch on a generic type parameter.
 
 ```galfus
-fn parse<T: int8 | uint8 | bool>(s: [uint8]): T | null {
+fn parse<T: i8 | u8 | bool>(s: [u8]): T | null {
   return typeof T {
-    int8 => parseInt8(s),
-    uint8 => parseUint8(s),
+    i8 => parseInt8(s),
+    u8 => parseUint8(s),
     bool => parseBool(s),
   }
 }
@@ -223,10 +223,10 @@ fn parse<T: int8 | uint8 | bool>(s: [uint8]): T | null {
 For a bounded generic, `typeof` must be exhaustive over the bound or end with `_`.
 
 ```galfus
-fn parse<T: int8 | uint8 | bool>(s: [uint8]): T | null {
+fn parse<T: i8 | u8 | bool>(s: [u8]): T | null {
   return typeof T {
-    int8 => parseInt8(s),
-    uint8 => parseUint8(s),
+    i8 => parseInt8(s),
+    u8 => parseUint8(s),
     _ => null,
   }
 }
@@ -235,7 +235,7 @@ fn parse<T: int8 | uint8 | bool>(s: [uint8]): T | null {
 For an unconstrained generic, `typeof` must include a final `_` arm because the checker has no closed type set.
 
 ```galfus
-fn parse<T>(s: [uint8]): T | null {
+fn parse<T>(s: [u8]): T | null {
   return typeof T {
     _ => null,
   }

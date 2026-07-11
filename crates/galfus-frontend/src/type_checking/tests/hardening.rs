@@ -3,7 +3,7 @@ use super::*;
 #[test]
 fn check_partial_parse_graph_without_panic() {
     let source = source(
-        "fn broken(): int32 {
+        "fn broken(): i32 {
             return true +
         }
 

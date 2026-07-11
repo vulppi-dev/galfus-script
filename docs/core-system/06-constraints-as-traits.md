@@ -32,7 +32,7 @@ Field requirement:
 
 ```galfus
 constraint Identifiable {
-  id: int64,
+  id: i64,
 }
 ```
 
@@ -40,12 +40,12 @@ Generic constraint:
 
 ```galfus
 constraint Comparable<T> {
-  fn compare(self, other: T): int32
+  fn compare(self, other: T): i32
 }
 
 `self` is inferred. It does not use an explicit type annotation.
 
-Semantics of `compare(self, other: T): int32`:
+Semantics of `compare(self, other: T): i32`:
 - Returns a negative value if `self` is ordered before `other`.
 - Returns zero if `self` is equivalent to `other` in ordering.
 - Returns a positive value if `self` is ordered after `other`.
@@ -57,7 +57,7 @@ A struct may declare that it satisfies constraints.
 
 ```galfus
 struct Button satisfies Drawable {
-  label: [uint8],
+  label: [u8],
 }
 
 fn Button::draw(self): null {
@@ -69,8 +69,8 @@ Multiple constraints:
 
 ```galfus
 struct User satisfies Identifiable, Drawable {
-  id: int64,
-  name: [uint8],
+  id: i64,
+  name: [u8],
 }
 ```
 

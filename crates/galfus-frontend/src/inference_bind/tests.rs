@@ -46,7 +46,7 @@ fn find_node_by_kind_and_text_from(
 fn lower_binds_primitive_named_type() {
     let source = source(
         r#"
-fn main(value: int32): null {
+fn main(value: i32): null {
   return
 }
 "#,
@@ -62,7 +62,7 @@ fn main(value: int32): null {
     let graph = resolve_result.graph();
 
     let int32_node =
-        find_node_by_kind_and_text(&source, graph, SyntaxNodeKind::NamedType, "int32").unwrap();
+        find_node_by_kind_and_text(&source, graph, SyntaxNodeKind::NamedType, "i32").unwrap();
 
     let ty = result.layer().node_type(int32_node).unwrap();
 
@@ -76,7 +76,7 @@ fn main(value: int32): null {
 fn lower_binds_array_type() {
     let source = source(
         r#"
-fn main(values: [int32]): null {
+fn main(values: [i32]): null {
   return
 }
 "#,
@@ -92,7 +92,7 @@ fn main(values: [int32]): null {
     let graph = resolve_result.graph();
 
     let array_node =
-        find_node_by_kind_and_text(&source, graph, SyntaxNodeKind::ArrayType, "[int32]").unwrap();
+        find_node_by_kind_and_text(&source, graph, SyntaxNodeKind::ArrayType, "[i32]").unwrap();
 
     let ty = result.layer().node_type(array_node).unwrap();
 
@@ -111,7 +111,7 @@ fn main(values: [int32]): null {
 fn lower_normalizes_union_type() {
     let source = source(
         r#"
-fn main(value: int32 | null | int32): null {
+fn main(value: i32 | null | i32): null {
   return
 }
 "#,
@@ -130,7 +130,7 @@ fn main(value: int32 | null | int32): null {
         &source,
         graph,
         SyntaxNodeKind::UnionType,
-        "int32 | null | int32",
+        "i32 | null | i32",
     )
     .unwrap();
 
@@ -149,7 +149,7 @@ fn lower_binds_named_struct_type() {
     let source = source(
         r#"
 struct User {
-  id: int64,
+  id: i64,
 }
 
 fn main(value: User): null {
@@ -222,10 +222,10 @@ choice Result<V, E> {
 }
 
 struct Error {
-  code: int32,
+  code: i32,
 }
 
-fn main(value: Result<int32, Error>): null {
+fn main(value: Result<i32, Error>): null {
   return
 }
 "#,
@@ -244,7 +244,7 @@ fn main(value: Result<int32, Error>): null {
         &source,
         graph,
         SyntaxNodeKind::GenericType,
-        "Result<int32, Error>",
+        "Result<i32, Error>",
     )
     .unwrap();
 

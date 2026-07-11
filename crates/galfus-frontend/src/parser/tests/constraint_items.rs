@@ -2,7 +2,7 @@ use super::*;
 
 #[test]
 fn parse_constraint_with_field() {
-    let source = source("constraint Identifiable {\n  id: int64,\n}");
+    let source = source("constraint Identifiable {\n  id: i64,\n}");
 
     let result = parse(&source);
 
@@ -35,7 +35,7 @@ fn parse_constraint_with_field() {
     let field_node = syntax.node(field).unwrap();
 
     assert_eq!(field_node.kind(), SyntaxNodeKind::ConstraintField);
-    assert_eq!(source.slice(field_node.span()), Some("id: int64"));
+    assert_eq!(source.slice(field_node.span()), Some("id: i64"));
 
     let field_name = field_node.first_child().unwrap();
     let field_type = field_node.child(1).unwrap();
@@ -53,7 +53,7 @@ fn parse_constraint_with_field() {
 
 #[test]
 fn parse_constraint_with_function_signature() {
-    let source = source("constraint Stringable {\n  fn toString(self): [int8]\n}");
+    let source = source("constraint Stringable {\n  fn toString(self): [i8]\n}");
 
     let result = parse(&source);
 
@@ -78,7 +78,7 @@ fn parse_constraint_with_function_signature() {
 
     assert_eq!(
         source.slice(signature_node.span()),
-        Some("fn toString(self): [int8]")
+        Some("fn toString(self): [i8]")
     );
 
     assert_eq!(signature_node.child_count(), 3);
@@ -155,7 +155,7 @@ fn parse_generic_constraint_with_constrained_parameter() {
 
 #[test]
 fn parse_constraint_with_field_and_function() {
-    let source = source("constraint Entity {\n  id: int64,\n  fn toString(self): [int8]\n}");
+    let source = source("constraint Entity {\n  id: i64,\n  fn toString(self): [i8]\n}");
 
     let result = parse(&source);
 

@@ -22,7 +22,7 @@ fn check_accepts_function_decorator() {
 fn check_accepts_decorator_call_with_arguments() {
     let (_source, _graph, result) = check_source(
         r#"
-        fn tag(target: fn(): null, name: [uint8], value: int32, enabled: bool): fn(): null {
+        fn tag(target: fn(): null, name: [u8], value: i32, enabled: bool): fn(): null {
           return target
         }
 
@@ -44,14 +44,14 @@ fn check_accepts_struct_and_field_decorators() {
           return target
         }
 
-        fn trim(target: [uint8]): [uint8] {
+        fn trim(target: [u8]): [u8] {
           return target
         }
 
         @frozen
         struct User {
           @trim
-          name: [uint8],
+          name: [u8],
         }
         "#,
     );
@@ -63,12 +63,12 @@ fn check_accepts_struct_and_field_decorators() {
 fn check_accepts_choice_payload_item_decorator() {
     let (_source, _graph, result) = check_source(
         r#"
-        fn path(target: [uint8]): [uint8] {
+        fn path(target: [u8]): [u8] {
           return target
         }
 
         choice Asset {
-          Texture(@path [uint8]),
+          Texture(@path [u8]),
         }
         "#,
     );
@@ -98,7 +98,7 @@ fn check_accepts_weak_struct_field_decorator() {
 fn check_reports_omitted_decorator_argument() {
     let source = source(
         r#"
-        fn tag(target: fn(): null, name: [uint8], priority: int32): fn(): null {
+        fn tag(target: fn(): null, name: [u8], priority: i32): fn(): null {
           return target
         }
 
@@ -139,7 +139,7 @@ fn check_reports_omitted_decorator_argument() {
 fn check_accepts_omitted_default_decorator_argument() {
     let (_source, _graph, result) = check_source(
         r#"
-        fn tag(target: fn(): null, name: [uint8] = "stable", priority: int32): fn(): null {
+        fn tag(target: fn(): null, name: [u8] = "stable", priority: i32): fn(): null {
           return target
         }
 
@@ -183,15 +183,15 @@ fn parse_accepts_decorated_weak_struct_field() {
 fn check_accepts_parameter_and_rest_parameter_decorators() {
     let (_source, _graph, result) = check_source(
         r#"
-        fn trim(target: [uint8]): [uint8] {
+        fn trim(target: [u8]): [u8] {
           return target
         }
 
-        fn nonempty(target: [int32]): [int32] {
+        fn nonempty(target: [i32]): [i32] {
           return target
         }
 
-        fn save(@trim name: [uint8], @nonempty ...values: [int32]): null {
+        fn save(@trim name: [u8], @nonempty ...values: [i32]): null {
           return
         }
         "#,
@@ -204,7 +204,7 @@ fn check_accepts_parameter_and_rest_parameter_decorators() {
 fn check_reports_unresolved_decorator_function() {
     let source = source(
         r#"
-        fn save(@trim name: [uint8]): null {
+        fn save(@trim name: [u8]): null {
           return
         }
         "#,
@@ -232,11 +232,11 @@ fn check_reports_unresolved_decorator_function() {
 fn check_reports_decorator_target_type_mismatch() {
     let source = source(
         r#"
-        fn trim(target: int32): int32 {
+        fn trim(target: i32): i32 {
           return target
         }
 
-        fn save(@trim name: [uint8]): null {
+        fn save(@trim name: [u8]): null {
           return
         }
         "#,
@@ -262,9 +262,7 @@ fn check_reports_decorator_target_type_mismatch() {
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
         diagnostic.code().as_str() == TypeDiagnosticCode::TypeMismatch.as_code()
-            && diagnostic
-                .message()
-                .contains("expected `int32`, got `[uint8]`")
+            && diagnostic.message().contains("expected `i32`, got `[u8]`")
     }));
 }
 
@@ -272,11 +270,11 @@ fn check_reports_decorator_target_type_mismatch() {
 fn check_reports_decorator_return_type_mismatch() {
     let source = source(
         r#"
-        fn trim(target: [uint8]): bool {
+        fn trim(target: [u8]): bool {
           return true
         }
 
-        fn save(@trim name: [uint8]): null {
+        fn save(@trim name: [u8]): null {
           return
         }
         "#,
@@ -312,13 +310,13 @@ fn check_reports_decorator_return_type_mismatch() {
 fn check_reports_decorator_explicit_argument_type_mismatch() {
     let source = source(
         r#"
-        fn min(target: int32, value: int32): int32 {
+        fn min(target: i32, value: i32): i32 {
           return target
         }
 
         struct User {
           @min("zero")
-          age: int32,
+          age: i32,
         }
         "#,
     );
@@ -343,9 +341,7 @@ fn check_reports_decorator_explicit_argument_type_mismatch() {
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
         diagnostic.code().as_str() == TypeDiagnosticCode::TypeMismatch.as_code()
-            && diagnostic
-                .message()
-                .contains("expected `int32`, got `[uint8]`")
+            && diagnostic.message().contains("expected `i32`, got `[u8]`")
     }));
 }
 
@@ -353,12 +349,12 @@ fn check_reports_decorator_explicit_argument_type_mismatch() {
 fn check_accepts_function_decorator_transformer() {
     let (_source, _graph, result) = check_source(
         r#"
-        fn log(target: fn(int32): bool): fn(int32): bool {
+        fn log(target: fn(i32): bool): fn(i32): bool {
           return target
         }
 
         @log
-        fn save(value: int32): bool {
+        fn save(value: i32): bool {
           return true
         }
         "#,

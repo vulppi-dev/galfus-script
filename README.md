@@ -102,7 +102,7 @@ A minimal virtual standard library is available to user scripts, including:
 
 Offers basic console input/output interface:
 
-- `fn print(text: [uint8]): null`: Output a slice of uint8 characters directly to the standard output.
+- `fn print(text: [u8]): null`: Output a slice of u8 characters directly to the standard output.
 
 ---
 

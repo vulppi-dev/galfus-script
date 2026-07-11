@@ -244,7 +244,7 @@ fn parse_wildcard_binding_pattern() {
 fn parse_match_wildcard_pattern() {
     let source = source(
         r#"
-fn code(value: int32): int32 {
+fn code(value: i32): i32 {
   return match value {
     _ => 0,
   }

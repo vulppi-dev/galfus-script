@@ -5,9 +5,9 @@ use crate::ResolverDiagnosticCode;
 fn check_accepts_instanceof_type_pattern_binding() {
     let (_source, _graph, result) = check_source(
         r#"
-fn normalize(value: int32 | null): int32 {
+fn normalize(value: i32 | null): i32 {
   return instanceof value {
-    int32 number => number,
+    i32 number => number,
     _ => 0,
   }
 }
@@ -21,9 +21,9 @@ fn normalize(value: int32 | null): int32 {
 fn check_binds_instanceof_type_pattern_binding_type() {
     let (source, graph, result) = check_source(
         r#"
-fn normalize(value: int32 | null): int32 {
+fn normalize(value: i32 | null): i32 {
   return instanceof value {
-    int32 number => number,
+    i32 number => number,
     _ => 0,
   }
 }
@@ -50,22 +50,22 @@ fn normalize(value: int32 | null): int32 {
 fn check_narrows_instanceof_alias_union_member_inside_larger_union() {
     let (source, graph, result) = check_source(
         r#"
-type Parsed = int32 | bool | null
+type Parsed = i32 | bool | null
 
 constraint Stringable {
-  fn stringify(): [uint8]
+  fn stringify(): [u8]
 }
 
-fn stringifyBool(value: bool): [uint8] {
+fn stringifyBool(value: bool): [u8] {
   return "bool"
 }
 
-fn stringify(value: Parsed | [uint8] | Stringable): [uint8] {
+fn stringify(value: Parsed | [u8] | Stringable): [u8] {
   return instanceof value {
-    [uint8] text => text,
+    [u8] text => text,
     bool flag => stringifyBool(flag),
     null => "null",
-    int32 n => "int",
+    i32 n => "int",
     Stringable item => item::stringify(),
     _ => "unknown",
   }
@@ -89,9 +89,9 @@ fn stringify(value: Parsed | [uint8] | Stringable): [uint8] {
 fn check_narrows_instanceof_subject_in_type_pattern_arm() {
     let (_source, _graph, result) = check_source(
         r#"
-fn normalize(value: int32 | null): int32 {
+fn normalize(value: i32 | null): i32 {
   return instanceof value {
-    int32 number => value,
+    i32 number => value,
     null => 0,
   }
 }
@@ -105,9 +105,9 @@ fn normalize(value: int32 | null): int32 {
 fn check_accepts_instanceof_type_pattern_binding_with_adjacent_name() {
     let (_source, _graph, result) = check_source(
         r#"
-fn normalize(value: int32 | null): int32 {
+fn normalize(value: i32 | null): i32 {
   return instanceof value {
-    int32 number => number,
+    i32 number => number,
     _ => 0,
   }
 }
@@ -121,7 +121,7 @@ fn normalize(value: int32 | null): int32 {
 fn check_accepts_instanceof_wildcard_pattern() {
     let (_source, _graph, result) = check_source(
         r#"
-fn normalize(value: int32): int32 {
+fn normalize(value: i32): i32 {
   return instanceof value {
     _ => 0,
   }
@@ -136,7 +136,7 @@ fn normalize(value: int32): int32 {
 fn check_reports_instanceof_pattern_type_mismatch() {
     let source = source(
         r#"
-fn normalize(value: int32): int32 {
+fn normalize(value: i32): i32 {
   return instanceof value {
     bool flag => 1,
     _ => 0,
@@ -165,9 +165,9 @@ fn normalize(value: int32): int32 {
 fn check_reports_incompatible_instanceof_arm_type() {
     let source = source(
         r#"
-fn normalize(value: int32 | null): int32 {
+fn normalize(value: i32 | null): i32 {
   return instanceof value {
-    int32 number => true,
+    i32 number => true,
     _ => 0,
   }
 }
@@ -188,7 +188,7 @@ fn normalize(value: int32 | null): int32 {
         diagnostic.code().as_str() == TypeDiagnosticCode::IncompatibleInstanceofArmType.as_code()
             && diagnostic
                 .message()
-                .contains("instanceof arm body must be compatible with `int32`, got `bool`")
+                .contains("instanceof arm body must be compatible with `i32`, got `bool`")
     }));
 }
 
@@ -196,7 +196,7 @@ fn normalize(value: int32 | null): int32 {
 fn check_accepts_instanceof_binding_pattern() {
     let (_source, _graph, result) = check_source(
         r#"
-fn normalize(value: int32): int32 {
+fn normalize(value: i32): i32 {
   return instanceof value {
     other => other,
   }
@@ -211,10 +211,10 @@ fn normalize(value: int32): int32 {
 fn check_binds_instanceof_fallback_binding_to_remaining_type() {
     let (source, graph, result) = check_source(
         r#"
-fn normalize(value: int32 | int16 | null): null {
+fn normalize(value: i32 | i16 | null): null {
   return instanceof value {
-    int32 number => null,
-    int16 short => null,
+    i32 number => null,
+    i16 short => null,
     rest => rest,
   }
 }
@@ -239,9 +239,9 @@ fn normalize(value: int32 | int16 | null): null {
 fn check_instanceof_wildcard_fallback_does_not_bind() {
     let (source, graph, result) = check_source(
         r#"
-fn normalize(value: int32 | null): int32 {
+fn normalize(value: i32 | null): i32 {
   return instanceof value {
-    int32 number => number,
+    i32 number => number,
     _ => 0,
   }
 }
@@ -258,7 +258,7 @@ fn normalize(value: int32 | null): int32 {
 fn check_reports_instanceof_wildcard_subject() {
     let source = source(
         r#"
-fn normalize(): int32 {
+fn normalize(): i32 {
   return instanceof _ {
     _ => 0,
   }
@@ -282,9 +282,9 @@ fn normalize(): int32 {
 fn check_reports_non_exhaustive_instanceof() {
     let source = source(
         r#"
-fn normalize(value: int32 | null): int32 {
+fn normalize(value: i32 | null): i32 {
   return instanceof value {
-    int32 number => number,
+    i32 number => number,
   }
 }
 "#,
@@ -310,10 +310,10 @@ fn normalize(value: int32 | null): int32 {
 fn check_reports_catch_all_instanceof_pattern_before_final_arm() {
     let source = source(
         r#"
-fn normalize(value: int32): int32 {
+fn normalize(value: i32): i32 {
   return instanceof value {
     other => other,
-    int32 number => number,
+    i32 number => number,
   }
 }
 "#,

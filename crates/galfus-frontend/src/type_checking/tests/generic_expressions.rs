@@ -8,7 +8,7 @@ fn check_accepts_explicit_generic_function_call() {
           return value
         }
 
-        var value: int32 = identity<int32>(1)
+        var value: i32 = identity<i32>(1)
         "#,
     );
 
@@ -23,7 +23,7 @@ fn check_binds_explicit_generic_call_return_type() {
           return value
         }
 
-        var value = identity<int32>(1)
+        var value = identity<i32>(1)
         "#,
     );
 
@@ -31,7 +31,7 @@ fn check_binds_explicit_generic_call_return_type() {
         &source,
         &graph,
         SyntaxNodeKind::CallExpression,
-        "identity<int32>(1)",
+        "identity<i32>(1)",
     )
     .unwrap();
 
@@ -47,12 +47,12 @@ fn check_binds_explicit_generic_call_return_type() {
 fn check_accepts_explicit_generic_function_call_with_array_type_argument() {
     let (_source, _graph, result) = check_source(
         r#"
-        fn identity<T: [uint8]>(value: T): T {
+        fn identity<T: [u8]>(value: T): T {
           return value
         }
 
-        var bytes: [uint8] = "Ana"
-        var value: [uint8] = identity<[uint8]>(bytes)
+        var bytes: [u8] = "Ana"
+        var value: [u8] = identity<[u8]>(bytes)
         "#,
     );
 
@@ -67,7 +67,7 @@ fn check_accepts_explicit_generic_function_call_with_multiple_arguments() {
           return left
         }
 
-        var value: int32 = first<int32, bool>(1, true)
+        var value: i32 = first<i32, bool>(1, true)
         "#,
     );
 
@@ -79,23 +79,23 @@ fn check_accepts_generic_bound_union_with_constraint_member() {
     let (_source, _graph, result) = check_source(
         r#"
         constraint Stringable {
-          fn text(): [uint8],
+          fn text(): [u8],
         }
 
         struct User satisfies Stringable {
-          name: [uint8],
+          name: [u8],
         }
 
-        fn User::text(): [uint8] {
+        fn User::text(): [u8] {
           return "Ana"
         }
 
-        fn stringify<T: int | Stringable>(value: T): [uint8] {
+        fn stringify<T: int | Stringable>(value: T): [u8] {
           return "value"
         }
 
         var user = new(User) { name: "Ana" }
-        var text: [uint8] = stringify<User>(user)
+        var text: [u8] = stringify<User>(user)
         "#,
     );
 
@@ -110,7 +110,7 @@ fn check_reports_explicit_generic_argument_count_mismatch_for_missing_argument()
           return left
         }
 
-        var value = pair<int32>(1, true)
+        var value = pair<i32>(1, true)
         "#,
     );
 
@@ -148,7 +148,7 @@ fn check_reports_explicit_generic_argument_count_mismatch_for_extra_argument() {
           return value
         }
 
-        var value = identity<int32, bool>(1)
+        var value = identity<i32, bool>(1)
         "#,
     );
 
@@ -186,7 +186,7 @@ fn check_reports_explicit_generic_call_argument_type_mismatch_after_substitution
           return value
         }
 
-        var value = identity<int32>(true)
+        var value = identity<i32>(true)
         "#,
     );
 
@@ -210,9 +210,7 @@ fn check_reports_explicit_generic_call_argument_type_mismatch_after_substitution
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
         diagnostic.code().as_str() == TypeDiagnosticCode::TypeMismatch.as_code()
-            && diagnostic
-                .message()
-                .contains("expected `int32`, got `bool`")
+            && diagnostic.message().contains("expected `i32`, got `bool`")
     }));
 }
 
@@ -220,11 +218,11 @@ fn check_reports_explicit_generic_call_argument_type_mismatch_after_substitution
 fn check_reports_generic_arguments_on_non_generic_function() {
     let source = source(
         r#"
-        fn one(): int32 {
+        fn one(): i32 {
           return 1
         }
 
-        var value = one<int32>()
+        var value = one<i32>()
         "#,
     );
 
@@ -290,7 +288,7 @@ fn check_reports_generic_argument_outside_declared_bound() {
           return value
         }
 
-        var value = identity<uint32>(1)
+        var value = identity<u32>(1)
         "#,
     );
 

@@ -40,7 +40,7 @@ structs
 arrays
 tuples
 choices with payloads
-byte strings as [uint8]
+byte strings as [u8]
 constraint facade values
 adapter/resource values
 ```
@@ -107,7 +107,7 @@ user.name = "Bia" // valid if field and graph rules allow it
 Function parameters are constant bindings by default.
 
 ```galfus
-fn call(value: int32): null {
+fn call(value: i32): null {
   value = 10 // invalid
 }
 ```

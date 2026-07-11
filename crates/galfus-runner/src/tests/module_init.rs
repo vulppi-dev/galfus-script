@@ -31,7 +31,7 @@ import a from "./a"
 
 var initMain = io::print("M")
 
-export fn main(args: [[uint8]]): int32 {
+export fn main(args: [[u8]]): i32 {
   a::touch()
   return 0
 }

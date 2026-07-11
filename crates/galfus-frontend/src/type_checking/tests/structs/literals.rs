@@ -5,8 +5,8 @@ fn check_accepts_struct_literal() {
     let (_source, _graph, result) = check_source(
         r#"
 struct User {
-  id: int32,
-  name: [uint8],
+  id: i32,
+  name: [u8],
 }
 
 var user: User = new(User) {
@@ -24,7 +24,7 @@ fn check_contextual_integer_struct_field_type() {
     let (source, graph, result) = check_source(
         r#"
 struct Color {
-  r: uint8,
+  r: u8,
 }
 
 var color: Color = new(Color) {
@@ -50,8 +50,8 @@ fn check_binds_struct_literal_type() {
     let (_, graph, result) = check_source(
         r#"
 struct User {
-  id: int32,
-  name: [uint8],
+  id: i32,
+  name: [u8],
 }
 
 var user: User = new(User) {
@@ -79,7 +79,7 @@ fn check_reports_unknown_struct_field() {
     let source = source(
         r#"
 struct User {
-  id: int32,
+  id: i32,
 }
 
 var user: User = new(User) {
@@ -110,7 +110,7 @@ fn check_reports_duplicate_struct_field() {
     let source = source(
         r#"
 struct User {
-  id: int32,
+  id: i32,
 }
 
 var user: User = new(User) {
@@ -141,8 +141,8 @@ fn check_reports_missing_required_struct_field() {
     let source = source(
         r#"
 struct User {
-  id: int32,
-  name: [uint8],
+  id: i32,
+  name: [u8],
 }
 
 var user: User = new(User) {
@@ -174,8 +174,8 @@ fn check_accepts_missing_default_struct_field() {
     let (_source, _graph, result) = check_source(
         r#"
 struct User {
-  id: int32,
-  age: int32 = 0,
+  id: i32,
+  age: i32 = 0,
 }
 
 var user: User = new(User) {
@@ -192,7 +192,7 @@ fn check_accepts_assignment_to_mutable_struct_field() {
     let (_source, _graph, result) = check_source(
         r#"
 struct User {
-  id: int32,
+  id: i32,
 }
 
 var user: User = new(User) { id: 1 }
@@ -212,7 +212,7 @@ fn check_reports_assignment_to_const_struct_field() {
     let source = source(
         r#"
 struct User {
-  const id: int32,
+  const id: i32,
 }
 
 var user: User = new(User) { id: 1 }
@@ -247,7 +247,7 @@ fn check_reports_struct_field_type_mismatch() {
     let source = source(
         r#"
 struct User {
-  id: int32,
+  id: i32,
 }
 
 var user: User = new(User) {
@@ -268,9 +268,7 @@ var user: User = new(User) {
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
         diagnostic.code().as_str() == TypeDiagnosticCode::TypeMismatch.as_code()
-            && diagnostic
-                .message()
-                .contains("expected `int32`, got `bool`")
+            && diagnostic.message().contains("expected `i32`, got `bool`")
     }));
 }
 
@@ -279,12 +277,12 @@ fn check_accepts_struct_literal_shorthand() {
     let (_source, _graph, result) = check_source(
         r#"
 struct User {
-  id: int32,
-  name: [uint8],
+  id: i32,
+  name: [u8],
 }
 
-var id: int32 = 1
-var name: [uint8] = "Ana"
+var id: i32 = 1
+var name: [u8] = "Ana"
 
 var user: User = new(User) {
   id,
