@@ -9,25 +9,25 @@ mod tests;
 mod syntax_kind;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum GraphPhase {
+pub enum AstPhase {
     Parsed,
     Resolved,
 }
 
 #[derive(Debug, Clone)]
-pub struct ModuleGraph {
+pub struct ModuleAst {
     source_id: SourceId,
-    phase: GraphPhase,
+    phase: AstPhase,
     syntax: SyntaxLayer,
     diagnostics: DiagnosticBag,
     resolution: Option<ResolutionLayer>,
 }
 
-impl ModuleGraph {
+impl ModuleAst {
     pub fn new(source_id: SourceId) -> Self {
         Self {
             source_id,
-            phase: GraphPhase::Parsed,
+            phase: AstPhase::Parsed,
             syntax: SyntaxLayer::new(),
             diagnostics: DiagnosticBag::new(),
             resolution: None,
@@ -38,7 +38,7 @@ impl ModuleGraph {
         self.source_id
     }
 
-    pub fn phase(&self) -> GraphPhase {
+    pub fn phase(&self) -> AstPhase {
         self.phase
     }
 
@@ -76,9 +76,12 @@ impl ModuleGraph {
 
     pub fn set_resolution(&mut self, resolution: ResolutionLayer) {
         self.resolution = Some(resolution);
-        self.phase = GraphPhase::Resolved;
+        self.phase = AstPhase::Resolved;
     }
 }
+
+pub type GraphPhase = AstPhase;
+pub type ModuleGraph = ModuleAst;
 
 #[derive(Debug, Clone)]
 pub struct SyntaxLayer {

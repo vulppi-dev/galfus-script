@@ -46,14 +46,14 @@ fn syntax_layer_stores_root() {
 }
 
 #[test]
-fn module_graph_has_syntax_layer() {
+fn module_ast_has_syntax_layer() {
     let source_id = SourceId::new(0);
-    let graph = ModuleGraph::new(source_id);
+    let ast = ModuleAst::new(source_id);
 
-    assert_eq!(graph.source_id(), source_id);
-    assert_eq!(graph.phase(), GraphPhase::Parsed);
-    assert!(graph.syntax().is_empty());
-    assert!(!graph.has_errors());
+    assert_eq!(ast.source_id(), source_id);
+    assert_eq!(ast.phase(), AstPhase::Parsed);
+    assert!(ast.syntax().is_empty());
+    assert!(!ast.has_errors());
 }
 
 #[test]

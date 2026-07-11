@@ -1,5 +1,5 @@
+pub use ast::*;
 pub use diagnostics::*;
-pub use graph::*;
 pub use lexer::*;
 pub use module_surface::*;
 pub use parser::*;
@@ -11,8 +11,8 @@ pub use type_checking::*;
 pub use type_lowering::*;
 pub use types::*;
 
+mod ast;
 mod diagnostics;
-mod graph;
 mod lexer;
 mod module_surface;
 mod parser;
