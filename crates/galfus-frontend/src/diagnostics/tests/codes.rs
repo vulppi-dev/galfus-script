@@ -1,6 +1,8 @@
 use galfus_core::DiagnosticCodeKind;
 
-use crate::{LexicalDiagnosticCode, ParserDiagnosticCode, ResolverDiagnosticCode};
+use crate::{
+    LexicalDiagnosticCode, ParserDiagnosticCode, ResolverDiagnosticCode, TokenTreeDiagnosticCode,
+};
 
 #[test]
 fn diagnostic_areas_keep_stable_prefixes() {
@@ -12,5 +14,13 @@ fn diagnostic_areas_keep_stable_prefixes() {
     assert_eq!(
         ResolverDiagnosticCode::InvalidFunctionAnchor.as_code(),
         "S0004"
+    );
+    assert_eq!(
+        TokenTreeDiagnosticCode::UnclosedDelimiter.as_code(),
+        "B0001"
+    );
+    assert_eq!(
+        TokenTreeDiagnosticCode::UnexpectedClosingDelimiter.as_code(),
+        "B0002"
     );
 }
