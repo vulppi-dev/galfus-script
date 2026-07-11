@@ -1,5 +1,13 @@
 use super::*;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum NumberBase {
+    Decimal,
+    Hex,
+    Binary,
+    Octal,
+}
+
 impl Lexer<'_> {
     pub(super) fn is_decimal_digit(ch: char) -> bool {
         ch.is_ascii_digit()
