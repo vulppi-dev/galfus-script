@@ -52,7 +52,17 @@ impl TokenTreeBuilder {
     }
 
     fn build(mut self) -> TokenTreeResult {
-        let items = self.parse_items(None);
+        let mut items = self.parse_items(None);
+
+        if self
+            .current()
+            .is_some_and(|token| token.kind() == &TokenKind::Eof)
+        {
+            items.push(TokenTreeItem::Token(
+                self.bump().expect("EOF token must exist"),
+            ));
+        }
+
         TokenTreeResult::new(TokenTree::new(items), self.diagnostics)
     }
 

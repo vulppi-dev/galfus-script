@@ -17,6 +17,16 @@ impl TokenTree {
     pub fn into_items(self) -> Vec<TokenTreeItem> {
         self.items
     }
+
+    pub fn into_tokens(self) -> Vec<Token> {
+        let mut tokens = Vec::new();
+
+        for item in self.items {
+            item.append_tokens(&mut tokens);
+        }
+
+        tokens
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -37,6 +47,13 @@ impl TokenTreeItem {
         match self {
             Self::Token(_) => None,
             Self::Group(group) => Some(group),
+        }
+    }
+
+    fn append_tokens(self, tokens: &mut Vec<Token>) {
+        match self {
+            Self::Token(token) => tokens.push(token),
+            Self::Group(group) => group.append_tokens(tokens),
         }
     }
 }
@@ -78,5 +95,17 @@ impl TokenTreeGroup {
 
     pub fn closing(&self) -> Option<&Token> {
         self.closing.as_ref()
+    }
+
+    fn append_tokens(self, tokens: &mut Vec<Token>) {
+        tokens.push(self.opening);
+
+        for item in self.items {
+            item.append_tokens(tokens);
+        }
+
+        if let Some(closing) = self.closing {
+            tokens.push(closing);
+        }
     }
 }

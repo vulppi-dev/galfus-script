@@ -13,7 +13,7 @@ fn groups_nested_delimiters() {
     let result = tree_for("call([value])");
 
     assert!(!result.has_errors());
-    assert_eq!(result.tree().items().len(), 2);
+    assert_eq!(result.tree().items().len(), 3);
 
     let outer = result.tree().items()[1].group().unwrap();
     assert_eq!(outer.delimiter(), DelimiterKind::Parenthesis);
@@ -64,4 +64,18 @@ fn retains_an_unexpected_closing_delimiter_as_a_token() {
         result.tree().items()[0].token().unwrap().kind(),
         &TokenKind::RightParen
     );
+}
+
+#[test]
+fn projects_back_to_the_original_token_stream() {
+    let source = SourceFile::new(
+        SourceId::new(0),
+        "main.gfs".to_string(),
+        "call([value])".to_string(),
+    );
+    let lexed = lex(&source);
+    let tokens = lexed.tokens().to_vec();
+    let result = build_token_tree(tokens.clone());
+
+    assert_eq!(result.tree().clone().into_tokens(), tokens);
 }

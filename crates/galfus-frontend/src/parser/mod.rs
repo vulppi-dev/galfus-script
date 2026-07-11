@@ -1,5 +1,6 @@
 use crate::{
-    ModuleGraph, OperatorKind, ParserDiagnosticCode, SyntaxNodeKind, Token, TokenKind, lex,
+    ModuleGraph, OperatorKind, ParserDiagnosticCode, SyntaxNodeKind, Token, TokenKind,
+    build_token_tree, lex,
 };
 use galfus_core::{Diagnostic, DiagnosticBag, NodeId, SourceFile, Span};
 
@@ -190,8 +191,13 @@ impl Parser {
 
 pub fn parse(source: &SourceFile) -> ParseResult {
     let lex_result = lex(source);
-    let (tokens, diagnostics) = lex_result.into_parts();
-    let mut parser = Parser::new(source, tokens, diagnostics);
+    let (tokens, mut diagnostics) = lex_result.into_parts();
+    let token_tree_result = build_token_tree(tokens);
+    let (tree, token_tree_diagnostics) = token_tree_result.into_parts();
+
+    diagnostics.extend(token_tree_diagnostics.into_vec());
+
+    let mut parser = Parser::new(source, tree.into_tokens(), diagnostics);
 
     parser.parse_source_file();
     parser.finish()
