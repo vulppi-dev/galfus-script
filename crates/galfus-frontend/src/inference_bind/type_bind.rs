@@ -1,5 +1,5 @@
 use crate::{
-    FunctionParameterType, ModuleGraph, PrimitiveType, SymbolKind, SyntaxNodeKind, TypeLayer,
+    FunctionParameterType, ModuleAst, PrimitiveType, SymbolKind, SyntaxNodeKind, TypeLayer,
 };
 use galfus_core::{NodeId, SourceFile, SymbolId, TypeId};
 
@@ -24,25 +24,25 @@ impl TypeBindResult {
 
 pub type TypeLoweringResult = TypeBindResult;
 
-pub fn bind_types(source: &SourceFile, graph: &ModuleGraph) -> TypeBindResult {
+pub fn bind_types(source: &SourceFile, graph: &ModuleAst) -> TypeBindResult {
     let mut binder = TypeBinder::new(source, graph);
     binder.bind();
 
     TypeBindResult::new(binder.into_layer())
 }
 
-pub fn lower_types(source: &SourceFile, graph: &ModuleGraph) -> TypeLoweringResult {
+pub fn lower_types(source: &SourceFile, graph: &ModuleAst) -> TypeLoweringResult {
     bind_types(source, graph)
 }
 
 struct TypeBinder<'a> {
     source: &'a SourceFile,
-    graph: &'a ModuleGraph,
+    graph: &'a ModuleAst,
     layer: TypeLayer,
 }
 
 impl<'a> TypeBinder<'a> {
-    fn new(source: &'a SourceFile, graph: &'a ModuleGraph) -> Self {
+    fn new(source: &'a SourceFile, graph: &'a ModuleAst) -> Self {
         Self {
             source,
             graph,

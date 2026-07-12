@@ -1,5 +1,5 @@
 use crate::{
-    ModuleGraph, OperatorKind, ParserDiagnosticCode, SyntaxNodeKind, Token, TokenKind,
+    ModuleAst, OperatorKind, ParserDiagnosticCode, SyntaxNodeKind, Token, TokenKind,
     build_token_tree, lex,
 };
 use galfus_core::{Diagnostic, DiagnosticBag, NodeId, SourceFile, Span};
@@ -23,20 +23,28 @@ mod syntax_types;
 
 #[derive(Debug, Clone)]
 pub struct ParseResult {
-    graph: ModuleGraph,
+    graph: ModuleAst,
 }
 
 impl ParseResult {
-    pub fn new(graph: ModuleGraph) -> Self {
+    pub fn new(graph: ModuleAst) -> Self {
         Self { graph }
     }
 
-    pub fn graph(&self) -> &ModuleGraph {
+    pub fn ast(&self) -> &ModuleAst {
         &self.graph
     }
 
-    pub fn into_graph(self) -> ModuleGraph {
+    pub fn into_ast(self) -> ModuleAst {
         self.graph
+    }
+
+    pub fn graph(&self) -> &ModuleAst {
+        self.ast()
+    }
+
+    pub fn into_graph(self) -> ModuleAst {
+        self.into_ast()
     }
 
     pub fn diagnostics(&self) -> &DiagnosticBag {
@@ -51,13 +59,13 @@ impl ParseResult {
 pub struct Parser {
     tokens: Vec<Token>,
     position: usize,
-    graph: ModuleGraph,
+    graph: ModuleAst,
     source_text: String,
 }
 
 impl Parser {
     pub fn new(source: &SourceFile, tokens: Vec<Token>, diagnostics: DiagnosticBag) -> Self {
-        let mut graph = ModuleGraph::new(source.id());
+        let mut graph = ModuleAst::new(source.id());
 
         graph.extend_diagnostics(diagnostics.into_vec());
 

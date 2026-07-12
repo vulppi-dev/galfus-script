@@ -3,7 +3,8 @@ use super::*;
 use galfus_core::{DiagnosticCodeKind, NodeId, SourceId, SymbolId};
 
 use crate::{
-    PrimitiveType, SymbolKind, SyntaxNodeKind, TypeDiagnosticCode, TypeKind, parse, resolve,
+    ModuleAst, PrimitiveType, SymbolKind, SyntaxNodeKind, TypeDiagnosticCode, TypeKind, parse,
+    resolve,
 };
 
 mod access;
@@ -33,7 +34,7 @@ fn source(text: &str) -> SourceFile {
     SourceFile::new(SourceId::new(0), "test.gfs".to_string(), text.to_string())
 }
 
-fn check_source(text: &str) -> (SourceFile, ModuleGraph, TypeCheckResult) {
+fn check_source(text: &str) -> (SourceFile, ModuleAst, TypeCheckResult) {
     let source = source(text);
 
     let parse_result = parse(&source);
@@ -43,14 +44,14 @@ fn check_source(text: &str) -> (SourceFile, ModuleGraph, TypeCheckResult) {
         parse_result.diagnostics()
     );
 
-    let resolve_result = resolve(&source, parse_result.into_graph());
+    let resolve_result = resolve(&source, parse_result.into_ast());
     assert!(
         !resolve_result.has_errors(),
         "{:?}",
         resolve_result.diagnostics()
     );
 
-    let graph = resolve_result.into_graph();
+    let graph = resolve_result.into_ast();
     let result = check_declaration_types(&source, &graph);
 
     assert!(!result.has_errors(), "{:?}", result.diagnostics());
@@ -58,7 +59,7 @@ fn check_source(text: &str) -> (SourceFile, ModuleGraph, TypeCheckResult) {
     (source, graph, result)
 }
 
-fn symbol_by_name_and_kind(graph: &ModuleGraph, name: &str, kind: SymbolKind) -> SymbolId {
+fn symbol_by_name_and_kind(graph: &ModuleAst, name: &str, kind: SymbolKind) -> SymbolId {
     let resolution = graph.resolution().unwrap();
 
     resolution
@@ -71,7 +72,7 @@ fn symbol_by_name_and_kind(graph: &ModuleGraph, name: &str, kind: SymbolKind) ->
 
 fn find_node_by_kind_and_text(
     source: &SourceFile,
-    graph: &ModuleGraph,
+    graph: &ModuleAst,
     kind: SyntaxNodeKind,
     text: &str,
 ) -> Option<NodeId> {
@@ -81,7 +82,7 @@ fn find_node_by_kind_and_text(
 
 fn find_node_by_kind_and_text_from(
     source: &SourceFile,
-    graph: &ModuleGraph,
+    graph: &ModuleAst,
     node: NodeId,
     kind: SyntaxNodeKind,
     text: &str,
@@ -101,16 +102,12 @@ fn find_node_by_kind_and_text_from(
     None
 }
 
-fn find_node_by_kind(graph: &ModuleGraph, kind: SyntaxNodeKind) -> Option<NodeId> {
+fn find_node_by_kind(graph: &ModuleAst, kind: SyntaxNodeKind) -> Option<NodeId> {
     let root = graph.syntax().root()?;
     find_node_by_kind_from(graph, root, kind)
 }
 
-fn find_node_by_kind_from(
-    graph: &ModuleGraph,
-    node: NodeId,
-    kind: SyntaxNodeKind,
-) -> Option<NodeId> {
+fn find_node_by_kind_from(graph: &ModuleAst, node: NodeId, kind: SyntaxNodeKind) -> Option<NodeId> {
     let syntax_node = graph.syntax().node(node)?;
 
     if syntax_node.kind() == kind {

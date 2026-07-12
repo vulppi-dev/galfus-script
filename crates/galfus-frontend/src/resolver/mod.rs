@@ -1,4 +1,4 @@
-use crate::{AsNameId, ModuleGraph, NameId, ResolverDiagnosticCode, SyntaxLayer, SyntaxNodeKind};
+use crate::{AsNameId, ModuleAst, NameId, ResolverDiagnosticCode, SyntaxLayer, SyntaxNodeKind};
 use galfus_core::{Diagnostic, DiagnosticBag, NodeId, ScopeId, SourceFile, Span, SymbolId};
 
 pub use export::*;
@@ -25,16 +25,24 @@ mod type_member;
 mod type_reference;
 
 pub struct ResolveResult {
-    graph: ModuleGraph,
+    graph: ModuleAst,
 }
 
 impl ResolveResult {
-    pub fn graph(&self) -> &ModuleGraph {
+    pub fn ast(&self) -> &ModuleAst {
         &self.graph
     }
 
-    pub fn into_graph(self) -> ModuleGraph {
+    pub fn into_ast(self) -> ModuleAst {
         self.graph
+    }
+
+    pub fn graph(&self) -> &ModuleAst {
+        self.ast()
+    }
+
+    pub fn into_graph(self) -> ModuleAst {
+        self.into_ast()
     }
 
     pub fn has_errors(&self) -> bool {
@@ -367,7 +375,7 @@ impl<'a> Resolver<'a> {
     }
 }
 
-pub fn resolve(source: &SourceFile, mut graph: ModuleGraph) -> ResolveResult {
+pub fn resolve(source: &SourceFile, mut graph: ModuleAst) -> ResolveResult {
     let resolver = Resolver::new(source, graph.syntax());
     let (resolution, diagnostics) = resolver.resolve();
 

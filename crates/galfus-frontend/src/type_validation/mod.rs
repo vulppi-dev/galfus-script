@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use galfus_core::{DiagnosticBag, NodeId, SourceFile, SymbolId, TypeId};
 
-use crate::{FunctionParameterType, ModuleGraph, SyntaxNodeKind, TypeLayer, bind_types};
+use crate::{FunctionParameterType, ModuleAst, SyntaxNodeKind, TypeLayer, bind_types};
 
 pub use model::*;
 
@@ -46,7 +46,7 @@ mod model;
 
 struct DeclarationTypeChecker<'a> {
     source: &'a SourceFile,
-    graph: &'a ModuleGraph,
+    graph: &'a ModuleAst,
     layer: TypeLayer,
     diagnostics: DiagnosticBag,
     ownership_metadata: OwnershipMetadata,
@@ -76,7 +76,7 @@ struct LoweredImportedConstraintMember {
 }
 
 impl<'a> DeclarationTypeChecker<'a> {
-    fn new(source: &'a SourceFile, graph: &'a ModuleGraph, layer: TypeLayer) -> Self {
+    fn new(source: &'a SourceFile, graph: &'a ModuleAst, layer: TypeLayer) -> Self {
         Self {
             source,
             graph,
@@ -394,7 +394,7 @@ impl<'a> DeclarationTypeChecker<'a> {
     }
 }
 
-pub fn check_declaration_types(source: &SourceFile, graph: &ModuleGraph) -> TypeCheckResult {
+pub fn check_declaration_types(source: &SourceFile, graph: &ModuleAst) -> TypeCheckResult {
     let imported_types: &HashMap<SymbolId, ImportedType> = &HashMap::new();
     let mut surface_types = ImportedSurfaceTypes::new();
 
@@ -407,7 +407,7 @@ pub fn check_declaration_types(source: &SourceFile, graph: &ModuleGraph) -> Type
 
 pub fn check_declaration_types_with_surfaces(
     source: &SourceFile,
-    graph: &ModuleGraph,
+    graph: &ModuleAst,
     imported_types: &ImportedSurfaceTypes,
 ) -> TypeCheckResult {
     let lowering = bind_types(source, graph);

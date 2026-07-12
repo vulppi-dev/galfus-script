@@ -4,7 +4,7 @@ use galfus_core::{NodeId, SymbolId, TypeId};
 
 use crate::{
     AsNameId, ImportedChoiceSurface, ImportedConstraintSurface, ImportedFunctionParameterType,
-    ImportedMemberKey, ImportedSurfaceTypes, ImportedType, ModuleGraph, NameId, ResolutionLayer,
+    ImportedMemberKey, ImportedSurfaceTypes, ImportedType, ModuleAst, NameId, ResolutionLayer,
     SymbolKind, SyntaxNodeKind, TypeCheckResult, TypeKind,
 };
 
@@ -193,7 +193,7 @@ impl ModuleSurface {
     }
 }
 
-pub fn build_module_surface(graph: &ModuleGraph, type_result: &TypeCheckResult) -> ModuleSurface {
+pub fn build_module_surface(graph: &ModuleAst, type_result: &TypeCheckResult) -> ModuleSurface {
     let Some(resolution) = graph.resolution() else {
         return ModuleSurface::new(Vec::new());
     };
@@ -283,7 +283,7 @@ pub fn imported_surface_types_for_named_export(
 }
 
 fn surface_members_for_export(
-    graph: &ModuleGraph,
+    graph: &ModuleAst,
     type_result: &TypeCheckResult,
     symbol: SymbolId,
 ) -> Vec<ModuleSurfaceMember> {
@@ -355,7 +355,7 @@ fn surface_members_for_export(
 }
 
 fn surface_generic_parameters(
-    graph: &ModuleGraph,
+    graph: &ModuleAst,
     symbol: SymbolId,
     kind: SymbolKind,
     type_result: &TypeCheckResult,
@@ -390,14 +390,14 @@ fn surface_generic_parameters(
         .collect()
 }
 
-fn declaration_generic_parameters_in_node(graph: &ModuleGraph, node: NodeId) -> Vec<SymbolId> {
+fn declaration_generic_parameters_in_node(graph: &ModuleAst, node: NodeId) -> Vec<SymbolId> {
     let mut symbols = Vec::new();
     collect_generic_parameters_in_node(graph, node, &mut symbols);
     symbols
 }
 
 fn collect_generic_parameters_in_node(
-    graph: &ModuleGraph,
+    graph: &ModuleAst,
     node: NodeId,
     symbols: &mut Vec<SymbolId>,
 ) {
@@ -422,7 +422,7 @@ fn collect_generic_parameters_in_node(
 }
 
 fn choice_payload_types(
-    graph: &ModuleGraph,
+    graph: &ModuleAst,
     type_result: &TypeCheckResult,
     declaration: NodeId,
 ) -> Option<Vec<ImportedType>> {
@@ -446,7 +446,7 @@ fn choice_payload_types(
 }
 
 fn find_parent_choice_variant(
-    graph: &ModuleGraph,
+    graph: &ModuleAst,
     node: NodeId,
     declaration: NodeId,
 ) -> Option<NodeId> {
@@ -471,7 +471,7 @@ fn find_parent_choice_variant(
 }
 
 fn find_descendant_of_kind(
-    graph: &ModuleGraph,
+    graph: &ModuleAst,
     node: NodeId,
     kind: SyntaxNodeKind,
 ) -> Option<NodeId> {
@@ -492,7 +492,7 @@ fn find_descendant_of_kind(
     None
 }
 
-fn first_type_child(graph: &ModuleGraph, node: NodeId) -> Option<NodeId> {
+fn first_type_child(graph: &ModuleAst, node: NodeId) -> Option<NodeId> {
     let syntax_node = graph.syntax().node(node)?;
 
     if syntax_node.kind().is_type() {
