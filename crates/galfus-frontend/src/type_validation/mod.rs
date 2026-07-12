@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use galfus_core::{DiagnosticBag, NodeId, SourceFile, SymbolId, TypeId};
 
-use crate::{FunctionParameterType, ModuleGraph, SyntaxNodeKind, TypeLayer, lower_types};
+use crate::{FunctionParameterType, ModuleGraph, SyntaxNodeKind, TypeLayer, bind_types};
 
 pub use model::*;
 
@@ -410,7 +410,7 @@ pub fn check_declaration_types_with_surfaces(
     graph: &ModuleGraph,
     imported_types: &ImportedSurfaceTypes,
 ) -> TypeCheckResult {
-    let lowering = lower_types(source, graph);
+    let lowering = bind_types(source, graph);
 
     let mut checker = DeclarationTypeChecker::new(source, graph, lowering.into_layer());
     checker.bind_imported_symbol_types(imported_types.symbol_types());

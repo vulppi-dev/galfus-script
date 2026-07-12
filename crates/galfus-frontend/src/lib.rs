@@ -8,7 +8,7 @@ pub use string_table::*;
 pub use surface_bind::*;
 pub use token_tree::*;
 pub use tokens::*;
-pub use type_checking::*;
+pub use type_validation::*;
 pub use types::*;
 
 mod ast;
@@ -21,5 +21,5 @@ mod string_table;
 mod surface_bind;
 mod token_tree;
 mod tokens;
-mod type_checking;
+mod type_validation;
 mod types;

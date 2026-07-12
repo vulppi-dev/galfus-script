@@ -1,6 +1,7 @@
 use super::*;
 
-use crate::{TypeKind, parse, resolve};
+use crate::{ModuleGraph, PrimitiveType, SyntaxNodeKind, TypeKind, parse, resolve};
+use galfus_core::{NodeId, SourceFile};
 
 fn source(text: &str) -> SourceFile {
     SourceFile::new(
@@ -58,7 +59,7 @@ fn main(value: i32): null {
     let resolve_result = resolve(&source, parse_result.into_graph());
     assert!(!resolve_result.has_errors());
 
-    let result = lower_types(&source, resolve_result.graph());
+    let result = bind_types(&source, resolve_result.graph());
     let graph = resolve_result.graph();
 
     let int32_node =
@@ -88,7 +89,7 @@ fn main(values: [i32]): null {
     let resolve_result = resolve(&source, parse_result.into_graph());
     assert!(!resolve_result.has_errors());
 
-    let result = lower_types(&source, resolve_result.graph());
+    let result = bind_types(&source, resolve_result.graph());
     let graph = resolve_result.graph();
 
     let array_node =
@@ -123,7 +124,7 @@ fn main(value: i32 | null | i32): null {
     let resolve_result = resolve(&source, parse_result.into_graph());
     assert!(!resolve_result.has_errors());
 
-    let result = lower_types(&source, resolve_result.graph());
+    let result = bind_types(&source, resolve_result.graph());
     let graph = resolve_result.graph();
 
     let union_node = find_node_by_kind_and_text(
@@ -164,7 +165,7 @@ fn main(value: User): null {
     let resolve_result = resolve(&source, parse_result.into_graph());
     assert!(!resolve_result.has_errors());
 
-    let result = lower_types(&source, resolve_result.graph());
+    let result = bind_types(&source, resolve_result.graph());
     let graph = resolve_result.graph();
 
     let user_node =
@@ -196,7 +197,7 @@ fn main(value: user::User): null {
     let resolve_result = resolve(&source, parse_result.into_graph());
     assert!(!resolve_result.has_errors());
 
-    let result = lower_types(&source, resolve_result.graph());
+    let result = bind_types(&source, resolve_result.graph());
     let graph = resolve_result.graph();
 
     let path_node =
@@ -237,7 +238,7 @@ fn main(value: Result<i32, Error>): null {
     let resolve_result = resolve(&source, parse_result.into_graph());
     assert!(!resolve_result.has_errors());
 
-    let result = lower_types(&source, resolve_result.graph());
+    let result = bind_types(&source, resolve_result.graph());
     let graph = resolve_result.graph();
 
     let generic_node = find_node_by_kind_and_text(
