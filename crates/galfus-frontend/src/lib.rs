@@ -1,5 +1,6 @@
 pub use ast::*;
 pub use diagnostics::*;
+pub use type_bind::*;
 pub use inference_bind::*;
 pub use lexer::*;
 pub use parser::*;
@@ -13,6 +14,7 @@ pub use types::*;
 
 mod ast;
 mod diagnostics;
+mod type_bind;
 mod inference_bind;
 mod lexer;
 mod parser;

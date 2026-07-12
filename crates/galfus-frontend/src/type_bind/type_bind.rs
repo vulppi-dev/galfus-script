@@ -1,4 +1,3 @@
-use crate::ast::*;
 use crate::{
     FunctionParameterType, ModuleAst, PrimitiveType, SymbolKind, SyntaxNodeKind, TypeLayer,
 };

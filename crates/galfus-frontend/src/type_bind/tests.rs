@@ -1,4 +1,3 @@
-use crate::ast::*;
 use super::*;
 
 use crate::{ModuleGraph, PrimitiveType, SyntaxNodeKind, TypeKind, parse, resolve};
@@ -101,7 +100,7 @@ fn main(values: [i32]): null {
     match result.layer().table().kind(ty) {
         Some(TypeKind::Array { element }) => {
             assert_eq!(
-                result.layer().table().kind(element),
+                result.layer().table().kind(*element),
                 Some(&TypeKind::Primitive(PrimitiveType::Int32))
             );
         }
