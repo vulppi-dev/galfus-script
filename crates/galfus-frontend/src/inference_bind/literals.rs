@@ -6,7 +6,6 @@ use super::ExpressionInferrer;
 
 #[derive(Debug, Clone, Copy)]
 struct ArrayLiteralElementType {
-    node: NodeId,
     ty: TypeId,
     is_dynamic: bool,
     has_error: bool,
@@ -117,7 +116,6 @@ impl<'a> ExpressionInferrer<'a> {
                 self.layer.bind_node_type(element, ty);
 
                 Some(ArrayLiteralElementType {
-                    node: expression,
                     ty,
                     is_dynamic: false,
                     has_error: false,
@@ -143,7 +141,6 @@ impl<'a> ExpressionInferrer<'a> {
                     self.infer_expression_type_with_expected(element, expected_element_type)?;
 
                 Some(ArrayLiteralElementType {
-                    node: element,
                     ty,
                     is_dynamic: false,
                     has_error: false,
@@ -169,7 +166,6 @@ impl<'a> ExpressionInferrer<'a> {
                         _ => &self.layer.table().primitive(PrimitiveType::Uint8),
                     };
                     return Some(ArrayLiteralElementType {
-                        node: expression,
                         ty: *element,
                         is_dynamic: false,
                         has_error: false,
@@ -182,7 +178,6 @@ impl<'a> ExpressionInferrer<'a> {
                 };
 
                 Some(ArrayLiteralElementType {
-                    node: expression,
                     ty: *element,
                     is_dynamic: true,
                     has_error: false,
@@ -190,7 +185,6 @@ impl<'a> ExpressionInferrer<'a> {
             }
 
             Some(TypeKind::Error) => Some(ArrayLiteralElementType {
-                node: expression,
                 ty: resolved,
                 is_dynamic: false,
                 has_error: true,
@@ -200,7 +194,6 @@ impl<'a> ExpressionInferrer<'a> {
                 let error = self.layer.table_mut().error();
 
                 Some(ArrayLiteralElementType {
-                    node: expression,
                     ty: error,
                     is_dynamic: false,
                     has_error: true,
