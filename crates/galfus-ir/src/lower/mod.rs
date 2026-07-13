@@ -11,6 +11,7 @@ use std::collections::{HashMap, HashSet};
 pub mod control_flow;
 mod expression;
 mod module;
+pub mod ssa;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum HashableConstant {
@@ -578,10 +579,10 @@ impl<'a> LowerCtx<'a> {
     pub fn node_text(&self, node: NodeId) -> &str {
         if let Some(syntax_node) = self.graph.syntax().node(node) {
             let span = syntax_node.span();
-            if span.start() as usize <= self.source_text.len()
-                && span.end() as usize <= self.source_text.len()
+            if span.start() <= self.source_text.len()
+                && span.end() <= self.source_text.len()
             {
-                return &self.source_text[span.start() as usize..span.end() as usize];
+                return &self.source_text[span.start()..span.end()];
             }
         }
         ""
@@ -803,10 +804,9 @@ impl<'a> LowerCtx<'a> {
         let mut stack = vec![root];
         while let Some(node_id) = stack.pop() {
             let node = syntax.node(node_id)?;
-            if node.kind() == SyntaxNodeKind::ChoiceItem {
-                if let Some(ident) = syntax.first_child_of_kind(node_id, SyntaxNodeKind::Identifier)
-                {
-                    if let Some(choice_symbol) = resolution.declaration_symbol(ident) {
+            if node.kind() == SyntaxNodeKind::ChoiceItem
+                && let Some(ident) = syntax.first_child_of_kind(node_id, SyntaxNodeKind::Identifier)
+                    && let Some(choice_symbol) = resolution.declaration_symbol(ident) {
                         let variants = self.get_choice_variants(choice_symbol);
                         if let Some(idx) =
                             variants.iter().position(|(name, _)| name == variant_name)
@@ -814,8 +814,6 @@ impl<'a> LowerCtx<'a> {
                             return Some((choice_symbol, idx));
                         }
                     }
-                }
-            }
             stack.extend(node.children().iter().copied().rev());
         }
         None

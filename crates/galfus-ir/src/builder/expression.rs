@@ -480,11 +480,11 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                         .and_then(|member_node| {
                             syntax.node(member_node).map(|mn| {
                                 let span = mn.span();
-                                if (span.start() as usize) < self.builder.source_text.len()
-                                    && (span.end() as usize) <= self.builder.source_text.len()
+                                if span.start() < self.builder.source_text.len()
+                                    && span.end() <= self.builder.source_text.len()
                                 {
                                     self.builder.source_text
-                                        [span.start() as usize..span.end() as usize]
+                                        [span.start()..span.end()]
                                         .to_string()
                                 } else {
                                     String::new()
@@ -571,9 +571,9 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                             .map(|sym| {
                                 let func_id = FunctionId::new(sym.raw());
                                 let span = syntax.node(target_node).map(|n| n.span());
-                                let source = span.and_then(|span| {
-                                    let start = span.start() as usize;
-                                    let end = span.end() as usize;
+                                let _source = span.and_then(|span| {
+                                    let start = span.start();
+                                    let end = span.end();
                                     if start < self.builder.source_text.len()
                                         && end <= self.builder.source_text.len()
                                     {
@@ -601,7 +601,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                     });
                 }
 
-                return Operand::Local(temp_id);
+                Operand::Local(temp_id)
             }
             SyntaxNodeKind::PathExpression => {
                 let kind = resolution.and_then(|res| res.path_reference_kind(expr_id));
@@ -748,7 +748,12 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                     let arm_body_block = self.builder.next_block();
                     let next_arm_block = self.builder.next_block();
 
-                    self.lower_pattern_check(pattern_node, &subject_local_op, arm_body_block, next_arm_block);
+                    self.lower_pattern_check(
+                        pattern_node,
+                        &subject_local_op,
+                        arm_body_block,
+                        next_arm_block,
+                    );
 
                     self.blocks.last_mut().unwrap().id = arm_body_block;
                     self.current_block = arm_body_block;
@@ -757,7 +762,10 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                         .push(Instruction::Assign(match_result, RValue::Use(body_op)));
 
                     if !self.is_terminated() {
-                        self.terminate_block(Terminator::Jump(match_end));
+                        self.terminate_block(Terminator::Jump {
+                            target: match_end,
+                            args: Vec::new(),
+                        });
                     }
 
                     self.blocks.last_mut().unwrap().id = next_arm_block;
@@ -787,7 +795,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                     .node_type(expr_id)
                     .unwrap_or_else(|| galfus_core::TypeId::new(0));
 
-                if let Some(mut func) = self.builder.build_arrow_function(expr_id, ty) {
+                if let Some(func) = self.builder.build_arrow_function(expr_id, ty) {
                     let func_id = func.id;
                     self.builder.specialized_functions.push(func);
                     Operand::Constant(Constant::Function(func_id))

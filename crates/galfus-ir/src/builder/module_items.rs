@@ -38,7 +38,9 @@ impl<'a> MirBuilder<'a> {
             for (idx, param) in param_list_node.children().iter().enumerate() {
                 let param_node = *param;
                 let identifier_node = syntax
-                    .first_child_of_kind(param_node, SyntaxNodeKind::Identifier)
+                    .first_child_of_kind(param_node, SyntaxNodeKind::BindingPattern)
+                    .and_then(|bp| syntax.first_child_of_kind(bp, SyntaxNodeKind::Identifier))
+                    .or_else(|| syntax.first_child_of_kind(param_node, SyntaxNodeKind::Identifier))
                     .unwrap_or(param_node);
 
                 let param_symbol = resolution.declaration_symbol(identifier_node);
@@ -51,7 +53,7 @@ impl<'a> MirBuilder<'a> {
 
                 let ty = self.substitute_type(param_ty, &type_substitutions);
                 parameter_types.push(ty);
-                param_symbols.push((param_symbol, ty));
+                param_symbols.push((param_symbol, ty, param_node));
             }
         }
 
@@ -73,9 +75,10 @@ impl<'a> MirBuilder<'a> {
             symbol_to_local: std::collections::HashMap::new(),
             current_instructions: Vec::new(),
             blocks: vec![BasicBlock {
+                parameters: Vec::new(),
                 id: BlockId::new(0),
                 instructions: Vec::new(),
-                terminator: Terminator::None,
+                terminator: Terminator::Return(None),
             }],
             current_block: BlockId::new(0),
             scopes: vec![Vec::new()],
@@ -86,8 +89,31 @@ impl<'a> MirBuilder<'a> {
         };
 
         // Declare parameters as locals
-        for (symbol, ty) in param_symbols {
-            builder_ctx.declare_local(symbol, ty);
+        let mut param_locals_to_unpack = Vec::new();
+        for (symbol, ty, param_node) in param_symbols {
+            let has_complex_pattern = syntax
+                .first_child_of_kind(param_node, SyntaxNodeKind::BindingPattern)
+                .is_some_and(|bp| {
+                    syntax.first_child(bp).is_some_and(|c| {
+                        syntax.node(c).unwrap().kind() != SyntaxNodeKind::Identifier
+                    })
+                });
+
+            if has_complex_pattern {
+                let local_id = builder_ctx.declare_local(None, ty);
+                param_locals_to_unpack.push((local_id, param_node));
+            } else {
+                builder_ctx.declare_local(symbol, ty);
+            }
+        }
+
+        // Unpack destructured parameters
+        for (local_id, param_node) in param_locals_to_unpack {
+            if let Some(pattern) =
+                syntax.first_child_of_kind(param_node, SyntaxNodeKind::BindingPattern)
+            {
+                builder_ctx.lower_destructuring_binding(pattern, Operand::Local(local_id));
+            }
         }
 
         // Look for the block of the function body
@@ -97,7 +123,7 @@ impl<'a> MirBuilder<'a> {
             builder_ctx.terminate_block(Terminator::Return(None));
         }
 
-        Some(MirFunction {
+        let mut func = MirFunction {
             id: func_id,
             name,
             return_type,
@@ -105,7 +131,9 @@ impl<'a> MirBuilder<'a> {
             locals: builder_ctx.locals,
             blocks: builder_ctx.blocks,
             type_substitutions,
-        })
+        };
+        crate::lower::ssa::convert_to_ssa(&mut func);
+        Some(func)
     }
 
     pub(super) fn build_arrow_function(
@@ -160,9 +188,10 @@ impl<'a> MirBuilder<'a> {
             symbol_to_local: std::collections::HashMap::new(),
             current_instructions: Vec::new(),
             blocks: vec![BasicBlock {
+                parameters: Vec::new(),
                 id: BlockId::new(0),
                 instructions: Vec::new(),
-                terminator: Terminator::None,
+                terminator: Terminator::Return(None),
             }],
             current_block: BlockId::new(0),
             scopes: vec![Vec::new()],
@@ -191,7 +220,7 @@ impl<'a> MirBuilder<'a> {
             builder_ctx.terminate_block(Terminator::Return(Some(op)));
         }
 
-        Some(MirFunction {
+        let mut func = MirFunction {
             id: func_id,
             name,
             return_type,
@@ -199,7 +228,9 @@ impl<'a> MirBuilder<'a> {
             locals: builder_ctx.locals,
             blocks: builder_ctx.blocks,
             type_substitutions: std::collections::HashMap::new(),
-        })
+        };
+        crate::lower::ssa::convert_to_ssa(&mut func);
+        Some(func)
     }
 
     pub fn function_item_for_symbol(&self, symbol: SymbolId) -> Option<NodeId> {
@@ -210,8 +241,8 @@ impl<'a> MirBuilder<'a> {
     fn find_function_item_for_symbol(&self, node: NodeId, symbol: SymbolId) -> Option<NodeId> {
         let syntax_node = self.graph.syntax().node(node)?;
 
-        if syntax_node.kind() == SyntaxNodeKind::FunctionItem {
-            if self.function_name_node(node).and_then(|name| {
+        if syntax_node.kind() == SyntaxNodeKind::FunctionItem
+            && self.function_name_node(node).and_then(|name| {
                 self.graph
                     .resolution()
                     .and_then(|res| res.declaration_symbol(name))
@@ -219,7 +250,6 @@ impl<'a> MirBuilder<'a> {
             {
                 return Some(node);
             }
-        }
 
         for child in syntax_node.children() {
             if let Some(found) = self.find_function_item_for_symbol(*child, symbol) {
@@ -318,10 +348,10 @@ impl<'a> MirBuilder<'a> {
     pub(super) fn node_text(&self, node: NodeId) -> &str {
         if let Some(syntax_node) = self.graph.syntax().node(node) {
             let span = syntax_node.span();
-            if span.start() as usize <= self.source_text.len()
-                && span.end() as usize <= self.source_text.len()
+            if span.start() <= self.source_text.len()
+                && span.end() <= self.source_text.len()
             {
-                return &self.source_text[span.start() as usize..span.end() as usize];
+                return &self.source_text[span.start()..span.end()];
             }
         }
         ""

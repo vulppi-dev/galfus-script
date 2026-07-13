@@ -35,8 +35,6 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
         Some((variant.name.clone(), variant.payload_types.clone()))
     }
 
-
-
     pub(super) fn lower_pattern_check(
         &mut self,
         pattern_node_id: NodeId,
@@ -69,11 +67,16 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                 self.terminate_block(Terminator::Branch {
                     cond: Operand::Local(cond_temp),
                     true_block: success_block,
+                    true_args: Vec::new(),
                     false_block: failure_block,
+                    false_args: Vec::new(),
                 });
             }
             SyntaxNodeKind::WildcardPattern => {
-                self.terminate_block(Terminator::Jump(success_block));
+                self.terminate_block(Terminator::Jump {
+                    target: success_block,
+                    args: Vec::new(),
+                });
             }
             SyntaxNodeKind::BindingPattern => {
                 if let Some(res) = resolution {
@@ -94,7 +97,10 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                             .push(Instruction::Assign(local_id, RValue::Use(subject.clone())));
                     }
                 }
-                self.terminate_block(Terminator::Jump(success_block));
+                self.terminate_block(Terminator::Jump {
+                    target: success_block,
+                    args: Vec::new(),
+                });
             }
             SyntaxNodeKind::VariantPattern => {
                 let symbols = self.variant_pattern_symbols(pattern_node_id);
@@ -124,7 +130,9 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                             self.terminate_block(Terminator::Branch {
                                 cond: Operand::Local(cond_temp),
                                 true_block: success_block,
+                                true_args: Vec::new(),
                                 false_block: failure_block,
+                                false_args: Vec::new(),
                             });
                         }
                         SymbolKind::ChoiceVariant => {
@@ -146,7 +154,9 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                             self.terminate_block(Terminator::Branch {
                                 cond: Operand::Local(cond_temp),
                                 true_block: payload_extract_block,
+                                true_args: Vec::new(),
                                 false_block: failure_block,
+                                false_args: Vec::new(),
                             });
 
                             self.blocks.last_mut().unwrap().id = payload_extract_block;
@@ -224,14 +234,23 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                                         }
                                     }
                                 } else {
-                                    self.terminate_block(Terminator::Jump(success_block));
+                                    self.terminate_block(Terminator::Jump {
+                                        target: success_block,
+                                        args: Vec::new(),
+                                    });
                                 }
                             } else {
-                                self.terminate_block(Terminator::Jump(success_block));
+                                self.terminate_block(Terminator::Jump {
+                                    target: success_block,
+                                    args: Vec::new(),
+                                });
                             }
                         }
                         _ => {
-                            self.terminate_block(Terminator::Jump(failure_block));
+                            self.terminate_block(Terminator::Jump {
+                                target: failure_block,
+                                args: Vec::new(),
+                            });
                         }
                     }
                 } else if let Some((variant_name, payload_types)) =
@@ -261,7 +280,9 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                     self.terminate_block(Terminator::Branch {
                         cond: Operand::Local(cond_temp),
                         true_block: payload_extract_block,
+                        true_args: Vec::new(),
                         false_block: failure_block,
+                        false_args: Vec::new(),
                     });
 
                     self.blocks.last_mut().unwrap().id = payload_extract_block;
@@ -323,13 +344,22 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                                 }
                             }
                         } else {
-                            self.terminate_block(Terminator::Jump(success_block));
+                            self.terminate_block(Terminator::Jump {
+                                target: success_block,
+                                args: Vec::new(),
+                            });
                         }
                     } else {
-                        self.terminate_block(Terminator::Jump(success_block));
+                        self.terminate_block(Terminator::Jump {
+                            target: success_block,
+                            args: Vec::new(),
+                        });
                     }
                 } else {
-                    self.terminate_block(Terminator::Jump(failure_block));
+                    self.terminate_block(Terminator::Jump {
+                        target: failure_block,
+                        args: Vec::new(),
+                    });
                 }
             }
 
@@ -359,7 +389,9 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                 self.terminate_block(Terminator::Branch {
                     cond: Operand::Local(cond_temp),
                     true_block: type_check_success,
+                    true_args: Vec::new(),
                     false_block: failure_block,
+                    false_args: Vec::new(),
                 });
 
                 self.blocks.last_mut().unwrap().id = type_check_success;
@@ -382,7 +414,10 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                     }
                 }
 
-                self.terminate_block(Terminator::Jump(success_block));
+                self.terminate_block(Terminator::Jump {
+                    target: success_block,
+                    args: Vec::new(),
+                });
             }
 
             SyntaxNodeKind::StructPattern => {
@@ -410,7 +445,9 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                 self.terminate_block(Terminator::Branch {
                     cond: Operand::Local(cond_temp),
                     true_block: struct_check_success,
+                    true_args: Vec::new(),
                     false_block: failure_block,
+                    false_args: Vec::new(),
                 });
 
                 self.blocks.last_mut().unwrap().id = struct_check_success;
@@ -418,7 +455,10 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
 
                 let fields = &pattern_node.children()[1..];
                 if fields.is_empty() {
-                    self.terminate_block(Terminator::Jump(success_block));
+                    self.terminate_block(Terminator::Jump {
+                        target: success_block,
+                        args: Vec::new(),
+                    });
                     return;
                 }
 
@@ -452,7 +492,12 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
 
                     if field_node.children().len() > 1 {
                         let inner_pattern = field_node.child(1).unwrap();
-                        self.lower_pattern_check(inner_pattern, &field_op, next_field_block, failure_block);
+                        self.lower_pattern_check(
+                            inner_pattern,
+                            &field_op,
+                            next_field_block,
+                            failure_block,
+                        );
                     } else {
                         if let Some(res) = resolution {
                             let ident = syntax
@@ -465,7 +510,10 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                                     .push(Instruction::Assign(local_id, RValue::Use(field_op)));
                             }
                         }
-                        self.terminate_block(Terminator::Jump(next_field_block));
+                        self.terminate_block(Terminator::Jump {
+                            target: next_field_block,
+                            args: Vec::new(),
+                        });
                     }
 
                     if i < fields.len() - 1 {
@@ -475,7 +523,92 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                 }
             }
             _ => {
-                self.terminate_block(Terminator::Jump(failure_block));
+                self.terminate_block(Terminator::Jump {
+                    target: failure_block,
+                    args: Vec::new(),
+                });
+            }
+        }
+    }
+    pub(super) fn lower_destructuring_binding(
+        &mut self,
+        pattern_node_id: NodeId,
+        operand: Operand,
+    ) {
+        let syntax = self.builder.graph.syntax();
+        let pattern_node = syntax.node(pattern_node_id).unwrap();
+
+        let child = match pattern_node.first_child() {
+            Some(c) => c,
+            None => return,
+        };
+        let child_node = syntax.node(child).unwrap();
+
+        match child_node.kind() {
+            SyntaxNodeKind::Identifier => {
+                let resolution = self.builder.graph.resolution();
+                if let Some(symbol) = resolution.and_then(|res| res.declaration_symbol(child)) {
+                    let ty = self.symbol_type(symbol).unwrap_or_else(|| TypeId::new(0));
+                    let local_id = self.declare_local(Some(symbol), ty);
+                    self.current_instructions
+                        .push(Instruction::Assign(local_id, RValue::Use(operand)));
+                }
+            }
+            SyntaxNodeKind::StructBindingPattern => {
+                for field_id in child_node.children() {
+                    let field = syntax.node(*field_id).unwrap();
+                    let field_name_node = field.first_child().unwrap();
+                    let field_name = self.builder.node_text(field_name_node).to_string();
+                    let value_pattern = field.child(1).unwrap_or(field_name_node);
+
+                    let temp_ty = TypeId::new(0); // we should lookup proper type
+                    let temp_local = self.declare_local(None, temp_ty);
+                    self.current_instructions.push(Instruction::Assign(
+                        temp_local,
+                        RValue::MemberAccess(operand.clone(), field_name),
+                    ));
+                    self.lower_destructuring_binding(value_pattern, Operand::Local(temp_local));
+                }
+            }
+            SyntaxNodeKind::ArrayBindingPattern | SyntaxNodeKind::TupleBindingPattern => {
+                for (i, element_id) in child_node.children().iter().enumerate() {
+                    let element = syntax.node(*element_id).unwrap();
+                    if element.kind() == SyntaxNodeKind::RestBindingPattern {
+                        let rest_target = element.first_child().unwrap();
+                        let temp_ty = TypeId::new(0);
+                        let temp_local = self.declare_local(None, temp_ty);
+
+                        let _idx_operand = Operand::Constant(Constant::Int(i as i64));
+                        let len_operand = self.declare_local(None, temp_ty);
+                        self.current_instructions.push(Instruction::Assign(
+                            len_operand,
+                            RValue::Len(operand.clone()),
+                        ));
+
+                        // Note: A full slice implementation would need more complex runtime slicing.
+                        // Here we just extract it conceptually or emit a specific instruction if we had it.
+                        // For now we map it to length (just as a stub for rest pattern).
+                        self.current_instructions.push(Instruction::Assign(
+                            temp_local,
+                            RValue::Use(Operand::Local(len_operand)),
+                        ));
+                        self.lower_destructuring_binding(rest_target, Operand::Local(temp_local));
+                        break;
+                    } else {
+                        let temp_ty = TypeId::new(0);
+                        let temp_local = self.declare_local(None, temp_ty);
+
+                        let idx_operand = Operand::Constant(Constant::Int(i as i64));
+                        self.current_instructions.push(Instruction::Assign(
+                            temp_local,
+                            RValue::ArrayIndex(operand.clone(), idx_operand),
+                        ));
+                        self.lower_destructuring_binding(*element_id, Operand::Local(temp_local));
+                    }
+                }
+            }
+            _ => {
+                // Wildcard or other
             }
         }
     }

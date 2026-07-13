@@ -276,32 +276,28 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                         self.instructions.push(Instruction::RetNull);
                     }
                 }
-                Terminator::Break => {
-                    panic!("Break should have been lowered to a jump");
-                }
-                Terminator::Continue => {
-                    panic!("Continue should have been lowered to a jump");
-                }
+
                 Terminator::Panic(msg) => {
                     let const_idx = self
                         .ctx
                         .get_or_create_constant(&MirConstant::String(msg.clone()));
                     self.instructions.push(Instruction::Panic { const_idx });
                 }
-                Terminator::Jump(target) => {
+                Terminator::Jump { target, args: _ } => {
                     self.emit_jump(block_labels[target], JumpKind::Unconditional);
                 }
                 Terminator::Branch {
                     cond,
                     true_block,
+                    true_args: _,
                     false_block,
+                    false_args: _,
                 } => {
                     let cond_reg = self.operand_reg(cond);
                     self.emit_jump(block_labels[true_block], JumpKind::IfTrue(cond_reg));
                     self.emit_jump(block_labels[false_block], JumpKind::Unconditional);
                     self.free_temp_if_operand(cond);
                 }
-                Terminator::None => {}
             }
         }
 

@@ -329,15 +329,12 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
             let mut found_shared = false;
             if let Some(metadata_list) = self.builder.graph.syntax().node(metadata_list_node) {
                 for child in metadata_list.children() {
-                    if let Some(child_node) = self.builder.graph.syntax().node(*child) {
-                        if child_node.kind() == SyntaxNodeKind::KeywordMetadataFlag {
-                            if let Some(flag_ident) = self.builder.graph.syntax().child(*child, 0) {
-                                if self.builder.node_text(flag_ident) == "shared" {
+                    if let Some(child_node) = self.builder.graph.syntax().node(*child)
+                        && child_node.kind() == SyntaxNodeKind::KeywordMetadataFlag
+                            && let Some(flag_ident) = self.builder.graph.syntax().child(*child, 0)
+                                && self.builder.node_text(flag_ident) == "shared" {
                                     found_shared = true;
                                 }
-                            }
-                        }
-                    }
                 }
             }
             if found_shared {

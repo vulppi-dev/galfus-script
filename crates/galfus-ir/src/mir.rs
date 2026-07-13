@@ -63,6 +63,7 @@ pub struct MirFunction {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BasicBlock {
     pub id: BlockId,
+    pub parameters: Vec<LocalDecl>,
     pub instructions: Vec<Instruction>,
     pub terminator: Terminator,
 }
@@ -195,16 +196,18 @@ pub enum ArrayLiteralElement {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Terminator {
     Return(Option<Operand>),
-    Jump(BlockId),
+    Jump {
+        target: BlockId,
+        args: Vec<Operand>,
+    },
     Branch {
         cond: Operand,
         true_block: BlockId,
+        true_args: Vec<Operand>,
         false_block: BlockId,
+        false_args: Vec<Operand>,
     },
-    Break,
-    Continue,
     Panic(String),
-    None,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

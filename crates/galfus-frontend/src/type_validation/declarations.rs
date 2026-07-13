@@ -93,9 +93,16 @@ impl<'a> DeclarationTypeChecker<'a> {
                     return;
                 };
 
-                if let Some(pattern) = self.graph.syntax().first_child_of_kind(node, SyntaxNodeKind::BindingPattern) {
+                if let Some(pattern) = self
+                    .graph
+                    .syntax()
+                    .first_child_of_kind(node, SyntaxNodeKind::BindingPattern)
+                {
                     self.bind_binding_pattern_type(pattern, ty);
-                } else if let Some(symbol) = self.direct_identifier_symbol_any(node, &[SymbolKind::Parameter, SymbolKind::RestParameter]) {
+                } else if let Some(symbol) = self.direct_identifier_symbol_any(
+                    node,
+                    &[SymbolKind::Parameter, SymbolKind::RestParameter],
+                ) {
                     self.layer.bind_symbol_type(symbol, ty);
                 }
             }

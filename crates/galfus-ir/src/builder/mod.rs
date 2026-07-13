@@ -166,9 +166,10 @@ impl<'a> MirBuilder<'a> {
             symbol_to_local: std::collections::HashMap::new(),
             current_instructions: Vec::new(),
             blocks: vec![BasicBlock {
+                parameters: Vec::new(),
                 id: BlockId::new(0),
                 instructions: Vec::new(),
-                terminator: Terminator::None,
+                terminator: Terminator::Return(None),
             }],
             current_block: BlockId::new(0),
             scopes: vec![Vec::new()],
@@ -221,7 +222,7 @@ impl<'a> MirBuilder<'a> {
 
         builder_ctx.terminate_block(Terminator::Return(None));
 
-        Some(MirFunction {
+        let mut func = MirFunction {
             id: FunctionId::new(u32::MAX),
             name: "__init_module".to_string(),
             return_type: TypeId::new(0),
@@ -229,7 +230,9 @@ impl<'a> MirBuilder<'a> {
             locals: builder_ctx.locals,
             blocks: builder_ctx.blocks,
             type_substitutions: HashMap::new(),
-        })
+        };
+        crate::lower::ssa::convert_to_ssa(&mut func);
+        Some(func)
     }
 
     pub(super) fn is_owned_type(&self, ty: TypeId) -> bool {

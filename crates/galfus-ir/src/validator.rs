@@ -33,7 +33,10 @@ fn validate_function(func: &MirFunction) -> Result<(), Vec<ValidationError>> {
     for block in &func.blocks {
         if blocks.insert(block.id, block).is_some() {
             errors.push(ValidationError {
-                message: format!("Function '{}': Duplicate basic block ID {:?}", func.name, block.id),
+                message: format!(
+                    "Function '{}': Duplicate basic block ID {:?}",
+                    func.name, block.id
+                ),
             });
         }
     }
@@ -58,6 +61,81 @@ fn validate_function(func: &MirFunction) -> Result<(), Vec<ValidationError>> {
         }
     }
 
+    let mut assigned_locals = HashSet::new();
+    for i in 0..func.parameter_types.len() {
+        assigned_locals.insert(LocalId::new(i as u32));
+    }
+
+    for block in &func.blocks {
+        for param in &block.parameters {
+            if !assigned_locals.insert(param.id) {
+                errors.push(ValidationError {
+                    message: format!(
+                        "SSA Violation: Local {:?} assigned multiple times (block parameter)",
+                        param.id
+                    ),
+                });
+            }
+        }
+        for inst in &block.instructions {
+            match inst {
+                Instruction::Assign(dest, _)
+                | Instruction::Call {
+                    destination: dest, ..
+                }
+                | Instruction::IndirectCall {
+                    destination: dest, ..
+                }
+                | Instruction::ConstraintCall {
+                    destination: dest, ..
+                }
+                | Instruction::TransactionCommit { destination: dest } => {
+                    if !assigned_locals.insert(*dest) {
+                        errors.push(ValidationError {
+                            message: format!(
+                                "SSA Violation: Local {:?} assigned multiple times",
+                                dest
+                            ),
+                        });
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        match &block.terminator {
+            Terminator::Jump { target, args } => {
+                if let Some(target_block) = blocks.get(target)
+                    && args.len() != target_block.parameters.len() {
+                        errors.push(ValidationError {
+                            message: "Jump arguments length mismatch".to_string(),
+                        });
+                    }
+            }
+            Terminator::Branch {
+                true_block,
+                true_args,
+                false_block,
+                false_args,
+                ..
+            } => {
+                if let Some(tb) = blocks.get(true_block)
+                    && true_args.len() != tb.parameters.len() {
+                        errors.push(ValidationError {
+                            message: "Branch true arguments mismatch".to_string(),
+                        });
+                    }
+                if let Some(fb) = blocks.get(false_block)
+                    && false_args.len() != fb.parameters.len() {
+                        errors.push(ValidationError {
+                            message: "Branch false arguments mismatch".to_string(),
+                        });
+                    }
+            }
+            _ => {}
+        }
+    }
+
     let mut entry_initialized = HashSet::new();
     for idx in 0..func.parameter_types.len() {
         entry_initialized.insert(LocalId::new(idx as u32));
@@ -75,6 +153,11 @@ fn validate_function(func: &MirFunction) -> Result<(), Vec<ValidationError>> {
             .get(&bb.id)
             .cloned()
             .unwrap_or_else(|| all_declared.clone());
+
+        for param in &bb.parameters {
+            initialized.insert(param.id);
+        }
+
         validate_basic_block(bb, func, &mut initialized, &mut errors);
     }
 
@@ -132,6 +215,9 @@ fn initialized_at_block_entries(
 }
 
 fn apply_initialization_effects(block: &BasicBlock, initialized: &mut HashSet<LocalId>) {
+    for param in &block.parameters {
+        initialized.insert(param.id);
+    }
     for instruction in &block.instructions {
         match instruction {
             Instruction::Assign(_, rvalue) => {
@@ -139,7 +225,9 @@ fn apply_initialization_effects(block: &BasicBlock, initialized: &mut HashSet<Lo
                     initialized.remove(l);
                 }
             }
-            Instruction::Call { args, .. } | Instruction::ConstraintCall { args, .. } | Instruction::IndirectCall { args, .. } => {
+            Instruction::Call { args, .. }
+            | Instruction::ConstraintCall { args, .. }
+            | Instruction::IndirectCall { args, .. } => {
                 for arg in args {
                     if let Operand::Local(l) = arg {
                         initialized.remove(l);
@@ -149,10 +237,16 @@ fn apply_initialization_effects(block: &BasicBlock, initialized: &mut HashSet<Lo
             Instruction::StoreGlobal(_, Operand::Local(l)) => {
                 initialized.remove(l);
             }
-            Instruction::StoreIndex { val: Operand::Local(l), .. } => {
+            Instruction::StoreIndex {
+                val: Operand::Local(l),
+                ..
+            } => {
                 initialized.remove(l);
             }
-            Instruction::StoreField { val: Operand::Local(l), .. } => {
+            Instruction::StoreField {
+                val: Operand::Local(l),
+                ..
+            } => {
                 initialized.remove(l);
             }
             Instruction::Drop(local) => {
@@ -160,7 +254,7 @@ fn apply_initialization_effects(block: &BasicBlock, initialized: &mut HashSet<Lo
             }
             _ => {}
         }
-        
+
         match instruction {
             Instruction::Assign(destination, _)
             | Instruction::TransactionCommit { destination }
@@ -176,7 +270,10 @@ fn apply_initialization_effects(block: &BasicBlock, initialized: &mut HashSet<Lo
         Terminator::Return(Some(Operand::Local(l))) => {
             initialized.remove(l);
         }
-        Terminator::Branch { cond: Operand::Local(l), .. } => {
+        Terminator::Branch {
+            cond: Operand::Local(l),
+            ..
+        } => {
             initialized.remove(l);
         }
         _ => {}
@@ -185,17 +282,13 @@ fn apply_initialization_effects(block: &BasicBlock, initialized: &mut HashSet<Lo
 
 fn successor_blocks(terminator: &Terminator) -> Vec<BlockId> {
     match terminator {
-        Terminator::Jump(target) => vec![*target],
+        Terminator::Jump { target, .. } => vec![*target],
         Terminator::Branch {
             true_block,
             false_block,
             ..
         } => vec![*true_block, *false_block],
-        Terminator::Return(_)
-        | Terminator::Break
-        | Terminator::Continue
-        | Terminator::Panic(_)
-        | Terminator::None => Vec::new(),
+        Terminator::Return(_) | Terminator::Panic(_) => Vec::new(),
     }
 }
 
@@ -323,10 +416,25 @@ fn validate_basic_block(
         Terminator::Return(Some(op)) => {
             validate_operand(op, func, initialized, errors);
         }
-        Terminator::Return(None) | Terminator::None | Terminator::Break | Terminator::Continue => {}
-        Terminator::Jump(_) => {}
-        Terminator::Branch { cond, .. } => {
+        Terminator::Return(None) => {}
+        Terminator::Jump { args, .. } => {
+            for arg in args {
+                validate_operand(arg, func, initialized, errors);
+            }
+        }
+        Terminator::Branch {
+            cond,
+            true_args,
+            false_args,
+            ..
+        } => {
             validate_operand(cond, func, initialized, errors);
+            for arg in true_args {
+                validate_operand(arg, func, initialized, errors);
+            }
+            for arg in false_args {
+                validate_operand(arg, func, initialized, errors);
+            }
         }
         Terminator::Panic(_) => {}
     }

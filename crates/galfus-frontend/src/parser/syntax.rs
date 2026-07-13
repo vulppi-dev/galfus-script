@@ -138,7 +138,9 @@ impl Parser {
 
         self.skip_newlines();
 
-        if self.node_text(name) == "self" && self.graph.syntax().node(name).unwrap().kind() == SyntaxNodeKind::Identifier {
+        if self.node_text(name) == "self"
+            && self.graph.syntax().node(name).unwrap().kind() == SyntaxNodeKind::Identifier
+        {
             if self.at(&TokenKind::Colon) {
                 let colon = self.bump();
                 self.graph.push_diagnostic(Diagnostic::error_with_message(
