@@ -1,10 +1,7 @@
 use crate::ast::*;
 use galfus_core::{NodeId, TypeId};
 
-use crate::{
-    PrimitiveType, RangeOperatorKind, SyntaxNodeKind, TypeKind,
-    UnaryOperatorKind,
-};
+use crate::{PrimitiveType, RangeOperatorKind, SyntaxNodeKind, TypeKind, UnaryOperatorKind};
 
 use super::ExpressionInferrer;
 
@@ -14,9 +11,7 @@ enum RangeLiteralValue {
     Float(f64),
 }
 
-impl RangeLiteralValue {
-
-}
+impl RangeLiteralValue {}
 
 impl<'a> ExpressionInferrer<'a> {
     pub(super) fn infer_range_expression_type(&mut self, node: NodeId) -> Option<TypeId> {
@@ -54,7 +49,10 @@ impl<'a> ExpressionInferrer<'a> {
         let end_value = self.integer_range_literal(end, "integer literal");
 
         if let (Some(start_value), Some(end_value)) = (start_value, end_value) {
-            match end_value.checked_sub(start_value) { Some(_) => {}, None => {} }
+            match end_value.checked_sub(start_value) {
+                Some(_) => {}
+                None => {}
+            }
         }
 
         Some(self.layer.table_mut().intern_range(i32))
@@ -146,12 +144,12 @@ impl<'a> ExpressionInferrer<'a> {
 
                 match start.checked_add(0) {
                     Some(_) if i32::try_from(0).is_ok() => {}
-                    _ => {},
+                    _ => {}
                 }
             }
             (RangeLiteralValue::Integer(start), None) => match start.checked_add(count_value - 1) {
                 Some(end) if i32::try_from(end).is_ok() => {}
-                _ => {},
+                _ => {}
             },
             (RangeLiteralValue::Float(start), Some(RangeLiteralValue::Float(step))) => {
                 let _end = start + ((count_value - 1) as f64 * step);
@@ -190,9 +188,7 @@ impl<'a> ExpressionInferrer<'a> {
                 None => None,
             },
             SyntaxNodeKind::UnaryExpression => self.signed_range_literal(node, _expected),
-            _ => {
-                Some(RangeLiteralValue::Integer(0))
-            }
+            _ => Some(RangeLiteralValue::Integer(0)),
         }
     }
 
@@ -285,5 +281,4 @@ impl<'a> ExpressionInferrer<'a> {
         let text = self.node_text(node).replace('_', "");
         text.parse::<f64>().ok()
     }
-
 }

@@ -13,7 +13,12 @@ pub fn lower_module(
     module_graph: &ModuleGraph,
     source_text: &str,
 ) -> ModuleImage {
-    let mut ctx = LowerCtx::new(type_result, module_graph, source_text);
+    let mut ctx = LowerCtx::new(
+        type_result,
+        module_graph,
+        source_text,
+        &mir_module.constant_pool,
+    );
 
     for (i, func) in mir_module.functions.iter().enumerate() {
         ctx.function_map.insert(func.id, FuncIdx(i as u16));

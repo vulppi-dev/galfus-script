@@ -144,11 +144,6 @@ pub enum ArrayLiteralElement {
 }
 ```
 
-### 4.3 Array and Range Spreads lowering
-
-When an array literal contains range spread expressions (for example, `[...0..10]` or `[...0::5%-1]`), the spread targets are resolved as Iterables.
-The compiler/MIR builder lowers range spreads within array literals to `RValue::NewArrayDynamic` where range objects are evaluated. At compile-time/MIR level, range spreads are treated as dynamic iterable spreads, and during MIR lowering they are expanded into collection/copy loops using the range's `Iterator` methods (`iter` and `next`), dynamically populating the target array.
-
 ### 4.3 Instructions & Terminators
 
 An instruction is non-branching:

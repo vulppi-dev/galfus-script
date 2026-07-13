@@ -278,6 +278,18 @@ pub fn validate_module_image(image: &ModuleImage) -> Result<(), Vec<ImageValidat
                     check_reg(obj, &mut errors);
                     check_const(name_const, &mut errors);
                     if arg_count > 1 {
+                        check_reg(Reg(args_start.raw() + arg_count as u16 - 2), &mut errors);
+                    }
+                }
+                Instruction::CallDynamic {
+                    dest,
+                    func_reg,
+                    args_start,
+                    arg_count,
+                } => {
+                    check_reg(dest, &mut errors);
+                    check_reg(func_reg, &mut errors);
+                    if arg_count > 0 {
                         check_reg(args_start, &mut errors);
                         let end_reg = args_start.raw() as u32 + arg_count as u32 - 1;
                         if end_reg >= max_regs as u32 {

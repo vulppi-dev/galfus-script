@@ -1,6 +1,5 @@
 pub use ast::*;
 pub use diagnostics::*;
-pub use type_bind::*;
 pub use inference_bind::*;
 pub use lexer::*;
 pub use parser::*;
@@ -9,12 +8,12 @@ pub use string_table::*;
 pub use surface_bind::*;
 pub use token_tree::*;
 pub use tokens::*;
+pub use type_bind::*;
 pub use type_validation::*;
 pub use types::*;
 
 mod ast;
 mod diagnostics;
-mod type_bind;
 mod inference_bind;
 mod lexer;
 mod parser;
@@ -23,5 +22,6 @@ mod string_table;
 mod surface_bind;
 mod token_tree;
 mod tokens;
+mod type_bind;
 mod type_validation;
 mod types;

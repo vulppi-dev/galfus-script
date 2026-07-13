@@ -240,6 +240,12 @@ pub enum Instruction {
         args_start: Reg,
         arg_count: u8,
     },
+    CallDynamic {
+        dest: Reg,
+        func_reg: Reg,
+        args_start: Reg,
+        arg_count: u8,
+    },
     Ret {
         src: Reg,
     },

@@ -36,6 +36,7 @@ pub enum ImageValue {
     Float32(f32),
     Float64(f64),
     Object(ImageObjectRef),
+    Function(FuncIdx),
 }
 
 // =========================================================================
@@ -52,6 +53,7 @@ pub enum Constant {
     Float(f64),
     String(String),
     Bytes(Vec<u8>),
+    Function(FuncIdx),
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]

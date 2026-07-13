@@ -2,15 +2,13 @@ use super::function::FunctionBuilder;
 use super::function_helpers::parse_int;
 use crate::mir::*;
 use galfus_core::{FunctionId, NodeId, SymbolId, TypeId};
-use galfus_frontend::{PathReferenceKind, SymbolKind, SyntaxNodeKind, TypeKind};
+use galfus_frontend::{
+    PathReferenceKind, RangeDesugarTarget, SymbolKind, SyntaxNodeKind, TypeKind,
+};
 use std::collections::HashMap;
 
 impl<'b, 'a> FunctionBuilder<'b, 'a> {
-    pub(super) fn lower_expression(
-        &mut self,
-        expr_id: NodeId,
-        statements: &mut Vec<MirBody>,
-    ) -> Operand {
+    pub(super) fn lower_expression(&mut self, expr_id: NodeId) -> Operand {
         let syntax = self.builder.graph.syntax();
         let Some(node) = syntax.node(expr_id) else {
             return Operand::Constant(Constant::Null);
@@ -50,6 +48,102 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
             }
 
             SyntaxNodeKind::NullLiteral => Operand::Constant(Constant::Null),
+
+            SyntaxNodeKind::RangeExpression => {
+                let Some(target) = self.builder.type_result.range_desugar(expr_id) else {
+                    return Operand::Constant(Constant::Null);
+                };
+                let Some(start) = node.child(0) else {
+                    return Operand::Constant(Constant::Null);
+                };
+                let Some(end_or_count) = node.child(2) else {
+                    return Operand::Constant(Constant::Null);
+                };
+                let start_operand = self.lower_expression(start);
+                let end_or_count_operand = self.lower_expression(end_or_count);
+                let range_type = self.node_type(expr_id).unwrap_or_else(|| TypeId::new(0));
+                let item_type = self.node_type(start).unwrap_or_else(|| TypeId::new(0));
+                let (function_name, arguments, concrete_types) = match target {
+                    RangeDesugarTarget::Exclusive => (
+                        "range",
+                        vec![start_operand, end_or_count_operand],
+                        Vec::new(),
+                    ),
+                    RangeDesugarTarget::Stepped => {
+                        let step = syntax
+                            .child(expr_id, 3)
+                            .and_then(|step| syntax.first_child(step))
+                            .map(|step| self.lower_expression(step))
+                            .unwrap_or(Operand::Constant(Constant::Int(1)));
+                        (
+                            "rangeSteps",
+                            vec![start_operand, end_or_count_operand, step],
+                            vec![item_type],
+                        )
+                    }
+                };
+                let Some(ctx_ptr) = self.builder.workspace_ctx else {
+                    return Operand::Constant(Constant::Null);
+                };
+                let ctx = unsafe { &mut *ctx_ptr };
+                let Some(function) = ctx.specialize_builtin_function(
+                    expr_id,
+                    "std/iterable",
+                    function_name,
+                    concrete_types,
+                ) else {
+                    return Operand::Constant(Constant::Null);
+                };
+                let destination = self.declare_local(None, range_type);
+                self.current_instructions.push(Instruction::Call {
+                    func: function,
+                    args: arguments,
+                    destination,
+                });
+                Operand::Local(destination)
+            }
+
+            SyntaxNodeKind::TypeofExpression => {
+                let Some(subject) = node.child(0) else {
+                    return Operand::Constant(Constant::Null);
+                };
+                let Some(arms) = node.child(1) else {
+                    return Operand::Constant(Constant::Null);
+                };
+                let subject_type = self.node_type(subject).unwrap_or_else(|| TypeId::new(0));
+
+                for arm in syntax
+                    .node(arms)
+                    .into_iter()
+                    .flat_map(|arms| arms.children())
+                {
+                    let Some(pattern) = syntax.child(*arm, 0) else {
+                        continue;
+                    };
+                    let Some(body) = syntax.child(*arm, 1) else {
+                        continue;
+                    };
+                    let is_wildcard = syntax
+                        .node(pattern)
+                        .is_some_and(|pattern| pattern.kind() == SyntaxNodeKind::WildcardPattern);
+                    let matches_subject = self.node_type(pattern).is_some_and(|pattern_type| {
+                        self.builder.is_assignable(pattern_type, subject_type)
+                    });
+
+                    if is_wildcard || matches_subject {
+                        if syntax
+                            .node(body)
+                            .is_some_and(|body| body.kind() == SyntaxNodeKind::Block)
+                        {
+                            self.lower_block(body);
+                            return Operand::Constant(Constant::Null);
+                        }
+                        return self.lower_expression(body);
+                    }
+                }
+
+                Operand::Constant(Constant::Null)
+            }
 
             SyntaxNodeKind::NameExpression => {
                 if let Some(res) = resolution {
@@ -94,8 +188,8 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                 let op_node = node.child(1).unwrap();
                 let right = node.child(2).unwrap();
 
-                let left_operand = self.lower_expression(left, statements);
-                let right_operand = self.lower_expression(right, statements);
+                let left_operand = self.lower_expression(left);
+                let right_operand = self.lower_expression(right);
 
                 let op = self.lower_binary_op(op_node);
 
@@ -113,7 +207,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                 let op_node = node.child(0).unwrap();
                 let operand_node = node.child(1).unwrap();
 
-                let operand = self.lower_expression(operand_node, statements);
+                let operand = self.lower_expression(operand_node);
                 let op = self.lower_unary_op(op_node);
 
                 let ty = self.node_type(expr_id).unwrap_or_else(|| TypeId::new(0));
@@ -127,7 +221,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
             SyntaxNodeKind::CastExpression => {
                 let type_node = node.child(0).unwrap();
                 let val_node = node.child(1).unwrap();
-                let operand = self.lower_expression(val_node, statements);
+                let operand = self.lower_expression(val_node);
 
                 let ty = self
                     .node_type(expr_id)
@@ -142,7 +236,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
 
             SyntaxNodeKind::CopyExpression => {
                 let value_node = node.child(0).unwrap();
-                let operand = self.lower_expression(value_node, statements);
+                let operand = self.lower_expression(value_node);
                 let ty = self.node_type(expr_id).unwrap_or_else(|| TypeId::new(0));
                 let temp_id = self.declare_local(None, ty);
                 self.current_instructions
@@ -152,7 +246,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
 
             SyntaxNodeKind::GroupedExpression => {
                 if let Some(inner) = node.first_child() {
-                    self.lower_expression(inner, statements)
+                    self.lower_expression(inner)
                 } else {
                     Operand::Constant(Constant::Null)
                 }
@@ -198,7 +292,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                 let mut args = Vec::new();
                 let mut arg_types = Vec::new();
                 let parameter_offset = if let Some(receiver_node) = anchored_receiver {
-                    let receiver_op = self.lower_expression(receiver_node, statements);
+                    let receiver_op = self.lower_expression(receiver_node);
                     let receiver_ty = self
                         .node_type(receiver_node)
                         .unwrap_or_else(|| TypeId::new(0));
@@ -229,7 +323,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                             })
                             .unwrap_or(arg_id);
 
-                        let arg_op = self.lower_expression(arg_expr, statements);
+                        let arg_op = self.lower_expression(arg_expr);
 
                         let arg_ty = self.node_type(arg_expr).unwrap_or_else(|| TypeId::new(0));
 
@@ -338,10 +432,9 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                     is_namespace_call = true;
                 }
 
-                let target_symbol = self.call_target_symbol(target_node).or_else(|| {
-                    anchored_receiver
-                        .and_then(|receiver| self.anchored_function_symbol(receiver, target_node))
-                });
+                let target_symbol = anchored_receiver
+                    .and_then(|receiver| self.anchored_function_symbol(receiver, target_node))
+                    .or_else(|| self.call_target_symbol(target_node));
 
                 // Detect constraint method call: receiver is of a constraint type.
                 // Example: `item::stringify()` where `item: Stringable`.
@@ -409,7 +502,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                     } else if let Some(receiver_node) =
                         syntax.node(real_target).and_then(|n| n.child(0))
                     {
-                        self.lower_expression(receiver_node, statements)
+                        self.lower_expression(receiver_node)
                     } else {
                         Operand::Constant(Constant::Null)
                     };
@@ -424,57 +517,91 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                     let ty = self.node_type(expr_id).unwrap_or_else(|| TypeId::new(0));
                     let temp_id = self.declare_local(None, ty);
 
-                    let instructions = std::mem::take(&mut self.current_instructions);
-                    statements.push(MirBody::BasicBlock(BasicBlock {
-                        id: self.builder.next_block(),
-                        instructions,
-                        terminator: Terminator::ConstraintCall {
-                            method_name,
-                            obj,
-                            args: extra_args,
-                            destination: temp_id,
-                        },
-                    }));
+                    self.current_instructions.push(Instruction::ConstraintCall {
+                        method_name,
+                        obj,
+                        args: extra_args,
+                        destination: temp_id,
+                    });
 
                     return Operand::Local(temp_id);
                 }
 
-                let mut func_id = if is_namespace_call {
-                    path_call_function_id(real_target)
-                } else if anchored_receiver.is_some() {
-                    target_symbol
-                        .map(|sym| FunctionId::new(sym.raw()))
-                        .unwrap_or_else(|| path_call_function_id(real_target))
+                let is_indirect = if let Some(target_sym) = target_symbol {
+                    if let Some(res) = self.builder.graph.resolution() {
+                        if let Some(sym_data) = res.symbol(target_sym) {
+                            matches!(
+                                sym_data.kind(),
+                                SymbolKind::Var
+                                    | SymbolKind::Const
+                                    | SymbolKind::Parameter
+                                    | SymbolKind::RestParameter
+                                    | SymbolKind::ForBinding
+                                    | SymbolKind::PatternBinding
+                            )
+                        } else {
+                            false
+                        }
+                    } else {
+                        false
+                    }
                 } else {
-                    target_symbol
-                        .map(|sym| FunctionId::new(sym.raw()))
-                        .unwrap_or_else(|| FunctionId::new(0))
+                    false
                 };
 
-                if let Some(symbol) = target_symbol
-                    && let Some(specialized) =
-                        self.specialize_generic_call(symbol, target_node, &arg_types)
-                {
-                    func_id = specialized;
-                }
-
                 let ty = self.node_type(expr_id).unwrap_or_else(|| TypeId::new(0));
-
                 let temp_id = self.declare_local(None, ty);
 
-                let instructions = std::mem::take(&mut self.current_instructions);
-                let block_id = self.builder.next_block();
-                statements.push(MirBody::BasicBlock(BasicBlock {
-                    id: block_id,
-                    instructions,
-                    terminator: Terminator::Call {
+                if is_indirect {
+                    let func_op = self.lower_expression(target_node);
+                    self.current_instructions.push(Instruction::IndirectCall {
+                        func: func_op,
+                        args,
+                        destination: temp_id,
+                    });
+                } else {
+                    let mut func_id = if is_namespace_call {
+                        path_call_function_id(real_target)
+                    } else if anchored_receiver.is_some() {
+                        target_symbol
+                            .map(|sym| FunctionId::new(sym.raw()))
+                            .unwrap_or_else(|| path_call_function_id(real_target))
+                    } else {
+                        target_symbol
+                            .map(|sym| {
+                                let func_id = FunctionId::new(sym.raw());
+                                let span = syntax.node(target_node).map(|n| n.span());
+                                let source = span.and_then(|span| {
+                                    let start = span.start() as usize;
+                                    let end = span.end() as usize;
+                                    if start < self.builder.source_text.len()
+                                        && end <= self.builder.source_text.len()
+                                    {
+                                        Some(&self.builder.source_text[start..end])
+                                    } else {
+                                        None
+                                    }
+                                });
+                                func_id
+                            })
+                            .unwrap_or_else(|| FunctionId::new(target_node.raw()))
+                    };
+
+                    if let Some(symbol) = target_symbol
+                        && let Some(specialized) =
+                            self.specialize_generic_call(symbol, target_node, &arg_types)
+                    {
+                        func_id = specialized;
+                    }
+
+                    self.current_instructions.push(Instruction::Call {
                         func: func_id,
                         args,
                         destination: temp_id,
-                    },
-                }));
+                    });
+                }
 
-                Operand::Local(temp_id)
+                return Operand::Local(temp_id);
             }
             SyntaxNodeKind::PathExpression => {
                 let kind = resolution.and_then(|res| res.path_reference_kind(expr_id));
@@ -507,19 +634,19 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
             }
 
             SyntaxNodeKind::StructLiteral | SyntaxNodeKind::InferredStructLiteral => {
-                self.lower_struct_literal(expr_id, node, statements)
+                self.lower_struct_literal(expr_id, node)
             }
 
-            SyntaxNodeKind::ArrayLiteral => self.lower_array_literal(expr_id, node, statements),
+            SyntaxNodeKind::ArrayLiteral => self.lower_array_literal(expr_id, node),
 
-            SyntaxNodeKind::TupleExpression => self.lower_tuple_literal(expr_id, node, statements),
+            SyntaxNodeKind::TupleExpression => self.lower_tuple_literal(expr_id, node),
 
             SyntaxNodeKind::MemberExpression | SyntaxNodeKind::NullSafeMemberExpression => {
                 let obj_node = node.child(0).unwrap();
                 let member_node = node.child(1).unwrap();
                 let member_name = self.builder.node_text(member_node).to_string();
 
-                let obj_operand = self.lower_expression(obj_node, statements);
+                let obj_operand = self.lower_expression(obj_node);
 
                 let ty = self.node_type(expr_id).unwrap_or_else(|| TypeId::new(0));
 
@@ -551,8 +678,8 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                 let target_node = node.child(0).unwrap();
                 let index_node = node.child(1).unwrap();
 
-                let target_operand = self.lower_expression(target_node, statements);
-                let index_operand = self.lower_expression(index_node, statements);
+                let target_operand = self.lower_expression(target_node);
+                let index_operand = self.lower_expression(index_node);
 
                 let ty = self.node_type(expr_id).unwrap_or_else(|| TypeId::new(0));
 
@@ -601,7 +728,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
 
                 let match_type = self.node_type(expr_id).unwrap_or_else(|| TypeId::new(0));
 
-                let subject_op = self.lower_expression(subject_node, statements);
+                let subject_op = self.lower_expression(subject_node);
 
                 let subject_temp = self.declare_local(None, subject_type);
                 self.current_instructions
@@ -610,20 +737,63 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
 
                 let match_result = self.declare_local(None, match_type);
 
-                self.flush_current_instructions(statements);
-
                 let arms_syntax_node = syntax.node(arms_node).unwrap();
                 let arm_nodes = arms_syntax_node.children().to_vec();
+                let match_end = self.builder.next_block();
 
-                let match_mir =
-                    self.lower_match_arms(&arm_nodes, 0, &subject_local_op, match_result);
-                statements.push(match_mir);
+                for arm_node in arm_nodes {
+                    let pattern_node = syntax.child(arm_node, 0).unwrap();
+                    let body_node = syntax.child(arm_node, 1).unwrap();
+
+                    let arm_body_block = self.builder.next_block();
+                    let next_arm_block = self.builder.next_block();
+
+                    self.lower_pattern_check(pattern_node, &subject_local_op, arm_body_block, next_arm_block);
+
+                    self.blocks.last_mut().unwrap().id = arm_body_block;
+                    self.current_block = arm_body_block;
+                    let body_op = self.lower_expression(body_node);
+                    self.current_instructions
+                        .push(Instruction::Assign(match_result, RValue::Use(body_op)));
+
+                    if !self.is_terminated() {
+                        self.terminate_block(Terminator::Jump(match_end));
+                    }
+
+                    self.blocks.last_mut().unwrap().id = next_arm_block;
+                    self.current_block = next_arm_block;
+                }
+
+                if !self.is_terminated() {
+                    self.terminate_block(Terminator::Panic(
+                        "non-exhaustive match expression".to_string(),
+                    ));
+                }
+
+                self.blocks.last_mut().unwrap().id = match_end;
+                self.current_block = match_end;
 
                 Operand::Local(match_result)
             }
 
             SyntaxNodeKind::NewArrayExpression => {
-                self.lower_new_array_expression(expr_id, node, statements)
+                self.lower_new_array_expression(expr_id, node, /* dummy */ &[])
+            }
+            SyntaxNodeKind::ArrowFunctionExpression => {
+                let ty = self
+                    .builder
+                    .type_result
+                    .layer()
+                    .node_type(expr_id)
+                    .unwrap_or_else(|| galfus_core::TypeId::new(0));
+
+                if let Some(mut func) = self.builder.build_arrow_function(expr_id, ty) {
+                    let func_id = func.id;
+                    self.builder.specialized_functions.push(func);
+                    Operand::Constant(Constant::Function(func_id))
+                } else {
+                    Operand::Constant(Constant::Null)
+                }
             }
 
             _ => Operand::Constant(Constant::Null),
@@ -665,12 +835,23 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
         let receiver_kind = syntax.node(receiver)?.kind();
         if matches!(
             receiver_kind,
-            SyntaxNodeKind::NameExpression
-                | SyntaxNodeKind::Identifier
-                | SyntaxNodeKind::Path
-                | SyntaxNodeKind::GenericExpression
+            SyntaxNodeKind::Identifier | SyntaxNodeKind::Path | SyntaxNodeKind::GenericExpression
         ) {
             None
+        } else if receiver_kind == SyntaxNodeKind::NameExpression {
+            // Check if it's a namespace or struct type. If so, it's a static call.
+            if let Some(res) = self.builder.graph.resolution()
+                && let Some(sym) = res.reference_symbol(receiver)
+                && let Some(sym_data) = res.symbol(sym)
+                && matches!(
+                    sym_data.kind(),
+                    SymbolKind::ImportNamespace | SymbolKind::Struct
+                )
+            {
+                None
+            } else {
+                Some(receiver)
+            }
         } else {
             Some(receiver)
         }

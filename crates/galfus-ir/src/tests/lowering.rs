@@ -72,36 +72,16 @@ fn test_mir_builder_phase4() {
         .unwrap();
 
     let mut found_drops = 0;
-    fn count_drops(body: &MirBody, found_drops: &mut usize) {
-        match body {
-            MirBody::BasicBlock(bb) => {
-                for inst in &bb.instructions {
-                    if matches!(inst, Instruction::Drop(_)) {
-                        *found_drops += 1;
-                    }
+    fn count_drops(func: &MirFunction, found_drops: &mut usize) {
+        for block in &func.blocks {
+            for inst in &block.instructions {
+                if matches!(inst, Instruction::Drop(_)) {
+                    *found_drops += 1;
                 }
-            }
-            MirBody::Block { statements, .. } => {
-                for stmt in statements {
-                    count_drops(stmt, found_drops);
-                }
-            }
-            MirBody::If {
-                then_branch,
-                else_branch,
-                ..
-            } => {
-                count_drops(then_branch, found_drops);
-                if let Some(eb) = else_branch {
-                    count_drops(eb, found_drops);
-                }
-            }
-            MirBody::Loop { body } => {
-                count_drops(body, found_drops);
             }
         }
     }
-    count_drops(&drops_func.body, &mut found_drops);
+    count_drops(&drops_func, &mut found_drops);
     assert!(
         found_drops > 0,
         "Expected at least one Drop instruction in test_drops"
@@ -350,14 +330,6 @@ fn test_mir_builder_for_loop() {
     assert_eq!(func.name, "test_for");
 
     // Let's check that the body contains Loop and the loop increments
-    println!("FUNC BODY: {:#?}", func.body);
-    match &func.body {
-        MirBody::Block { statements, .. } => {
-            let has_loop = statements
-                .iter()
-                .any(|stmt| matches!(stmt, MirBody::Loop { .. }));
-            assert!(has_loop, "Expected for loop to lower to MirBody::Loop");
-        }
-        other => panic!("Expected block body, found {:?}", other),
-    }
+    println!("FUNC BLOCKS: {:#?}", func.blocks);
+    assert!(func.blocks.len() > 1, "Expected for loop to lower to multiple blocks");
 }

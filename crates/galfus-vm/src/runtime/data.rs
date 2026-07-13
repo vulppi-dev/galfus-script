@@ -36,6 +36,7 @@ impl VirtualMachine {
                         };
                         Value::Object(self.alloc(obj))
                     }
+                    Constant::Function(idx) => Value::Function(*idx),
                 };
                 self.write_reg(dest, val)?;
             }

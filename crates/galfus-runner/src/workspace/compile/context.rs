@@ -5,7 +5,7 @@ use galfus_frontend::{
 };
 use galfus_ir::builder::WorkspaceContext;
 use galfus_ir::mir::{
-    BasicBlock, BlockId, LocalDecl, LocalId, MirBody, MirFunction, Operand, Terminator,
+    BasicBlock, BlockId, Instruction, LocalDecl, LocalId, MirFunction, Operand, Terminator,
 };
 use std::collections::HashMap;
 
@@ -338,25 +338,22 @@ impl<'a> MyWorkspaceContext<'a> {
             ty: function.return_type,
         });
         function.name = format!("{}#{}", function.name, specialized_id.raw());
-        function.body = MirBody::Block {
-            locals: Vec::new(),
-            statements: vec![
-                MirBody::BasicBlock(BasicBlock {
-                    id: BlockId::new(0),
-                    instructions: Vec::new(),
-                    terminator: Terminator::Call {
-                        func: parse_function_id,
-                        args: vec![Operand::Local(LocalId::new(0))],
-                        destination: result_id,
-                    },
-                }),
-                MirBody::BasicBlock(BasicBlock {
-                    id: BlockId::new(1),
-                    instructions: Vec::new(),
-                    terminator: Terminator::Return(Some(Operand::Local(result_id))),
-                }),
-            ],
-        };
+        function.blocks = vec![
+            BasicBlock {
+                id: BlockId::new(0),
+                instructions: vec![Instruction::Call {
+                    func: parse_function_id,
+                    args: vec![Operand::Local(LocalId::new(0))],
+                    destination: result_id,
+                }],
+                terminator: Terminator::None,
+            },
+            BasicBlock {
+                id: BlockId::new(1),
+                instructions: Vec::new(),
+                terminator: Terminator::Return(Some(Operand::Local(result_id))),
+            },
+        ];
 
         self.specialised_functions[target_mod_idx].push(function);
 
@@ -475,5 +472,39 @@ impl<'a> WorkspaceContext for MyWorkspaceContext<'a> {
         }
 
         specialized_id
+    }
+
+    fn specialize_builtin_function(
+        &mut self,
+        caller_node_id: NodeId,
+        module_name: &str,
+        function_name: &str,
+        concrete_types: Vec<TypeId>,
+    ) -> Option<FunctionId> {
+        let target_mod_idx = self
+            .modules
+            .iter()
+            .position(|module| module.path().to_string_lossy() == module_name)?;
+        let resolution = self.modules[target_mod_idx].graph().resolution()?;
+        let target_symbol = resolution
+            .symbols()
+            .iter()
+            .find(|symbol| symbol.kind() == SymbolKind::Function && symbol.name() == function_name)
+            .map(|symbol| symbol.id())?;
+        let generic_params = self.get_generic_params(target_mod_idx, target_symbol)?;
+        if generic_params.len() != concrete_types.len() {
+            return None;
+        }
+        let substitutions = generic_params
+            .into_iter()
+            .zip(concrete_types.clone())
+            .collect();
+        Some(self.specialize_function(
+            caller_node_id,
+            target_mod_idx,
+            target_symbol,
+            concrete_types,
+            substitutions,
+        ))
     }
 }

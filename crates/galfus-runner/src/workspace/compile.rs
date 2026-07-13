@@ -35,6 +35,18 @@ pub fn compile_workspace_to_image(check_result: &WorkspaceCheckResult) -> Result
             galfus_ir::builder::MirBuilder::new(module.graph(), type_res, module.source().text())
                 .with_workspace_ctx(&mut ws_ctx)
                 .build();
+        if let Err(errors) = galfus_ir::validate_module(&mir, type_res) {
+            let details = errors
+                .iter()
+                .map(|error| error.message.as_str())
+                .collect::<Vec<_>>()
+                .join("\n");
+            return Err(anyhow::anyhow!(
+                "MIR validation failed for {:?}:\n{}",
+                module.path(),
+                details
+            ));
+        }
         mir_modules.push(mir);
     }
 
@@ -55,7 +67,7 @@ pub fn compile_workspace_to_image(check_result: &WorkspaceCheckResult) -> Result
     for (mod_idx, mir_mod) in mir_modules.iter().enumerate().take(modules.len()) {
         for func in &mir_mod.functions {
             let mut call_targets = Vec::new();
-            collect_call_targets(&func.body, &mut call_targets);
+            collect_call_targets(&func.blocks, &mut call_targets);
 
             for func_id in call_targets {
                 let resolved = if let Some(&(target_mod_idx, target_func_id)) =
@@ -91,9 +103,20 @@ pub fn compile_workspace_to_image(check_result: &WorkspaceCheckResult) -> Result
                 }
 
                 return Err(anyhow::anyhow!(
-                    "could not resolve function call target `{}` in module `{}`",
+                    "could not resolve function call target `{}` in module `{}`\nImports: {:?}\nSymbol ID: {}\nLocal Functions: {:?}",
                     func_id.raw(),
-                    modules[mod_idx].path().display()
+                    modules[mod_idx].path().display(),
+                    modules[mod_idx].graph().resolution().map(|r| r
+                        .imports()
+                        .iter()
+                        .map(|i| i.local_symbol().raw())
+                        .collect::<Vec<_>>()),
+                    func_id.raw(),
+                    mir_mod
+                        .functions
+                        .iter()
+                        .map(|f| f.id.raw())
+                        .collect::<Vec<_>>()
                 ));
             }
         }
@@ -115,8 +138,12 @@ pub fn compile_workspace_to_image(check_result: &WorkspaceCheckResult) -> Result
         let module = &modules[mod_idx];
         let type_res = module.type_result().unwrap();
 
-        let mut ctx =
-            galfus_ir::lower::LowerCtx::new(type_res, module.graph(), module.source().text());
+        let mut ctx = galfus_ir::lower::LowerCtx::new(
+            type_res,
+            module.graph(),
+            module.source().text(),
+            &mir_mod.constant_pool,
+        );
 
         ctx.types = std::mem::take(&mut types);
         ctx.struct_layouts = std::mem::take(&mut struct_layouts);

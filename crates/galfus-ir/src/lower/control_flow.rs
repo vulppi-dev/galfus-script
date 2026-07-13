@@ -1,14 +1,9 @@
 use super::LowerCtx;
 use crate::mir::{
-    Constant as MirConstant, Instruction as MirInstruction, MirBody, MirFunction, Terminator,
+    Constant as MirConstant, Instruction as MirInstruction, MirFunction, Operand, Terminator,
 };
 use galfus_image::Instruction;
 use galfus_image::instruction::{GlobalIdx, Reg};
-
-pub struct LoopLabels {
-    pub start: usize,
-    pub end: usize,
-}
 
 #[allow(dead_code)]
 pub enum JumpKind {
@@ -25,7 +20,6 @@ pub struct FnEmitter<'a, 'b> {
     pub instructions: Vec<Instruction>,
     pub temp_count_current: u16,
     pub temp_count_max: u16,
-    pub loop_stack: Vec<LoopLabels>,
     next_label_id: usize,
     label_pcs: std::collections::HashMap<usize, usize>,
     pending_jumps: Vec<(usize, usize, JumpKind)>,
@@ -46,7 +40,6 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
             instructions: Vec::new(),
             temp_count_current: 0,
             temp_count_max: 0,
-            loop_stack: Vec::new(),
             next_label_id: 0,
             label_pcs: std::collections::HashMap::new(),
             pending_jumps: Vec::new(),
@@ -84,163 +77,85 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
     }
 
     pub fn emit(&mut self) -> Vec<Instruction> {
-        self.emit_body(&self.func.body);
-
-        for (pc, target_label, kind) in &self.pending_jumps {
-            let target_pc = self.label_pcs[target_label];
-            let offset = target_pc as i32 - (*pc as i32 + 1);
-            let patched_instr = match kind {
-                JumpKind::Unconditional => Instruction::Jump { offset },
-                JumpKind::IfTrue(cond) => Instruction::JumpTrue {
-                    cond: *cond,
-                    offset,
-                },
-                JumpKind::IfFalse(cond) => Instruction::JumpFalse {
-                    cond: *cond,
-                    offset,
-                },
-            };
-            self.instructions[*pc] = patched_instr;
+        let mut block_labels = std::collections::HashMap::new();
+        for bb in &self.func.blocks {
+            block_labels.insert(bb.id, self.new_label());
         }
 
-        if !matches!(
-            self.instructions.last(),
-            Some(Instruction::Ret { .. })
-                | Some(Instruction::RetNull)
-                | Some(Instruction::Panic { .. })
-        ) {
-            self.instructions.push(Instruction::RetNull);
-        }
+        for bb in &self.func.blocks {
+            let label = block_labels[&bb.id];
+            self.emit_label(label);
 
-        std::mem::take(&mut self.instructions)
-    }
-
-    fn emit_body(&mut self, body: &MirBody) {
-        match body {
-            MirBody::BasicBlock(bb) => {
-                for instr in &bb.instructions {
-                    match instr {
-                        MirInstruction::Assign(dest, rval) => {
-                            self.emit_rvalue(Reg(dest.raw() as u16), rval);
-                        }
-                        MirInstruction::Drop(local) => {
-                            self.instructions.push(Instruction::Drop {
-                                reg: Reg(local.raw() as u16),
-                            });
-                        }
-                        MirInstruction::StoreGlobal(name, operand) => {
-                            let global_idx = self
-                                .ctx
-                                .graph
-                                .resolution()
-                                .and_then(|res| {
-                                    res.symbols()
-                                        .iter()
-                                        .position(|s| s.name() == name)
-                                        .map(|idx| idx as u16)
-                                })
-                                .unwrap_or(0);
-                            let src = self.operand_reg(operand);
-                            self.instructions.push(Instruction::StoreGlobal {
-                                global_idx: GlobalIdx(global_idx),
-                                src,
-                            });
-                            self.free_temp_if_operand(operand);
-                        }
-                        MirInstruction::StoreIndex { arr, idx, val } => {
-                            let arr_reg = self.operand_reg(arr);
-                            let idx_reg = self.operand_reg(idx);
-                            let val_reg = self.operand_reg(val);
-
-                            self.instructions.push(Instruction::StoreIndex {
-                                arr: arr_reg,
-                                idx: idx_reg,
-                                val: val_reg,
-                            });
-
-                            self.free_temp_if_operand(val);
-                            self.free_temp_if_operand(idx);
-                            self.free_temp_if_operand(arr);
-                        }
-                        MirInstruction::StoreField {
-                            obj,
-                            field_name,
-                            val,
-                        } => {
-                            let obj_reg = self.operand_reg(obj);
-                            let val_reg = self.operand_reg(val);
-                            let field = self.field_idx_for_member(obj, field_name);
-
-                            self.instructions.push(Instruction::StoreField {
-                                obj: obj_reg,
-                                field,
-                                val: val_reg,
-                            });
-
-                            self.free_temp_if_operand(val);
-                            self.free_temp_if_operand(obj);
-                        }
+            for inst in &bb.instructions {
+                match inst {
+                    MirInstruction::Assign(dest, rvalue) => {
+                        self.emit_rvalue(Reg(dest.raw() as u16), rvalue);
                     }
-                }
-
-                match &bb.terminator {
-                    Terminator::Return(opt_operand) => {
-                        if let Some(op) = opt_operand {
-                            let src = self.operand_reg(op);
-                            self.instructions.push(Instruction::Ret { src });
-                            self.free_temp_if_operand(op);
-                        } else {
-                            self.instructions.push(Instruction::RetNull);
-                        }
+                    MirInstruction::Drop(local) => {
+                        self.instructions.push(Instruction::Drop {
+                            reg: Reg(local.raw() as u16),
+                        });
                     }
-                    Terminator::Break => {
-                        let loop_end = self.loop_stack.last().unwrap().end;
-                        self.emit_jump(loop_end, JumpKind::Unconditional);
+                    MirInstruction::StoreGlobal(_name, op) => {
+                        let global_idx = 0;
+                        let val_reg = self.operand_reg(op);
+                        self.instructions.push(Instruction::StoreGlobal {
+                            global_idx: GlobalIdx(global_idx as u16),
+                            src: val_reg,
+                        });
+                        self.free_temp_if_operand(op);
                     }
-                    Terminator::Continue => {
-                        let loop_start = self.loop_stack.last().unwrap().start;
-                        self.emit_jump(loop_start, JumpKind::Unconditional);
-                    }
-                    Terminator::Panic(msg) => {
-                        let const_idx = self
-                            .ctx
-                            .get_or_create_constant(&MirConstant::String(msg.clone()));
-                        self.instructions.push(Instruction::Panic { const_idx });
-                    }
-                    Terminator::ConstraintCall {
-                        method_name,
-                        obj,
-                        args,
-                        destination,
-                    } => {
-                        // Allocate contiguous registers: obj first, then extra args.
-                        let obj_reg = self.alloc_temp();
-                        self.load_operand_to(obj, obj_reg);
+                    MirInstruction::StoreIndex { arr, idx, val } => {
+                        let arr_reg = self.operand_reg(arr);
+                        let idx_reg = self.operand_reg(idx);
+                        let val_reg = self.operand_reg(val);
 
-                        let mut extra_regs: Vec<Reg> = Vec::with_capacity(args.len());
-                        for _ in 0..args.len() {
-                            extra_regs.push(self.alloc_temp());
-                        }
-                        for (i, arg_op) in args.iter().enumerate() {
-                            self.load_operand_to(arg_op, extra_regs[i]);
-                        }
-
-                        let name_const = self
-                            .ctx
-                            .get_or_create_constant(&MirConstant::String(method_name.clone()));
-
-                        self.instructions.push(Instruction::CallMethod {
-                            dest: Reg(destination.raw() as u16),
-                            obj: obj_reg,
-                            name_const,
-                            args_start: obj_reg,
-                            arg_count: (1 + args.len()) as u8,
+                        self.instructions.push(Instruction::StoreIndex {
+                            arr: arr_reg,
+                            idx: idx_reg,
+                            val: val_reg,
                         });
 
-                        self.free_temps(1 + extra_regs.len() as u16);
+                        self.free_temp_if_operand(val);
+                        self.free_temp_if_operand(idx);
+                        self.free_temp_if_operand(arr);
                     }
-                    Terminator::None => {}
-                    Terminator::Call {
+                    MirInstruction::StoreField {
+                        obj,
+                        field_name,
+                        val,
+                    } => {
+                        let obj_reg = self.operand_reg(obj);
+                        let val_reg = self.operand_reg(val);
+                        let field = self.field_idx_for_member(obj, field_name);
+
+                        self.instructions.push(Instruction::StoreField {
+                            obj: obj_reg,
+                            field,
+                            val: val_reg,
+                        });
+
+                        self.free_temp_if_operand(val);
+                        self.free_temp_if_operand(obj);
+                    }
+                    MirInstruction::TransactionStart { targets } => {
+                        let key = targets
+                            .first()
+                            .cloned()
+                            .unwrap_or(Operand::Constant(MirConstant::Null));
+                        let key_reg = self.operand_reg(&key);
+                        self.instructions.push(Instruction::TxStart { key_reg });
+                        self.free_temp_if_operand(&key);
+                    }
+                    MirInstruction::TransactionCommit { destination } => {
+                        self.instructions.push(Instruction::TxCommit {
+                            dest_reg: Reg(destination.raw() as u16),
+                        });
+                    }
+                    MirInstruction::TransactionRollback => {
+                        self.instructions.push(Instruction::TxRollback);
+                    }
+                    MirInstruction::Call {
                         func,
                         args,
                         destination,
@@ -289,53 +204,124 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                             self.free_temps(args.len() as u16);
                         }
                     }
+                    MirInstruction::ConstraintCall {
+                        method_name,
+                        obj,
+                        args,
+                        destination,
+                    } => {
+                        let obj_reg = self.alloc_temp();
+                        self.load_operand_to(obj, obj_reg);
+
+                        let mut extra_regs: Vec<Reg> = Vec::with_capacity(args.len());
+                        for _ in 0..args.len() {
+                            extra_regs.push(self.alloc_temp());
+                        }
+                        for (i, arg_op) in args.iter().enumerate() {
+                            self.load_operand_to(arg_op, extra_regs[i]);
+                        }
+
+                        let name_const = self
+                            .ctx
+                            .get_or_create_constant(&MirConstant::String(method_name.clone()));
+
+                        self.instructions.push(Instruction::CallMethod {
+                            dest: Reg(destination.raw() as u16),
+                            obj: obj_reg,
+                            name_const,
+                            args_start: obj_reg,
+                            arg_count: (1 + args.len()) as u8,
+                        });
+
+                        self.free_temps(1 + extra_regs.len() as u16);
+                    }
+                    MirInstruction::IndirectCall {
+                        func,
+                        args,
+                        destination,
+                    } => {
+                        let func_reg = self.alloc_temp();
+                        self.load_operand_to(func, func_reg);
+
+                        let start_reg = self.alloc_temp();
+                        let mut temp_regs = vec![start_reg];
+                        for _ in 1..args.len() {
+                            temp_regs.push(self.alloc_temp());
+                        }
+
+                        for (i, arg_op) in args.iter().enumerate() {
+                            self.load_operand_to(arg_op, temp_regs[i]);
+                        }
+
+                        self.instructions.push(Instruction::CallDynamic {
+                            dest: Reg(destination.raw() as u16),
+                            func_reg,
+                            args_start: start_reg,
+                            arg_count: args.len() as u8,
+                        });
+
+                        self.free_temps(1 + args.len() as u16);
+                        self.free_temp_if_operand(func);
+                    }
                 }
             }
-            MirBody::Block {
-                locals: _,
-                statements,
-            } => {
-                for stmt in statements {
-                    self.emit_body(stmt);
+
+            match &bb.terminator {
+                Terminator::Return(opt_operand) => {
+                    if let Some(op) = opt_operand {
+                        let src = self.operand_reg(op);
+                        self.instructions.push(Instruction::Ret { src });
+                        self.free_temp_if_operand(op);
+                    } else {
+                        self.instructions.push(Instruction::RetNull);
+                    }
                 }
-            }
-            MirBody::If {
-                cond,
-                then_branch,
-                else_branch,
-            } => {
-                let else_label = self.new_label();
-                let end_label = self.new_label();
-
-                let cond_reg = self.operand_reg(cond);
-                self.emit_jump(else_label, JumpKind::IfFalse(cond_reg));
-                self.free_temp_if_operand(cond);
-
-                self.emit_body(then_branch);
-                self.emit_jump(end_label, JumpKind::Unconditional);
-
-                self.emit_label(else_label);
-                if let Some(else_b) = else_branch {
-                    self.emit_body(else_b);
+                Terminator::Break => {
+                    panic!("Break should have been lowered to a jump");
                 }
-                self.emit_label(end_label);
-            }
-            MirBody::Loop { body } => {
-                let start_label = self.new_label();
-                let end_label = self.new_label();
-
-                self.loop_stack.push(LoopLabels {
-                    start: start_label,
-                    end: end_label,
-                });
-
-                self.emit_label(start_label);
-                self.emit_body(body);
-                self.emit_jump(start_label, JumpKind::Unconditional);
-                self.emit_label(end_label);
-
-                self.loop_stack.pop();
+                Terminator::Continue => {
+                    panic!("Continue should have been lowered to a jump");
+                }
+                Terminator::Panic(msg) => {
+                    let const_idx = self
+                        .ctx
+                        .get_or_create_constant(&MirConstant::String(msg.clone()));
+                    self.instructions.push(Instruction::Panic { const_idx });
+                }
+                Terminator::Jump(target) => {
+                    self.emit_jump(block_labels[target], JumpKind::Unconditional);
+                }
+                Terminator::Branch {
+                    cond,
+                    true_block,
+                    false_block,
+                } => {
+                    let cond_reg = self.operand_reg(cond);
+                    self.emit_jump(block_labels[true_block], JumpKind::IfTrue(cond_reg));
+                    self.emit_jump(block_labels[false_block], JumpKind::Unconditional);
+                    self.free_temp_if_operand(cond);
+                }
+                Terminator::None => {}
             }
         }
+
+        for (pc, target_label, kind) in &self.pending_jumps {
+            let target_pc = self.label_pcs[target_label];
+            let offset = target_pc as i32 - (*pc as i32 + 1);
+            let patched_instr = match kind {
+                JumpKind::Unconditional => Instruction::Jump { offset },
+                JumpKind::IfTrue(cond) => Instruction::JumpTrue {
+                    cond: *cond,
+                    offset,
+                },
+                JumpKind::IfFalse(cond) => Instruction::JumpFalse {
+                    cond: *cond,
+                    offset,
+                },
+            };
+            self.instructions[*pc] = patched_instr;
+        }
+
+        std::mem::take(&mut self.instructions)
     }
 }

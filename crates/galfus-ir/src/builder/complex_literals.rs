@@ -4,12 +4,7 @@ use galfus_core::{NodeId, StorageMetadata, TypeId};
 use galfus_frontend::{ArraySize, SyntaxNode, SyntaxNodeKind, TypeKind};
 
 impl<'b, 'a> FunctionBuilder<'b, 'a> {
-    pub(super) fn lower_struct_literal(
-        &mut self,
-        expr_id: NodeId,
-        node: &SyntaxNode,
-        statements: &mut Vec<MirBody>,
-    ) -> Operand {
+    pub(super) fn lower_struct_literal(&mut self, expr_id: NodeId, node: &SyntaxNode) -> Operand {
         let syntax = self.builder.graph.syntax();
         let struct_type = self
             .builder
@@ -42,18 +37,18 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                                 .unwrap();
                             let name = self.builder.node_text(name_ident).to_string();
                             let val_expr = child_node.child(1).unwrap();
-                            let op = self.lower_expression(val_expr, statements);
+                            let op = self.lower_expression(val_expr);
                             field_values.insert(name, op);
                         }
                         SyntaxNodeKind::StructLiteralFieldShorthand => {
                             let name_ident = child_node.first_child().unwrap();
                             let name = self.builder.node_text(name_ident).to_string();
-                            let op = self.lower_expression(name_ident, statements);
+                            let op = self.lower_expression(name_ident);
                             field_values.insert(name, op);
                         }
                         SyntaxNodeKind::SpreadStructLiteralField => {
                             let spread_expr = child_node.child(0).unwrap();
-                            let op = self.lower_expression(spread_expr, statements);
+                            let op = self.lower_expression(spread_expr);
                             spread_operands.push((spread_expr, op));
                         }
                         _ => {}
@@ -97,7 +92,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                         if let Some(default_expr) =
                             self.find_struct_field_default_expr(struct_symbol, &field_name)
                         {
-                            let op = self.lower_expression(default_expr, statements);
+                            let op = self.lower_expression(default_expr);
                             fields.push(op);
                         } else {
                             fields.push(Operand::Constant(Constant::Null));
@@ -121,12 +116,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
         }
     }
 
-    pub(super) fn lower_array_literal(
-        &mut self,
-        expr_id: NodeId,
-        node: &SyntaxNode,
-        statements: &mut Vec<MirBody>,
-    ) -> Operand {
+    pub(super) fn lower_array_literal(&mut self, expr_id: NodeId, node: &SyntaxNode) -> Operand {
         let syntax = self.builder.graph.syntax();
         let array_type = self
             .builder
@@ -167,7 +157,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                                 .layer()
                                 .node_type(val_expr)
                                 .unwrap_or_else(|| TypeId::new(0));
-                            let op = self.lower_expression(val_expr, statements);
+                            let op = self.lower_expression(val_expr);
                             let casted_op = if let Some(elem_ty) = expected_element_type {
                                 self.insert_cast_if_needed(op, val_expr_ty, elem_ty)
                             } else {
@@ -177,7 +167,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                         }
                         SyntaxNodeKind::SpreadArrayElement => {
                             let spread_expr = child_node.child(0).unwrap();
-                            let op = self.lower_expression(spread_expr, statements);
+                            let op = self.lower_expression(spread_expr);
                             elements.push(ArrayLiteralElement::Spread(op));
                         }
                         _ => {
@@ -187,7 +177,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                                 .layer()
                                 .node_type(child_id)
                                 .unwrap_or_else(|| TypeId::new(0));
-                            let op = self.lower_expression(child_id, statements);
+                            let op = self.lower_expression(child_id);
                             let casted_op = if let Some(elem_ty) = expected_element_type {
                                 self.insert_cast_if_needed(op, val_expr_ty, elem_ty)
                             } else {
@@ -218,7 +208,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                                 .layer()
                                 .node_type(val_expr)
                                 .unwrap_or_else(|| TypeId::new(0));
-                            let op = self.lower_expression(val_expr, statements);
+                            let op = self.lower_expression(val_expr);
                             let casted_op = if let Some(elem_ty) = expected_element_type {
                                 self.insert_cast_if_needed(op, val_expr_ty, elem_ty)
                             } else {
@@ -233,7 +223,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                                 .layer()
                                 .node_type(child_id)
                                 .unwrap_or_else(|| TypeId::new(0));
-                            let op = self.lower_expression(child_id, statements);
+                            let op = self.lower_expression(child_id);
                             let casted_op = if let Some(elem_ty) = expected_element_type {
                                 self.insert_cast_if_needed(op, val_expr_ty, elem_ty)
                             } else {
@@ -254,16 +244,11 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
         }
     }
 
-    pub(super) fn lower_tuple_literal(
-        &mut self,
-        expr_id: NodeId,
-        node: &SyntaxNode,
-        statements: &mut Vec<MirBody>,
-    ) -> Operand {
+    pub(super) fn lower_tuple_literal(&mut self, expr_id: NodeId, node: &SyntaxNode) -> Operand {
         let mut elements = Vec::new();
         let mut element_types = Vec::new();
         for &child in node.children() {
-            let operand = self.lower_expression(child, statements);
+            let operand = self.lower_expression(child);
             elements.push(operand);
 
             let ty = self
@@ -297,7 +282,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
         &mut self,
         expr_id: NodeId,
         node: &SyntaxNode,
-        _statements: &mut Vec<MirBody>,
+        _dummy: &[Operand],
     ) -> Operand {
         let type_layer = self.builder.type_result.layer();
 
@@ -318,7 +303,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                     return Operand::Constant(Constant::Null);
                 };
 
-                let length = self.lower_expression(length_node, _statements);
+                let length = self.lower_expression(length_node);
                 NewArrayZeroedAllocation::Dynamic {
                     element_type: *element,
                     length,

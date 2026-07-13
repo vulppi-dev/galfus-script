@@ -50,7 +50,7 @@ impl<'a> ExpressionInferrer<'a> {
                 Some(TypeKind::Array {
                     element: actual_element,
                 }),
-            ) => self.is_assignable(*expected_element,* actual_element),
+            ) => self.is_assignable(*expected_element, *actual_element),
 
             (
                 Some(TypeKind::Array {
@@ -60,7 +60,7 @@ impl<'a> ExpressionInferrer<'a> {
                     element: actual_element,
                     ..
                 }),
-            ) => self.is_assignable(*expected_element,* actual_element),
+            ) => self.is_assignable(*expected_element, *actual_element),
 
             (
                 Some(TypeKind::FixedArray {
@@ -73,7 +73,7 @@ impl<'a> ExpressionInferrer<'a> {
                 }),
             ) => {
                 expected_size == actual_size
-                    && self.is_assignable(*expected_element,* actual_element)
+                    && self.is_assignable(*expected_element, *actual_element)
             }
 
             (

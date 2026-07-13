@@ -18,14 +18,16 @@ impl<'a> ExpressionInferrer<'a> {
 
         let target_contains_null = self.type_contains_null(target_type);
 
-        if target_contains_null && !null_safe {            let error = self.layer.table_mut().error();
+        if target_contains_null && !null_safe {
+            let error = self.layer.table_mut().error();
             self.layer.bind_node_type(node, error);
             return Some(error);
         }
 
         let target_types = self.non_null_member_target_types(target_type);
 
-        if target_types.is_empty() {            let error = self.layer.table_mut().error();
+        if target_types.is_empty() {
+            let error = self.layer.table_mut().error();
             self.layer.bind_node_type(node, error);
             return Some(error);
         }
@@ -35,7 +37,8 @@ impl<'a> ExpressionInferrer<'a> {
         for target_type in target_types {
             let Some(member_type) =
                 self.member_type_for_target_type(target_type, member_name.as_str())
-            else {                let error = self.layer.table_mut().error();
+            else {
+                let error = self.layer.table_mut().error();
                 self.layer.bind_node_type(node, error);
                 return Some(error);
             };
@@ -60,12 +63,14 @@ impl<'a> ExpressionInferrer<'a> {
         let target_type = self.infer_expression_type(target)?;
         let index_type = self.infer_expression_type(index)?;
 
-        if !self.is_integer_type(index_type) {            let error = self.layer.table_mut().error();
+        if !self.is_integer_type(index_type) {
+            let error = self.layer.table_mut().error();
             self.layer.bind_node_type(node, error);
             return Some(error);
         }
 
-        let Some(element_type) = self.index_element_type(target_type) else {            let error = self.layer.table_mut().error();
+        let Some(element_type) = self.index_element_type(target_type) else {
+            let error = self.layer.table_mut().error();
             self.layer.bind_node_type(node, error);
             return Some(error);
         };
@@ -147,10 +152,6 @@ impl<'a> ExpressionInferrer<'a> {
 
         None
     }
-
-
-
-
 
     pub(super) fn non_null_member_target_types(&self, ty: TypeId) -> Vec<TypeId> {
         let ty = self.resolve_alias_type(ty);

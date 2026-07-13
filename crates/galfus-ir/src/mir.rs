@@ -38,6 +38,8 @@ pub struct GlobalDecl {
 pub struct MirModule {
     pub functions: Vec<MirFunction>,
     pub globals: Vec<GlobalDecl>,
+    #[serde(default)]
+    pub constant_pool: Vec<Constant>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -53,26 +55,9 @@ pub struct MirFunction {
     pub return_type: TypeId,
     pub parameter_types: Vec<TypeId>,
     pub locals: Vec<LocalDecl>,
-    pub body: MirBody,
+    pub blocks: Vec<BasicBlock>,
     #[serde(default)]
     pub type_substitutions: HashMap<SymbolId, TypeId>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum MirBody {
-    BasicBlock(BasicBlock),
-    Block {
-        locals: Vec<LocalDecl>,
-        statements: Vec<MirBody>,
-    },
-    If {
-        cond: Operand,
-        then_branch: Box<MirBody>,
-        else_branch: Option<Box<MirBody>>,
-    },
-    Loop {
-        body: Box<MirBody>,
-    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -103,6 +88,29 @@ pub enum Instruction {
         obj: Operand,
         field_name: String,
         val: Operand,
+    },
+    TransactionStart {
+        targets: Vec<Operand>,
+    },
+    TransactionCommit {
+        destination: LocalId,
+    },
+    TransactionRollback,
+    Call {
+        func: FunctionId,
+        args: Vec<Operand>,
+        destination: LocalId,
+    },
+    IndirectCall {
+        func: Operand,
+        args: Vec<Operand>,
+        destination: LocalId,
+    },
+    ConstraintCall {
+        method_name: String,
+        obj: Operand,
+        args: Vec<Operand>,
+        destination: LocalId,
     },
 }
 
@@ -172,6 +180,7 @@ pub enum RValue {
     MemberAccess(Operand, String),
     ArrayIndex(Operand, Operand),
     Choice(TypeId, String, Option<Operand>),
+    ChoiceVariantIs(Operand, SymbolId),
     Instanceof(Operand, TypeId),
     LoadGlobal(String),
     Len(Operand),
@@ -186,22 +195,14 @@ pub enum ArrayLiteralElement {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Terminator {
     Return(Option<Operand>),
+    Jump(BlockId),
+    Branch {
+        cond: Operand,
+        true_block: BlockId,
+        false_block: BlockId,
+    },
     Break,
     Continue,
-    Call {
-        func: FunctionId,
-        args: Vec<Operand>,
-        destination: LocalId,
-    },
-    /// Virtual constraint method call. Resolved at runtime by method name.
-    /// `obj` is the receiver (satisfies the constraint); `method_name` is the
-    /// name of the constraint function to call.
-    ConstraintCall {
-        method_name: String,
-        obj: Operand,
-        args: Vec<Operand>,
-        destination: LocalId,
-    },
     Panic(String),
     None,
 }
@@ -209,6 +210,7 @@ pub enum Terminator {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Operand {
     Constant(Constant),
+    ConstRef(usize),
     Local(LocalId),
 }
 
@@ -219,4 +221,5 @@ pub enum Constant {
     Int(i64),
     Float(f64),
     String(String),
+    Function(FunctionId),
 }

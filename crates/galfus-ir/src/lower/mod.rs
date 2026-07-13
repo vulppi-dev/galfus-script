@@ -19,6 +19,7 @@ pub enum HashableConstant {
     Int64(i64),
     FloatBits(u64),
     String(String),
+    Function(u32),
 }
 
 impl HashableConstant {
@@ -33,6 +34,7 @@ impl HashableConstant {
             ),
             MirConstant::Float(f) => Some(Self::FloatBits(f.to_bits())),
             MirConstant::String(s) => Some(Self::String(s.clone())),
+            MirConstant::Function(id) => Some(Self::Function(id.raw())),
         }
     }
 }
@@ -53,6 +55,7 @@ pub struct LowerCtx<'a> {
     pub function_names: HashMap<FunctionId, String>,
     pub function_return_types: HashMap<FunctionId, TypeId>,
     pub active_substitutions: HashMap<SymbolId, TypeId>,
+    pub mir_constants: &'a [MirConstant],
 }
 
 impl<'a> LowerCtx<'a> {
@@ -60,6 +63,7 @@ impl<'a> LowerCtx<'a> {
         type_result: &'a TypeCheckResult,
         graph: &'a ModuleGraph,
         source_text: &'a str,
+        mir_constants: &'a [MirConstant],
     ) -> Self {
         Self {
             type_result,
@@ -79,6 +83,7 @@ impl<'a> LowerCtx<'a> {
             function_names: HashMap::new(),
             function_return_types: HashMap::new(),
             active_substitutions: HashMap::new(),
+            mir_constants,
         }
     }
 
@@ -206,6 +211,30 @@ impl<'a> LowerCtx<'a> {
         self.types[next_idx.raw() as usize] = image_type.clone();
 
         next_idx
+    }
+
+    pub(super) fn lower_choice_variant_type(&mut self, variant_symbol: SymbolId) -> TypeIdx {
+        let Some((choice_symbol, variant_index)) = self.find_choice_for_variant(variant_symbol)
+        else {
+            return TypeIdx(0);
+        };
+        let layout_idx = self.get_or_create_choice_layout(choice_symbol);
+        let variant_index = variant_index as u16;
+
+        if let Some(index) = self.types.iter().position(|ty| {
+            matches!(
+                ty,
+                ImageType::ChoiceVariant(existing_layout, existing_variant)
+                    if *existing_layout == layout_idx && *existing_variant == variant_index
+            )
+        }) {
+            return TypeIdx(index as u16);
+        }
+
+        let type_idx = TypeIdx(self.types.len() as u16);
+        self.types
+            .push(ImageType::ChoiceVariant(layout_idx, variant_index));
+        type_idx
     }
 
     fn lower_primitive(&self, prim: PrimitiveType) -> ImageType {
@@ -393,6 +422,15 @@ impl<'a> LowerCtx<'a> {
                 .unwrap_or(Constant::Int64(*i)),
             MirConstant::Float(f) => Constant::Float(*f),
             MirConstant::String(s) => Constant::String(s.clone()),
+            MirConstant::Function(id) => {
+                let func_idx = *self.function_map.get(id).unwrap_or_else(|| {
+                    panic!(
+                        "FunctionId {:?} not found in function_map during constant lowering",
+                        id
+                    )
+                });
+                Constant::Function(func_idx)
+            }
         };
 
         self.constant_pool.constants.push(c);

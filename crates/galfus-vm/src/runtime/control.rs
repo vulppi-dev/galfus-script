@@ -170,6 +170,54 @@ impl VirtualMachine {
                     in_transaction: false,
                 });
             }
+            Instruction::CallDynamic {
+                dest,
+                func_reg,
+                args_start,
+                arg_count,
+            } => {
+                let func_idx = match self.read_reg(func_reg)? {
+                    Value::Function(func_idx) => func_idx,
+                    value => {
+                        return Err(VmError::TypeMismatch {
+                            expected: "function value".to_string(),
+                            found: format!("{:?}", value),
+                        });
+                    }
+                };
+                let callee = self
+                    .image
+                    .functions
+                    .get(func_idx.raw() as usize)
+                    .ok_or(VmError::FunctionOutOfBounds { index: func_idx })?;
+                if arg_count != callee.param_count {
+                    return Err(VmError::TypeMismatch {
+                        expected: format!("{} arguments", callee.param_count),
+                        found: format!("{} arguments", arg_count),
+                    });
+                }
+
+                let mut callee_regs = vec![
+                    Value::Null;
+                    callee.param_count as usize
+                        + callee.local_count as usize
+                        + callee.temp_count as usize
+                ];
+                for (index, callee_reg) in
+                    callee_regs.iter_mut().enumerate().take(arg_count as usize)
+                {
+                    let source = Reg(args_start.raw() + index as u16);
+                    *callee_reg = self.read_reg(source)?;
+                }
+
+                self.call_stack.push(CallFrame {
+                    func_idx,
+                    pc: 0,
+                    registers: callee_regs,
+                    return_dest: Some(dest),
+                    in_transaction: false,
+                });
+            }
 
             Instruction::Ret { src } => {
                 let val = self.read_reg(src)?;

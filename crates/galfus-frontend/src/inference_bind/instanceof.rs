@@ -73,7 +73,8 @@ impl<'a> ExpressionInferrer<'a> {
                     continue;
                 }
 
-                let _body = self.graph.syntax().child(arm, 1).unwrap_or(arm);                has_error = true;
+                let _body = self.graph.syntax().child(arm, 1).unwrap_or(arm);
+                has_error = true;
             }
 
             let ty = if has_error {
@@ -109,7 +110,8 @@ impl<'a> ExpressionInferrer<'a> {
                 continue;
             }
 
-            let _body = self.graph.syntax().child(arm, 1).unwrap_or(arm);            has_error = true;
+            let _body = self.graph.syntax().child(arm, 1).unwrap_or(arm);
+            has_error = true;
         }
 
         let ty = if has_error {
@@ -130,7 +132,8 @@ impl<'a> ExpressionInferrer<'a> {
                 continue;
             };
 
-            if catch_all_seen {                continue;
+            if catch_all_seen {
+                continue;
             }
 
             if !self.is_catch_all_instanceof_pattern(pattern) {
@@ -139,7 +142,7 @@ impl<'a> ExpressionInferrer<'a> {
 
             catch_all_seen = true;
 
-            if index + 1 < arms.len() {            }
+            if index + 1 < arms.len() {}
         }
     }
 
@@ -149,11 +152,7 @@ impl<'a> ExpressionInferrer<'a> {
         _subject_type: TypeId,
         remaining_members: &[TypeId],
     ) {
-        let missing = remaining_members
-            .iter()
-            .copied()
-            
-            .collect::<Vec<_>>();
+        let missing = remaining_members.iter().copied().collect::<Vec<_>>();
 
         if missing.is_empty() {
             return;
@@ -280,7 +279,8 @@ impl<'a> ExpressionInferrer<'a> {
             return None;
         };
 
-        if !self.is_instanceof_pattern_compatible(pattern_type, remaining_members) {            return None;
+        if !self.is_instanceof_pattern_compatible(pattern_type, remaining_members) {
+            return None;
         }
 
         let matching_members = self.matching_instanceof_members(pattern_type, remaining_members);

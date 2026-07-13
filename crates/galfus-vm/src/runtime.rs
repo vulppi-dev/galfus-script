@@ -46,6 +46,7 @@ pub enum VmValue {
     Float32(f32),
     Float64(f64),
     Object(VmObjectRef),
+    Function(FuncIdx),
 }
 
 type Value = VmValue;
@@ -263,6 +264,7 @@ impl VirtualMachine {
                 | Instruction::JumpNull { .. }
                 | Instruction::Call { .. }
                 | Instruction::CallMethod { .. }
+                | Instruction::CallDynamic { .. }
                 | Instruction::Ret { .. }
                 | Instruction::RetNull
                 | Instruction::Panic { .. } => self.execute_control_instruction(instr)?,

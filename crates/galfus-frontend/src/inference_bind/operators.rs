@@ -33,8 +33,7 @@ impl<'a> ExpressionInferrer<'a> {
                     self.check_integer_binary_operator(operator, left_type, right_type)?
                 }
                 "<<" | ">>" => self.check_shift_operator(operator, left_type, right_type)?,
-                _ => {                    self.layer.table_mut().error()
-                }
+                _ => self.layer.table_mut().error(),
             };
             Some(ty)
         })();
@@ -82,8 +81,7 @@ impl<'a> ExpressionInferrer<'a> {
 
             "~" => self.check_integer_unary_operator(operator, operand_type)?,
 
-            _ => {                self.layer.table_mut().error()
-            }
+            _ => self.layer.table_mut().error(),
         };
 
         self.layer.bind_node_type(node, ty);
@@ -141,7 +139,10 @@ impl<'a> ExpressionInferrer<'a> {
 
     fn is_number_literal_node(&self, node: NodeId) -> bool {
         matches!(
-            self.graph.syntax().node(node).map(|node: &SyntaxNode| node.kind()),
+            self.graph
+                .syntax()
+                .node(node)
+                .map(|node: &SyntaxNode| node.kind()),
             Some(SyntaxNodeKind::IntegerLiteral | SyntaxNodeKind::FloatLiteral)
         )
     }
@@ -251,10 +252,6 @@ impl<'a> ExpressionInferrer<'a> {
         Some(self.layer.table_mut().error())
     }
 
-
-
-
-
     fn common_numeric_type(&self, left: TypeId, right: TypeId) -> Option<TypeId> {
         if let Some(common) = self.common_integer_type(left, right) {
             return Some(common);
@@ -272,10 +269,12 @@ impl<'a> ExpressionInferrer<'a> {
             (
                 Some(TypeKind::Primitive(left_primitive)),
                 Some(TypeKind::Primitive(right_primitive)),
-            ) => Some(self.layer.table().primitive(
-                self.common_float_numeric_primitive(*left_primitive, *right_primitive)
-                    .unwrap_or(PrimitiveType::Float32),
-            )),
+            ) => Some(
+                self.layer.table().primitive(
+                    self.common_float_numeric_primitive(*left_primitive, *right_primitive)
+                        .unwrap_or(PrimitiveType::Float32),
+                ),
+            ),
             _ => None,
         }
     }
@@ -293,10 +292,12 @@ impl<'a> ExpressionInferrer<'a> {
             (
                 Some(TypeKind::Primitive(left_primitive)),
                 Some(TypeKind::Primitive(right_primitive)),
-            ) => Some(self.layer.table().primitive(
-                self.common_integer_primitive(*left_primitive, *right_primitive)
-                    .unwrap_or(PrimitiveType::Int32),
-            )),
+            ) => Some(
+                self.layer.table().primitive(
+                    self.common_integer_primitive(*left_primitive, *right_primitive)
+                        .unwrap_or(PrimitiveType::Int32),
+                ),
+            ),
             _ => None,
         }
     }

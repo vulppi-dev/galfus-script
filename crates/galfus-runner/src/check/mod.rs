@@ -163,6 +163,7 @@ impl ModuleLoader {
         self.module_by_path.insert(path.clone(), module_index);
 
         self.load_relative_imports(module_index)?;
+        self.load_compiler_known_modules(module_index)?;
 
         self.loading.remove(path.as_path());
 
@@ -226,6 +227,55 @@ impl ModuleLoader {
         }
 
         Ok(())
+    }
+
+    fn load_compiler_known_modules(&mut self, module_index: usize) -> Result<()> {
+        let syntax = self.modules[module_index].graph().syntax();
+        let Some(root) = syntax.root() else {
+            return Ok(());
+        };
+
+        let mut has_range = false;
+        let mut has_match = false;
+        self.collect_compiler_known_uses(root, &mut has_range, &mut has_match);
+
+        if has_range {
+            self.load_module(PathBuf::from("std/iterable"))?;
+        } else if has_match {
+            self.load_module(PathBuf::from("std/constraints"))?;
+        }
+
+        Ok(())
+    }
+
+    fn collect_compiler_known_uses(
+        &self,
+        node_id: NodeId,
+        has_range: &mut bool,
+        has_match: &mut bool,
+    ) {
+        let syntax = self.modules.iter().find_map(|module| {
+            module
+                .graph()
+                .syntax()
+                .node(node_id)
+                .map(|_| module.graph().syntax())
+        });
+        let Some(syntax) = syntax else {
+            return;
+        };
+        let Some(node) = syntax.node(node_id) else {
+            return;
+        };
+
+        match node.kind() {
+            SyntaxNodeKind::RangeExpression => *has_range = true,
+            SyntaxNodeKind::MatchExpression => *has_match = true,
+            _ => {}
+        }
+        for child in node.children() {
+            self.collect_compiler_known_uses(*child, has_range, has_match);
+        }
     }
 
     fn import_sources(&self, module_index: usize) -> Vec<(String, NodeId)> {

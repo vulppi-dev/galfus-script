@@ -406,6 +406,13 @@ pub struct TypeCheckResult {
     ownership_metadata: OwnershipMetadata,
     pub imported_symbol_choices: HashMap<SymbolId, LoweredImportedChoice>,
     pub imported_path_choices: HashMap<NodeId, LoweredImportedChoice>,
+    range_desugars: HashMap<NodeId, RangeDesugarTarget>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RangeDesugarTarget {
+    Exclusive,
+    Stepped,
 }
 
 impl TypeCheckResult {
@@ -414,6 +421,7 @@ impl TypeCheckResult {
             layer,
             diagnostics,
             OwnershipMetadata::default(),
+            HashMap::new(),
             HashMap::new(),
             HashMap::new(),
         )
@@ -425,6 +433,7 @@ impl TypeCheckResult {
         ownership_metadata: OwnershipMetadata,
         imported_symbol_choices: HashMap<SymbolId, LoweredImportedChoice>,
         imported_path_choices: HashMap<NodeId, LoweredImportedChoice>,
+        range_desugars: HashMap<NodeId, RangeDesugarTarget>,
     ) -> Self {
         Self {
             layer,
@@ -432,6 +441,7 @@ impl TypeCheckResult {
             ownership_metadata,
             imported_symbol_choices,
             imported_path_choices,
+            range_desugars,
         }
     }
 
@@ -449,6 +459,10 @@ impl TypeCheckResult {
 
     pub fn ownership_metadata(&self) -> &OwnershipMetadata {
         &self.ownership_metadata
+    }
+
+    pub fn range_desugar(&self, node: NodeId) -> Option<RangeDesugarTarget> {
+        self.range_desugars.get(&node).copied()
     }
 
     pub fn has_errors(&self) -> bool {

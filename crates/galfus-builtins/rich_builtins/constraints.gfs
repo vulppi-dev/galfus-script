@@ -3,7 +3,8 @@ export constraint Iterator<Item> {
 }
 
 export constraint Iterable<Item> {
-  fn iter(self): Iterator<Item>
+  fn iter(self): Iterator<Item>,
+  fn size(self): i32
 }
 
 export constraint Comparable<Value> {

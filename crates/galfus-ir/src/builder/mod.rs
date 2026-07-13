@@ -134,7 +134,11 @@ impl<'a> MirBuilder<'a> {
 
         functions.append(&mut self.specialized_functions);
 
-        MirModule { functions, globals }
+        MirModule {
+            functions,
+            globals,
+            constant_pool: Vec::new(),
+        }
     }
 
     fn collect_symbols_recursive_in_builder(&self, node_id: NodeId, symbols: &mut Vec<SymbolId>) {
@@ -153,17 +157,27 @@ impl<'a> MirBuilder<'a> {
     }
 
     fn build_global_initializers(&mut self, items: &[NodeId]) -> Option<MirFunction> {
+        self.next_local_id = 0;
+        self.next_block_id = 1;
+
         let mut builder_ctx = function::FunctionBuilder {
             builder: self,
             locals: Vec::new(),
             symbol_to_local: std::collections::HashMap::new(),
             current_instructions: Vec::new(),
+            blocks: vec![BasicBlock {
+                id: BlockId::new(0),
+                instructions: Vec::new(),
+                terminator: Terminator::None,
+            }],
+            current_block: BlockId::new(0),
             scopes: vec![Vec::new()],
             return_type: TypeId::new(0),
             type_substitutions: HashMap::new(),
+            loop_targets: Vec::new(),
+            transactions: Vec::new(),
         };
 
-        let mut statements = Vec::new();
         let syntax = builder_ctx.builder.graph.syntax();
 
         for &item in items {
@@ -176,7 +190,7 @@ impl<'a> MirBuilder<'a> {
                     syntax.first_child_of_kind(item, SyntaxNodeKind::Initializer)
                 && let Some(expr) = syntax.first_child(initializer)
             {
-                let operand = builder_ctx.lower_expression(expr, &mut statements);
+                let operand = builder_ctx.lower_expression(expr);
 
                 if let Some(binding) =
                     syntax.first_child_of_kind(item, SyntaxNodeKind::BindingPattern)
@@ -191,7 +205,6 @@ impl<'a> MirBuilder<'a> {
                             .map(|sym| sym.name().to_string())
                             .unwrap_or_default();
 
-                        builder_ctx.flush_current_instructions(&mut statements);
                         builder_ctx
                             .current_instructions
                             .push(Instruction::StoreGlobal(name, operand.clone()));
@@ -200,20 +213,13 @@ impl<'a> MirBuilder<'a> {
             }
         }
 
-        builder_ctx.flush_current_instructions(&mut statements);
+        builder_ctx.flush_current_instructions();
 
-        if statements.is_empty() {
+        if builder_ctx.blocks.len() == 1 && builder_ctx.blocks[0].instructions.is_empty() {
             return None;
         }
 
-        let body = if statements.len() == 1 {
-            statements.pop().unwrap()
-        } else {
-            MirBody::Block {
-                locals: Vec::new(),
-                statements,
-            }
-        };
+        builder_ctx.terminate_block(Terminator::Return(None));
 
         Some(MirFunction {
             id: FunctionId::new(u32::MAX),
@@ -221,7 +227,7 @@ impl<'a> MirBuilder<'a> {
             return_type: TypeId::new(0),
             parameter_types: Vec::new(),
             locals: builder_ctx.locals,
-            body,
+            blocks: builder_ctx.blocks,
             type_substitutions: HashMap::new(),
         })
     }
@@ -416,4 +422,11 @@ pub trait WorkspaceContext {
         concrete_types: Vec<TypeId>,
         substitutions: std::collections::HashMap<SymbolId, TypeId>,
     ) -> FunctionId;
+    fn specialize_builtin_function(
+        &mut self,
+        caller_node_id: NodeId,
+        module_name: &str,
+        function_name: &str,
+        concrete_types: Vec<TypeId>,
+    ) -> Option<FunctionId>;
 }

@@ -35,85 +35,15 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
         Some((variant.name.clone(), variant.payload_types.clone()))
     }
 
-    pub(super) fn lower_match_arms(
-        &mut self,
-        arms: &[NodeId],
-        index: usize,
-        subject: &Operand,
-        result_local: LocalId,
-    ) -> MirBody {
-        let syntax = self.builder.graph.syntax();
-        if index >= arms.len() {
-            let insts = vec![Instruction::Assign(
-                result_local,
-                RValue::Use(Operand::Constant(Constant::Null)),
-            )];
-            return MirBody::BasicBlock(BasicBlock {
-                id: self.builder.next_block(),
-                instructions: insts,
-                terminator: Terminator::None,
-            });
-        }
 
-        let arm_node = arms[index];
-        let pattern_node = syntax.child(arm_node, 0).unwrap();
-        let body_node = syntax.child(arm_node, 1).unwrap();
-
-        let mut check_statements = Vec::new();
-        let mut bindings = Vec::new();
-        let cond_op =
-            self.lower_pattern_check(pattern_node, subject, &mut check_statements, &mut bindings);
-        self.flush_current_instructions(&mut check_statements);
-
-        let mut then_statements = Vec::new();
-        then_statements.extend(bindings);
-
-        let body_op = self.lower_expression(body_node, &mut then_statements);
-        self.current_instructions
-            .push(Instruction::Assign(result_local, RValue::Use(body_op)));
-        self.flush_current_instructions(&mut then_statements);
-
-        let then_branch = Box::new(if then_statements.len() == 1 {
-            then_statements.pop().unwrap()
-        } else {
-            MirBody::Block {
-                locals: Vec::new(),
-                statements: then_statements,
-            }
-        });
-
-        let else_branch = Some(Box::new(self.lower_match_arms(
-            arms,
-            index + 1,
-            subject,
-            result_local,
-        )));
-
-        let if_body = MirBody::If {
-            cond: cond_op,
-            then_branch,
-            else_branch,
-        };
-
-        if check_statements.is_empty() {
-            if_body
-        } else {
-            let mut all_statements = check_statements;
-            all_statements.push(if_body);
-            MirBody::Block {
-                locals: Vec::new(),
-                statements: all_statements,
-            }
-        }
-    }
 
     pub(super) fn lower_pattern_check(
         &mut self,
         pattern_node_id: NodeId,
         subject: &Operand,
-        statements: &mut Vec<MirBody>,
-        bindings: &mut Vec<MirBody>,
-    ) -> Operand {
+        success_block: BlockId,
+        failure_block: BlockId,
+    ) {
         let syntax = self.builder.graph.syntax();
         let pattern_node = syntax.node(pattern_node_id).unwrap();
         let resolution = self.builder.graph.resolution();
@@ -121,24 +51,30 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
         match pattern_node.kind() {
             SyntaxNodeKind::LiteralPattern => {
                 let literal_expr = syntax.child(pattern_node_id, 0).unwrap();
-                let literal_op = self.lower_expression(literal_expr, statements);
+                let literal_op = self.lower_expression(literal_expr);
                 let bool_ty = self
                     .builder
                     .type_result
                     .layer()
-                    .node_type(pattern_node_id)
-                    .unwrap_or_else(|| TypeId::new(0));
+                    .table()
+                    .primitive(galfus_frontend::PrimitiveType::Bool);
 
                 let cond_temp = self.declare_local(None, bool_ty);
-                self.current_instructions.push(Instruction::Assign(
-                    cond_temp,
-                    RValue::BinaryOp(MirBinaryOp::Equal, subject.clone(), literal_op),
-                ));
-                Operand::Local(cond_temp)
+                self.current_instructions.push(Instruction::ConstraintCall {
+                    method_name: "compare".to_string(),
+                    obj: subject.clone(),
+                    args: vec![literal_op],
+                    destination: cond_temp,
+                });
+                self.terminate_block(Terminator::Branch {
+                    cond: Operand::Local(cond_temp),
+                    true_block: success_block,
+                    false_block: failure_block,
+                });
             }
-
-            SyntaxNodeKind::WildcardPattern => Operand::Constant(Constant::Bool(true)),
-
+            SyntaxNodeKind::WildcardPattern => {
+                self.terminate_block(Terminator::Jump(success_block));
+            }
             SyntaxNodeKind::BindingPattern => {
                 if let Some(res) = resolution {
                     let ident = syntax
@@ -154,18 +90,12 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                         let local_id = self.declare_local(Some(symbol), ty);
                         self.symbol_to_local.insert(symbol, local_id);
 
-                        let bind_insts =
-                            vec![Instruction::Assign(local_id, RValue::Use(subject.clone()))];
-                        bindings.push(MirBody::BasicBlock(BasicBlock {
-                            id: self.builder.next_block(),
-                            instructions: bind_insts,
-                            terminator: Terminator::None,
-                        }));
+                        self.current_instructions
+                            .push(Instruction::Assign(local_id, RValue::Use(subject.clone())));
                     }
                 }
-                Operand::Constant(Constant::Bool(true))
+                self.terminate_block(Terminator::Jump(success_block));
             }
-
             SyntaxNodeKind::VariantPattern => {
                 let symbols = self.variant_pattern_symbols(pattern_node_id);
                 let variant_data =
@@ -191,29 +121,14 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                                     Operand::Constant(Constant::Int(val)),
                                 ),
                             ));
-                            return Operand::Local(cond_temp);
+                            self.terminate_block(Terminator::Branch {
+                                cond: Operand::Local(cond_temp),
+                                true_block: success_block,
+                                false_block: failure_block,
+                            });
                         }
                         SymbolKind::ChoiceVariant => {
                             let variant_name = variant_data.name().to_string();
-                            let mut variant_ty = self
-                                .builder
-                                .type_result
-                                .layer()
-                                .node_type(pattern_node_id)
-                                .unwrap_or_else(|| TypeId::new(0));
-
-                            if variant_ty == TypeId::new(0) {
-                                let table = self.builder.type_result.layer().table();
-                                for id in 0..table.len() {
-                                    let ty_id = TypeId::new(id as u32);
-                                    if matches!(table.kind(ty_id), Some(TypeKind::Named { symbol }) if *symbol == variant_symbol)
-                                    {
-                                        variant_ty = ty_id;
-                                        break;
-                                    }
-                                }
-                            }
-
                             let bool_ty = self
                                 .builder
                                 .type_result
@@ -224,8 +139,18 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                             let cond_temp = self.declare_local(None, bool_ty);
                             self.current_instructions.push(Instruction::Assign(
                                 cond_temp,
-                                RValue::Instanceof(subject.clone(), variant_ty),
+                                RValue::ChoiceVariantIs(subject.clone(), variant_symbol),
                             ));
+
+                            let payload_extract_block = self.builder.next_block();
+                            self.terminate_block(Terminator::Branch {
+                                cond: Operand::Local(cond_temp),
+                                true_block: payload_extract_block,
+                                false_block: failure_block,
+                            });
+
+                            self.blocks.last_mut().unwrap().id = payload_extract_block;
+                            self.current_block = payload_extract_block;
 
                             if let Some(payload_node_id) = syntax.first_child_of_kind(
                                 pattern_node_id,
@@ -250,66 +175,64 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                                     };
 
                                     let payload_temp = self.declare_local(None, payload_ty);
-                                    let extract_insts = vec![Instruction::Assign(
+                                    self.current_instructions.push(Instruction::Assign(
                                         payload_temp,
                                         RValue::MemberAccess(subject.clone(), variant_name),
-                                    )];
+                                    ));
 
                                     let payload_op = Operand::Local(payload_temp);
                                     if payload_patterns.len() == 1 {
-                                        let mut nested_bindings = Vec::new();
-                                        let _ = self.lower_pattern_check(
+                                        self.lower_pattern_check(
                                             payload_patterns[0],
                                             &payload_op,
-                                            bindings,
-                                            &mut nested_bindings,
+                                            success_block,
+                                            failure_block,
                                         );
-                                        bindings.push(MirBody::BasicBlock(BasicBlock {
-                                            id: self.builder.next_block(),
-                                            instructions: extract_insts,
-                                            terminator: Terminator::None,
-                                        }));
-                                        bindings.extend(nested_bindings);
                                     } else {
-                                        bindings.push(MirBody::BasicBlock(BasicBlock {
-                                            id: self.builder.next_block(),
-                                            instructions: extract_insts,
-                                            terminator: Terminator::None,
-                                        }));
                                         for (i, &child_pattern) in
                                             payload_patterns.iter().enumerate()
                                         {
                                             let element_ty = payload_types[i];
                                             let element_temp = self.declare_local(None, element_ty);
-                                            let elem_insts = vec![Instruction::Assign(
+                                            self.current_instructions.push(Instruction::Assign(
                                                 element_temp,
                                                 RValue::MemberAccess(
                                                     payload_op.clone(),
                                                     i.to_string(),
                                                 ),
-                                            )];
-                                            bindings.push(MirBody::BasicBlock(BasicBlock {
-                                                id: self.builder.next_block(),
-                                                instructions: elem_insts,
-                                                terminator: Terminator::None,
-                                            }));
+                                            ));
 
-                                            let mut nested_bindings = Vec::new();
-                                            let _ = self.lower_pattern_check(
+                                            let next_field_block =
+                                                if i == payload_patterns.len() - 1 {
+                                                    success_block
+                                                } else {
+                                                    self.builder.next_block()
+                                                };
+
+                                            self.lower_pattern_check(
                                                 child_pattern,
                                                 &Operand::Local(element_temp),
-                                                bindings,
-                                                &mut nested_bindings,
+                                                next_field_block,
+                                                failure_block,
                                             );
-                                            bindings.extend(nested_bindings);
+
+                                            if i < payload_patterns.len() - 1 {
+                                                self.blocks.last_mut().unwrap().id =
+                                                    next_field_block;
+                                                self.current_block = next_field_block;
+                                            }
                                         }
                                     }
+                                } else {
+                                    self.terminate_block(Terminator::Jump(success_block));
                                 }
+                            } else {
+                                self.terminate_block(Terminator::Jump(success_block));
                             }
-
-                            return Operand::Local(cond_temp);
                         }
-                        _ => {}
+                        _ => {
+                            self.terminate_block(Terminator::Jump(failure_block));
+                        }
                     }
                 } else if let Some((variant_name, payload_types)) =
                     self.get_imported_choice_variant(pattern_node_id)
@@ -334,6 +257,16 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                         RValue::Instanceof(subject.clone(), variant_ty),
                     ));
 
+                    let payload_extract_block = self.builder.next_block();
+                    self.terminate_block(Terminator::Branch {
+                        cond: Operand::Local(cond_temp),
+                        true_block: payload_extract_block,
+                        false_block: failure_block,
+                    });
+
+                    self.blocks.last_mut().unwrap().id = payload_extract_block;
+                    self.current_block = payload_extract_block;
+
                     if let Some(payload_node_id) = syntax
                         .first_child_of_kind(pattern_node_id, SyntaxNodeKind::VariantPatternPayload)
                     {
@@ -348,61 +281,56 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                             };
 
                             let payload_temp = self.declare_local(None, payload_ty);
-                            let extract_insts = vec![Instruction::Assign(
+                            self.current_instructions.push(Instruction::Assign(
                                 payload_temp,
                                 RValue::MemberAccess(subject.clone(), variant_name),
-                            )];
+                            ));
 
                             let payload_op = Operand::Local(payload_temp);
                             if payload_patterns.len() == 1 {
-                                let mut nested_bindings = Vec::new();
-                                let _ = self.lower_pattern_check(
+                                self.lower_pattern_check(
                                     payload_patterns[0],
                                     &payload_op,
-                                    bindings,
-                                    &mut nested_bindings,
+                                    success_block,
+                                    failure_block,
                                 );
-                                bindings.push(MirBody::BasicBlock(BasicBlock {
-                                    id: self.builder.next_block(),
-                                    instructions: extract_insts,
-                                    terminator: Terminator::None,
-                                }));
-                                bindings.extend(nested_bindings);
                             } else {
-                                bindings.push(MirBody::BasicBlock(BasicBlock {
-                                    id: self.builder.next_block(),
-                                    instructions: extract_insts,
-                                    terminator: Terminator::None,
-                                }));
                                 for (i, &child_pattern) in payload_patterns.iter().enumerate() {
                                     let element_ty = payload_types[i];
                                     let element_temp = self.declare_local(None, element_ty);
-                                    let elem_insts = vec![Instruction::Assign(
+                                    self.current_instructions.push(Instruction::Assign(
                                         element_temp,
                                         RValue::MemberAccess(payload_op.clone(), i.to_string()),
-                                    )];
-                                    bindings.push(MirBody::BasicBlock(BasicBlock {
-                                        id: self.builder.next_block(),
-                                        instructions: elem_insts,
-                                        terminator: Terminator::None,
-                                    }));
+                                    ));
 
-                                    let mut nested_bindings = Vec::new();
-                                    let _ = self.lower_pattern_check(
+                                    let next_field_block = if i == payload_patterns.len() - 1 {
+                                        success_block
+                                    } else {
+                                        self.builder.next_block()
+                                    };
+
+                                    self.lower_pattern_check(
                                         child_pattern,
                                         &Operand::Local(element_temp),
-                                        bindings,
-                                        &mut nested_bindings,
+                                        next_field_block,
+                                        failure_block,
                                     );
-                                    bindings.extend(nested_bindings);
+
+                                    if i < payload_patterns.len() - 1 {
+                                        self.blocks.last_mut().unwrap().id = next_field_block;
+                                        self.current_block = next_field_block;
+                                    }
                                 }
                             }
+                        } else {
+                            self.terminate_block(Terminator::Jump(success_block));
                         }
+                    } else {
+                        self.terminate_block(Terminator::Jump(success_block));
                     }
-
-                    return Operand::Local(cond_temp);
+                } else {
+                    self.terminate_block(Terminator::Jump(failure_block));
                 }
-                Operand::Constant(Constant::Bool(false))
             }
 
             SyntaxNodeKind::TypePattern => {
@@ -427,6 +355,16 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                     RValue::Instanceof(subject.clone(), pattern_type),
                 ));
 
+                let type_check_success = self.builder.next_block();
+                self.terminate_block(Terminator::Branch {
+                    cond: Operand::Local(cond_temp),
+                    true_block: type_check_success,
+                    false_block: failure_block,
+                });
+
+                self.blocks.last_mut().unwrap().id = type_check_success;
+                self.current_block = type_check_success;
+
                 if let Some(binding_node_id) = syntax
                     .first_child_of_kind(pattern_node_id, SyntaxNodeKind::TypePatternBinding)
                     .filter(|_| resolution.is_some())
@@ -439,17 +377,12 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                         let local_id = self.declare_local(Some(symbol), pattern_type);
                         self.symbol_to_local.insert(symbol, local_id);
 
-                        let bind_insts =
-                            vec![Instruction::Assign(local_id, RValue::Use(subject.clone()))];
-                        bindings.push(MirBody::BasicBlock(BasicBlock {
-                            id: self.builder.next_block(),
-                            instructions: bind_insts,
-                            terminator: Terminator::None,
-                        }));
+                        self.current_instructions
+                            .push(Instruction::Assign(local_id, RValue::Use(subject.clone())));
                     }
                 }
 
-                Operand::Local(cond_temp)
+                self.terminate_block(Terminator::Jump(success_block));
             }
 
             SyntaxNodeKind::StructPattern => {
@@ -473,10 +406,23 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                     RValue::Instanceof(subject.clone(), pattern_type),
                 ));
 
-                let mut and_conditions = Vec::new();
-                and_conditions.push(Operand::Local(cond_temp));
+                let struct_check_success = self.builder.next_block();
+                self.terminate_block(Terminator::Branch {
+                    cond: Operand::Local(cond_temp),
+                    true_block: struct_check_success,
+                    false_block: failure_block,
+                });
 
-                for &field in &pattern_node.children()[1..] {
+                self.blocks.last_mut().unwrap().id = struct_check_success;
+                self.current_block = struct_check_success;
+
+                let fields = &pattern_node.children()[1..];
+                if fields.is_empty() {
+                    self.terminate_block(Terminator::Jump(success_block));
+                    return;
+                }
+
+                for (i, &field) in fields.iter().enumerate() {
                     let field_node = syntax.node(field).unwrap();
                     let field_ident = syntax
                         .first_child_of_kind(field, SyntaxNodeKind::Identifier)
@@ -491,33 +437,23 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                         .unwrap_or_else(|| TypeId::new(0));
 
                     let field_temp = self.declare_local(None, field_ty);
-                    let extract_inst = Instruction::Assign(
+                    self.current_instructions.push(Instruction::Assign(
                         field_temp,
                         RValue::MemberAccess(subject.clone(), field_name),
-                    );
-
-                    bindings.push(MirBody::BasicBlock(BasicBlock {
-                        id: self.builder.next_block(),
-                        instructions: vec![extract_inst],
-                        terminator: Terminator::None,
-                    }));
+                    ));
 
                     let field_op = Operand::Local(field_temp);
 
-                    if field_node.children().len() > 1 {
-                        // Aliased: e.g. `x: pattern`
-                        let inner_pattern = field_node.child(1).unwrap();
-                        let mut inner_bindings = Vec::new();
-                        let inner_cond = self.lower_pattern_check(
-                            inner_pattern,
-                            &field_op,
-                            statements,
-                            &mut inner_bindings,
-                        );
-                        and_conditions.push(inner_cond);
-                        bindings.extend(inner_bindings);
+                    let next_field_block = if i == fields.len() - 1 {
+                        success_block
                     } else {
-                        // Shorthand: binds the variable to local
+                        self.builder.next_block()
+                    };
+
+                    if field_node.children().len() > 1 {
+                        let inner_pattern = field_node.child(1).unwrap();
+                        self.lower_pattern_check(inner_pattern, &field_op, next_field_block, failure_block);
+                    } else {
                         if let Some(res) = resolution {
                             let ident = syntax
                                 .first_child_of_kind(field, SyntaxNodeKind::Identifier)
@@ -525,32 +461,22 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                             if let Some(symbol) = res.declaration_symbol(ident) {
                                 let local_id = self.declare_local(Some(symbol), field_ty);
                                 self.symbol_to_local.insert(symbol, local_id);
-                                let bind_inst =
-                                    Instruction::Assign(local_id, RValue::Use(field_op));
-                                bindings.push(MirBody::BasicBlock(BasicBlock {
-                                    id: self.builder.next_block(),
-                                    instructions: vec![bind_inst],
-                                    terminator: Terminator::None,
-                                }));
+                                self.current_instructions
+                                    .push(Instruction::Assign(local_id, RValue::Use(field_op)));
                             }
                         }
+                        self.terminate_block(Terminator::Jump(next_field_block));
+                    }
+
+                    if i < fields.len() - 1 {
+                        self.blocks.last_mut().unwrap().id = next_field_block;
+                        self.current_block = next_field_block;
                     }
                 }
-
-                let mut final_cond = and_conditions[0].clone();
-                for next_cond in &and_conditions[1..] {
-                    let temp = self.declare_local(None, bool_ty);
-                    self.current_instructions.push(Instruction::Assign(
-                        temp,
-                        RValue::BinaryOp(MirBinaryOp::LogicalAnd, final_cond, next_cond.clone()),
-                    ));
-                    final_cond = Operand::Local(temp);
-                }
-
-                final_cond
             }
-
-            _ => Operand::Constant(Constant::Null),
+            _ => {
+                self.terminate_block(Terminator::Jump(failure_block));
+            }
         }
     }
 }

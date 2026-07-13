@@ -1,8 +1,8 @@
 use galfus_core::{Diagnostic, NodeId, TypeId};
 
 use crate::{
-    PrimitiveType, RangeOperatorKind, SyntaxNodeKind, TypeDiagnosticCode, TypeKind,
-    UnaryOperatorKind,
+    PrimitiveType, RangeDesugarTarget, RangeOperatorKind, SyntaxNodeKind, TypeDiagnosticCode,
+    TypeKind, UnaryOperatorKind,
 };
 
 use super::DeclarationTypeChecker;
@@ -36,9 +36,13 @@ impl<'a> DeclarationTypeChecker<'a> {
 
         match operator_kind {
             RangeOperatorKind::Exclusive => {
+                self.range_desugars
+                    .insert(node, RangeDesugarTarget::Exclusive);
                 self.infer_exclusive_range_type(node, start, end_or_count)
             }
             RangeOperatorKind::Quantity => {
+                self.range_desugars
+                    .insert(node, RangeDesugarTarget::Stepped);
                 self.infer_quantity_range_type(node, start, end_or_count)
             }
         }

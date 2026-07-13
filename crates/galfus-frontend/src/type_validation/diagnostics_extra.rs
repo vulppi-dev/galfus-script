@@ -235,25 +235,6 @@ impl<'a> DeclarationTypeChecker<'a> {
         ));
     }
 
-    pub(super) fn report_missing_generic_parameter_bound(
-        &mut self,
-        parameter: NodeId,
-        parameter_name: &str,
-    ) {
-        let span = self
-            .graph
-            .syntax()
-            .node(parameter)
-            .map(|node| node.span())
-            .unwrap_or_else(|| self.source.span());
-
-        self.diagnostics.push(Diagnostic::error_with_message(
-            TypeDiagnosticCode::CannotInferType,
-            format!("generic parameter `{parameter_name}` requires an explicit bound"),
-            span,
-        ));
-    }
-
     pub(super) fn report_generic_argument_bound_mismatch(
         &mut self,
         target: NodeId,

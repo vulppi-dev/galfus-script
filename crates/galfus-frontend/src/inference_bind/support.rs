@@ -96,8 +96,6 @@ impl<'a> ExpressionInferrer<'a> {
         None
     }
 
-
-
     pub(super) fn is_type_node(&self, node: NodeId) -> bool {
         self.graph
             .syntax()

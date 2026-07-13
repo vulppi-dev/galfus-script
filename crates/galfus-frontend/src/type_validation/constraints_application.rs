@@ -407,47 +407,12 @@ impl<'a> DeclarationTypeChecker<'a> {
         };
 
         if syntax_node.kind() == SyntaxNodeKind::FunctionItem {
-            for parameter in self.direct_generic_parameters(node) {
-                let has_constraint = self
-                    .graph
-                    .syntax()
-                    .first_child_of_kind(parameter, SyntaxNodeKind::GenericParameterConstraint)
-                    .is_some();
-
-                if has_constraint {
-                    continue;
-                }
-
-                let name = self
-                    .graph
-                    .syntax()
-                    .first_child_of_kind(parameter, SyntaxNodeKind::Identifier)
-                    .map(|identifier| self.node_text(identifier))
-                    .unwrap_or_else(|| "T".to_string());
-
-                self.report_missing_generic_parameter_bound(parameter, name.as_str());
-            }
+            // Unbounded generic parameters are allowed (e.g. `fn arrayIter<T>(arr: [T])`).
         }
 
         for child in syntax_node.children() {
             self.check_generic_parameter_bounds(*child);
         }
-    }
-
-    fn direct_generic_parameters(&self, node: NodeId) -> Vec<NodeId> {
-        let Some(generic_list) = self
-            .graph
-            .syntax()
-            .first_child_of_kind(node, SyntaxNodeKind::GenericParameterList)
-        else {
-            return Vec::new();
-        };
-
-        self.graph
-            .syntax()
-            .node(generic_list)
-            .map(|node| node.children().to_vec())
-            .unwrap_or_default()
     }
 
     fn is_valid_generic_bound_type(&mut self, type_node: NodeId) -> bool {

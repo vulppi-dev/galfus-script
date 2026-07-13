@@ -59,6 +59,7 @@ struct DeclarationTypeChecker<'a> {
     imported_generic_params: HashMap<SymbolId, SymbolId>,
     control_targets: Vec<control_flow::ControlTarget>,
     transaction_depth: usize,
+    range_desugars: HashMap<NodeId, RangeDesugarTarget>,
 }
 
 #[derive(Debug, Clone)]
@@ -92,6 +93,7 @@ impl<'a> DeclarationTypeChecker<'a> {
             imported_generic_params: HashMap::new(),
             control_targets: Vec::new(),
             transaction_depth: 0,
+            range_desugars: HashMap::new(),
         }
     }
 
@@ -102,6 +104,7 @@ impl<'a> DeclarationTypeChecker<'a> {
             self.ownership_metadata,
             self.imported_symbol_choices,
             self.imported_path_choices,
+            self.range_desugars,
         )
     }
 

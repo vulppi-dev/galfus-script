@@ -253,7 +253,7 @@ fn check_reports_generic_arguments_on_non_generic_function() {
 }
 
 #[test]
-fn check_reports_unbounded_generic_function_parameter() {
+fn check_allows_unbounded_generic_function_parameter() {
     let source = source(
         r#"
         fn identity<T>(value: T): T {
@@ -271,13 +271,7 @@ fn check_reports_unbounded_generic_function_parameter() {
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
 
-    assert!(result.has_errors());
-    assert!(result.diagnostics().iter().any(|diagnostic| {
-        diagnostic.code().as_str() == TypeDiagnosticCode::CannotInferType.as_code()
-            && diagnostic
-                .message()
-                .contains("generic parameter `T` requires an explicit bound")
-    }));
+    assert!(!result.has_errors());
 }
 
 #[test]

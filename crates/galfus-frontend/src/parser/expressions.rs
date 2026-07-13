@@ -387,6 +387,22 @@ impl Parser {
 
         let expression = self.parse_expression()?;
 
+        if self
+            .graph
+            .syntax()
+            .node(expression)
+            .is_some_and(|node| node.kind() == SyntaxNodeKind::RangeExpression)
+        {
+            let span = Span::cover(spread_token.span(), self.node_span(expression))
+                .unwrap_or(spread_token.span());
+            self.graph.push_diagnostic(Diagnostic::error_with_message(
+                ParserDiagnosticCode::UnexpectedToken,
+                "range expressions cannot be array spread targets",
+                span,
+            ));
+            return None;
+        }
+
         let span = Span::cover(spread_token.span(), self.node_span(expression))
             .unwrap_or(spread_token.span());
 

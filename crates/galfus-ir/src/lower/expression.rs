@@ -219,6 +219,16 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                 });
                 self.free_temp_if_operand(operand);
             }
+            RValue::ChoiceVariantIs(operand, variant) => {
+                let src = self.operand_reg(operand);
+                let type_idx = self.ctx.lower_choice_variant_type(*variant);
+                self.instructions.push(Instruction::Instanceof {
+                    dest,
+                    src,
+                    type_idx,
+                });
+                self.free_temp_if_operand(operand);
+            }
             RValue::LoadGlobal(name) => {
                 // Find global index. For simplicity, we can just use 0 if not found,
                 // or we can map it to global index.
@@ -568,6 +578,23 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
     pub fn operand_reg(&mut self, operand: &Operand) -> Reg {
         match operand {
             Operand::Local(local_id) => Reg(local_id.raw() as u16),
+            Operand::ConstRef(idx) => {
+                let constant = &self.ctx.mir_constants[*idx];
+                let temp = self.alloc_temp();
+                match constant {
+                    MirConstant::Null => {
+                        self.instructions.push(Instruction::LoadNull { dest: temp })
+                    }
+                    _ => {
+                        let const_idx = self.ctx.get_or_create_constant(constant);
+                        self.instructions.push(Instruction::LoadConst {
+                            dest: temp,
+                            const_idx,
+                        });
+                    }
+                }
+                temp
+            }
             Operand::Constant(constant) => {
                 let temp = self.alloc_temp();
                 match constant {
@@ -595,6 +622,17 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                     self.instructions.push(Instruction::Move { dest, src });
                 }
             }
+            Operand::ConstRef(idx) => {
+                let constant = &self.ctx.mir_constants[*idx];
+                match constant {
+                    MirConstant::Null => self.instructions.push(Instruction::LoadNull { dest }),
+                    _ => {
+                        let const_idx = self.ctx.get_or_create_constant(constant);
+                        self.instructions
+                            .push(Instruction::LoadConst { dest, const_idx });
+                    }
+                }
+            }
             Operand::Constant(constant) => match constant {
                 MirConstant::Null => self.instructions.push(Instruction::LoadNull { dest }),
                 _ => {
@@ -618,6 +656,32 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                 let local_decl = self.func.locals.iter().find(|l| l.id == *local_id).unwrap();
                 local_decl.ty
             }
+            Operand::ConstRef(idx) => {
+                let constant = &self.ctx.mir_constants[*idx];
+                let layer = self.ctx.type_result.layer();
+                let table = layer.table();
+                let prim = match constant {
+                    MirConstant::Null => PrimitiveType::Null,
+                    MirConstant::Bool(_) => PrimitiveType::Bool,
+                    MirConstant::Int(_) => PrimitiveType::Int32,
+                    MirConstant::Float(_) => PrimitiveType::Float32,
+                    MirConstant::Function(_) => PrimitiveType::Null,
+                    MirConstant::String(_) => {
+                        // Find String type in type table
+                        for i in 0..table.len() {
+                            let ty_id = TypeId::new(i as u32);
+                            if matches!(
+                                table.kind(ty_id),
+                                Some(TypeKind::Primitive(PrimitiveType::Uint8))
+                            ) {
+                                // Fallback to Int32 if not found
+                            }
+                        }
+                        PrimitiveType::Int32
+                    }
+                };
+                table.primitive(prim)
+            }
             Operand::Constant(constant) => {
                 let layer = self.ctx.type_result.layer();
                 let table = layer.table();
@@ -627,6 +691,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                     MirConstant::Bool(_) => PrimitiveType::Bool,
                     MirConstant::Int(_) => PrimitiveType::Int32,
                     MirConstant::Float(_) => PrimitiveType::Float64,
+                    MirConstant::Function(_) => PrimitiveType::Null,
                     MirConstant::String(_) => {
                         // Find String type in type table
                         for i in 0..table.len() {

@@ -35,6 +35,9 @@ impl VirtualMachine {
                 Value::Uint64(b) => bytes.extend_from_slice(b.to_string().as_bytes()),
                 Value::Float32(b) => bytes.extend_from_slice(b.to_string().as_bytes()),
                 Value::Float64(b) => bytes.extend_from_slice(b.to_string().as_bytes()),
+                Value::Function(idx) => {
+                    bytes.extend_from_slice(format!("<function {}>", idx.0).as_bytes())
+                }
                 Value::Object(obj_ref) => {
                     let s = format!("ObjectRef({})", obj_ref.raw());
                     bytes.extend_from_slice(s.as_bytes());

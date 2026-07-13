@@ -1,6 +1,6 @@
 use super::function::FunctionBuilder;
 use super::*;
-use galfus_frontend::{BinaryOperatorKind, UnaryOperatorKind};
+use galfus_frontend::{AssignmentOperatorKind, BinaryOperatorKind, UnaryOperatorKind};
 
 impl<'b, 'a> FunctionBuilder<'b, 'a> {
     pub(super) fn lower_binary_op(&self, op_node_id: NodeId) -> MirBinaryOp {
@@ -48,6 +48,27 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
             };
         }
         MirUnaryOp::Negate
+    }
+
+    pub(super) fn lower_assignment_binary_op(&self, op_node_id: NodeId) -> Option<MirBinaryOp> {
+        let syntax = self.builder.graph.syntax();
+        let operator = syntax.node(op_node_id)?.assignment_operator()?;
+
+        Some(match operator {
+            AssignmentOperatorKind::Assign => return None,
+            AssignmentOperatorKind::AddAssign => MirBinaryOp::Add,
+            AssignmentOperatorKind::SubtractAssign => MirBinaryOp::Subtract,
+            AssignmentOperatorKind::MultiplyAssign => MirBinaryOp::Multiply,
+            AssignmentOperatorKind::DivideAssign => MirBinaryOp::Divide,
+            AssignmentOperatorKind::RemainderAssign => MirBinaryOp::Remainder,
+            AssignmentOperatorKind::PowerAssign => MirBinaryOp::Power,
+            AssignmentOperatorKind::BitwiseAndAssign => MirBinaryOp::BitwiseAnd,
+            AssignmentOperatorKind::BitwiseOrAssign => MirBinaryOp::BitwiseOr,
+            AssignmentOperatorKind::BitwiseXorAssign => MirBinaryOp::BitwiseXor,
+            AssignmentOperatorKind::ShiftLeftAssign => MirBinaryOp::ShiftLeft,
+            AssignmentOperatorKind::ShiftRightAssign => MirBinaryOp::ShiftRight,
+            AssignmentOperatorKind::NullFallbackAssign => MirBinaryOp::NullFallback,
+        })
     }
 
     pub(super) fn struct_symbol_for_type(&self, ty: TypeId) -> Option<SymbolId> {

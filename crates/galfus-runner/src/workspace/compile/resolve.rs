@@ -3,30 +3,15 @@ use galfus_frontend::{SymbolKind, SyntaxNodeKind};
 
 use crate::{WorkspaceResolver, check::CheckedModule};
 
-pub(super) fn collect_call_targets(body: &galfus_ir::mir::MirBody, targets: &mut Vec<FunctionId>) {
-    match body {
-        galfus_ir::mir::MirBody::BasicBlock(bb) => {
-            if let galfus_ir::mir::Terminator::Call { func, .. } = &bb.terminator {
+pub(super) fn collect_call_targets(
+    blocks: &[galfus_ir::mir::BasicBlock],
+    targets: &mut Vec<FunctionId>,
+) {
+    for bb in blocks {
+        for inst in &bb.instructions {
+            if let galfus_ir::mir::Instruction::Call { func, .. } = inst {
                 targets.push(*func);
             }
-        }
-        galfus_ir::mir::MirBody::Block { statements, .. } => {
-            for stmt in statements {
-                collect_call_targets(stmt, targets);
-            }
-        }
-        galfus_ir::mir::MirBody::If {
-            then_branch,
-            else_branch,
-            ..
-        } => {
-            collect_call_targets(then_branch, targets);
-            if let Some(else_b) = else_branch {
-                collect_call_targets(else_b, targets);
-            }
-        }
-        galfus_ir::mir::MirBody::Loop { body } => {
-            collect_call_targets(body, targets);
         }
     }
 }

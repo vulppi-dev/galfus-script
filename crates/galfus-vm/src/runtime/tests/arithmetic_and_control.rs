@@ -357,3 +357,60 @@ fn test_nested_calls_return_to_explicit_destinations() {
 
     assert_eq!(res, Value::Int64(3));
 }
+
+#[test]
+fn test_dynamic_call_returns_to_destination() {
+    let image = ModuleImage {
+        name: "test".to_string(),
+        constants: ConstantPool {
+            constants: vec![Constant::Function(FuncIdx(1)), Constant::Int(7)],
+        },
+        functions: vec![
+            ImageFunction {
+                name: "main".to_string(),
+                param_count: 0,
+                local_count: 2,
+                temp_count: 2,
+                return_ty: TypeIdx(0),
+                instructions: vec![
+                    Instruction::LoadConst {
+                        dest: Reg(0),
+                        const_idx: ConstIdx(0),
+                    },
+                    Instruction::CallDynamic {
+                        dest: Reg(1),
+                        func_reg: Reg(0),
+                        args_start: Reg(0),
+                        arg_count: 0,
+                    },
+                    Instruction::Ret { src: Reg(1) },
+                ],
+            },
+            ImageFunction {
+                name: "callee".to_string(),
+                param_count: 0,
+                local_count: 1,
+                temp_count: 0,
+                return_ty: TypeIdx(0),
+                instructions: vec![
+                    Instruction::LoadConst {
+                        dest: Reg(0),
+                        const_idx: ConstIdx(1),
+                    },
+                    Instruction::Ret { src: Reg(0) },
+                ],
+            },
+        ],
+        types: vec![ImageType::Int64],
+        struct_layouts: vec![],
+        choice_layouts: vec![],
+        imports: vec![],
+        exports: vec![],
+        init_func_idx: None,
+    };
+
+    let mut vm = VirtualMachine::new(image);
+    let result = vm.run_function(FuncIdx(0), vec![]).unwrap();
+
+    assert_eq!(result, Value::Int64(7));
+}

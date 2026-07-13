@@ -1,10 +1,10 @@
 use crate::types::TypeLayer;
 use std::collections::HashMap;
 
-use galfus_core::{NodeId, SymbolId, TypeId, SourceFile};
+use galfus_core::{NodeId, SourceFile, SymbolId, TypeId};
 
-use crate::{ModuleAst, ImportedSurfaceTypes};
 use crate::ImportedMemberKey;
+use crate::{ImportedSurfaceTypes, ModuleAst};
 
 mod access;
 mod assignability;
@@ -27,13 +27,15 @@ pub fn infer_expressions(
     _imported_types: &ImportedSurfaceTypes,
 ) -> InferenceResult {
     let mut inferrer = ExpressionInferrer::new(source, graph, layer);
-    
+
     // Visit all nodes to infer expressions
     if let Some(root) = graph.syntax().root() {
         inferrer.infer_declarations(root);
     }
-    
-    InferenceResult { layer: inferrer.layer }
+
+    InferenceResult {
+        layer: inferrer.layer,
+    }
 }
 
 pub struct InferenceResult {
@@ -50,7 +52,7 @@ pub struct ExpressionInferrer<'a> {
     pub(super) source: &'a SourceFile,
     pub(super) graph: &'a ModuleAst,
     pub(super) layer: TypeLayer,
-    
+
     // Track bounds and constraints
     pub(super) imported_member_types: HashMap<ImportedMemberKey, TypeId>,
     pub(super) active_type_substitutions: Vec<HashMap<SymbolId, TypeId>>,
@@ -66,9 +68,11 @@ impl<'a> ExpressionInferrer<'a> {
             active_type_substitutions: Vec::new(),
         }
     }
-    
+
     pub fn infer_declarations(&mut self, root: NodeId) {
-        let Some(syntax_node) = self.graph.syntax().node(root) else { return; };
+        let Some(syntax_node) = self.graph.syntax().node(root) else {
+            return;
+        };
         for child in syntax_node.children() {
             self.infer_expression_type(*child); // infer expressions recursively
         }
