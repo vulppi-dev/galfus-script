@@ -174,18 +174,18 @@ pub fn compile_workspace_to_image(check_result: &WorkspaceCheckResult) -> Result
 
             ctx.active_substitutions = mir_func.type_substitutions.clone();
 
-            let return_ty = ctx.lower_type(mir_func.return_type);
+            let return_ty = galfus_ir::lower::types::lower_type(&mut ctx, mir_func.return_type);
             for &param_ty in &mir_func.parameter_types {
-                ctx.lower_type(param_ty);
+                galfus_ir::lower::types::lower_type(&mut ctx, param_ty);
             }
             for local_decl in &mir_func.locals {
-                ctx.lower_type(local_decl.ty);
+                galfus_ir::lower::types::lower_type(&mut ctx, local_decl.ty);
             }
 
             let param_count = mir_func.parameter_types.len() as u16;
             let local_count = image_local_count(mir_func, param_count);
 
-            let mut emitter = galfus_ir::lower::control_flow::FnEmitter::new(
+            let mut emitter = galfus_ir::lower::function::FnEmitter::new(
                 &mut ctx,
                 mir_func,
                 param_count,

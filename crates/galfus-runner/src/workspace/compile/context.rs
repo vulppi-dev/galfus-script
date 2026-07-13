@@ -340,15 +340,17 @@ impl<'a> MyWorkspaceContext<'a> {
         function.name = format!("{}#{}", function.name, specialized_id.raw());
         function.blocks = vec![
             BasicBlock {
+                parameters: Vec::new(),
                 id: BlockId::new(0),
                 instructions: vec![Instruction::Call {
                     func: parse_function_id,
                     args: vec![Operand::Local(LocalId::new(0))],
                     destination: result_id,
                 }],
-                terminator: Terminator::None,
+                terminator: Terminator::Return(None),
             },
             BasicBlock {
+                parameters: Vec::new(),
                 id: BlockId::new(1),
                 instructions: Vec::new(),
                 terminator: Terminator::Return(Some(Operand::Local(result_id))),

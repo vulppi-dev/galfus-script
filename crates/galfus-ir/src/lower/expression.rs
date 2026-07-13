@@ -1,4 +1,4 @@
-use super::control_flow::FnEmitter;
+use super::function::FnEmitter;
 use crate::mir::{Constant as MirConstant, MirBinaryOp, MirUnaryOp, Operand, RValue};
 use galfus_core::{SymbolId, TypeId};
 use galfus_frontend::{PrimitiveType, SymbolKind, TypeKind};
@@ -55,7 +55,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                     if matches!(lhs, Operand::Local(_)) && matches!(rhs, Operand::Constant(_)) {
                         let temp = self.alloc_temp();
                         cast_temp_count += 1;
-                        let type_idx = self.ctx.lower_type(lhs_ty);
+                        let type_idx = crate::lower::types::lower_type(self.ctx, lhs_ty);
                         self.instructions.push(Instruction::Cast {
                             dest: temp,
                             src: rhs_reg,
@@ -67,7 +67,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                     {
                         let temp = self.alloc_temp();
                         cast_temp_count += 1;
-                        let type_idx = self.ctx.lower_type(rhs_ty);
+                        let type_idx = crate::lower::types::lower_type(self.ctx, rhs_ty);
                         self.instructions.push(Instruction::Cast {
                             dest: temp,
                             src: lhs_reg,
@@ -77,7 +77,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                     } else {
                         let temp = self.alloc_temp();
                         cast_temp_count += 1;
-                        let type_idx = self.ctx.lower_type(lhs_ty);
+                        let type_idx = crate::lower::types::lower_type(self.ctx, lhs_ty);
                         self.instructions.push(Instruction::Cast {
                             dest: temp,
                             src: rhs_reg,
@@ -196,7 +196,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
             }
             RValue::Cast(operand, ty) => {
                 let src = self.operand_reg(operand);
-                let type_idx = self.ctx.lower_type(*ty);
+                let type_idx = crate::lower::types::lower_type(self.ctx, *ty);
                 self.instructions.push(Instruction::Cast {
                     dest,
                     src,
@@ -211,7 +211,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
             }
             RValue::Instanceof(operand, ty) => {
                 let src = self.operand_reg(operand);
-                let type_idx = self.ctx.lower_type(*ty);
+                let type_idx = crate::lower::types::lower_type(self.ctx, *ty);
                 self.instructions.push(Instruction::Instanceof {
                     dest,
                     src,
@@ -221,7 +221,8 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
             }
             RValue::ChoiceVariantIs(operand, variant) => {
                 let src = self.operand_reg(operand);
-                let type_idx = self.ctx.lower_choice_variant_type(*variant);
+                let type_idx =
+                    crate::lower::types::lower_choice_variant_type(&mut self.ctx, *variant);
                 self.instructions.push(Instruction::Instanceof {
                     dest,
                     src,
@@ -253,7 +254,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                 fields,
                 storage_meta: _,
             } => {
-                let type_idx = self.ctx.lower_type(*struct_type);
+                let type_idx = crate::lower::types::lower_type(self.ctx, *struct_type);
                 self.instructions
                     .push(Instruction::AllocLocal { dest, type_idx });
 
@@ -271,10 +272,11 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                 }
             }
             RValue::NewArray(element_type, elements) => {
-                let type_idx = self.ctx.lower_type(*element_type);
-                let size_const = self
-                    .ctx
-                    .get_or_create_constant(&MirConstant::Int(elements.len() as i64));
+                let type_idx = crate::lower::types::lower_type(self.ctx, *element_type);
+                let size_const = crate::lower::constants::get_or_create_constant(
+                    &mut self.ctx,
+                    &MirConstant::Int(elements.len() as i64),
+                );
                 let size_reg = self.alloc_temp();
                 self.instructions.push(Instruction::LoadConst {
                     dest: size_reg,
@@ -289,7 +291,10 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                 self.free_temps(1);
 
                 for (i, elem_operand) in elements.iter().enumerate() {
-                    let idx_const = self.ctx.get_or_create_constant(&MirConstant::Int(i as i64));
+                    let idx_const = crate::lower::constants::get_or_create_constant(
+                        self.ctx,
+                        &MirConstant::Int(i as i64),
+                    );
                     let idx_reg = self.alloc_temp();
                     self.instructions.push(Instruction::LoadConst {
                         dest: idx_reg,
@@ -309,17 +314,19 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
             RValue::NewArrayDynamic(array_type, elements) => {
                 use crate::mir::ArrayLiteralElement;
 
-                let type_idx = self.ctx.lower_type(*array_type);
+                let type_idx = crate::lower::types::lower_type(self.ctx, *array_type);
 
                 // 1. Calculate total length at runtime
                 let total_len_reg = self.alloc_temp();
-                let const_zero = self.ctx.get_or_create_constant(&MirConstant::Int(0));
+                let const_zero =
+                    crate::lower::constants::get_or_create_constant(self.ctx, &MirConstant::Int(0));
                 self.instructions.push(Instruction::LoadConst {
                     dest: total_len_reg,
                     const_idx: const_zero,
                 });
 
-                let const_one = self.ctx.get_or_create_constant(&MirConstant::Int(1));
+                let const_one =
+                    crate::lower::constants::get_or_create_constant(self.ctx, &MirConstant::Int(1));
 
                 for element in elements {
                     match element {
@@ -419,7 +426,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                 self.free_temps(2);
             }
             RValue::NewTuple(tuple_type, elements) => {
-                let type_idx = self.ctx.lower_type(*tuple_type);
+                let type_idx = crate::lower::types::lower_type(self.ctx, *tuple_type);
                 let start_reg = self.alloc_temp();
 
                 // Allocate remaining contiguous temps
@@ -462,24 +469,26 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                 self.free_temp_if_operand(obj_operand);
             }
             RValue::Choice(choice_type, variant_name, payload_operand) => {
-                let type_idx = self.ctx.lower_type(*choice_type);
-                let variant_idx = if let Some(choice_symbol) =
-                    self.struct_symbol_for_type(*choice_type)
-                {
-                    let variants = self.ctx.get_choice_variants(choice_symbol);
-                    variants
-                        .iter()
-                        .position(|(name, _)| name == variant_name)
-                        .unwrap_or(0)
-                } else if let Some(choice) = self.ctx.find_imported_choice_for_type(*choice_type) {
-                    choice
-                        .variants
-                        .iter()
-                        .position(|v| v.name == *variant_name)
-                        .unwrap_or(0)
-                } else {
-                    0
-                };
+                let type_idx = crate::lower::types::lower_type(self.ctx, *choice_type);
+                let variant_idx =
+                    if let Some(choice_symbol) = self.struct_symbol_for_type(*choice_type) {
+                        let variants =
+                            crate::lower::types::get_choice_variants(&self.ctx, choice_symbol);
+                        variants
+                            .iter()
+                            .position(|(name, _)| name == variant_name)
+                            .unwrap_or(0)
+                    } else if let Some(choice) =
+                        crate::lower::types::find_imported_choice_for_type(&self.ctx, *choice_type)
+                    {
+                        choice
+                            .variants
+                            .iter()
+                            .position(|v| v.name == *variant_name)
+                            .unwrap_or(0)
+                    } else {
+                        0
+                    };
 
                 let payload_reg = if let Some(op) = payload_operand {
                     self.operand_reg(op)
@@ -517,11 +526,12 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                 // `array_type` must lower to ImageType::Array or ImageType::FixedArray.
                 // The VM extracts the element type from that image type and then
                 // zero-initialises the backing buffer.
-                let type_idx = self.ctx.lower_type(*array_type);
+                let type_idx = crate::lower::types::lower_type(self.ctx, *array_type);
 
-                let size_const = self
-                    .ctx
-                    .get_or_create_constant(&MirConstant::Int(*size as i64));
+                let size_const = crate::lower::constants::get_or_create_constant(
+                    &mut self.ctx,
+                    &MirConstant::Int(*size as i64),
+                );
 
                 let len_reg = self.alloc_temp();
 
@@ -541,7 +551,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
             RValue::NewArrayZeroedDynamic {
                 array_type, length, ..
             } => {
-                let type_idx = self.ctx.lower_type(*array_type);
+                let type_idx = crate::lower::types::lower_type(self.ctx, *array_type);
                 let len_reg = self.operand_reg(length);
 
                 self.instructions.push(Instruction::NewArray {
@@ -558,12 +568,12 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
     pub fn field_idx_for_member(&self, obj_operand: &Operand, field_name: &str) -> FieldIdx {
         let obj_type = self.get_operand_type(obj_operand);
         let table = self.ctx.type_result.layer().table();
-        let resolved_type = self.ctx.resolve_alias_type(obj_type);
+        let resolved_type = crate::lower::types::resolve_alias_type(self.ctx, obj_type);
 
         let field_idx = if matches!(table.kind(resolved_type), Some(TypeKind::Tuple { .. })) {
             field_name.parse::<u16>().unwrap_or(0)
         } else if let Some(symbol) = self.struct_symbol_for_type(obj_type) {
-            let struct_fields = self.ctx.get_struct_fields(symbol);
+            let struct_fields = crate::lower::types::get_struct_fields(self.ctx, symbol);
             struct_fields
                 .iter()
                 .position(|(name, _)| name == field_name)
@@ -586,7 +596,8 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                         self.instructions.push(Instruction::LoadNull { dest: temp })
                     }
                     _ => {
-                        let const_idx = self.ctx.get_or_create_constant(constant);
+                        let const_idx =
+                            crate::lower::constants::get_or_create_constant(self.ctx, constant);
                         self.instructions.push(Instruction::LoadConst {
                             dest: temp,
                             const_idx,
@@ -602,7 +613,8 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                         self.instructions.push(Instruction::LoadNull { dest: temp })
                     }
                     _ => {
-                        let const_idx = self.ctx.get_or_create_constant(constant);
+                        let const_idx =
+                            crate::lower::constants::get_or_create_constant(self.ctx, constant);
                         self.instructions.push(Instruction::LoadConst {
                             dest: temp,
                             const_idx,
@@ -627,7 +639,8 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                 match constant {
                     MirConstant::Null => self.instructions.push(Instruction::LoadNull { dest }),
                     _ => {
-                        let const_idx = self.ctx.get_or_create_constant(constant);
+                        let const_idx =
+                            crate::lower::constants::get_or_create_constant(self.ctx, constant);
                         self.instructions
                             .push(Instruction::LoadConst { dest, const_idx });
                     }
@@ -636,7 +649,8 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
             Operand::Constant(constant) => match constant {
                 MirConstant::Null => self.instructions.push(Instruction::LoadNull { dest }),
                 _ => {
-                    let const_idx = self.ctx.get_or_create_constant(constant);
+                    let const_idx =
+                        crate::lower::constants::get_or_create_constant(self.ctx, constant);
                     self.instructions
                         .push(Instruction::LoadConst { dest, const_idx });
                 }
@@ -708,7 +722,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                 };
                 for i in 0..table.len() {
                     let ty_id = TypeId::new(i as u32);
-                    if matches!(table.kind(ty_id), Some(TypeKind::Primitive(p)) if *p == prim) {
+                    if matches!(table.kind(ty_id), Some(TypeKind::Primitive(p)) if p == &prim) {
                         return ty_id;
                     }
                 }
@@ -718,7 +732,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
     }
 
     fn struct_symbol_for_type(&self, ty: TypeId) -> Option<SymbolId> {
-        let ty = self.ctx.resolve_alias_type(ty);
+        let ty = crate::lower::types::resolve_alias_type(self.ctx, ty);
         let layer = self.ctx.type_result.layer();
         let table = layer.table();
         let mut current = ty;

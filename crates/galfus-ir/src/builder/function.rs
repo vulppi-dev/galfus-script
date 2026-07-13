@@ -345,9 +345,10 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                     continue;
                 }
                 if let Some(decl) = self.locals.iter().find(|l| l.id == local_id)
-                    && self.builder.is_owned_type(decl.ty) {
-                        self.current_instructions.push(Instruction::Drop(local_id));
-                    }
+                    && self.builder.is_owned_type(decl.ty)
+                {
+                    self.current_instructions.push(Instruction::Drop(local_id));
+                }
             }
             for t in self.transactions.iter().rev() {
                 if t.scope_depth == i {

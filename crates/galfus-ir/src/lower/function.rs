@@ -166,7 +166,10 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                             self.load_operand_to(&args[0], arg_reg);
                             self.instructions.push(Instruction::Write { src: arg_reg });
 
-                            let null_idx = self.ctx.get_or_create_constant(&MirConstant::Null);
+                            let null_idx = crate::lower::constants::get_or_create_constant(
+                                &mut self.ctx,
+                                &MirConstant::Null,
+                            );
                             self.instructions.push(Instruction::LoadConst {
                                 dest: Reg(destination.raw() as u16),
                                 const_idx: null_idx,
@@ -221,9 +224,10 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                             self.load_operand_to(arg_op, extra_regs[i]);
                         }
 
-                        let name_const = self
-                            .ctx
-                            .get_or_create_constant(&MirConstant::String(method_name.clone()));
+                        let name_const = crate::lower::constants::get_or_create_constant(
+                            &mut self.ctx,
+                            &MirConstant::String(method_name.clone()),
+                        );
 
                         self.instructions.push(Instruction::CallMethod {
                             dest: Reg(destination.raw() as u16),
@@ -278,9 +282,10 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                 }
 
                 Terminator::Panic(msg) => {
-                    let const_idx = self
-                        .ctx
-                        .get_or_create_constant(&MirConstant::String(msg.clone()));
+                    let const_idx = crate::lower::constants::get_or_create_constant(
+                        &mut self.ctx,
+                        &MirConstant::String(msg.clone()),
+                    );
                     self.instructions.push(Instruction::Panic { const_idx });
                 }
                 Terminator::Jump { target, args: _ } => {

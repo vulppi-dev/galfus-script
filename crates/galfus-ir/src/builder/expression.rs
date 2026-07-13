@@ -483,9 +483,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                                 if span.start() < self.builder.source_text.len()
                                     && span.end() <= self.builder.source_text.len()
                                 {
-                                    self.builder.source_text
-                                        [span.start()..span.end()]
-                                        .to_string()
+                                    self.builder.source_text[span.start()..span.end()].to_string()
                                 } else {
                                     String::new()
                                 }

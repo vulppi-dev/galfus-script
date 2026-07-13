@@ -331,10 +331,11 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                 for child in metadata_list.children() {
                     if let Some(child_node) = self.builder.graph.syntax().node(*child)
                         && child_node.kind() == SyntaxNodeKind::KeywordMetadataFlag
-                            && let Some(flag_ident) = self.builder.graph.syntax().child(*child, 0)
-                                && self.builder.node_text(flag_ident) == "shared" {
-                                    found_shared = true;
-                                }
+                        && let Some(flag_ident) = self.builder.graph.syntax().child(*child, 0)
+                        && self.builder.node_text(flag_ident) == "shared"
+                    {
+                        found_shared = true;
+                    }
                 }
             }
             if found_shared {

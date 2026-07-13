@@ -247,9 +247,9 @@ impl<'a> MirBuilder<'a> {
                     .resolution()
                     .and_then(|res| res.declaration_symbol(name))
             }) == Some(symbol)
-            {
-                return Some(node);
-            }
+        {
+            return Some(node);
+        }
 
         for child in syntax_node.children() {
             if let Some(found) = self.find_function_item_for_symbol(*child, symbol) {
@@ -348,9 +348,7 @@ impl<'a> MirBuilder<'a> {
     pub(super) fn node_text(&self, node: NodeId) -> &str {
         if let Some(syntax_node) = self.graph.syntax().node(node) {
             let span = syntax_node.span();
-            if span.start() <= self.source_text.len()
-                && span.end() <= self.source_text.len()
-            {
+            if span.start() <= self.source_text.len() && span.end() <= self.source_text.len() {
                 return &self.source_text[span.start()..span.end()];
             }
         }

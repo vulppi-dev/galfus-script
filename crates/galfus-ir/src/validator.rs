@@ -106,11 +106,12 @@ fn validate_function(func: &MirFunction) -> Result<(), Vec<ValidationError>> {
         match &block.terminator {
             Terminator::Jump { target, args } => {
                 if let Some(target_block) = blocks.get(target)
-                    && args.len() != target_block.parameters.len() {
-                        errors.push(ValidationError {
-                            message: "Jump arguments length mismatch".to_string(),
-                        });
-                    }
+                    && args.len() != target_block.parameters.len()
+                {
+                    errors.push(ValidationError {
+                        message: "Jump arguments length mismatch".to_string(),
+                    });
+                }
             }
             Terminator::Branch {
                 true_block,
@@ -120,17 +121,19 @@ fn validate_function(func: &MirFunction) -> Result<(), Vec<ValidationError>> {
                 ..
             } => {
                 if let Some(tb) = blocks.get(true_block)
-                    && true_args.len() != tb.parameters.len() {
-                        errors.push(ValidationError {
-                            message: "Branch true arguments mismatch".to_string(),
-                        });
-                    }
+                    && true_args.len() != tb.parameters.len()
+                {
+                    errors.push(ValidationError {
+                        message: "Branch true arguments mismatch".to_string(),
+                    });
+                }
                 if let Some(fb) = blocks.get(false_block)
-                    && false_args.len() != fb.parameters.len() {
-                        errors.push(ValidationError {
-                            message: "Branch false arguments mismatch".to_string(),
-                        });
-                    }
+                    && false_args.len() != fb.parameters.len()
+                {
+                    errors.push(ValidationError {
+                        message: "Branch false arguments mismatch".to_string(),
+                    });
+                }
             }
             _ => {}
         }
