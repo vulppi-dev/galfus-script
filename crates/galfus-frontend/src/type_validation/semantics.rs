@@ -297,15 +297,27 @@ impl<'a> DeclarationTypeChecker<'a> {
             .first_child_of_kind(node, SyntaxNodeKind::Initializer)?;
         let expression = self.graph.syntax().child(initializer, 0)?;
 
-        let symbols = self.declaration_symbols_in_node(
-            node,
-            &[
-                SymbolKind::Var,
-                SymbolKind::Const,
-                SymbolKind::PatternBinding,
-                SymbolKind::TypePatternBinding,
-            ],
-        );
+        let mut symbols = Vec::new();
+        let target_kinds = &[
+            SymbolKind::Var,
+            SymbolKind::Const,
+            SymbolKind::PatternBinding,
+            SymbolKind::TypePatternBinding,
+        ];
+
+        if let Some(pattern) = self
+            .graph
+            .syntax()
+            .first_child_of_kind(node, SyntaxNodeKind::BindingPattern)
+        {
+            symbols = self.declaration_symbols_in_node(pattern, target_kinds);
+        } else if let Some(identifier) = self
+            .graph
+            .syntax()
+            .first_child_of_kind(node, SyntaxNodeKind::Identifier)
+        {
+            symbols = self.declaration_symbols_in_node(identifier, target_kinds);
+        }
 
         if symbols.is_empty() {
             return None;

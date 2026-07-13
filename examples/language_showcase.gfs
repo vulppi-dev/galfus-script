@@ -177,8 +177,29 @@ fn transactions(): i32 {
   return value
 }
 
+struct KeyValue { key: i32, value: i32 }
+
+fn destructuring_showcase({ x, y }: Point): i32 {
+  var { x: local_x, y: local_y } = new(Point) { x, y }
+  
+  const [first, ...rest] = [local_x, local_y, 10]
+  
+  var total = first
+  for { key, value } in [ new(KeyValue) { key: 1, value: 2 } ] {
+    total += key + value
+  }
+
+  const result = instanceof local_x {
+    i32 number => number,
+    _ => 0,
+  }
+
+  return total + result
+}
+
 export fn main(_args: [[u8]]): i32 {
   const point = structs_and_methods()
+  const destructured = destructuring_showcase(point)
   const result = choices_and_match(Outcome::Ok(bindings_and_literals()))
   const narrowed = narrowing(result)
   const ranged = loops_and_ranges() + quantity_ranges()
@@ -191,5 +212,5 @@ export fn main(_args: [[u8]]): i32 {
 
   println(bytes)
 
-  return narrowed + ranged + looped + namedLooped + dispatched + arrow + copied.x
+  return destructured + narrowed + ranged + looped + namedLooped + dispatched + arrow + copied.x
 }

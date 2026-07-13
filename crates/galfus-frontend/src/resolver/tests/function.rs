@@ -132,9 +132,11 @@ fn resolve_binds_parameter_declaration_to_symbol() {
 
     let parameter = syntax.first_child(parameters).unwrap();
 
-    let name = syntax
-        .first_child_of_kind(parameter, SyntaxNodeKind::Identifier)
+    let binding = syntax
+        .first_child_of_kind(parameter, SyntaxNodeKind::BindingPattern)
         .unwrap();
+
+    let name = syntax.first_child(binding).unwrap();
 
     let symbol = resolution.declaration_symbol(name).unwrap();
     let symbol = resolution.symbol(symbol).unwrap();

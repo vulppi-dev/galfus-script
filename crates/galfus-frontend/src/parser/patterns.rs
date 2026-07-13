@@ -326,10 +326,51 @@ impl Parser {
             return self.parse_wildcard_pattern();
         }
 
-        if self.at(&TokenKind::Identifier)
-            && self.peek_after_newlines(1).kind() == &TokenKind::Arrow
-        {
-            return self.parse_binding_pattern();
+        if self.at(&TokenKind::Identifier) {
+            let mut offset = 1;
+            let mut depth = 0;
+            let is_struct_pattern = loop {
+                let kind = self.peek(offset).kind();
+                match kind {
+                    TokenKind::Newline => {
+                        offset += 1;
+                    }
+                    TokenKind::Less => {
+                        depth += 1;
+                        offset += 1;
+                    }
+                    TokenKind::Greater => {
+                        if depth > 0 {
+                            depth -= 1;
+                        }
+                        offset += 1;
+                    }
+                    TokenKind::LeftBrace if depth == 0 => {
+                        break true;
+                    }
+                    TokenKind::Identifier
+                    | TokenKind::ColonColon
+                    | TokenKind::Comma
+                    | TokenKind::Integer
+                    | TokenKind::Float
+                    | TokenKind::String
+                    | TokenKind::True
+                    | TokenKind::False => {
+                        offset += 1;
+                    }
+                    _ => {
+                        break false;
+                    }
+                }
+            };
+
+            if is_struct_pattern {
+                return self.parse_struct_pattern();
+            }
+
+            if self.peek_after_newlines(1).kind() == &TokenKind::Arrow {
+                return self.parse_binding_pattern();
+            }
         }
 
         self.parse_type_pattern()

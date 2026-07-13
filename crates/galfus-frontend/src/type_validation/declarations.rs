@@ -85,10 +85,19 @@ impl<'a> DeclarationTypeChecker<'a> {
             }
 
             SyntaxNodeKind::Parameter | SyntaxNodeKind::RestParameter => {
-                self.bind_direct_declaration_type(
-                    node,
-                    &[SymbolKind::Parameter, SymbolKind::RestParameter],
-                );
+                let Some(type_node) = self.first_type_child(node) else {
+                    return;
+                };
+
+                let Some(ty) = self.layer.node_type(type_node) else {
+                    return;
+                };
+
+                if let Some(pattern) = self.graph.syntax().first_child_of_kind(node, SyntaxNodeKind::BindingPattern) {
+                    self.bind_binding_pattern_type(pattern, ty);
+                } else if let Some(symbol) = self.direct_identifier_symbol_any(node, &[SymbolKind::Parameter, SymbolKind::RestParameter]) {
+                    self.layer.bind_symbol_type(symbol, ty);
+                }
             }
 
             SyntaxNodeKind::StructField | SyntaxNodeKind::WeakStructField => {
@@ -349,6 +358,7 @@ impl<'a> DeclarationTypeChecker<'a> {
     }
 
     pub(super) fn bind_binding_pattern_type(&mut self, pattern: NodeId, ty: TypeId) {
+        println!("bind_binding_pattern_type CALLED with {:?}", pattern);
         let Some(pattern_node) = self.graph.syntax().node(pattern) else {
             return;
         };

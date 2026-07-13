@@ -271,10 +271,6 @@ impl<'a> DeclarationTypeChecker<'a> {
                 continue;
             };
 
-            if child_node.kind() != SyntaxNodeKind::Identifier {
-                continue;
-            }
-
             let binding_type = if position == 0 {
                 element_type
             } else {
@@ -283,17 +279,21 @@ impl<'a> DeclarationTypeChecker<'a> {
 
             self.layer.bind_node_type(child, binding_type);
 
-            if self.node_text(child) == "_" {
-                continue;
-            }
+            if child_node.kind() == SyntaxNodeKind::BindingPattern {
+                self.bind_binding_pattern_type(child, binding_type);
+            } else if child_node.kind() == SyntaxNodeKind::Identifier {
+                if self.node_text(child) == "_" {
+                    continue;
+                }
 
-            let symbol = self
-                .graph
-                .resolution()
-                .and_then(|resolution| resolution.declaration_symbol(child));
+                let symbol = self
+                    .graph
+                    .resolution()
+                    .and_then(|resolution| resolution.declaration_symbol(child));
 
-            if let Some(symbol) = symbol {
-                self.layer.bind_symbol_type(symbol, binding_type);
+                if let Some(symbol) = symbol {
+                    self.layer.bind_symbol_type(symbol, binding_type);
+                }
             }
         }
 

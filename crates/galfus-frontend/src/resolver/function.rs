@@ -150,15 +150,11 @@ impl<'a> Resolver<'a> {
     }
 
     fn declare_parameter_symbol(&mut self, parameter: NodeId, kind: SymbolKind, scope: ScopeId) {
-        let Some(name) = self
-            .syntax
-            .first_child_of_kind(parameter, SyntaxNodeKind::Identifier)
-        else {
-            return;
-        };
-
-        let symbol_name = self.node_text(name);
-
-        self.declare_symbol(symbol_name, kind, name, scope);
+        if let Some(binding) = self.syntax.first_child_of_kind(parameter, SyntaxNodeKind::BindingPattern) {
+            self.declare_binding_pattern(binding, kind, scope);
+        } else if let Some(name) = self.syntax.first_child_of_kind(parameter, SyntaxNodeKind::Identifier) {
+            let symbol_name = self.node_text(name);
+            self.declare_symbol(symbol_name, kind, name, scope);
+        }
     }
 }

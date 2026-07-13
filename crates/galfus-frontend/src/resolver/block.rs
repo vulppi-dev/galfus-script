@@ -208,17 +208,14 @@ impl<'a> Resolver<'a> {
                 continue;
             };
 
-            if child_node.kind() != SyntaxNodeKind::Identifier {
-                continue;
+            if child_node.kind() == SyntaxNodeKind::BindingPattern {
+                self.declare_binding_pattern(*child, SymbolKind::ForBinding, scope);
+            } else if child_node.kind() == SyntaxNodeKind::Identifier {
+                let symbol_name = self.node_text(*child);
+                if symbol_name != "_" {
+                    self.declare_symbol(symbol_name, SymbolKind::ForBinding, *child, scope);
+                }
             }
-
-            let symbol_name = self.node_text(*child);
-
-            if symbol_name == "_" {
-                continue;
-            }
-
-            self.declare_symbol(symbol_name, SymbolKind::ForBinding, *child, scope);
         }
     }
 

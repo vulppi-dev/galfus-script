@@ -243,11 +243,7 @@ impl Parser {
     }
 
     fn parse_for_binding_name(&mut self) -> Option<NodeId> {
-        if self.at(&TokenKind::Underscore) {
-            return self.parse_wildcard_pattern();
-        }
-
-        self.parse_identifier()
+        self.parse_binding_pattern()
     }
 
     pub(super) fn parse_for_statement(&mut self) -> Option<NodeId> {

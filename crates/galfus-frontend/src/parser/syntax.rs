@@ -129,12 +129,16 @@ impl Parser {
             return self.parse_rest_parameter(decorators);
         }
 
-        let name = self.parse_identifier_or_self()?;
+        let name = if self.at(&TokenKind::SelfKw) {
+            self.parse_identifier_or_self()?
+        } else {
+            self.parse_binding_pattern()?
+        };
         let name_span = self.node_span(name);
 
         self.skip_newlines();
 
-        if self.node_text(name) == "self" {
+        if self.node_text(name) == "self" && self.graph.syntax().node(name).unwrap().kind() == SyntaxNodeKind::Identifier {
             if self.at(&TokenKind::Colon) {
                 let colon = self.bump();
                 self.graph.push_diagnostic(Diagnostic::error_with_message(
