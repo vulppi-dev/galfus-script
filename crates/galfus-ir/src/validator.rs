@@ -269,6 +269,7 @@ fn apply_initialization_effects(block: &BasicBlock, initialized: &mut HashSet<Lo
             _ => {}
         }
     }
+
     match &block.terminator {
         Terminator::Return(Some(Operand::Local(l))) => {
             initialized.remove(l);

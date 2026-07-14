@@ -122,6 +122,7 @@ impl<'a> MirBuilder<'a> {
         } else {
             builder_ctx.terminate_block(Terminator::Return(None));
         }
+        builder_ctx.flush_current_instructions();
 
         let mut func = MirFunction {
             id: func_id,

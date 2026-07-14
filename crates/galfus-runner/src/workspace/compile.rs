@@ -122,6 +122,14 @@ pub fn compile_workspace_to_image(check_result: &WorkspaceCheckResult) -> Result
         }
     }
 
+    let mut function_names_by_global_idx = HashMap::new();
+    for (mod_idx, mir_mod) in mir_modules.iter().enumerate() {
+        for func in &mir_mod.functions {
+            let global_idx = global_func_map[&(mod_idx, func.id)];
+            function_names_by_global_idx.insert(global_idx, func.name.clone());
+        }
+    }
+
     let mut types = Vec::new();
     let mut struct_layouts = Vec::new();
     let mut choice_layouts = Vec::new();
@@ -154,12 +162,13 @@ pub fn compile_workspace_to_image(check_result: &WorkspaceCheckResult) -> Result
         for (&(m_idx, func_id), &global_idx) in &global_func_map {
             if m_idx == mod_idx {
                 ctx.function_map.insert(func_id, global_idx);
+                if let Some(name) = function_names_by_global_idx.get(&global_idx) {
+                    ctx.function_names.insert(func_id, name.clone());
+                }
             }
         }
 
         for mir_func in &mir_mod.functions {
-            ctx.function_names
-                .insert(mir_func.id, mir_func.name.clone());
             ctx.function_return_types
                 .insert(mir_func.id, mir_func.return_type);
         }

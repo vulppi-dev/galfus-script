@@ -122,20 +122,55 @@ impl VirtualMachine {
                     }
                 };
 
-                // Look up a function whose name matches the method name exactly
-                // or ends with `::<method_name>`.
-                let func_idx = self
-                    .image
-                    .functions
-                    .iter()
-                    .position(|f| {
-                        f.name == method_name || f.name.ends_with(&format!("::{method_name}"))
-                    })
-                    .map(|i| FuncIdx(i as u16))
-                    .ok_or_else(|| VmError::TypeMismatch {
-                        expected: format!("function named '{method_name}'"),
-                        found: "no matching function in image".to_string(),
-                    })?;
+                if let Some(value) =
+                    self.execute_array_iterator_method(obj, method_name.as_str())?
+                {
+                    self.write_reg(dest, value)?;
+                    return Ok(ExecutionStep::Continue);
+                }
+
+                let receiver_layout_name = match self.read_reg(obj)? {
+                    Value::Object(obj_ref) => match self.get_object(obj_ref)? {
+                        HeapObject::Struct { layout_idx, .. } => self
+                            .image
+                            .struct_layouts
+                            .get(layout_idx.raw() as usize)
+                            .map(|layout| layout.name.clone()),
+                        _ => None,
+                    },
+                    _ => None,
+                };
+                let qualified_name = receiver_layout_name
+                    .as_ref()
+                    .map(|layout_name| format!("{layout_name}::{method_name}"));
+
+                let func_idx = if let Some(qualified_name) = qualified_name {
+                    self.image
+                        .functions
+                        .iter()
+                        .position(|function| {
+                            function.name == qualified_name
+                                || function.name.starts_with(&format!("{qualified_name}#"))
+                        })
+                        .map(|index| FuncIdx(index as u16))
+                        .ok_or_else(|| VmError::TypeMismatch {
+                            expected: format!("function named '{qualified_name}'"),
+                            found: "no matching function in image".to_string(),
+                        })?
+                } else {
+                    self.image
+                        .functions
+                        .iter()
+                        .position(|function| {
+                            function.name == method_name
+                                || function.name.ends_with(&format!("::{method_name}"))
+                        })
+                        .map(|index| FuncIdx(index as u16))
+                        .ok_or_else(|| VmError::TypeMismatch {
+                            expected: format!("function named '{method_name}'"),
+                            found: "no matching function in image".to_string(),
+                        })?
+                };
 
                 let callee = &self.image.functions[func_idx.raw() as usize];
                 if arg_count != callee.param_count {
@@ -263,5 +298,76 @@ impl VirtualMachine {
         }
 
         Ok(ExecutionStep::Continue)
+    }
+
+    fn execute_array_iterator_method(
+        &mut self,
+        obj: Reg,
+        method_name: &str,
+    ) -> Result<Option<Value>, VmError> {
+        let Value::Object(iterator_ref) = self.read_reg(obj)? else {
+            return Ok(None);
+        };
+
+        let (array_ref, current) = match self.get_object(iterator_ref)? {
+            HeapObject::Struct { layout_idx, fields } => {
+                let Some(layout) = self.image.struct_layouts.get(layout_idx.raw() as usize) else {
+                    return Ok(None);
+                };
+                if layout.name != "ArrayIterator" {
+                    return Ok(None);
+                }
+                let array_ref = match fields.first() {
+                    Some(Value::Object(array_ref)) => *array_ref,
+                    value => {
+                        return Err(VmError::TypeMismatch {
+                            expected: "ArrayIterator array field".to_string(),
+                            found: format!("{value:?}"),
+                        });
+                    }
+                };
+                let current = match fields.get(1) {
+                    Some(Value::Int32(current)) => *current,
+                    value => {
+                        return Err(VmError::TypeMismatch {
+                            expected: "ArrayIterator index field".to_string(),
+                            found: format!("{value:?}"),
+                        });
+                    }
+                };
+                (array_ref, current)
+            }
+            _ => return Ok(None),
+        };
+
+        match method_name {
+            "iter" => {
+                let HeapObject::Struct { fields, .. } = self.get_object_mut(iterator_ref)? else {
+                    unreachable!("iterator object was validated as a struct")
+                };
+                fields[1] = Value::Int32(0);
+                Ok(Some(Value::Object(iterator_ref)))
+            }
+            "next" => {
+                let value = match self.get_object(array_ref)? {
+                    HeapObject::Array { elements, .. } => elements.get(current as usize).cloned(),
+                    value => {
+                        return Err(VmError::TypeMismatch {
+                            expected: "ArrayIterator backing array".to_string(),
+                            found: format!("{value:?}"),
+                        });
+                    }
+                };
+                if value.is_some() {
+                    let HeapObject::Struct { fields, .. } = self.get_object_mut(iterator_ref)?
+                    else {
+                        unreachable!("iterator object was validated as a struct")
+                    };
+                    fields[1] = Value::Int32(current + 1);
+                }
+                Ok(Some(value.unwrap_or(Value::Null)))
+            }
+            _ => Ok(None),
+        }
     }
 }

@@ -2,6 +2,7 @@ mod check;
 mod format_parse;
 mod graph;
 mod import_call_resolution;
+mod io_lowering;
 mod module_init;
 mod mvp_validation;
 mod reserved_builtins;

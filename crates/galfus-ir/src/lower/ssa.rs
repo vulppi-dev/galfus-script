@@ -193,10 +193,32 @@ pub fn convert_to_ssa(func: &mut MirFunction) {
                 }
                 Instruction::Call {
                     args, destination, ..
-                }
-                | Instruction::ConstraintCall {
-                    args, destination, ..
                 } => {
+                    for op in args {
+                        self.replace_operand(block, op);
+                    }
+                    let orig_target = *destination;
+                    let target_decl = self
+                        .new_locals
+                        .iter()
+                        .find(|d| d.id == orig_target)
+                        .unwrap()
+                        .clone();
+                    let new_id = LocalId::new(self.new_locals.len() as u32);
+                    self.new_locals.push(LocalDecl {
+                        id: new_id,
+                        ty: target_decl.ty,
+                    });
+                    *destination = new_id;
+                    self.write_variable(block, orig_target, new_id);
+                }
+                Instruction::ConstraintCall {
+                    obj,
+                    args,
+                    destination,
+                    ..
+                } => {
+                    self.replace_operand(block, obj);
                     for op in args {
                         self.replace_operand(block, op);
                     }
@@ -300,7 +322,13 @@ pub fn convert_to_ssa(func: &mut MirFunction) {
                             .find(|(p, _)| *p == block_id)
                             .map(|(_, v)| *v)
                             .unwrap_or(*orig);
-                        args.push(Operand::Local(val));
+                        let is_parameter = (orig.raw() as usize) < func.parameter_types.len();
+                        let operand = if val == *orig && !is_parameter {
+                            Operand::Constant(Constant::Null)
+                        } else {
+                            Operand::Local(val)
+                        };
+                        args.push(operand);
                     }
                 }
             }
