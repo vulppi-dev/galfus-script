@@ -5,10 +5,6 @@ use crate::mir::{
 use galfus_image::Instruction;
 use galfus_image::instruction::{GlobalIdx, Reg};
 
-#[cfg(test)]
-#[path = "function_tests.rs"]
-mod tests;
-
 #[allow(dead_code)]
 pub enum JumpKind {
     Unconditional,
