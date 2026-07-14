@@ -208,18 +208,21 @@ impl<'a> DeclarationTypeChecker<'a> {
         if let Some(TypeKind::GenericInstance { base, arguments }) =
             self.layer.table().kind(expected).cloned()
         {
-            let base = self.resolve_alias_type(base);
-            if let Some(TypeKind::Named { symbol }) = self.layer.table().kind(base)
-                && *symbol == owner_symbol
-            {
-                expected_choice_type = base;
-                generic_arguments = arguments;
+            let base = self.resolve_path_type(base);
+            let owner_base = self.resolve_path_type(owner_type);
+            if let Some(TypeKind::Named { symbol }) = self.layer.table().kind(base) {
+                if let Some(TypeKind::Named { symbol: owner_sym }) = self.layer.table().kind(owner_base) {
+                    if *symbol == *owner_sym {
+                        expected_choice_type = base;
+                        generic_arguments = arguments;
+                    }
+                }
             }
         }
 
         if let Some(target) = self.graph.syntax().child(pattern, 0) {
             if let Some(target_type) = self.infer_expression_type(target) {
-                let resolved = self.resolve_alias_type(target_type);
+                let resolved = self.resolve_path_type(target_type);
                 if let Some(TypeKind::GenericInstance { arguments, .. }) =
                     self.layer.table().kind(resolved)
                 {
@@ -229,7 +232,8 @@ impl<'a> DeclarationTypeChecker<'a> {
             }
         }
 
-        if !self.is_assignable(expected_choice_type, owner_type) {
+        let assignable = self.is_assignable(expected_choice_type, owner_type);
+        if !assignable {
             self.report_invalid_match_pattern_type(pattern, expected_choice_type, owner_type);
             return;
         }
@@ -384,11 +388,12 @@ impl<'a> DeclarationTypeChecker<'a> {
             },
             _ => Vec::new(),
         };
-        if !segments.is_empty() {
-            segments.push(variant.name.clone());
-            let variant_ty = self.layer.table_mut().intern_path(owner_symbol, segments);
-            self.layer.bind_node_type(pattern, variant_ty);
+        if segments.is_empty() {
+            segments.push(choice.name.clone());
         }
+        segments.push(variant.name.clone());
+        let variant_ty = self.layer.table_mut().intern_path(owner_symbol, segments);
+        self.layer.bind_node_type(pattern, variant_ty);
 
         true
     }

@@ -47,6 +47,7 @@ var bytes: [u8] = [27, 300]
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
+    let result = crate::type_validation::check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -99,6 +100,7 @@ var values: [i32] = [1, true]
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
+    let result = crate::type_validation::check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -233,6 +235,7 @@ var values: [i32] = [0, ...base, 3]
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
+    let result = crate::type_validation::check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -259,6 +262,7 @@ var values = []
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
+    let result = crate::type_validation::check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {

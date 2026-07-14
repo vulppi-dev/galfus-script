@@ -4,11 +4,11 @@
 export fn concat(a: [u8], b: [u8]): [u8] {
   var result = new([u8], a.length + b.length)
   var i: i32 = 0
-  for byte in copy a {
+  for byte in a {
     result[i] = byte
     i += 1
   }
-  for byte in copy b {
+  for byte in b {
     result[i] = byte
     i += 1
   }
@@ -31,7 +31,7 @@ export fn slice(s: [u8], start: i32, count: i32): [u8] {
   var result = new([u8], sliceLen)
   var index: i32 = 0
   var writeIndex: i32 = 0
-  for byte in copy s {
+  for byte in s {
     if index >= start && index < end {
       result[writeIndex] = byte
       writeIndex += 1
@@ -53,7 +53,7 @@ export fn repeat(s: [u8], n: i32): [u8] {
     if i >= n {
       break
     }
-    for byte in copy s {
+    for byte in s {
       result[destIdx] = byte
       destIdx += 1
     }
@@ -96,7 +96,7 @@ export fn trimStart(s: [u8]): [u8] {
   var start: i32 = 0
   var scanning = true
 
-  for byte in copy s {
+  for byte in s {
     if scanning && isAsciiSpace(byte) {
       start += 1
     } else {
@@ -111,7 +111,7 @@ export fn trimEnd(s: [u8]): [u8] {
   var end: i32 = 0
   var index: i32 = 0
 
-  for byte in copy s {
+  for byte in s {
     if !isAsciiSpace(byte) {
       end = index + 1
     }
@@ -129,7 +129,7 @@ export fn toUpper(s: [u8]): [u8] {
   var len = s.length
   var result = new([u8], len)
   var i: i32 = 0
-  for byte in copy s {
+  for byte in s {
     var code = <i32>byte
     if code >= 97 && code <= 122 {
       result[i] = <u8>(code - 32)
@@ -145,7 +145,7 @@ export fn toLower(s: [u8]): [u8] {
   var len = s.length
   var result = new([u8], len)
   var i: i32 = 0
-  for byte in copy s {
+  for byte in s {
     var code = <i32>byte
     if code >= 65 && code <= 90 {
       result[i] = <u8>(code + 32)

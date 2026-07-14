@@ -153,6 +153,7 @@ fn normalize(value: i32): i32 {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
+    let result = crate::type_validation::check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -182,6 +183,7 @@ fn normalize(value: i32 | null): i32 {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
+    let result = crate::type_validation::check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -298,6 +300,7 @@ fn normalize(value: i32 | null): i32 {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
+    let result = crate::type_validation::check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -327,6 +330,7 @@ fn normalize(value: i32): i32 {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
+    let result = crate::type_validation::check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {

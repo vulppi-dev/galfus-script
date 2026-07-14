@@ -49,7 +49,7 @@ fn module_surface_records_exported_type_definitions() {
     assert_eq!(surface.export("User").unwrap().kind(), SymbolKind::Struct);
     assert_eq!(surface.export("Status").unwrap().kind(), SymbolKind::Enum);
     assert!(surface.export("PrivateUser").is_none());
-    assert!(surface.export("User").unwrap().ty().is_none());
+    assert!(surface.export("User").unwrap().ty().is_some());
 }
 
 #[test]

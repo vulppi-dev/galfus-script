@@ -203,7 +203,9 @@ pub fn build_module_surface(graph: &ModuleAst, type_result: &TypeCheckResult) ->
         .iter()
         .map(|export| {
             let ty = if export.kind().is_nominal_surface_type() {
-                None
+                Some(ImportedType::NamedLocal {
+                    symbol: export.symbol(),
+                })
             } else {
                 type_result
                     .layer()
@@ -270,6 +272,18 @@ pub fn imported_surface_types_for_named_export(
         return imported_types;
     };
 
+    if let Some(ty) = export.ty() {
+        imported_types.insert_symbol_type(local_symbol, ty.clone());
+    }
+
+    if export.kind() == crate::SymbolKind::Constraint {
+        imported_types.insert_symbol_constraint(local_symbol, export.imported_constraint_surface());
+    }
+
+    if export.kind() == crate::SymbolKind::Choice {
+        imported_types.insert_symbol_choice(local_symbol, export.imported_choice_surface());
+    }
+
     for member in export.members() {
         if let Some(ty) = member.ty() {
             imported_types.insert_member_type(
@@ -299,7 +313,7 @@ fn surface_members_for_export(
         return Vec::new();
     };
 
-    scope
+    let mut members = scope
         .symbols()
         .iter()
         .filter_map(|(name, member_symbol)| {
@@ -311,11 +325,11 @@ fn surface_members_for_export(
                         .symbol_type(*member_symbol)
                         .and_then(|ty| transport_type(resolution, type_result, ty))?;
 
-                    Some(ModuleSurfaceMember::new(
+                    Some((member.declaration(), ModuleSurfaceMember::new(
                         name.to_string(),
                         member.kind(),
                         Some(ty),
-                    ))
+                    )))
                 }
 
                 SymbolKind::ConstraintFunction => {
@@ -324,34 +338,36 @@ fn surface_members_for_export(
                         .symbol_type(*member_symbol)
                         .and_then(|ty| transport_type(resolution, type_result, ty))?;
 
-                    Some(ModuleSurfaceMember::new(
+                    Some((member.declaration(), ModuleSurfaceMember::new(
                         name.to_string(),
                         member.kind(),
                         Some(ty),
-                    ))
+                    )))
                 }
 
-                SymbolKind::EnumVariant => Some(ModuleSurfaceMember::new(
+                SymbolKind::EnumVariant => Some((member.declaration(), ModuleSurfaceMember::new(
                     name.to_string(),
                     member.kind(),
                     None,
-                )),
+                ))),
 
                 SymbolKind::ChoiceVariant => {
                     let payload_types =
                         choice_payload_types(graph, type_result, member.declaration())?;
 
-                    Some(ModuleSurfaceMember::with_payload(
+                    Some((member.declaration(), ModuleSurfaceMember::with_payload(
                         name.to_string(),
                         member.kind(),
                         payload_types,
-                    ))
+                    )))
                 }
 
                 _ => None,
             }
         })
-        .collect()
+        .collect::<Vec<_>>();
+    members.sort_by_key(|(declaration, _)| declaration.raw());
+    members.into_iter().map(|(_, member)| member).collect()
 }
 
 fn surface_generic_parameters(

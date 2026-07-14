@@ -401,12 +401,12 @@ pub struct LoweredImportedChoiceVariant {
 
 #[derive(Debug, Clone)]
 pub struct TypeCheckResult {
-    layer: TypeLayer,
-    diagnostics: DiagnosticBag,
-    ownership_metadata: OwnershipMetadata,
+    pub(super) layer: TypeLayer,
+    pub(super) diagnostics: DiagnosticBag,
+    pub(super) ownership_metadata: OwnershipMetadata,
     pub imported_symbol_choices: HashMap<SymbolId, LoweredImportedChoice>,
     pub imported_path_choices: HashMap<NodeId, LoweredImportedChoice>,
-    range_desugars: HashMap<NodeId, RangeDesugarTarget>,
+    pub(super) range_desugars: HashMap<NodeId, RangeDesugarTarget>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

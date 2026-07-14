@@ -615,6 +615,10 @@ impl VirtualMachine {
             ImageType::Float32 => Value::Float32(0.0),
             ImageType::Float64 => Value::Float64(0.0),
             ImageType::Null => Value::Null,
+            ImageType::Struct(_)
+            | ImageType::Choice(_)
+            | ImageType::Array(_)
+            | ImageType::Tuple(_) => Value::Null,
             _ => {
                 return Err(VmError::TypeMismatch {
                     expected: "defaultable array element type".to_string(),

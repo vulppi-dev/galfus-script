@@ -76,7 +76,7 @@ pub fn lower_type(ctx: &mut LowerCtx, ty: TypeId) -> TypeIdx {
                 _ => ImageType::Null,
             }
         }
-        Some(TypeKind::Path { root: _, segments }) => {
+        Some(TypeKind::Path { root, segments }) => {
             if segments.len() == 1 {
                 if let Some(choice) = find_imported_choice_for_type(ctx, ty) {
                     let layout_idx = get_or_create_imported_choice_layout(ctx, &choice);
@@ -89,9 +89,14 @@ pub fn lower_type(ctx: &mut LowerCtx, ty: TypeId) -> TypeIdx {
                 let variant_name = &segments[1];
                 let choice = ctx
                     .type_result
-                    .imported_path_choices
-                    .values()
-                    .find(|c| c.name == *choice_name);
+                    .imported_symbol_choices
+                    .get(root)
+                    .or_else(|| {
+                        ctx.type_result
+                            .imported_path_choices
+                            .values()
+                            .find(|c| c.name == *choice_name)
+                    });
                 if let Some(choice) = choice {
                     let layout_idx = get_or_create_imported_choice_layout(ctx, choice);
                     let variant_idx = choice

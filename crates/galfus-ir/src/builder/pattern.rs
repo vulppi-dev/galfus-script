@@ -12,6 +12,24 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
     }
 
     fn get_imported_choice_variant(&self, pattern: NodeId) -> Option<(String, Vec<TypeId>)> {
+        let resolution = self.builder.graph.resolution()?;
+        if let Some(owner_symbol) = resolution.reference_symbol(pattern)
+            && let Some(choice) = self
+                .builder
+                .type_result
+                .imported_symbol_choices
+                .get(&owner_symbol)
+        {
+            let variant_name = self
+                .builder
+                .graph
+                .syntax()
+                .child(pattern, 1)
+                .map(|node| self.builder.node_text(node))?;
+            let variant = choice.variants.iter().find(|v| v.name == variant_name)?;
+            return Some((variant.name.clone(), variant.payload_types.clone()));
+        }
+
         let variant_ty = self.builder.type_result.layer().node_type(pattern)?;
         let table = self.builder.type_result.layer().table();
         let (_root, segments) = match table.kind(variant_ty) {
@@ -108,6 +126,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                     symbols.and_then(|(_, vs)| resolution.and_then(|res| res.symbol(vs)));
                 if let (Some((owner_symbol, variant_symbol)), Some(variant_data)) =
                     (symbols, variant_data)
+                    && self.get_imported_choice_variant(pattern_node_id).is_none()
                 {
                     match variant_data.kind() {
                         SymbolKind::EnumVariant => {
@@ -532,11 +551,27 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
     }
     pub(super) fn lower_destructuring_binding(
         &mut self,
-        pattern_node_id: NodeId,
+        mut pattern_node_id: NodeId,
         operand: Operand,
     ) {
         let syntax = self.builder.graph.syntax();
-        let pattern_node = syntax.node(pattern_node_id).unwrap();
+        let mut pattern_node = syntax.node(pattern_node_id).unwrap();
+
+        if pattern_node.kind() == SyntaxNodeKind::ForBinding {
+            pattern_node_id = pattern_node.first_child().unwrap();
+            pattern_node = syntax.node(pattern_node_id).unwrap();
+        }
+
+        if pattern_node.kind() == SyntaxNodeKind::Identifier {
+            let resolution = self.builder.graph.resolution();
+            if let Some(symbol) = resolution.and_then(|res| res.declaration_symbol(pattern_node_id)) {
+                let ty = self.symbol_type(symbol).unwrap_or_else(|| TypeId::new(0));
+                let local_id = self.declare_local(Some(symbol), ty);
+                self.current_instructions
+                    .push(Instruction::Assign(local_id, RValue::Use(operand)));
+            }
+            return;
+        }
 
         let child = match pattern_node.first_child() {
             Some(c) => c,

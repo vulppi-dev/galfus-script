@@ -97,6 +97,30 @@ impl<'a> DeclarationTypeChecker<'a> {
         }
     }
 
+    fn resume(
+        source: &'a SourceFile,
+        graph: &'a ModuleAst,
+        previous_result: TypeCheckResult,
+    ) -> Self {
+        Self {
+            source,
+            graph,
+            layer: previous_result.layer,
+            diagnostics: previous_result.diagnostics,
+            ownership_metadata: previous_result.ownership_metadata,
+            imported_member_types: HashMap::new(),
+            imported_symbol_constraints: HashMap::new(),
+            imported_path_constraints: HashMap::new(),
+            imported_symbol_choices: previous_result.imported_symbol_choices,
+            imported_path_choices: previous_result.imported_path_choices,
+            active_type_substitutions: Vec::new(),
+            imported_generic_params: HashMap::new(),
+            control_targets: Vec::new(),
+            transaction_depth: 0,
+            range_desugars: previous_result.range_desugars,
+        }
+    }
+
     fn into_result(self) -> TypeCheckResult {
         TypeCheckResult::with_ownership_metadata(
             self.layer,
@@ -108,7 +132,7 @@ impl<'a> DeclarationTypeChecker<'a> {
         )
     }
 
-    fn check(&mut self) {
+    fn check_declarations(&mut self) {
         self.bind_builtin_symbol_types();
         self.bind_builtin_constraint_symbol_types();
         self.bind_named_type_definition_symbols();
@@ -118,6 +142,12 @@ impl<'a> DeclarationTypeChecker<'a> {
         };
 
         self.bind_node_types(root);
+    }
+
+    fn check_definitions(&mut self) {
+        let Some(root) = self.graph.syntax().root() else {
+            return;
+        };
 
         self.check_decorators(root);
         self.check_keyword_metadata(root);
@@ -398,24 +428,30 @@ impl<'a> DeclarationTypeChecker<'a> {
 }
 
 pub fn check_declaration_types(source: &SourceFile, graph: &ModuleAst) -> TypeCheckResult {
-    let imported_types: &HashMap<SymbolId, ImportedType> = &HashMap::new();
-    let mut surface_types = ImportedSurfaceTypes::new();
-
-    for (symbol, ty) in imported_types {
-        surface_types.insert_symbol_type(*symbol, ty.clone());
-    }
-
-    check_declaration_types_with_surfaces(source, graph, &surface_types)
-}
-
-pub fn check_declaration_types_with_surfaces(
-    source: &SourceFile,
-    graph: &ModuleAst,
-    imported_types: &ImportedSurfaceTypes,
-) -> TypeCheckResult {
     let lowering = bind_types(source, graph);
 
     let mut checker = DeclarationTypeChecker::new(source, graph, lowering.into_layer());
+    checker.check_declarations();
+    checker.into_result()
+}
+
+pub fn check_definition_types(
+    source: &SourceFile,
+    graph: &ModuleAst,
+    previous_result: TypeCheckResult,
+) -> TypeCheckResult {
+    let mut checker = DeclarationTypeChecker::resume(source, graph, previous_result);
+    checker.check_definitions();
+    checker.into_result()
+}
+
+pub fn check_definition_types_with_surfaces(
+    source: &SourceFile,
+    graph: &ModuleAst,
+    previous_result: TypeCheckResult,
+    imported_types: &ImportedSurfaceTypes,
+) -> TypeCheckResult {
+    let mut checker = DeclarationTypeChecker::resume(source, graph, previous_result);
     checker.bind_imported_symbol_types(imported_types.symbol_types());
     checker.bind_imported_path_types(imported_types.path_types());
     checker.bind_imported_member_types(imported_types.member_types());
@@ -423,6 +459,6 @@ pub fn check_declaration_types_with_surfaces(
     checker.bind_imported_path_constraints(imported_types.path_constraints());
     checker.bind_imported_symbol_choices(imported_types.symbol_choices());
     checker.bind_imported_path_choices(imported_types.path_choices());
-    checker.check();
+    checker.check_definitions();
     checker.into_result()
 }

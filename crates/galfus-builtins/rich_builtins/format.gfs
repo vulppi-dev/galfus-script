@@ -170,7 +170,7 @@ fn parseInt64Raw(s: [u8]): ParseResult<i64> {
   var index = 0
 
   for byte in s {
-    if index == 0 && byte == 45 {
+    if index == 0 && <i32>byte == 45 {
       negative = true
     } else {
       if byte < 48 || byte > 57 {
@@ -253,7 +253,7 @@ fn parseBoolRaw(s: [u8]): ParseResult<bool> {
   if s.length == 4 {
     var ok = true
     var index = 0
-    for byte in copy s {
+    for byte in s {
       if index == 0 && byte != 116 {
         ok = false
       }
@@ -367,7 +367,7 @@ fn parseInt16(s: [u8]): ParseResult<i16> {
 }
 
 fn parseInt32(s: [u8]): ParseResult<i32> {
-  var value: i64 = 0
+  var value: i32 = 0
   var negative = false
   var hasDigit = false
   var index = 0
@@ -381,7 +381,7 @@ fn parseInt32(s: [u8]): ParseResult<i32> {
       }
 
       hasDigit = true
-      value = value * 10 + <i64> (byte - 48)
+      value = value * 10 + <i32> (byte - 48)
     }
     index += 1
   }

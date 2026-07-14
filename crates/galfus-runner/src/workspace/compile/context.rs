@@ -347,12 +347,6 @@ impl<'a> MyWorkspaceContext<'a> {
                     args: vec![Operand::Local(LocalId::new(0))],
                     destination: result_id,
                 }],
-                terminator: Terminator::Return(None),
-            },
-            BasicBlock {
-                parameters: Vec::new(),
-                id: BlockId::new(1),
-                instructions: Vec::new(),
                 terminator: Terminator::Return(Some(Operand::Local(result_id))),
             },
         ];

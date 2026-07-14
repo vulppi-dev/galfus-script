@@ -39,6 +39,7 @@ struct User satisfies Other {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
+    let result = crate::type_validation::check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -71,6 +72,7 @@ struct User satisfies Named {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
+    let result = crate::type_validation::check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -101,6 +103,7 @@ struct User satisfies Named {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
+    let result = crate::type_validation::check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -220,6 +223,7 @@ fn show(value: Stringable): [u8] {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
+    let result = crate::type_validation::check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -250,6 +254,7 @@ struct User satisfies Named {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
+    let result = crate::type_validation::check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -284,6 +289,7 @@ fn User::name(): i32 {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
+    let result = crate::type_validation::check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -318,6 +324,7 @@ fn User::set(value: i32): null {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
+    let result = crate::type_validation::check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -394,6 +401,7 @@ fn User::toString(self): i32 {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
+    let result = crate::type_validation::check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -441,6 +449,7 @@ struct IntBox satisfies HasValue<i32> {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
+    let result = crate::type_validation::check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -475,6 +484,7 @@ fn User::toString(self): [u8] {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
+    let result = crate::type_validation::check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -525,6 +535,7 @@ fn check_reports_generic_parameter_constraint_non_constraint_target() {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
+    let result = crate::type_validation::check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -557,6 +568,7 @@ fn check_reports_generic_parameter_constraint_missing_argument() {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
+    let result = crate::type_validation::check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -590,6 +602,7 @@ fn check_reports_generic_parameter_constraint_extra_argument() {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
+    let result = crate::type_validation::check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {

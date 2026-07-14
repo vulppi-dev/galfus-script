@@ -49,6 +49,8 @@ impl<'a> Resolver<'a> {
 
         let scope = self.resolution.node_scope(node).unwrap_or(current_scope);
 
+
+
         match syntax_node.kind() {
             SyntaxNodeKind::NamedType => {
                 self.resolve_named_type(node, scope);
@@ -75,6 +77,7 @@ impl<'a> Resolver<'a> {
         else {
             return;
         };
+
 
         let type_name = self.node_text(name);
         let type_name_id = NameId::intern(&type_name);

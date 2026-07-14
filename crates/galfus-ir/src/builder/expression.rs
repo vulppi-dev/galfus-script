@@ -145,7 +145,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                 Operand::Constant(Constant::Null)
             }
 
-            SyntaxNodeKind::NameExpression => {
+            SyntaxNodeKind::NameExpression | SyntaxNodeKind::Identifier => {
                 if let Some(res) = resolution {
                     let symbol = res.reference_symbol(expr_id).or_else(|| {
                         let ident =
@@ -190,6 +190,18 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
 
                 let left_operand = self.lower_expression(left);
                 let right_operand = self.lower_expression(right);
+
+                let left_ty = match &left_operand {
+                    Operand::Local(local_id) => self
+                        .locals
+                        .iter()
+                        .find(|local| local.id == *local_id)
+                        .map(|local| local.ty)
+                        .unwrap_or_else(|| self.node_type(left).unwrap_or_else(|| TypeId::new(0))),
+                    _ => self.node_type(left).unwrap_or_else(|| TypeId::new(0)),
+                };
+                let right_ty = self.node_type(right).unwrap_or_else(|| TypeId::new(0));
+                let right_operand = self.insert_cast_if_needed(right_operand, right_ty, left_ty);
 
                 let op = self.lower_binary_op(op_node);
 
@@ -376,6 +388,19 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
 
                         args.push(casted_op);
                         arg_types.push(arg_ty);
+                    }
+                }
+
+                if let Some(ref params) = expected_params {
+                    let provided = args.len() - parameter_offset;
+                    if provided < params.len() {
+                        for parameter_index in provided..params.len() {
+                            let &(expected_ty, is_rest) = &params[parameter_index];
+                            if !is_rest {
+                                args.push(Operand::Constant(Constant::Null));
+                                arg_types.push(expected_ty);
+                            }
+                        }
                     }
                 }
 
@@ -650,7 +675,15 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
 
                 let temp_id = self.declare_local(None, ty);
                 let obj_ty = self.node_type(obj_node).unwrap_or_else(|| TypeId::new(0));
-                let resolved_obj_ty = self.builder.resolve_alias_type(obj_ty);
+                
+                let resolved_obj_ty = if let Operand::Local(l) = obj_operand {
+                    self.locals.iter().find(|decl| decl.id == l).map(|decl| decl.ty).unwrap_or(obj_ty)
+                } else {
+                    obj_ty
+                };
+                
+                let resolved_obj_ty = self.builder.resolve_alias_type(resolved_obj_ty);
+                
                 let is_array_length = member_name == "length"
                     && matches!(
                         self.builder

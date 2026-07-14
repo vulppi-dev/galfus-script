@@ -161,7 +161,9 @@ impl<'a> MirBuilder<'a> {
             for (idx, param) in param_list_node.children().iter().enumerate() {
                 let param_node = *param;
                 let identifier_node = syntax
-                    .first_child_of_kind(param_node, SyntaxNodeKind::Identifier)
+                    .first_child_of_kind(param_node, SyntaxNodeKind::BindingPattern)
+                    .and_then(|bp| syntax.first_child_of_kind(bp, SyntaxNodeKind::Identifier))
+                    .or_else(|| syntax.first_child_of_kind(param_node, SyntaxNodeKind::Identifier))
                     .unwrap_or(param_node);
 
                 let param_symbol = resolution.declaration_symbol(identifier_node);

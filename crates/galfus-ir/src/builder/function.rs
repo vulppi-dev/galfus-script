@@ -691,6 +691,11 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                 let iterable_ty = self
                     .node_type(iterable_node)
                     .unwrap_or_else(|| TypeId::new(0));
+                let binding_ty = self
+                    .collect_declaration_symbols(binding_node)
+                    .first()
+                    .and_then(|symbol| self.symbol_type(*symbol))
+                    .unwrap_or_else(|| TypeId::new(0));
 
                 let is_array_type = matches!(
                     self.builder.type_result.layer().table().kind(iterable_ty),
@@ -752,12 +757,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                     destination: iterator_local,
                 });
 
-                let symbols = self.collect_declaration_symbols(binding_node);
-                let Some(symbol) = symbols.first().copied() else {
-                    return;
-                };
-                let binding_ty = self.symbol_type(symbol).unwrap_or_else(|| TypeId::new(0));
-                let binding_local = self.declare_local(Some(symbol), binding_ty);
+
 
                 let loop_header = self.builder.next_block();
                 let loop_body = self.builder.next_block();
@@ -796,10 +796,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
 
                 self.blocks.last_mut().unwrap().id = loop_body;
                 self.current_block = loop_body;
-                self.current_instructions.push(Instruction::Assign(
-                    binding_local,
-                    RValue::Use(Operand::Local(next_local)),
-                ));
+                self.lower_destructuring_binding(binding_node, Operand::Local(next_local));
                 self.loop_targets.push(LoopTargets {
                     name: self.loop_target_name(stmt_id),
                     break_target: loop_end,

@@ -197,7 +197,30 @@ impl VirtualMachine {
                     ..
                 }) = self.get_object(*obj_ref)
                 {
-                    layout_idx == expected_choice_idx && *variant_idx == *expected_variant_idx
+                    if layout_idx == expected_choice_idx && *variant_idx == *expected_variant_idx {
+                        return true;
+                    }
+
+                    let Some(actual_layout) = self.image.choice_layouts.get(layout_idx.raw() as usize) else {
+                        return false;
+                    };
+                    let Some(expected_layout) = self
+                        .image
+                        .choice_layouts
+                        .get(expected_choice_idx.raw() as usize)
+                    else {
+                        return false;
+                    };
+
+                    actual_layout.name == expected_layout.name
+                        && actual_layout
+                            .variants
+                            .get(*variant_idx as usize)
+                            .map(|variant| variant.name.as_str())
+                            == expected_layout
+                                .variants
+                                .get(*expected_variant_idx as usize)
+                                .map(|variant| variant.name.as_str())
                 } else {
                     false
                 }

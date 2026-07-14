@@ -91,6 +91,7 @@ fn main(): null {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
+    let result = crate::type_validation::check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -148,6 +149,7 @@ fn main(values: [i32]): null {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
+    let result = crate::type_validation::check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -302,6 +304,7 @@ fn main(): null {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
+    let result = crate::type_validation::check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -336,6 +339,7 @@ fn check_reports_iterator_next_return_type_mismatch() {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
+    let result = crate::type_validation::check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -383,6 +387,7 @@ fn Pattern::compare(self, value: [u8]): bool {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
+    let result = crate::type_validation::check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -421,6 +426,7 @@ fn Source::iter(self): bool {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
+    let result = crate::type_validation::check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -453,6 +459,7 @@ fn BadIterator::next(self): bool | null {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
+    let result = crate::type_validation::check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -485,6 +492,7 @@ fn Pattern::compare(self, value: [u8]): i32 {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
+    let result = crate::type_validation::check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -527,6 +535,7 @@ fn main(): null {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
+    let result = crate::type_validation::check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -615,6 +624,7 @@ fn check_reports_range_assigned_to_int() {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
+    let result = crate::type_validation::check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -713,6 +723,7 @@ fn check_reports_float_exclusive_range() {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
+    let result = crate::type_validation::check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -745,6 +756,7 @@ fn check_reports_empty_exclusive_range() {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
+    let result = crate::type_validation::check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -775,6 +787,7 @@ fn check_reports_non_positive_range_count() {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
+    let result = crate::type_validation::check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -807,6 +820,7 @@ fn check_reports_negative_range_count() {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
+    let result = crate::type_validation::check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -839,6 +853,7 @@ fn check_reports_range_overflow() {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
+    let result = crate::type_validation::check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -869,6 +884,7 @@ fn check_reports_zero_range_step() {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
+    let result = crate::type_validation::check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -899,6 +915,7 @@ fn check_reports_mismatched_range_step_family() {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
+    let result = crate::type_validation::check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {

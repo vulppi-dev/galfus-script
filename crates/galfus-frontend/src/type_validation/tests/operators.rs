@@ -56,6 +56,7 @@ var value = left + right
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
+    let result = crate::type_validation::check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -95,6 +96,7 @@ var value: i32 = 1 + true
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
+    let result = crate::type_validation::check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -141,6 +143,7 @@ var value: bool = 1 == true
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
+    let result = crate::type_validation::check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -176,6 +179,7 @@ var value: bool = true && 1
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
+    let result = crate::type_validation::check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -222,6 +226,7 @@ var value: bool = !1
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
+    let result = crate::type_validation::check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {

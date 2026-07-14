@@ -49,7 +49,7 @@ fn validate_function(func: &MirFunction) -> Result<(), Vec<ValidationError>> {
     }
 
     for block in &func.blocks {
-        for target in successor_blocks(&block.terminator) {
+        for (target, _) in successor_blocks(&block.terminator) {
             if !blocks.contains_key(&target) {
                 errors.push(ValidationError {
                     message: format!(
@@ -186,14 +186,22 @@ fn initialized_at_block_entries(
         let mut outgoing = initialized[&block_id].clone();
         apply_initialization_effects(block, &mut outgoing);
 
-        for successor in successor_blocks(&block.terminator) {
+        for (successor, args) in successor_blocks(&block.terminator) {
             if !blocks.contains_key(&successor) {
                 continue;
             }
+            
+            let mut edge_outgoing = outgoing.clone();
+            for arg in args {
+                if let Operand::Local(l) = arg {
+                    edge_outgoing.remove(l);
+                }
+            }
+            
             let changed = match initialized.get(&successor) {
                 Some(previous) => {
                     let merged = previous
-                        .intersection(&outgoing)
+                        .intersection(&edge_outgoing)
                         .copied()
                         .collect::<HashSet<_>>();
                     if &merged == previous {
@@ -204,7 +212,7 @@ fn initialized_at_block_entries(
                     }
                 }
                 None => {
-                    initialized.insert(successor, outgoing.clone());
+                    initialized.insert(successor, edge_outgoing);
                     true
                 }
             };
@@ -284,14 +292,16 @@ fn apply_initialization_effects(block: &BasicBlock, initialized: &mut HashSet<Lo
     }
 }
 
-fn successor_blocks(terminator: &Terminator) -> Vec<BlockId> {
+fn successor_blocks(terminator: &Terminator) -> Vec<(BlockId, &Vec<Operand>)> {
     match terminator {
-        Terminator::Jump { target, .. } => vec![*target],
+        Terminator::Jump { target, args } => vec![(*target, args)],
         Terminator::Branch {
             true_block,
+            true_args,
             false_block,
+            false_args,
             ..
-        } => vec![*true_block, *false_block],
+        } => vec![(*true_block, true_args), (*false_block, false_args)],
         Terminator::Return(_) | Terminator::Panic(_) => Vec::new(),
     }
 }
@@ -421,24 +431,14 @@ fn validate_basic_block(
             validate_operand(op, func, initialized, errors);
         }
         Terminator::Return(None) => {}
-        Terminator::Jump { args, .. } => {
-            for arg in args {
-                validate_operand(arg, func, initialized, errors);
-            }
-        }
+        Terminator::Jump { target: _, args: _ } => {}
         Terminator::Branch {
             cond,
-            true_args,
-            false_args,
+            true_args: _,
+            false_args: _,
             ..
         } => {
             validate_operand(cond, func, initialized, errors);
-            for arg in true_args {
-                validate_operand(arg, func, initialized, errors);
-            }
-            for arg in false_args {
-                validate_operand(arg, func, initialized, errors);
-            }
         }
         Terminator::Panic(_) => {}
     }

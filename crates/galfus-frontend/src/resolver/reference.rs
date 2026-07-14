@@ -84,6 +84,20 @@ impl<'a> Resolver<'a> {
                 return;
             }
 
+            SyntaxNodeKind::StructLiteralFieldShorthand => {
+                if let Some(ident) = self.syntax.first_child(node) {
+                    let symbol_name = self.node_text(ident);
+                    let name_id = NameId::intern(&symbol_name);
+
+                    if let Some(symbol) = self.resolution.lookup_symbol(scope, name_id) {
+                        self.resolution.bind_reference(ident, symbol);
+                    } else {
+                        self.report_unresolved_name(ident, symbol_name);
+                    }
+                }
+                return;
+            }
+
             SyntaxNodeKind::PathExpression => {
                 self.resolve_path_expression(node, scope);
                 return;

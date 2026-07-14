@@ -52,7 +52,8 @@ fn check_source(text: &str) -> (SourceFile, ModuleAst, TypeCheckResult) {
     );
 
     let graph = resolve_result.into_ast();
-    let result = check_declaration_types(&source, &graph);
+    let result = crate::type_validation::check_declaration_types(&source, &graph);
+    let result = crate::type_validation::check_definition_types(&source, &graph, result);
 
     assert!(!result.has_errors(), "{:?}", result.diagnostics());
 

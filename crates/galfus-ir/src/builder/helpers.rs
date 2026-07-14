@@ -338,7 +338,26 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
             return operand;
         }
 
-        if self.builder.is_assignable(to_ty, actual_from_ty) {
+        let table = self.builder.type_result.layer().table();
+        let is_numeric = |ty: TypeId| {
+            matches!(
+                table.kind(ty),
+                Some(galfus_frontend::TypeKind::Primitive(
+                    galfus_frontend::PrimitiveType::Int8
+                        | galfus_frontend::PrimitiveType::Int16
+                        | galfus_frontend::PrimitiveType::Int32
+                        | galfus_frontend::PrimitiveType::Int64
+                        | galfus_frontend::PrimitiveType::Uint8
+                        | galfus_frontend::PrimitiveType::Uint16
+                        | galfus_frontend::PrimitiveType::Uint32
+                        | galfus_frontend::PrimitiveType::Uint64
+                        | galfus_frontend::PrimitiveType::Float32
+                        | galfus_frontend::PrimitiveType::Float64
+                ))
+            )
+        };
+
+        if is_numeric(actual_from_ty) && is_numeric(to_ty) {
             let temp_id = self.declare_local(None, to_ty);
             self.current_instructions
                 .push(Instruction::Assign(temp_id, RValue::Cast(operand, to_ty)));

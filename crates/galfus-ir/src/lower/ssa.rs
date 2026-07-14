@@ -74,8 +74,7 @@ pub fn convert_to_ssa(func: &mut MirFunction) {
 
                 let mut ops = Vec::new();
                 for pred in preds {
-                    let pred_val = self.read_variable(pred, variable);
-                    ops.push((pred, pred_val));
+                    ops.push((pred, variable));
                 }
                 self.phi_operands.insert(phi_id, ops);
                 val = phi_id;
@@ -291,6 +290,26 @@ pub fn convert_to_ssa(func: &mut MirFunction) {
         }
     }
 
+    // Evaluate phi operands until fixed point (which evaluates all back-edges correctly)
+    let mut evaluated_phis = std::collections::HashSet::new();
+    loop {
+        let mut to_evaluate = Vec::new();
+        for (phi_id, ops) in builder.phi_operands.iter() {
+            if !evaluated_phis.contains(phi_id) {
+                to_evaluate.push((*phi_id, ops.clone()));
+            }
+        }
+        if to_evaluate.is_empty() {
+            break;
+        }
+        for (phi_id, ops) in to_evaluate {
+            for (pred_block, orig_var) in ops {
+                builder.read_variable(pred_block, orig_var);
+            }
+            evaluated_phis.insert(phi_id);
+        }
+    }
+
     // A block's `parameters` corresponds to the `phi_id`s created.
     for block in &mut new_blocks {
         let block_id = block.id;
@@ -311,25 +330,19 @@ pub fn convert_to_ssa(func: &mut MirFunction) {
     for block in &mut new_blocks {
         let block_id = block.id;
 
-        let get_args = |target_block: BlockId| -> Vec<Operand> {
+        let mut get_args = |target_block: BlockId| -> Vec<Operand> {
             let mut args = Vec::new();
-            if let Some(params) = builder.block_parameters.get(&target_block) {
-                for (orig, phi_id) in params {
-                    // find the value this block should pass
-                    if let Some(ops) = builder.phi_operands.get(phi_id) {
-                        let val = ops
-                            .iter()
-                            .find(|(p, _)| *p == block_id)
-                            .map(|(_, v)| *v)
-                            .unwrap_or(*orig);
-                        let is_parameter = (orig.raw() as usize) < func.parameter_types.len();
-                        let operand = if val == *orig && !is_parameter {
-                            Operand::Constant(Constant::Null)
-                        } else {
-                            Operand::Local(val)
-                        };
-                        args.push(operand);
-                    }
+            let params = builder.block_parameters.get(&target_block).cloned();
+            if let Some(params) = params {
+                for (orig, _phi_id) in params {
+                    let val = builder.read_variable(block_id, orig);
+                    let is_parameter = (orig.raw() as usize) < func.parameter_types.len();
+                    let operand = if val == orig && !is_parameter {
+                        Operand::Constant(Constant::Null)
+                    } else {
+                        Operand::Local(val)
+                    };
+                    args.push(operand);
                 }
             }
             args

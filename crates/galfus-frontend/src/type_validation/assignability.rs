@@ -6,8 +6,8 @@ use super::DeclarationTypeChecker;
 
 impl<'a> DeclarationTypeChecker<'a> {
     pub(super) fn is_assignable(&self, expected: TypeId, actual: TypeId) -> bool {
-        let expected = self.resolve_alias_type(expected);
-        let actual = self.resolve_alias_type(actual);
+        let expected = self.resolve_path_type(expected);
+        let actual = self.resolve_path_type(actual);
 
         if expected == actual {
             return true;

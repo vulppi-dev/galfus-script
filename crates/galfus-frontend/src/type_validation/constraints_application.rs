@@ -134,10 +134,11 @@ impl<'a> DeclarationTypeChecker<'a> {
     ) -> Option<(SymbolId, &LoweredImportedConstraint)> {
         let resolution = self.graph.resolution()?;
 
-        if let Some(symbol) = resolution.type_reference_symbol(base)
-            && let Some(constraint) = self.imported_symbol_constraints.get(&symbol)
-        {
-            return Some((symbol, constraint));
+        let type_ref = resolution.type_reference_symbol(base);
+        if let Some(symbol) = type_ref {
+            if let Some(constraint) = self.imported_symbol_constraints.get(&symbol) {
+                return Some((symbol, constraint));
+            }
         }
 
         if let Some(symbol) = resolution.type_path_reference_symbol(base)

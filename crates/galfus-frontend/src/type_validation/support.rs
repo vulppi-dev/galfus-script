@@ -157,7 +157,9 @@ impl<'a> DeclarationTypeChecker<'a> {
             return ty;
         };
 
-        if symbol_data.kind() != SymbolKind::TypeAlias {
+        if symbol_data.kind() != SymbolKind::TypeAlias
+            && symbol_data.kind() != SymbolKind::ImportBinding
+        {
             return ty;
         }
 
@@ -176,5 +178,44 @@ impl<'a> DeclarationTypeChecker<'a> {
         }
 
         self.resolve_alias_type_with_visited(target, visited)
+    }
+
+    pub(super) fn resolve_path_type(&self, ty: TypeId) -> TypeId {
+        let ty = self.resolve_alias_type(ty);
+
+        let Some(TypeKind::Path { root, segments }) = self.layer.table().kind(ty).cloned() else {
+            return ty;
+        };
+
+        let Some(resolution) = self.graph.resolution() else {
+            return ty;
+        };
+
+        if root == galfus_core::SymbolId::new(0) {
+            let mut current_scope = resolution.module_scope();
+            let mut resolved_symbol = None;
+            for (i, segment) in segments.iter().enumerate() {
+                if let Some(symbol) = resolution.lookup_symbol(current_scope, segment) {
+                    if i == segments.len() - 1 {
+                        resolved_symbol = Some(symbol);
+                        break;
+                    }
+                    if let Some(scope) = resolution.member_scope(symbol) {
+                        current_scope = scope;
+                    } else {
+                        return ty;
+                    }
+                } else {
+                    return ty;
+                }
+            }
+            if let Some(sym) = resolved_symbol {
+                if let Some(target_ty) = self.layer.symbol_type(sym) {
+                    return self.resolve_alias_type(target_ty);
+                }
+            }
+        }
+
+        ty
     }
 }

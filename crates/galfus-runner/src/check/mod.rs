@@ -377,10 +377,15 @@ impl ModuleLoader {
             .map(|module_index| self.imported_surface_types_for_module(module_index, &surfaces))
             .collect::<Vec<_>>();
 
-        for (module_index, imported_type) in imported_types.iter().enumerate() {
-            let result = check_declaration_types_with_surfaces(
+        for ((module_index, imported_type), previous_result) in imported_types
+            .iter()
+            .enumerate()
+            .zip(baseline_results.into_iter())
+        {
+            let result = check_definition_types_with_surfaces(
                 self.modules[module_index].source(),
                 self.modules[module_index].graph(),
+                previous_result,
                 imported_type,
             );
 

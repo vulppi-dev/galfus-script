@@ -129,6 +129,17 @@ impl VirtualMachine {
                     return Ok(ExecutionStep::Continue);
                 }
 
+                if method_name == "compare" {
+                    let obj_val = self.read_reg(obj)?;
+                    if !matches!(obj_val, Value::Object(_)) {
+                        let arg_val = self.read_reg(Reg(args_start.raw() + 1))?;
+                        let is_equal = obj_val == arg_val;
+                        self.write_reg(dest, Value::Bool(is_equal))?;
+                        return Ok(ExecutionStep::Continue);
+                    }
+                }
+
+
                 let receiver_layout_name = match self.read_reg(obj)? {
                     Value::Object(obj_ref) => match self.get_object(obj_ref)? {
                         HeapObject::Struct { layout_idx, .. } => self
@@ -149,14 +160,26 @@ impl VirtualMachine {
                         .functions
                         .iter()
                         .position(|function| {
-                            function.name == qualified_name
-                                || function.name.starts_with(&format!("{qualified_name}#"))
+                            let clean_name = if let Some(start) = function.name.find('<') {
+                                if let Some(end) = function.name.find(">::") {
+                                    format!("{}::{}", &function.name[..start], &function.name[end + 3..])
+                                } else {
+                                    function.name.clone()
+                                }
+                            } else {
+                                function.name.clone()
+                            };
+
+                            clean_name == qualified_name
+                                || clean_name.starts_with(&format!("{qualified_name}#"))
                         })
                         .map(|index| FuncIdx(index as u16))
-                        .ok_or_else(|| VmError::TypeMismatch {
-                            expected: format!("function named '{qualified_name}'"),
+                        .ok_or_else(|| {
+                            let available = self.image.functions.iter().map(|f| f.name.clone()).collect::<Vec<_>>().join(", ");
+                            VmError::TypeMismatch {
+                            expected: format!("function named '{qualified_name}'. Available: {available}"),
                             found: "no matching function in image".to_string(),
-                        })?
+                        }})?
                 } else {
                     self.image
                         .functions
@@ -166,10 +189,12 @@ impl VirtualMachine {
                                 || function.name.ends_with(&format!("::{method_name}"))
                         })
                         .map(|index| FuncIdx(index as u16))
-                        .ok_or_else(|| VmError::TypeMismatch {
-                            expected: format!("function named '{method_name}'"),
+                        .ok_or_else(|| {
+                            let available = self.image.functions.iter().map(|f| f.name.clone()).collect::<Vec<_>>().join(", ");
+                            VmError::TypeMismatch {
+                            expected: format!("function named '{method_name}'. Available: {available}"),
                             found: "no matching function in image".to_string(),
-                        })?
+                        }})?
                 };
 
                 let callee = &self.image.functions[func_idx.raw() as usize];

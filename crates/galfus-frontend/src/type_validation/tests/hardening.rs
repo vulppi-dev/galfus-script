@@ -16,6 +16,7 @@ fn check_partial_parse_graph_without_panic() {
     let has_resolve_errors = resolve_result.has_errors();
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
+    let result = crate::type_validation::check_definition_types(&source, &graph, result);
 
     assert!(has_parse_errors || has_resolve_errors || result.has_errors());
 }

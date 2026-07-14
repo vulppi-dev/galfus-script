@@ -82,8 +82,8 @@ fn loops_and_ranges(): i32 {
     total += value
   }
 
-  for _, index in [10, 20, 30] {
-    total += index
+  for value in [10, 20, 30] {
+    total += value
   }
 
   return total

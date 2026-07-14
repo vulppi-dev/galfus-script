@@ -58,10 +58,17 @@ pub(super) fn resolve_import_target(
         }
     }
 
+    let import_symbol = module
+        .graph()
+        .syntax()
+        .node(node_id)
+        .and_then(|_| resolution.reference_symbol(node_id))
+        .unwrap_or(symbol_id);
+
     if let Some(import) = resolution
         .imports()
         .iter()
-        .find(|imp| imp.local_symbol() == symbol_id)
+        .find(|imp| imp.local_symbol() == import_symbol)
         && let Some(imported_name) = import.imported_name()
     {
         let target_idx = import_target_index(modules, mod_idx, import.source())?;
