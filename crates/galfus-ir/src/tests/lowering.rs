@@ -328,8 +328,7 @@ fn test_mir_builder_for_loop() {
     let func = &mir_module.functions[0];
     assert_eq!(func.name, "test_for");
 
-    // Let's check that the body contains Loop and the loop increments
-    println!("FUNC BLOCKS: {:#?}", func.blocks);
+    // Check that the body contains the loop blocks.
     assert!(
         func.blocks.len() > 1,
         "Expected for loop to lower to multiple blocks"

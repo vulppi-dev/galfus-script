@@ -5,6 +5,10 @@ use crate::mir::{
 use galfus_image::Instruction;
 use galfus_image::instruction::{GlobalIdx, Reg};
 
+#[cfg(test)]
+#[path = "function_tests.rs"]
+mod tests;
+
 #[allow(dead_code)]
 pub enum JumpKind {
     Unconditional,
@@ -57,6 +61,92 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
 
     pub fn free_temps(&mut self, count: u16) {
         self.temp_count_current = self.temp_count_current.saturating_sub(count);
+    }
+
+    fn emit_parallel_copies(&mut self, dests: &[Reg], srcs: &[Operand]) {
+        assert_eq!(dests.len(), srcs.len());
+        if dests.is_empty() {
+            return;
+        }
+
+        let temps_before = self.temp_count_current;
+
+        let mut src_regs = Vec::new();
+        for src in srcs {
+            let reg = match src {
+                Operand::Local(loc) => Reg(loc.raw() as u16),
+                _ => {
+                    let temp = self.alloc_temp();
+                    self.load_operand_to(src, temp);
+                    temp
+                }
+            };
+            src_regs.push(reg);
+        }
+
+        let mut in_degree = std::collections::BTreeMap::new();
+        let mut edges = std::collections::BTreeMap::new();
+
+        for i in 0..dests.len() {
+            let d = dests[i];
+            let s = src_regs[i];
+            if d != s {
+                edges.insert(d, s);
+                *in_degree.entry(s).or_insert(0) += 1;
+                in_degree.entry(d).or_insert(0);
+            }
+        }
+
+        let mut ready = std::collections::BTreeSet::new();
+        for (node, deg) in &in_degree {
+            if *deg == 0 && edges.contains_key(node) {
+                ready.insert(*node);
+            }
+        }
+
+        while !edges.is_empty() {
+            if let Some(d) = ready.pop_first() {
+                let s = edges.remove(&d).unwrap();
+                self.instructions
+                    .push(Instruction::Move { dest: d, src: s });
+
+                let deg = in_degree.get_mut(&s).unwrap();
+                *deg -= 1;
+                if *deg == 0 && edges.contains_key(&s) {
+                    ready.insert(s);
+                }
+            } else {
+                let d = *edges.keys().next().unwrap();
+                let s = edges.remove(&d).unwrap();
+
+                let temp = self.alloc_temp();
+                self.instructions
+                    .push(Instruction::Move { dest: temp, src: s });
+
+                edges.insert(d, temp);
+                in_degree.insert(temp, 1);
+
+                let deg = in_degree.get_mut(&s).unwrap();
+                *deg -= 1;
+                if *deg == 0 && edges.contains_key(&s) {
+                    ready.insert(s);
+                }
+            }
+        }
+
+        self.temp_count_current = temps_before;
+    }
+
+    fn target_params(&self, target: crate::mir::BlockId) -> Vec<Reg> {
+        self.func
+            .blocks
+            .iter()
+            .find(|block| block.id == target)
+            .expect("MIR terminator references a missing block")
+            .parameters
+            .iter()
+            .map(|param| Reg(param.id.raw() as u16))
+            .collect()
     }
 
     pub fn new_label(&mut self) -> usize {
@@ -288,19 +378,32 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                     );
                     self.instructions.push(Instruction::Panic { const_idx });
                 }
-                Terminator::Jump { target, args: _ } => {
+                Terminator::Jump { target, args } => {
+                    let target_params = self.target_params(*target);
+                    self.emit_parallel_copies(&target_params, args);
                     self.emit_jump(block_labels[target], JumpKind::Unconditional);
                 }
                 Terminator::Branch {
                     cond,
                     true_block,
-                    true_args: _,
+                    true_args,
                     false_block,
-                    false_args: _,
+                    false_args,
                 } => {
                     let cond_reg = self.operand_reg(cond);
-                    self.emit_jump(block_labels[true_block], JumpKind::IfTrue(cond_reg));
+
+                    let true_trampoline = self.new_label();
+                    self.emit_jump(true_trampoline, JumpKind::IfTrue(cond_reg));
+
+                    let false_target_params = self.target_params(*false_block);
+                    self.emit_parallel_copies(&false_target_params, false_args);
                     self.emit_jump(block_labels[false_block], JumpKind::Unconditional);
+
+                    self.emit_label(true_trampoline);
+                    let true_target_params = self.target_params(*true_block);
+                    self.emit_parallel_copies(&true_target_params, true_args);
+                    self.emit_jump(block_labels[true_block], JumpKind::Unconditional);
+
                     self.free_temp_if_operand(cond);
                 }
             }

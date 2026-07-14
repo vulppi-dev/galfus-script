@@ -365,7 +365,6 @@ impl<'a> DeclarationTypeChecker<'a> {
     }
 
     pub(super) fn bind_binding_pattern_type(&mut self, pattern: NodeId, ty: TypeId) {
-        println!("bind_binding_pattern_type CALLED with {:?}", pattern);
         let Some(pattern_node) = self.graph.syntax().node(pattern) else {
             return;
         };

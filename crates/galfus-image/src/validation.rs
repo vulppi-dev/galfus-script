@@ -412,13 +412,6 @@ pub fn validate_module_image(image: &ModuleImage) -> Result<(), Vec<ImageValidat
                                 }
                             }
                             _ => {
-                                println!(
-                                    "VALIDATION ERROR: NewTuple at instruction {} in function {} found type_idx={:?}: {:?}",
-                                    instr_idx,
-                                    func_name,
-                                    type_idx,
-                                    image.types[type_idx.raw() as usize]
-                                );
                                 errors.push(ImageValidationError::TypeMismatchAlloc {
                                     func_name: func_name.clone(),
                                     instr_idx,

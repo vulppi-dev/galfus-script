@@ -237,11 +237,12 @@ impl ModuleLoader {
 
         let mut has_range = false;
         let mut has_match = false;
-        self.collect_compiler_known_uses(root, &mut has_range, &mut has_match);
+        Self::collect_compiler_known_uses(syntax, root, &mut has_range, &mut has_match);
 
         if has_range {
             self.load_module(PathBuf::from("std/iterable"))?;
-        } else if has_match {
+        }
+        if has_match {
             self.load_module(PathBuf::from("std/constraints"))?;
         }
 
@@ -249,32 +250,22 @@ impl ModuleLoader {
     }
 
     fn collect_compiler_known_uses(
-        &self,
+        syntax: &galfus_frontend::SyntaxLayer,
         node_id: NodeId,
         has_range: &mut bool,
         has_match: &mut bool,
     ) {
-        let syntax = self.modules.iter().find_map(|module| {
-            module
-                .graph()
-                .syntax()
-                .node(node_id)
-                .map(|_| module.graph().syntax())
-        });
-        let Some(syntax) = syntax else {
-            return;
-        };
         let Some(node) = syntax.node(node_id) else {
             return;
         };
 
         match node.kind() {
-            SyntaxNodeKind::RangeExpression => *has_range = true,
+            SyntaxNodeKind::RangeExpression | SyntaxNodeKind::ForStatement => *has_range = true,
             SyntaxNodeKind::MatchExpression => *has_match = true,
             _ => {}
         }
         for child in node.children() {
-            self.collect_compiler_known_uses(*child, has_range, has_match);
+            Self::collect_compiler_known_uses(syntax, *child, has_range, has_match);
         }
     }
 

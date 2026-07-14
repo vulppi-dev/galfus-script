@@ -483,10 +483,11 @@ impl<'a> WorkspaceContext for MyWorkspaceContext<'a> {
         function_name: &str,
         concrete_types: Vec<TypeId>,
     ) -> Option<FunctionId> {
-        let target_mod_idx = self
+        let target_mod_idx_opt = self
             .modules
             .iter()
-            .position(|module| module.path().to_string_lossy() == module_name)?;
+            .position(|module| module.path().to_string_lossy() == module_name);
+        let target_mod_idx = target_mod_idx_opt?;
         let resolution = self.modules[target_mod_idx].graph().resolution()?;
         let target_symbol = resolution
             .symbols()
@@ -508,5 +509,13 @@ impl<'a> WorkspaceContext for MyWorkspaceContext<'a> {
             concrete_types,
             substitutions,
         ))
+    }
+
+    fn function_return_type(&self, func_id: FunctionId) -> Option<TypeId> {
+        self.specialised_functions
+            .iter()
+            .flat_map(|funcs| funcs.iter())
+            .find(|f| f.id == func_id)
+            .map(|f| f.return_type)
     }
 }

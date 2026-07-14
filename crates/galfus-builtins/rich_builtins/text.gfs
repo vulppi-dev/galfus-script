@@ -1,24 +1,14 @@
 // text - pure Galfus byte-level string utilities.
 // All strings are UTF-8 byte arrays.
 
-export fn length(s: [u8]): i32 {
-  var i: i32 = 0
-  for byte in s {
-    i += 1
-  }
-  return i
-}
-
 export fn concat(a: [u8], b: [u8]): [u8] {
-  var lenA = length(a)
-  var lenB = length(b)
-  var result = new([u8], lenA + lenB)
+  var result = new([u8], a.length + b.length)
   var i: i32 = 0
-  for byte in a {
+  for byte in copy a {
     result[i] = byte
     i += 1
   }
-  for byte in b {
+  for byte in copy b {
     result[i] = byte
     i += 1
   }
@@ -26,7 +16,7 @@ export fn concat(a: [u8], b: [u8]): [u8] {
 }
 
 export fn slice(s: [u8], start: i32, count: i32): [u8] {
-  var len = length(s)
+  var len = s.length
   if count <= 0 || start >= len {
     return new([u8], 0)
   }
@@ -41,7 +31,7 @@ export fn slice(s: [u8], start: i32, count: i32): [u8] {
   var result = new([u8], sliceLen)
   var index: i32 = 0
   var writeIndex: i32 = 0
-  for byte in s {
+  for byte in copy s {
     if index >= start && index < end {
       result[writeIndex] = byte
       writeIndex += 1
@@ -55,7 +45,7 @@ export fn repeat(s: [u8], n: i32): [u8] {
   if n <= 0 {
     return new([u8], 0)
   }
-  var len = length(s)
+  var len = s.length
   var result = new([u8], len * n)
   var destIdx: i32 = 0
   var i: i32 = 0
@@ -63,7 +53,7 @@ export fn repeat(s: [u8], n: i32): [u8] {
     if i >= n {
       break
     }
-    for byte in s {
+    for byte in copy s {
       result[destIdx] = byte
       destIdx += 1
     }
@@ -73,23 +63,23 @@ export fn repeat(s: [u8], n: i32): [u8] {
 }
 
 export fn startsWith(s: [u8], prefix: [u8]): bool {
-  var prefixLen = length(prefix)
+  var prefixLen = prefix.length
   if prefixLen == 0 {
     return true
   }
-  if length(s) < prefixLen {
+  if s.length < prefixLen {
     return false
   }
   return slice(s, 0, prefixLen) == prefix
 }
 
 export fn endsWith(s: [u8], suffix: [u8]): bool {
-  var suffixLen = length(suffix)
+  var suffixLen = suffix.length
   if suffixLen == 0 {
     return true
   }
 
-  var len = length(s)
+  var len = s.length
   if len < suffixLen {
     return false
   }
@@ -106,7 +96,7 @@ export fn trimStart(s: [u8]): [u8] {
   var start: i32 = 0
   var scanning = true
 
-  for byte in s {
+  for byte in copy s {
     if scanning && isAsciiSpace(byte) {
       start += 1
     } else {
@@ -114,14 +104,14 @@ export fn trimStart(s: [u8]): [u8] {
     }
   }
 
-  return slice(s, start, length(s) - start)
+  return slice(s, start, s.length - start)
 }
 
 export fn trimEnd(s: [u8]): [u8] {
   var end: i32 = 0
   var index: i32 = 0
 
-  for byte in s {
+  for byte in copy s {
     if !isAsciiSpace(byte) {
       end = index + 1
     }
@@ -136,10 +126,10 @@ export fn trim(s: [u8]): [u8] {
 }
 
 export fn toUpper(s: [u8]): [u8] {
-  var len = length(s)
+  var len = s.length
   var result = new([u8], len)
   var i: i32 = 0
-  for byte in s {
+  for byte in copy s {
     var code = <i32>byte
     if code >= 97 && code <= 122 {
       result[i] = <u8>(code - 32)
@@ -152,10 +142,10 @@ export fn toUpper(s: [u8]): [u8] {
 }
 
 export fn toLower(s: [u8]): [u8] {
-  var len = length(s)
+  var len = s.length
   var result = new([u8], len)
   var i: i32 = 0
-  for byte in s {
+  for byte in copy s {
     var code = <i32>byte
     if code >= 65 && code <= 90 {
       result[i] = <u8>(code + 32)

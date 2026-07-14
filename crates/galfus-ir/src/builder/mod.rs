@@ -432,4 +432,5 @@ pub trait WorkspaceContext {
         function_name: &str,
         concrete_types: Vec<TypeId>,
     ) -> Option<FunctionId>;
+    fn function_return_type(&self, func_id: FunctionId) -> Option<TypeId>;
 }

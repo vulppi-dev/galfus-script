@@ -725,13 +725,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                         )
                         .expect("arrayIter not found");
 
-                    let iter_obj_ty = self
-                        .builder
-                        .specialized_functions
-                        .iter()
-                        .find(|f| f.id == iter_func)
-                        .unwrap()
-                        .return_type;
+                    let iter_obj_ty = ctx.function_return_type(iter_func).unwrap();
                     let iter_obj_local = self.declare_local(None, iter_obj_ty);
 
                     self.current_instructions.push(Instruction::Call {
