@@ -63,6 +63,8 @@ pub struct FrontendSession {
     pub modules: Vec<SemanticModule>,
     module_by_path: HashMap<ModulePath, usize>,
     pub diagnostics: DiagnosticBag,
+    /// Global counter. Incremented each time any module's semantic result changes.
+    next_semantic_revision: u64,
 }
 
 impl FrontendSession {
@@ -85,11 +87,17 @@ impl FrontendSession {
             let module_index = self.modules.len();
             let module_id = ModuleId::new(module_index as u32);
 
+            // Each module gets its own semantic_revision so the compiler can
+            // detect which modules actually changed after a re-check.
+            self.next_semantic_revision += 1;
+            let semantic_revision = galfus_core::SemanticRevision::new(self.next_semantic_revision);
+
             self.modules.push(SemanticModule {
                 id: module_id,
                 source_id: source.id(),
                 path: path.clone(),
                 source_revision: update.source_revision,
+                semantic_revision,
                 source: source.clone(),
                 graph,
                 type_result: None,
@@ -100,9 +108,19 @@ impl FrontendSession {
         self.validate_imports();
         self.type_check_modules();
 
+        // Report the highest semantic revision produced in this check cycle.
+        let semantic_revision = self
+            .modules
+            .iter()
+            .map(|m| m.semantic_revision)
+            .max()
+            .unwrap_or(galfus_core::SemanticRevision::new(
+                self.next_semantic_revision,
+            ));
+
         FrontendReport {
             source_revision: update.source_revision,
-            semantic_revision: galfus_core::SemanticRevision::new(1),
+            semantic_revision,
             diagnostics: self.diagnostics.clone(),
         }
     }

@@ -20,7 +20,7 @@ fn canonical_global_idx(
     let resolution = module.graph().resolution().ok_or_else(|| {
         anyhow::anyhow!(
             "missing resolver output for module `{}` during global rewrite",
-            module.path().display()
+            module.path().as_str()
         )
     })?;
 
@@ -28,7 +28,7 @@ fn canonical_global_idx(
     let symbol = symbols.get(local_pos as usize).ok_or_else(|| {
         anyhow::anyhow!(
             "missing local/global symbol at position `{local_pos}` in module `{}`",
-            module.path().display()
+            module.path().as_str()
         )
     })?;
 
@@ -41,7 +41,7 @@ fn canonical_global_idx(
             anyhow::anyhow!(
                 "module import `{}` in `{}` cannot be used as a global value directly",
                 import.source(),
-                module.path().display()
+                module.path().as_str()
             )
         })?;
 
@@ -50,7 +50,7 @@ fn canonical_global_idx(
                 anyhow::anyhow!(
                     "could not resolve import `{}` from module `{}` while rewriting global `{}`",
                     import.source(),
-                    module.path().display(),
+                    module.path().as_str(),
                     imported_name
                 )
             })?;

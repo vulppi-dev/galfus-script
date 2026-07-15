@@ -1,6 +1,5 @@
+use galfus_core::{ModulePath, SourceFile};
 use galfus_frontend::{ModuleGraph, TypeCheckResult};
-use galfus_core::SourceFile;
-use std::path::Path;
 
 /// A single verified module that can be fed into the compiler.
 ///
@@ -10,7 +9,7 @@ use std::path::Path;
 /// linking, not for I/O.
 pub struct CompiledModule {
     /// Logical path used as a stable module identifier for cross-module linking.
-    pub(crate) path: std::path::PathBuf,
+    pub(crate) path: ModulePath,
     pub(crate) source: SourceFile,
     pub(crate) graph: ModuleGraph,
     pub(crate) type_result: Option<TypeCheckResult>,
@@ -18,21 +17,21 @@ pub struct CompiledModule {
 
 impl CompiledModule {
     pub fn new(
-        path: impl Into<std::path::PathBuf>,
+        path: ModulePath,
         source: SourceFile,
         graph: ModuleGraph,
         type_result: Option<TypeCheckResult>,
     ) -> Self {
         Self {
-            path: path.into(),
+            path,
             source,
             graph,
             type_result,
         }
     }
 
-    pub fn path(&self) -> &Path {
-        self.path.as_path()
+    pub fn path(&self) -> &ModulePath {
+        &self.path
     }
 
     pub fn source(&self) -> &SourceFile {

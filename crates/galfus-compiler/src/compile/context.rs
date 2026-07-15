@@ -263,9 +263,7 @@ impl<'a> MyWorkspaceContext<'a> {
     ) -> Option<FunctionId> {
         let target_module = &self.modules[target_mod_idx];
 
-        if target_module.source().name() != "format"
-            && target_module.path().to_string_lossy() != "format"
-        {
+        if target_module.source().name() != "format" && target_module.path().as_str() != "format" {
             return None;
         }
 
@@ -478,7 +476,7 @@ impl<'a> WorkspaceContext for MyWorkspaceContext<'a> {
         let target_mod_idx_opt = self
             .modules
             .iter()
-            .position(|module| module.path().to_string_lossy() == module_name);
+            .position(|module| module.path().as_str() == module_name);
         let target_mod_idx = target_mod_idx_opt?;
         let resolution = self.modules[target_mod_idx].graph().resolution()?;
         let target_symbol = resolution

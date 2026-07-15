@@ -1,5 +1,5 @@
 use crate::{ModuleGraph, TypeCheckResult};
-use galfus_core::{ModuleId, ModulePath, Revision, SourceFile, SourceId};
+use galfus_core::{ModuleId, ModulePath, Revision, SemanticRevision, SourceFile, SourceId};
 
 #[derive(Debug, Clone)]
 pub struct SemanticModule {
@@ -7,6 +7,9 @@ pub struct SemanticModule {
     pub source_id: SourceId,
     pub path: ModulePath,
     pub source_revision: Revision,
+    /// Monotonically increasing counter that changes whenever the semantic
+    /// analysis result (resolution + type checking) of this module changes.
+    pub semantic_revision: SemanticRevision,
 
     pub source: SourceFile,
     pub graph: ModuleGraph,
@@ -24,6 +27,10 @@ impl SemanticModule {
 
     pub fn path(&self) -> &ModulePath {
         &self.path
+    }
+
+    pub fn semantic_revision(&self) -> SemanticRevision {
+        self.semantic_revision
     }
 
     pub fn source_revision(&self) -> Revision {

@@ -1,6 +1,6 @@
+use galfus_compiler::CompiledModuleGraph;
 use galfus_core::{DiagnosticBag, Revision, SemanticRevision};
-// use std::sync::Arc;
-// use galfus_image::ModuleImage;
+use std::sync::Arc;
 
 #[derive(Debug)]
 pub enum CheckState {
@@ -29,37 +29,57 @@ impl CheckState {
     }
 }
 
-// CompileError and ModuleImage to be imported correctly when integrating compiler crate
-#[derive(Debug)]
-pub struct CompileError(pub String);
-
-#[derive(Debug)]
-pub enum CompileState {
-    Missing,
-    Stale {
-        last_successful_revision: Option<SemanticRevision>,
-    },
-    Ready {
-        semantic_revision: SemanticRevision,
-        // image: Arc<ModuleImage>,
-    },
-    Failed {
-        semantic_revision: SemanticRevision,
-        error: CompileError,
-    },
-}
-
+/// Reason why `Workspace::compile()` cannot proceed.
 #[derive(Debug)]
 pub enum CompileBlocked {
+    /// Sources changed but `check()` has not been called yet.
     Dirty {
         current_revision: Revision,
         checked_revision: Option<Revision>,
     },
+    /// The last `check()` produced errors — compilation is gated behind a clean check.
     CheckFailed {
         revision: Revision,
         error_count: usize,
     },
+    /// No workspace configuration has been loaded.
     MissingConfiguration,
+    /// The compiler itself returned an error.
+    CompilerError(String),
+}
+
+#[derive(Debug)]
+pub enum CompileState {
+    /// No compilation has ever been attempted.
+    Missing,
+    /// A previous compiled graph exists but is stale (check result changed).
+    Stale {
+        last_successful_revision: Option<SemanticRevision>,
+    },
+    /// A compiled graph is available and up-to-date with the last check.
+    Ready {
+        semantic_revision: SemanticRevision,
+        /// The compiled module graph produced by the last successful compile.
+        graph: Arc<CompiledModuleGraph>,
+    },
+    /// The last compilation attempt failed.
+    Failed {
+        semantic_revision: SemanticRevision,
+        error: String,
+    },
+}
+
+impl CompileState {
+    pub fn is_ready(&self) -> bool {
+        matches!(self, Self::Ready { .. })
+    }
+
+    pub fn graph(&self) -> Option<&Arc<CompiledModuleGraph>> {
+        match self {
+            Self::Ready { graph, .. } => Some(graph),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug)]

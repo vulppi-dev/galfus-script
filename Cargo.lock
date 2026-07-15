@@ -758,6 +758,7 @@ dependencies = [
 name = "galfus-workspace"
 version = "0.0.0"
 dependencies = [
+ "galfus-compiler",
  "galfus-core",
  "galfus-frontend",
  "serde",

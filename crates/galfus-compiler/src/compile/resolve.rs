@@ -173,16 +173,11 @@ pub(super) fn import_target_index(
     mod_idx: usize,
     source: &str,
 ) -> Option<usize> {
-    if !source.starts_with("./") && !source.starts_with("../") {
-        return None;
-    }
-    let base = modules[mod_idx].path();
-    let base_dir = base.parent().unwrap_or_else(|| std::path::Path::new(""));
-    let mut target = base_dir.join(source);
-    if target.extension().is_none() {
-        target.set_extension("gfs");
-    }
-    modules.iter().position(|m| m.path() == target)
+    let target = galfus_frontend::modules::resolution::resolve_relative_import(
+        modules[mod_idx].path(),
+        source,
+    )?;
+    modules.iter().position(|m| m.path() == &target)
 }
 
 fn import_source_for_expression<'a>(module: &'a CompiledModule, expr: NodeId) -> Option<&'a str> {

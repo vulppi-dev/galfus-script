@@ -31,9 +31,10 @@ pub fn compile_to_image(input: &mut CompilerInput<'_>) -> Result<ModuleImage> {
                 module.path()
             )
         })?;
-        let mir = galfus_ir::builder::MirBuilder::new(module.graph(), type_res, module.source().text())
-            .with_workspace_ctx(&mut ws_ctx)
-            .build();
+        let mir =
+            galfus_ir::builder::MirBuilder::new(module.graph(), type_res, module.source().text())
+                .with_workspace_ctx(&mut ws_ctx)
+                .build();
         if let Err(errors) = galfus_ir::validate_module(&mir, type_res) {
             let details = errors
                 .iter()
@@ -104,7 +105,7 @@ pub fn compile_to_image(input: &mut CompilerInput<'_>) -> Result<ModuleImage> {
                 return Err(anyhow::anyhow!(
                     "could not resolve function call target `{}` in module `{}`\nImports: {:?}\nSymbol ID: {}\nLocal Functions: {:?}",
                     func_id.raw(),
-                    modules[mod_idx].path().display(),
+                    modules[mod_idx].path().as_str(),
                     modules[mod_idx].graph().resolution().map(|r| r
                         .imports()
                         .iter()
@@ -269,7 +270,8 @@ pub fn compile_to_image(input: &mut CompilerInput<'_>) -> Result<ModuleImage> {
         Some(synthetic_func_idx)
     };
 
-    let exports = collect_entry_exports(&modules[entry_idx], entry_mir, &global_func_map, entry_idx);
+    let exports =
+        collect_entry_exports(&modules[entry_idx], entry_mir, &global_func_map, entry_idx);
 
     let module_image = ModuleImage {
         name: input.image_name.clone(),
