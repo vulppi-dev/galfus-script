@@ -227,8 +227,6 @@ compiler::ownership
 compiler::mir
 compiler::bytecode
 compiler::image
-compiler::gfb
-compiler::gfm
 ```
 
 A normal application does not include the `compiler` module.

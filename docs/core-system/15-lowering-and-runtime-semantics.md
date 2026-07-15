@@ -52,13 +52,6 @@ Public/source-level file types:
 .gfp -> Galfus proxy/adaptor definition
 ```
 
-Removed public artifacts:
-
-```txt
-.gfb
-.gfm
-```
-
 `ImageModule` is an internal compiler/runtime representation.
 
 It is serialized only inside a final target bundle blob.
@@ -72,7 +65,7 @@ Conceptual pipeline:
   -> target-specific final bundle blob
 ```
 
-Debug/source information, if needed, belongs to the final target bundle policy, not standalone `.gfm` files.
+Debug/source information, if needed, belongs to the final target bundle policy.
 
 ## 15.4 Module Lowering
 
@@ -458,7 +451,6 @@ bundle sections
 Lowering MUST:
 
 - Preserve validated source semantics.
-- Emit no standalone `.gfb` or `.gfm` public artifacts.
 - Serialize internal `ImageModule` only inside final target bundle blobs.
 - Apply decorators closest-to-farthest.
 - Reject decorators on stamped functions.

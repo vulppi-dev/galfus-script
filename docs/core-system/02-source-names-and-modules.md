@@ -215,7 +215,6 @@ The source-level public file types are:
 .gfp -> Galfus proxy/adaptor definition
 ```
 
-Standalone `.gfb` and `.gfm` artifacts are removed from the public architecture.
 
 Compiled internal module images are serialized only inside final target bundle blobs.
 

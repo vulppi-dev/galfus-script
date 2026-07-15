@@ -5,7 +5,7 @@
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE.md)
 [![Rust](https://img.shields.io/badge/rust-stable-orange.svg)](https://www.rust-lang.org/)
 
-> A small, efficient, highly modular interpreted scripting language built around typed source code, compact `.gfb` artifacts, and a deterministic VM runtime.
+> A small, efficient, highly modular interpreted scripting language built around typed source code, an in-memory module image, and a deterministic VM runtime.
 
 Galfus Script is a programming language validating a compact, modular, VM-first scripting model. The compiler pipeline and VM interpreter are fully implemented and verified.
 
@@ -37,9 +37,8 @@ The entire core execution pipeline is complete. You can parse, typecheck, compil
                     └── Ownership Check
                           └── MIR Lowering (Structured IR)
                                 └── Bytecode Emitter
-                                      └── Galfus Module Image
-                                            └── .gfb Serialization
-                                                  └── VM Interpreter Execution
+                                       └── Galfus Module Image (in-memory)
+                                                   └── VM Interpreter Execution
 ```
 
 ---
@@ -80,7 +79,7 @@ galfus-script/
   │    ├── galfus-core/       # Shared IDs, diagnostics, spans, and primitive metadata
   │    ├── galfus-frontend/   # Lexer, parser, resolver, checker, and semantic validation
   │    ├── galfus-ir/         # MIR representation and VM lowering code
-  │    ├── galfus-image/      # Bytecode format, validation, layouts, and GFB serialization
+  │    ├── galfus-image/      # Bytecode format, validation, and in-memory module image layouts
   │    ├── galfus-runtime/    # Concurrency runtime, threads, loader, and registry
   │    ├── galfus-vm/         # Virtual Machine interpreter and ownership graph engine
   │    ├── galfus-jit/        # Just-in-Time compilation engine skeleton
