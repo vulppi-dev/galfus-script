@@ -20,13 +20,13 @@ use crate::compile::{
 };
 use crate::input::CompiledModule;
 
-/// Compile all modules in `modules` individually, each producing its own
+/// Compile all modules in `modules`, each producing its own
 /// `ModuleImage` with imports and exports declared.
 ///
 /// Cross-module calls are represented as `Call` instructions that target a
 /// `FuncIdx` in the local import table. The runtime is responsible for
 /// resolving these at load time.
-pub fn compile_module_images(modules: &mut [CompiledModule]) -> Result<Vec<CompiledModuleImage>> {
+pub fn compile_modules(modules: &mut [CompiledModule]) -> Result<Vec<CompiledModuleImage>> {
     // Phase 1: Build MIR for all modules (needed for cross-module specialization).
     let mut ws_ctx = MyWorkspaceContext::new(modules);
 
@@ -58,6 +58,13 @@ pub fn compile_module_images(modules: &mut [CompiledModule]) -> Result<Vec<Compi
         let path = modules[mod_idx].path().clone();
         let semantic_revision = modules[mod_idx].semantic_revision();
         let image = compile_single_module(modules, &mir_modules, mod_idx)?;
+        if let Err(errors) = galfus_image::validation::validate_module_image(&image) {
+            return Err(anyhow::anyhow!(
+                "ModuleImage validation failed for `{}`: {:?}",
+                path.as_str(),
+                errors
+            ));
+        }
         outputs.push(CompiledModuleImage {
             id: module_id,
             path,

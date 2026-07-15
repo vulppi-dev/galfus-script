@@ -6,6 +6,9 @@ use galfus_core::{DiagnosticBag, ModulePath, Revision, SourceFile};
 use galfus_frontend::modules::{FrontendRoots, FrontendSession, FrontendSource, FrontendUpdate};
 use std::sync::Arc;
 
+#[cfg(test)]
+mod tests;
+
 pub struct Workspace {
     sources: SourceStore,
     config: Option<WorkspaceConfig>,
@@ -265,7 +268,7 @@ impl Workspace {
             .collect();
 
         // Compile each module individually — one ModuleImage per module.
-        let outputs = galfus_compiler::compile_module_images(&mut compiled_modules)
+        let outputs = galfus_compiler::compile_modules(&mut compiled_modules)
             .map_err(|e| CompileBlocked::CompilerError(e.to_string()))?;
 
         // Build import edges from the SemanticModuleGraph.
