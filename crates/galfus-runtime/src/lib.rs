@@ -1,3 +1,7 @@
+mod module_graph;
+
+use galfus_compiler::CompiledModuleImage;
+use galfus_core::ModuleId;
 use galfus_image::ModuleImage;
 use galfus_target::TargetCapabilityProvider;
 use galfus_vm::{HeapObject, VirtualMachine, VmPanic, VmValue};
@@ -6,6 +10,8 @@ use std::sync::{Arc, Mutex};
 
 #[cfg(test)]
 mod tests;
+
+pub use module_graph::{LinkedImport, ModuleLink, RuntimeLinkError, RuntimeModuleGraph};
 
 #[derive(Debug, thiserror::Error)]
 pub enum RuntimeError {
@@ -140,6 +146,7 @@ impl LogicalThread {
 
 pub struct Runtime {
     registry: Arc<Mutex<ModuleRegistry>>,
+    modules: RuntimeModuleGraph,
     threads: Vec<LogicalThread>,
     capabilities: Option<Box<dyn TargetCapabilityProvider>>,
 }
@@ -148,6 +155,7 @@ impl Runtime {
     pub fn new(capabilities: Box<dyn TargetCapabilityProvider>) -> Self {
         Self {
             registry: Arc::new(Mutex::new(ModuleRegistry::new())),
+            modules: RuntimeModuleGraph::new(),
             threads: Vec::new(),
             capabilities: Some(capabilities),
         }
@@ -169,6 +177,29 @@ impl Runtime {
 
     pub fn loader(&self) -> RuntimeLoader {
         RuntimeLoader::new(self.registry())
+    }
+
+    /// Upsert a compiled module using its stable `ModuleId`.
+    pub fn load(&mut self, image: CompiledModuleImage) -> Option<CompiledModuleImage> {
+        self.modules.load(image)
+    }
+
+    /// Remove a compiled module and its path lookup entry.
+    pub fn unload(&mut self, id: ModuleId) -> Option<CompiledModuleImage> {
+        self.modules.unload(id)
+    }
+
+    pub fn modules(&self) -> &RuntimeModuleGraph {
+        &self.modules
+    }
+
+    /// Resolve a module's import slots against the currently loaded modules.
+    pub fn link_module(&self, id: ModuleId) -> Result<ModuleLink, RuntimeLinkError> {
+        self.modules.link(id)
+    }
+
+    pub fn initialization_order(&self, id: ModuleId) -> Result<Vec<ModuleId>, RuntimeLinkError> {
+        self.modules.initialization_order(id)
     }
 
     pub fn run_entry(
