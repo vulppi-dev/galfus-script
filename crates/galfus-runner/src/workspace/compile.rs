@@ -24,6 +24,7 @@ pub fn compile_workspace_to_image(check_result: &WorkspaceCheckResult) -> Result
             let relative = native_path.strip_prefix(&cwd).unwrap_or(native_path);
             let path_str = relative.to_string_lossy().replace('\\', "/");
             let module_path = galfus_core::ModulePath::new(&path_str)
+                .or_else(|| galfus_core::ModulePath::new(format!("{path_str}.gfs").as_str()))
                 .unwrap_or_else(|| galfus_core::ModulePath::new("unknown.gfs").unwrap());
             CompiledModule::new(
                 module_path,

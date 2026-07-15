@@ -1,5 +1,6 @@
 use crate::ImportKind;
 use crate::diagnostics::CheckDiagnosticCode;
+use crate::modules::graph::SemanticModuleGraph;
 use crate::modules::module::SemanticModule;
 use crate::modules::resolution::{is_resolvable_import, resolve_relative_import};
 use crate::{
@@ -12,6 +13,9 @@ use galfus_core::{
     SymbolId,
 };
 use std::collections::{HashMap, HashSet};
+
+#[cfg(test)]
+mod tests;
 
 #[derive(Debug, Clone)]
 pub(crate) struct ImportCheckRecord {
@@ -41,14 +45,30 @@ pub(crate) struct PathCheckRecord {
     pub(crate) segments: Vec<PathSegmentRecord>,
 }
 
+#[derive(Default)]
 pub struct FrontendRoots {
-    // Defines roots for the graph, to be provided by workspace in later phases.
+    roots: Vec<crate::modules::graph::SemanticRoot>,
+}
+
+impl FrontendRoots {
+    pub fn new(roots: Vec<crate::modules::graph::SemanticRoot>) -> Self {
+        Self { roots }
+    }
+
+    pub fn roots(&self) -> &[crate::modules::graph::SemanticRoot] {
+        self.roots.as_slice()
+    }
+}
+
+pub struct FrontendSource<'a> {
+    pub module_id: ModuleId,
+    pub path: ModulePath,
+    pub source: &'a SourceFile,
 }
 
 pub struct FrontendUpdate<'a> {
     pub source_revision: Revision,
-    // (ModulePath, SourceFile)
-    pub sources: &'a [(ModulePath, SourceFile)],
+    pub sources: &'a [FrontendSource<'a>],
     pub roots: &'a FrontendRoots,
 }
 
@@ -62,6 +82,7 @@ pub struct FrontendReport {
 pub struct FrontendSession {
     pub modules: Vec<SemanticModule>,
     module_by_path: HashMap<ModulePath, usize>,
+    semantic_graph: SemanticModuleGraph,
     pub diagnostics: DiagnosticBag,
     /// Global counter. Incremented each time any module's semantic result changes.
     next_semantic_revision: u64,
@@ -77,15 +98,12 @@ impl FrontendSession {
         self.module_by_path.clear();
         self.diagnostics = DiagnosticBag::new();
 
-        for (path, source) in update.sources {
-            let parse_result = parse(source);
-            let resolve_result = resolve(source, parse_result.into_graph());
+        for input in update.sources {
+            let parse_result = parse(input.source);
+            let resolve_result = resolve(input.source, parse_result.into_graph());
             let graph = resolve_result.into_graph();
 
             self.diagnostics.extend(graph.diagnostics().iter().cloned());
-
-            let module_index = self.modules.len();
-            let module_id = ModuleId::new(module_index as u32);
 
             // Each module gets its own semantic_revision so the compiler can
             // detect which modules actually changed after a re-check.
@@ -93,20 +111,22 @@ impl FrontendSession {
             let semantic_revision = galfus_core::SemanticRevision::new(self.next_semantic_revision);
 
             self.modules.push(SemanticModule {
-                id: module_id,
-                source_id: source.id(),
-                path: path.clone(),
+                id: input.module_id,
+                source_id: input.source.id(),
+                path: input.path.clone(),
                 source_revision: update.source_revision,
                 semantic_revision,
-                source: source.clone(),
+                source: input.source.clone(),
                 graph,
                 type_result: None,
             });
-            self.module_by_path.insert(path.clone(), module_index);
+            self.module_by_path
+                .insert(input.path.clone(), self.modules.len() - 1);
         }
 
         self.validate_imports();
         self.type_check_modules();
+        self.semantic_graph = SemanticModuleGraph::build(update.roots.roots(), &self.modules);
 
         // Report the highest semantic revision produced in this check cycle.
         let semantic_revision = self
@@ -123,6 +143,10 @@ impl FrontendSession {
             semantic_revision,
             diagnostics: self.diagnostics.clone(),
         }
+    }
+
+    pub fn semantic_graph(&self) -> &SemanticModuleGraph {
+        &self.semantic_graph
     }
 
     fn validate_imports(&mut self) {

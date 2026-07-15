@@ -2,6 +2,9 @@ use galfus_core::{ModuleId, ModulePath, Revision, SourceId};
 use std::collections::HashMap;
 use std::sync::Arc;
 
+#[cfg(test)]
+mod tests;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ModuleOrigin {
     User,

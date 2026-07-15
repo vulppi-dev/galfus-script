@@ -2,11 +2,10 @@ use crate::config::{WorkspaceConfig, parse_workspace_config};
 use crate::source_store::{ModuleOrigin, SourceStore};
 use crate::state::{CheckState, CompileBlocked, CompileState, WorkspaceError};
 use galfus_compiler::{
-    CompiledImportEdge, CompiledModuleGraph, CompiledModuleImage, CompilerInput,
-    input::CompiledModule,
+    CompiledImportEdge, CompiledModuleGraph, CompiledModuleImage, input::CompiledModule,
 };
-use galfus_core::{DiagnosticBag, ModuleId, ModulePath, Revision, SourceFile, SourceId};
-use galfus_frontend::modules::{FrontendRoots, FrontendSession, FrontendUpdate};
+use galfus_core::{DiagnosticBag, ModulePath, Revision, SourceFile};
+use galfus_frontend::modules::{FrontendRoots, FrontendSession, FrontendSource, FrontendUpdate};
 use std::sync::Arc;
 
 pub struct Workspace {
@@ -142,15 +141,31 @@ impl Workspace {
                     diagnostics: DiagnosticBag::new(),
                 };
             } else {
+                let source_files = self
+                    .sources
+                    .iter()
+                    .map(|entry| {
+                        (
+                            entry.module_id,
+                            entry.path.clone(),
+                            SourceFile::new(
+                                entry.source_id,
+                                entry.path.to_string(),
+                                std::str::from_utf8(&entry.bytes).unwrap_or("").to_string(),
+                            ),
+                        )
+                    })
+                    .collect::<Vec<_>>();
                 let mut sources = Vec::new();
-                for (id, entry) in self.sources.iter().enumerate() {
-                    let source_id = SourceId::new(id as u32);
-                    let text = std::str::from_utf8(&entry.bytes).unwrap_or("").to_string();
-                    let source = SourceFile::new(source_id, entry.path.to_string(), text);
-                    sources.push((entry.path.clone(), source));
+                for (module_id, path, source) in &source_files {
+                    sources.push(FrontendSource {
+                        module_id: *module_id,
+                        path: path.clone(),
+                        source,
+                    });
                 }
 
-                let roots = FrontendRoots {};
+                let roots = FrontendRoots::default();
 
                 let update = FrontendUpdate {
                     source_revision: self.revision,
@@ -249,67 +264,45 @@ impl Workspace {
             })
             .collect();
 
-        // Find the entry module.
-        let entry_index = self
-            .config
-            .as_ref()
-            .and_then(|cfg| cfg.entry())
-            .and_then(|entry_path| compiled_modules.iter().position(|m| m.path() == entry_path))
-            .ok_or(CompileBlocked::MissingConfiguration)?;
-
-        let image_name = compiled_modules
-            .get(entry_index)
-            .map(|m| m.path().to_string())
-            .unwrap_or_default();
-
-        let mut input = CompilerInput {
-            modules: compiled_modules.as_mut_slice(),
-            entry_index,
-            image_name: image_name.clone(),
-        };
-
-        let module_image = galfus_compiler::compile_to_image(&mut input)
+        // Compile each module individually — one ModuleImage per module.
+        let outputs = galfus_compiler::compile_module_images(&mut compiled_modules)
             .map_err(|e| CompileBlocked::CompilerError(e.to_string()))?;
 
-        // Build the CompiledModuleGraph from the result.
-        // Phase 5 will produce one image per module; for now we put the single
-        // monolithic image under the entry module's ID.
-        let entry_module_id = ModuleId::new(entry_index as u32);
-        let entry_module_path = compiled_modules[entry_index].path().clone();
-
-        let compiled_image = CompiledModuleImage {
-            id: entry_module_id,
-            path: entry_module_path,
-            semantic_revision,
-            image: module_image,
-        };
-
-        // Build import edges from the semantic graph.
-        let edges: Vec<CompiledImportEdge> = self
-            .frontend
-            .modules
+        // Build import edges from the SemanticModuleGraph.
+        let semantic_graph = self.frontend.semantic_graph();
+        let edges: Vec<CompiledImportEdge> = semantic_graph
+            .import_edges()
             .iter()
-            .flat_map(|m| {
-                let from = m.id();
-                let graph = m.graph();
-                let resolution = match graph.resolution() {
-                    Some(r) => r,
-                    None => return vec![],
-                };
-                resolution
-                    .imports()
-                    .iter()
-                    .filter_map(|_import| {
-                        // Phase 9 will resolve these to ModuleIds properly.
-                        // For now edges are not populated (no multi-module images yet).
-                        None::<CompiledImportEdge>
-                    })
-                    .collect::<Vec<_>>()
+            .filter_map(|edge| {
+                let to = edge.to()?;
+                Some(CompiledImportEdge {
+                    from: edge.from(),
+                    to,
+                })
             })
             .collect();
 
+        // Populate the CompiledModuleGraph — one image per module.
         let mut module_graph = CompiledModuleGraph::new();
-        module_graph.upsert(compiled_image);
+        for output in outputs {
+            let mod_idx = output.module_id.raw() as usize;
+            let path = compiled_modules
+                .get(mod_idx)
+                .map(|m| m.path().clone())
+                .unwrap_or_else(|| galfus_core::ModulePath::new("unknown.gfs").unwrap());
+            let module_rev = self
+                .frontend
+                .modules
+                .get(mod_idx)
+                .map(|m| m.semantic_revision())
+                .unwrap_or(semantic_revision);
+            module_graph.upsert(CompiledModuleImage {
+                id: output.module_id,
+                path,
+                semantic_revision: module_rev,
+                image: output.image,
+            });
+        }
         module_graph.set_edges(edges);
 
         let graph = Arc::new(module_graph);
@@ -319,11 +312,5 @@ impl Workspace {
         };
 
         Ok(CompileReport { graph })
-    }
-}
-
-impl Default for Workspace {
-    fn default() -> Self {
-        Self::new()
     }
 }

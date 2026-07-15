@@ -473,10 +473,10 @@ impl<'a> WorkspaceContext for MyWorkspaceContext<'a> {
         function_name: &str,
         concrete_types: Vec<TypeId>,
     ) -> Option<FunctionId> {
-        let target_mod_idx_opt = self
-            .modules
-            .iter()
-            .position(|module| module.path().as_str() == module_name);
+        let target_mod_idx_opt = self.modules.iter().position(|module| {
+            module.path().as_str() == module_name
+                || module.path().as_str() == format!("{module_name}.gfs")
+        });
         let target_mod_idx = target_mod_idx_opt?;
         let resolution = self.modules[target_mod_idx].graph().resolution()?;
         let target_symbol = resolution

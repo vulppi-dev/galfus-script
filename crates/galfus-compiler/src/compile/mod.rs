@@ -2,6 +2,7 @@ mod context;
 mod exports;
 mod globals;
 mod init;
+pub mod module;
 mod resolve;
 
 use anyhow::Result;

@@ -1,0 +1,263 @@
+//! Per-module compilation: produces one `ModuleImage` per `CompiledModule`.
+//!
+//! Each compiled module:
+//! - Declares `ExportSlot`s for its public symbols.
+//! - Declares `ImportSlot`s for symbols it uses from other modules.
+//! - Contains only its own functions; cross-module calls target an import slot
+//!   via a local `FuncIdx` that the runtime resolves at load time.
+
+use anyhow::Result;
+use galfus_core::ModuleId;
+use galfus_image::{
+    ConstantPool, ExportSlot, ImageFunction, ImageType, ImportSlot, ModuleImage,
+    instruction::{FuncIdx, TypeIdx},
+};
+use std::collections::HashMap;
+
+use crate::compile::{
+    context::MyWorkspaceContext,
+    globals::{image_local_count, rewrite_global_indices},
+};
+use crate::input::CompiledModule;
+
+/// The result of compiling a single module.
+pub struct ModuleImageOutput {
+    pub module_id: ModuleId,
+    pub image: ModuleImage,
+}
+
+/// Compile all modules in `modules` individually, each producing its own
+/// `ModuleImage` with imports and exports declared.
+///
+/// Cross-module calls are represented as `Call` instructions that target a
+/// `FuncIdx` in the local import table. The runtime is responsible for
+/// resolving these at load time.
+pub fn compile_module_images(modules: &mut [CompiledModule]) -> Result<Vec<ModuleImageOutput>> {
+    // Phase 1: Build MIR for all modules (needed for cross-module specialization).
+    let mut ws_ctx = MyWorkspaceContext::new(modules);
+
+    let mut mir_modules = Vec::new();
+    for module in modules.iter() {
+        let type_res = module.type_result().ok_or_else(|| {
+            anyhow::anyhow!(
+                "Module is missing type checking result: {}",
+                module.path().as_str()
+            )
+        })?;
+        let mir =
+            galfus_ir::builder::MirBuilder::new(module.graph(), type_res, module.source().text())
+                .with_workspace_ctx(&mut ws_ctx)
+                .build();
+        mir_modules.push(mir);
+    }
+
+    // Append specialized functions.
+    for (i, mir_mod) in mir_modules.iter_mut().enumerate() {
+        let mut specialized = std::mem::take(&mut ws_ctx.specialised_functions[i]);
+        mir_mod.functions.append(&mut specialized);
+    }
+
+    // Phase 2: Compile each module independently.
+    let mut outputs = Vec::new();
+    for mod_idx in 0..modules.len() {
+        let module_id = ModuleId::new(mod_idx as u32);
+        let image = compile_single_module(modules, &mir_modules, mod_idx)?;
+        outputs.push(ModuleImageOutput { module_id, image });
+    }
+
+    Ok(outputs)
+}
+
+fn compile_single_module(
+    modules: &mut [CompiledModule],
+    mir_modules: &[galfus_ir::mir::MirModule],
+    mod_idx: usize,
+) -> Result<ModuleImage> {
+    use crate::compile::resolve::{
+        collect_call_targets, import_target_index, resolve_import_target, resolve_local_call_target,
+    };
+    use galfus_frontend::SymbolKind;
+
+    let mir_mod = &mir_modules[mod_idx];
+
+    // Collect all cross-module call targets: (local_func_id → (target_mod, target_func)).
+    let mut cross_module_calls: HashMap<galfus_core::FunctionId, (usize, galfus_core::FunctionId)> =
+        HashMap::new();
+
+    for func in &mir_mod.functions {
+        let mut targets = Vec::new();
+        collect_call_targets(&func.blocks, &mut targets);
+        for func_id in targets {
+            if let Some(resolved) = resolve_import_target(modules, mod_idx, func_id) {
+                cross_module_calls.insert(func_id, resolved);
+            } else if let Some(local_id) =
+                resolve_local_call_target(modules, mod_idx, mir_mod, func_id)
+            {
+                // Local call — no import needed.
+                let _ = local_id;
+            }
+        }
+    }
+
+    // Build the import table: one ImportSlot per unique (target_mod, target_func).
+    // We assign local FuncIdx starting after the module's own functions.
+    let own_func_count = mir_mod.functions.len() as u16;
+    let mut import_slots: Vec<ImportSlot> = Vec::new();
+    // Map: (target_mod_idx, target_func_id) → local FuncIdx in the import table.
+    let mut import_func_map: HashMap<(usize, galfus_core::FunctionId), FuncIdx> = HashMap::new();
+
+    for (&local_id, &(target_mod_idx, target_func_id)) in &cross_module_calls {
+        let entry = import_func_map
+            .entry((target_mod_idx, target_func_id))
+            .or_insert_with(|| {
+                let slot_idx = own_func_count + import_slots.len() as u16;
+                let target_module = &modules[target_mod_idx];
+                let symbol_name = target_module
+                    .graph()
+                    .resolution()
+                    .and_then(|res| {
+                        res.exports().iter().find_map(|export| {
+                            if export.symbol().raw() == target_func_id.raw() {
+                                Some(export.name().to_string())
+                            } else {
+                                None
+                            }
+                        })
+                    })
+                    .unwrap_or_else(|| format!("func_{}", target_func_id.raw()));
+
+                let module_name = target_module.path().as_str().to_string();
+
+                import_slots.push(ImportSlot {
+                    module_name,
+                    symbol_name,
+                    // Type info not yet resolved — placeholder.
+                    ty: TypeIdx(0),
+                });
+
+                FuncIdx(slot_idx)
+            });
+        let _ = (local_id, entry);
+    }
+
+    // Build local func map: local func_id → local FuncIdx (0-based within this module).
+    let mut local_func_map: HashMap<galfus_core::FunctionId, FuncIdx> = HashMap::new();
+    for (i, func) in mir_mod.functions.iter().enumerate() {
+        local_func_map.insert(func.id, FuncIdx(i as u16));
+    }
+
+    // Collect exports from this module's resolution.
+    let mut export_slots: Vec<ExportSlot> = Vec::new();
+    if let Some(resolution) = modules[mod_idx].graph().resolution() {
+        for export in resolution.exports() {
+            if export.kind() == SymbolKind::Function {
+                let func_id = galfus_core::FunctionId::new(export.symbol().raw());
+                if let Some(&local_idx) = local_func_map.get(&func_id) {
+                    export_slots.push(ExportSlot {
+                        symbol_name: export.name().to_string(),
+                        func_idx: local_idx,
+                    });
+                }
+            }
+        }
+    }
+
+    // Lowering phase.
+    let module = &modules[mod_idx];
+    let type_res = module
+        .type_result()
+        .ok_or_else(|| anyhow::anyhow!("Missing type result for {}", module.path().as_str()))?;
+
+    let mut ctx = galfus_ir::lower::LowerCtx::new(
+        type_res,
+        module.graph(),
+        module.source().text(),
+        &mir_mod.constant_pool,
+    );
+
+    // Register local functions in ctx.
+    for func in &mir_mod.functions {
+        let local_idx = local_func_map[&func.id];
+        ctx.function_map.insert(func.id, local_idx);
+        ctx.function_names.insert(func.id, func.name.clone());
+        ctx.function_return_types.insert(func.id, func.return_type);
+    }
+
+    // Register cross-module calls as import function slots.
+    for (&local_id, &(target_mod_idx, target_func_id)) in &cross_module_calls {
+        if let Some(&import_idx) = import_func_map.get(&(target_mod_idx, target_func_id)) {
+            ctx.function_map.insert(local_id, import_idx);
+        }
+    }
+
+    let mut functions: Vec<ImageFunction> = Vec::new();
+    let mut init_func_idx: Option<FuncIdx> = None;
+    let mut global_var_map = HashMap::new();
+    let mut next_global_idx = 0u16;
+
+    for mir_func in &mir_mod.functions {
+        let is_init = mir_func.name == "__init_module";
+        let local_func_idx = local_func_map[&mir_func.id];
+
+        if is_init {
+            init_func_idx = Some(local_func_idx);
+        }
+
+        ctx.active_substitutions = mir_func.type_substitutions.clone();
+
+        let return_ty = galfus_ir::lower::types::lower_type(&mut ctx, mir_func.return_type);
+        for &param_ty in &mir_func.parameter_types {
+            galfus_ir::lower::types::lower_type(&mut ctx, param_ty);
+        }
+
+        let param_count = mir_func.parameter_types.len() as u16;
+        let local_count = image_local_count(mir_func, param_count);
+
+        let mut emitter = galfus_ir::lower::function::FnEmitter::new(
+            &mut ctx,
+            mir_func,
+            param_count,
+            local_count,
+        );
+        let mut instructions = emitter.emit();
+
+        rewrite_global_indices(
+            &mut instructions,
+            modules,
+            mod_idx,
+            &mut global_var_map,
+            &mut next_global_idx,
+        )?;
+
+        functions.push(ImageFunction {
+            name: mir_func.name.clone(),
+            param_count: param_count.try_into().unwrap(),
+            local_count,
+            temp_count: emitter.temp_count_max,
+            return_ty,
+            instructions,
+        });
+    }
+
+    let null_type_idx =
+        if let Some(pos) = ctx.types.iter().position(|t| matches!(t, ImageType::Null)) {
+            TypeIdx(pos as u16)
+        } else {
+            let idx = TypeIdx(ctx.types.len() as u16);
+            ctx.types.push(ImageType::Null);
+            idx
+        };
+    let _ = null_type_idx;
+
+    Ok(ModuleImage {
+        name: module.path().as_str().to_string(),
+        constants: ctx.constant_pool,
+        functions,
+        types: ctx.types,
+        struct_layouts: ctx.struct_layouts,
+        choice_layouts: ctx.choice_layouts,
+        imports: import_slots,
+        exports: export_slots,
+        init_func_idx,
+    })
+}
