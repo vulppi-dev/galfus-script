@@ -28,5 +28,6 @@ fn write_file(root: &Path, name: &str, text: &str) -> Result<PathBuf> {
     Ok(path)
 }
 
+mod adapter;
 mod graph;
 mod manifest;
