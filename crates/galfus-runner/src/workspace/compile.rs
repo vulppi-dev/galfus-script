@@ -1,5 +1,5 @@
 use anyhow::Result;
-use galfus_compiler::{CompilerInput, input::CompiledModule};
+use galfus_compiler::{CompiledModule, CompilerInput};
 use galfus_image::ModuleImage;
 
 use crate::workspace::{WorkspaceCheckResult, WorkspaceRootKind};

@@ -2,7 +2,7 @@ use crate::config::{WorkspaceConfig, parse_workspace_config};
 use crate::source_store::{ModuleOrigin, SourceStore};
 use crate::state::{CheckState, CompileBlocked, CompileState, WorkspaceError};
 use galfus_compiler::{
-    CompiledImportEdge, CompiledModuleGraph, CompiledModuleImage, input::CompiledModule,
+    CompiledImportEdge, CompiledModule, CompiledModuleGraph, CompiledModuleImage,
 };
 use galfus_core::{DiagnosticBag, ModulePath, Revision, SourceFile};
 use galfus_frontend::modules::{FrontendRoots, FrontendSession, FrontendSource, FrontendUpdate};
