@@ -626,6 +626,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "galfus-compiler"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "galfus-core",
+ "galfus-frontend",
+ "galfus-image",
+ "galfus-ir",
+]
+
+[[package]]
 name = "galfus-core"
 version = "0.0.0"
 dependencies = [
@@ -697,6 +708,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "galfus-builtins",
+ "galfus-compiler",
  "galfus-core",
  "galfus-frontend",
  "galfus-image",
