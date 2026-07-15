@@ -1,5 +1,6 @@
 use anyhow::Result;
 use galfus_compiler::{CompiledModule, CompilerInput};
+use galfus_core::{ModuleId, SemanticRevision};
 use galfus_image::ModuleImage;
 
 use crate::workspace::{WorkspaceCheckResult, WorkspaceRootKind};
@@ -19,7 +20,8 @@ pub fn compile_workspace_to_image(check_result: &WorkspaceCheckResult) -> Result
     let cwd = std::env::current_dir().unwrap_or_default();
     let mut compiled_modules: Vec<CompiledModule> = runner_modules
         .iter()
-        .map(|m| {
+        .enumerate()
+        .map(|(index, m)| {
             let native_path = m.path();
             let relative = native_path.strip_prefix(&cwd).unwrap_or(native_path);
             let path_str = relative.to_string_lossy().replace('\\', "/");
@@ -27,7 +29,9 @@ pub fn compile_workspace_to_image(check_result: &WorkspaceCheckResult) -> Result
                 .or_else(|| galfus_core::ModulePath::new(format!("{path_str}.gfs").as_str()))
                 .unwrap_or_else(|| galfus_core::ModulePath::new("unknown.gfs").unwrap());
             CompiledModule::new(
+                ModuleId::new(index as u32),
                 module_path,
+                SemanticRevision::new(0),
                 m.source().clone(),
                 m.graph().clone(),
                 m.type_result().cloned(),

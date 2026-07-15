@@ -2,6 +2,9 @@ use galfus_core::{ModuleId, ModulePath, SemanticRevision};
 use galfus_image::ModuleImage;
 use std::collections::HashMap;
 
+#[cfg(test)]
+mod tests;
+
 /// The compiled artifact for a single module.
 ///
 /// Each `CompiledModuleImage` records which `SemanticRevision` it was produced

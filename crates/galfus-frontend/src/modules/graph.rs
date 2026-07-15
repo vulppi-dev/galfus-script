@@ -2,7 +2,7 @@ use crate::ImportKind;
 use crate::modules::module::SemanticModule;
 use crate::modules::resolution::resolve_relative_import;
 use crate::{ImportRecord, SyntaxNodeKind};
-use galfus_core::{ModuleId, ModulePath, NodeId};
+use galfus_core::{ModuleId, ModulePath, NodeId, SemanticRevision};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -99,6 +99,7 @@ impl SemanticImportEdge {
 #[derive(Debug, Clone, Default)]
 pub struct SemanticModuleGraph {
     roots: Vec<SemanticRoot>,
+    modules: HashMap<ModuleId, SemanticModule>,
     module_by_path: HashMap<ModulePath, ModuleId>,
     import_edges: Vec<SemanticImportEdge>,
 }
@@ -108,6 +109,7 @@ impl SemanticModuleGraph {
         let mut graph = Self::default();
 
         for module in modules {
+            graph.modules.insert(module.id(), module.clone());
             graph
                 .module_by_path
                 .insert(module.path().clone(), module.id());
@@ -129,6 +131,18 @@ impl SemanticModuleGraph {
 
     pub fn module_by_path(&self, path: &ModulePath) -> Option<ModuleId> {
         self.module_by_path.get(path).copied()
+    }
+
+    pub fn get(&self, id: ModuleId) -> Option<&SemanticModule> {
+        self.modules.get(&id)
+    }
+
+    pub fn modules(&self) -> impl Iterator<Item = &SemanticModule> {
+        self.modules.values()
+    }
+
+    pub fn semantic_revision(&self, id: ModuleId) -> Option<SemanticRevision> {
+        self.get(id).map(SemanticModule::semantic_revision)
     }
 
     fn add_import_edges(&mut self, modules: &[SemanticModule]) {

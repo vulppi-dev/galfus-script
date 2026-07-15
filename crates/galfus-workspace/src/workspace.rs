@@ -1,9 +1,7 @@
 use crate::config::{WorkspaceConfig, parse_workspace_config};
 use crate::source_store::{ModuleOrigin, SourceStore};
 use crate::state::{CheckState, CompileBlocked, CompileState, WorkspaceError};
-use galfus_compiler::{
-    CompiledImportEdge, CompiledModule, CompiledModuleGraph, CompiledModuleImage,
-};
+use galfus_compiler::{CompiledImportEdge, CompiledModule, CompiledModuleGraph};
 use galfus_core::{DiagnosticBag, ModulePath, Revision, SourceFile};
 use galfus_frontend::modules::{FrontendRoots, FrontendSession, FrontendSource, FrontendUpdate};
 use std::sync::Arc;
@@ -256,7 +254,9 @@ impl Workspace {
             .iter()
             .map(|m| {
                 CompiledModule::new(
+                    m.id(),
                     m.path().clone(),
+                    m.semantic_revision(),
                     m.source().clone(),
                     m.graph().clone(),
                     m.type_result().cloned(),
@@ -284,24 +284,8 @@ impl Workspace {
 
         // Populate the CompiledModuleGraph — one image per module.
         let mut module_graph = CompiledModuleGraph::new();
-        for output in outputs {
-            let mod_idx = output.module_id.raw() as usize;
-            let path = compiled_modules
-                .get(mod_idx)
-                .map(|m| m.path().clone())
-                .unwrap_or_else(|| galfus_core::ModulePath::new("unknown.gfs").unwrap());
-            let module_rev = self
-                .frontend
-                .modules
-                .get(mod_idx)
-                .map(|m| m.semantic_revision())
-                .unwrap_or(semantic_revision);
-            module_graph.upsert(CompiledModuleImage {
-                id: output.module_id,
-                path,
-                semantic_revision: module_rev,
-                image: output.image,
-            });
+        for image in outputs {
+            module_graph.upsert(image);
         }
         module_graph.set_edges(edges);
 

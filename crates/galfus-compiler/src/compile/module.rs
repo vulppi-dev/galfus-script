@@ -1,4 +1,4 @@
-//! Per-module compilation: produces one `ModuleImage` per `CompiledModule`.
+//! Module compilation: produces one `CompiledModuleImage` per `CompiledModule`.
 //!
 //! Each compiled module:
 //! - Declares `ExportSlot`s for its public symbols.
@@ -7,24 +7,18 @@
 //!   via a local `FuncIdx` that the runtime resolves at load time.
 
 use anyhow::Result;
-use galfus_core::ModuleId;
 use galfus_image::{
-    ConstantPool, ExportSlot, ImageFunction, ImageType, ImportSlot, ModuleImage,
+    ExportSlot, ImageFunction, ImageType, ImportSlot, ModuleImage,
     instruction::{FuncIdx, TypeIdx},
 };
 use std::collections::HashMap;
 
+use crate::CompiledModuleImage;
 use crate::compile::{
     context::MyWorkspaceContext,
     globals::{image_local_count, rewrite_global_indices},
 };
 use crate::input::CompiledModule;
-
-/// The result of compiling a single module.
-pub struct ModuleImageOutput {
-    pub module_id: ModuleId,
-    pub image: ModuleImage,
-}
 
 /// Compile all modules in `modules` individually, each producing its own
 /// `ModuleImage` with imports and exports declared.
@@ -32,7 +26,7 @@ pub struct ModuleImageOutput {
 /// Cross-module calls are represented as `Call` instructions that target a
 /// `FuncIdx` in the local import table. The runtime is responsible for
 /// resolving these at load time.
-pub fn compile_module_images(modules: &mut [CompiledModule]) -> Result<Vec<ModuleImageOutput>> {
+pub fn compile_module_images(modules: &mut [CompiledModule]) -> Result<Vec<CompiledModuleImage>> {
     // Phase 1: Build MIR for all modules (needed for cross-module specialization).
     let mut ws_ctx = MyWorkspaceContext::new(modules);
 
@@ -60,9 +54,16 @@ pub fn compile_module_images(modules: &mut [CompiledModule]) -> Result<Vec<Modul
     // Phase 2: Compile each module independently.
     let mut outputs = Vec::new();
     for mod_idx in 0..modules.len() {
-        let module_id = ModuleId::new(mod_idx as u32);
+        let module_id = modules[mod_idx].id();
+        let path = modules[mod_idx].path().clone();
+        let semantic_revision = modules[mod_idx].semantic_revision();
         let image = compile_single_module(modules, &mir_modules, mod_idx)?;
-        outputs.push(ModuleImageOutput { module_id, image });
+        outputs.push(CompiledModuleImage {
+            id: module_id,
+            path,
+            semantic_revision,
+            image,
+        });
     }
 
     Ok(outputs)
@@ -74,7 +75,7 @@ fn compile_single_module(
     mod_idx: usize,
 ) -> Result<ModuleImage> {
     use crate::compile::resolve::{
-        collect_call_targets, import_target_index, resolve_import_target, resolve_local_call_target,
+        collect_call_targets, resolve_import_target, resolve_local_call_target,
     };
     use galfus_frontend::SymbolKind;
 

@@ -46,6 +46,12 @@ fn check_uses_the_module_ids_provided_by_the_host() {
             .module_by_path(&path("src/main.gfs")),
         Some(ModuleId::new(41))
     );
+    assert_eq!(
+        session
+            .semantic_graph()
+            .semantic_revision(ModuleId::new(41)),
+        Some(session.modules[0].semantic_revision())
+    );
     assert!(
         session.semantic_graph().import_edges().iter().any(|edge| {
             edge.from() == ModuleId::new(41) && edge.to() == Some(ModuleId::new(7))
