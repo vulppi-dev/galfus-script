@@ -168,3 +168,29 @@ impl ImportId {
         self.0
     }
 }
+
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct Revision(pub u64);
+
+impl Revision {
+    pub const fn new(rev: u64) -> Self {
+        Self(rev)
+    }
+    
+    pub fn next(&mut self) {
+        self.0 += 1;
+    }
+}
+
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct SemanticRevision(pub u64);
+
+impl SemanticRevision {
+    pub const fn new(rev: u64) -> Self {
+        Self(rev)
+    }
+    
+    pub fn next(&mut self) {
+        self.0 += 1;
+    }
+}

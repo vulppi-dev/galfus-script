@@ -742,6 +742,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "galfus-workspace"
+version = "0.0.0"
+dependencies = [
+ "galfus-core",
+ "serde",
+ "toml 0.8.23",
+]
+
+[[package]]
 name = "generic-array"
 version = "0.14.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
