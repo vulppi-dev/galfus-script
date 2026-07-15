@@ -40,7 +40,7 @@ pub enum VmError {
     InstructionPointerOutOfBounds { pc: usize },
 
     #[error("Array index {index} is out of bounds (length {len})")]
-    IndexOutOfBounds { index: usize, len: usize },
+    IndexOutOfBounds { index: i128, len: usize },
 
     #[error("Variant payload mismatch: variant has no payload")]
     NoVariantPayload,

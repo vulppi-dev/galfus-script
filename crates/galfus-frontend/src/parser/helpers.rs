@@ -4,9 +4,14 @@ use super::*;
 
 impl Parser {
     pub(super) fn can_start_expression(&self) -> bool {
+        if self.at(&TokenKind::Less) {
+            return self.can_parse_cast_expression();
+        }
+
         matches!(
             self.current().kind(),
             TokenKind::Identifier
+                | TokenKind::SelfKw
                 | TokenKind::Integer
                 | TokenKind::Float
                 | TokenKind::String
@@ -22,6 +27,7 @@ impl Parser {
                 | TokenKind::Tilde
                 | TokenKind::Match
                 | TokenKind::Instanceof
+                | TokenKind::Typeof
         )
     }
 
@@ -127,11 +133,11 @@ impl Parser {
             return false;
         }
 
-        let mut index = self.position;
+        let mut position = self.position;
         let mut depth = 0usize;
 
-        while index < self.tokens.len() {
-            match self.tokens[index].kind() {
+        while position < self.tokens.len() {
+            match self.tokens[position].kind() {
                 TokenKind::LeftParen => {
                     depth += 1;
                 }
@@ -139,16 +145,16 @@ impl Parser {
                     depth -= 1;
 
                     if depth == 0 {
-                        index += 1;
+                        position += 1;
 
-                        while index < self.tokens.len()
-                            && self.tokens[index].kind() == &TokenKind::Newline
+                        while position < self.tokens.len()
+                            && self.tokens[position].kind() == &TokenKind::Newline
                         {
-                            index += 1;
+                            position += 1;
                         }
 
                         return matches!(
-                            self.tokens.get(index).map(|token| token.kind()),
+                            self.tokens.get(position).map(|token| token.kind()),
                             Some(TokenKind::Arrow) | Some(TokenKind::Colon)
                         );
                     }
@@ -157,7 +163,7 @@ impl Parser {
                 _ => {}
             }
 
-            index += 1;
+            position += 1;
         }
 
         false
@@ -261,10 +267,9 @@ impl Parser {
                             index += 1;
                         }
 
-                        return self
-                            .tokens
-                            .get(index)
-                            .is_some_and(|token| token.kind() == &TokenKind::LeftParen);
+                        return self.tokens.get(index).is_some_and(|token| {
+                            matches!(token.kind(), TokenKind::LeftParen | TokenKind::ColonColon)
+                        });
                     }
                 }
 
@@ -281,10 +286,9 @@ impl Parser {
                                 index += 1;
                             }
 
-                            return self
-                                .tokens
-                                .get(index)
-                                .is_some_and(|token| token.kind() == &TokenKind::LeftParen);
+                            return self.tokens.get(index).is_some_and(|token| {
+                                matches!(token.kind(), TokenKind::LeftParen | TokenKind::ColonColon)
+                            });
                         }
                     } else {
                         return false;

@@ -21,19 +21,22 @@ impl VirtualMachine {
                     Constant::Int(i) => Value::Int64(*i),
                     Constant::Float(f) => Value::Float64(*f),
                     Constant::String(s) => {
+                        let element_ty = self.uint8_type_idx();
                         let obj = HeapObject::Array {
-                            element_ty: TypeIdx(7), // Uint8
+                            element_ty,
                             elements: s.bytes().map(Value::Uint8).collect(),
                         };
                         Value::Object(self.alloc(obj))
                     }
                     Constant::Bytes(b) => {
+                        let element_ty = self.uint8_type_idx();
                         let obj = HeapObject::Array {
-                            element_ty: TypeIdx(7), // Uint8
+                            element_ty,
                             elements: b.iter().map(|&x| Value::Uint8(x)).collect(),
                         };
                         Value::Object(self.alloc(obj))
                     }
+                    Constant::Function(idx) => Value::Function(*idx),
                 };
                 self.write_reg(dest, val)?;
             }
@@ -65,5 +68,14 @@ impl VirtualMachine {
         }
 
         Ok(ExecutionStep::Continue)
+    }
+
+    fn uint8_type_idx(&self) -> TypeIdx {
+        self.image
+            .types
+            .iter()
+            .position(|ty| matches!(ty, ImageType::Uint8))
+            .map(|idx| TypeIdx(idx as u16))
+            .unwrap_or(TypeIdx(7))
     }
 }

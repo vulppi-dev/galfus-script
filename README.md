@@ -5,16 +5,16 @@
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE.md)
 [![Rust](https://img.shields.io/badge/rust-stable-orange.svg)](https://www.rust-lang.org/)
 
-> A small, efficient, highly modular interpreted scripting language built around typed source code, compact `.gfb` artifacts, and a deterministic VM runtime.
+> A small, efficient, highly modular interpreted scripting language built around typed source code, an in-memory module image, and a deterministic VM runtime.
 
-Galfus Script is a programming language validating a compact, modular, VM-first scripting model. The MVP (Minimum Viable Product) compiler pipeline and VM interpreter are fully implemented and verified.
+Galfus Script is a programming language validating a compact, modular, VM-first scripting model. The compiler pipeline and VM interpreter are fully implemented and verified.
 
 ---
 
 ## Table of Contents
 
 - [Status](#status)
-- [MVP Core Features](#mvp-core-features)
+- [Core Features](#core-features)
 - [Memory Philosophy](#memory-philosophy)
 - [Repository Layout](#repository-layout)
 - [Virtual Standard Library](#virtual-standard-library)
@@ -37,14 +37,13 @@ The entire core execution pipeline is complete. You can parse, typecheck, compil
                     └── Ownership Check
                           └── MIR Lowering (Structured IR)
                                 └── Bytecode Emitter
-                                      └── Galfus Module Image
-                                            └── .gfb Serialization
-                                                  └── VM Interpreter Execution
+                                       └── Galfus Module Image (in-memory)
+                                                   └── VM Interpreter Execution
 ```
 
 ---
 
-## MVP Core Features
+## Core Features
 
 Galfus Script implements a robust set of modern language features:
 
@@ -80,7 +79,7 @@ galfus-script/
   │    ├── galfus-core/       # Shared IDs, diagnostics, spans, and primitive metadata
   │    ├── galfus-frontend/   # Lexer, parser, resolver, checker, and semantic validation
   │    ├── galfus-ir/         # MIR representation and VM lowering code
-  │    ├── galfus-image/      # Bytecode format, validation, layouts, and GFB serialization
+  │    ├── galfus-image/      # Bytecode format, validation, and in-memory module image layouts
   │    ├── galfus-runtime/    # Concurrency runtime, threads, loader, and registry
   │    ├── galfus-vm/         # Virtual Machine interpreter and ownership graph engine
   │    ├── galfus-jit/        # Just-in-Time compilation engine skeleton
@@ -102,7 +101,7 @@ A minimal virtual standard library is available to user scripts, including:
 
 Offers basic console input/output interface:
 
-- `fn print(text: [uint8]): null`: Output a slice of uint8 characters directly to the standard output.
+- `fn print(text: [u8]): null`: Output a slice of u8 characters directly to the standard output.
 
 ---
 

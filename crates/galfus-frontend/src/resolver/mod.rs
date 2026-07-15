@@ -1,3 +1,12 @@
+use crate::{AsNameId, ModuleAst, NameId, ResolverDiagnosticCode, SyntaxLayer, SyntaxNodeKind};
+use galfus_core::{Diagnostic, DiagnosticBag, NodeId, ScopeId, SourceFile, Span, SymbolId};
+
+pub use export::*;
+pub use import::*;
+pub use resolution::*;
+pub use scope::*;
+pub use symbol::*;
+
 #[cfg(test)]
 mod tests;
 
@@ -15,27 +24,25 @@ mod symbol;
 mod type_member;
 mod type_reference;
 
-use galfus_core::{Diagnostic, DiagnosticBag, NodeId, ScopeId, SourceFile, Span, SymbolId};
-
-pub use export::*;
-pub use import::*;
-pub use resolution::*;
-pub use scope::*;
-pub use symbol::*;
-
-use crate::{AsNameId, ModuleGraph, NameId, ResolverDiagnosticCode, SyntaxLayer, SyntaxNodeKind};
-
 pub struct ResolveResult {
-    graph: ModuleGraph,
+    graph: ModuleAst,
 }
 
 impl ResolveResult {
-    pub fn graph(&self) -> &ModuleGraph {
+    pub fn ast(&self) -> &ModuleAst {
         &self.graph
     }
 
-    pub fn into_graph(self) -> ModuleGraph {
+    pub fn into_ast(self) -> ModuleAst {
         self.graph
+    }
+
+    pub fn graph(&self) -> &ModuleAst {
+        self.ast()
+    }
+
+    pub fn into_graph(self) -> ModuleAst {
+        self.into_ast()
     }
 
     pub fn has_errors(&self) -> bool {
@@ -275,23 +282,33 @@ impl<'a> Resolver<'a> {
                 }
             }
 
-            SyntaxNodeKind::StructBindingField => match node.child_count() {
-                0 => {}
-
-                1 => {
-                    if let Some(name) = node.first_child() {
-                        let symbol_name = self.node_text(name);
-                        let name_id = NameId::intern(&symbol_name);
-                        self.declare_symbol(name_id, kind, name, scope);
+            SyntaxNodeKind::StructPattern => {
+                if node.children().len() > 1 {
+                    for field in &node.children()[1..] {
+                        self.declare_binding_pattern(*field, kind, scope);
                     }
                 }
+            }
 
-                _ => {
-                    if let Some(alias_pattern) = node.child(1) {
-                        self.declare_binding_pattern(alias_pattern, kind, scope);
+            SyntaxNodeKind::StructBindingField | SyntaxNodeKind::StructPatternField => {
+                match node.child_count() {
+                    0 => {}
+
+                    1 => {
+                        if let Some(name) = node.first_child() {
+                            let symbol_name = self.node_text(name);
+                            let name_id = NameId::intern(&symbol_name);
+                            self.declare_symbol(name_id, kind, name, scope);
+                        }
+                    }
+
+                    _ => {
+                        if let Some(alias_pattern) = node.child(1) {
+                            self.declare_binding_pattern(alias_pattern, kind, scope);
+                        }
                     }
                 }
-            },
+            }
 
             SyntaxNodeKind::TupleBindingPattern | SyntaxNodeKind::ArrayBindingPattern => {
                 for child in node.children() {
@@ -358,7 +375,7 @@ impl<'a> Resolver<'a> {
     }
 }
 
-pub fn resolve(source: &SourceFile, mut graph: ModuleGraph) -> ResolveResult {
+pub fn resolve(source: &SourceFile, mut graph: ModuleAst) -> ResolveResult {
     let resolver = Resolver::new(source, graph.syntax());
     let (resolution, diagnostics) = resolver.resolve();
 

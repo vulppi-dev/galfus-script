@@ -273,3 +273,144 @@ fn test_control_flow_jumps() {
     let res = vm.run_function(FuncIdx(0), vec![]).unwrap();
     assert_eq!(res, Value::Int64(888));
 }
+
+#[test]
+fn test_nested_calls_return_to_explicit_destinations() {
+    let main_instrs = vec![
+        Instruction::Call {
+            dest: Reg(1),
+            func: FuncIdx(1),
+            args_start: Reg(0),
+            arg_count: 0,
+        },
+        Instruction::Call {
+            dest: Reg(2),
+            func: FuncIdx(2),
+            args_start: Reg(0),
+            arg_count: 0,
+        },
+        Instruction::Add {
+            dest: Reg(3),
+            lhs: Reg(1),
+            rhs: Reg(2),
+        },
+        Instruction::Ret { src: Reg(3) },
+    ];
+
+    let one_instrs = vec![
+        Instruction::LoadConst {
+            dest: Reg(0),
+            const_idx: ConstIdx(0),
+        },
+        Instruction::Ret { src: Reg(0) },
+    ];
+
+    let two_instrs = vec![
+        Instruction::LoadConst {
+            dest: Reg(0),
+            const_idx: ConstIdx(1),
+        },
+        Instruction::Ret { src: Reg(0) },
+    ];
+
+    let image = ModuleImage {
+        name: "test".to_string(),
+        constants: ConstantPool {
+            constants: vec![Constant::Int(1), Constant::Int(2)],
+        },
+        functions: vec![
+            ImageFunction {
+                name: "main".to_string(),
+                param_count: 0,
+                local_count: 4,
+                temp_count: 4,
+                return_ty: TypeIdx(0),
+                instructions: main_instrs,
+            },
+            ImageFunction {
+                name: "one".to_string(),
+                param_count: 0,
+                local_count: 1,
+                temp_count: 1,
+                return_ty: TypeIdx(0),
+                instructions: one_instrs,
+            },
+            ImageFunction {
+                name: "two".to_string(),
+                param_count: 0,
+                local_count: 1,
+                temp_count: 1,
+                return_ty: TypeIdx(0),
+                instructions: two_instrs,
+            },
+        ],
+        types: vec![ImageType::Int64],
+        struct_layouts: vec![],
+        choice_layouts: vec![],
+        imports: vec![],
+        exports: vec![],
+        init_func_idx: None,
+    };
+
+    let mut vm = VirtualMachine::new(image);
+    let res = vm.run_function(FuncIdx(0), vec![]).unwrap();
+
+    assert_eq!(res, Value::Int64(3));
+}
+
+#[test]
+fn test_dynamic_call_returns_to_destination() {
+    let image = ModuleImage {
+        name: "test".to_string(),
+        constants: ConstantPool {
+            constants: vec![Constant::Function(FuncIdx(1)), Constant::Int(7)],
+        },
+        functions: vec![
+            ImageFunction {
+                name: "main".to_string(),
+                param_count: 0,
+                local_count: 2,
+                temp_count: 2,
+                return_ty: TypeIdx(0),
+                instructions: vec![
+                    Instruction::LoadConst {
+                        dest: Reg(0),
+                        const_idx: ConstIdx(0),
+                    },
+                    Instruction::CallDynamic {
+                        dest: Reg(1),
+                        func_reg: Reg(0),
+                        args_start: Reg(0),
+                        arg_count: 0,
+                    },
+                    Instruction::Ret { src: Reg(1) },
+                ],
+            },
+            ImageFunction {
+                name: "callee".to_string(),
+                param_count: 0,
+                local_count: 1,
+                temp_count: 0,
+                return_ty: TypeIdx(0),
+                instructions: vec![
+                    Instruction::LoadConst {
+                        dest: Reg(0),
+                        const_idx: ConstIdx(1),
+                    },
+                    Instruction::Ret { src: Reg(0) },
+                ],
+            },
+        ],
+        types: vec![ImageType::Int64],
+        struct_layouts: vec![],
+        choice_layouts: vec![],
+        imports: vec![],
+        exports: vec![],
+        init_func_idx: None,
+    };
+
+    let mut vm = VirtualMachine::new(image);
+    let result = vm.run_function(FuncIdx(0), vec![]).unwrap();
+
+    assert_eq!(result, Value::Int64(7));
+}

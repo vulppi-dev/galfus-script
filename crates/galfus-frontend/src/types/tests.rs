@@ -27,28 +27,28 @@ fn type_table_reuses_named_types() {
 #[test]
 fn type_table_reuses_array_types() {
     let mut table = TypeTable::new();
-    let int32 = table.primitive(PrimitiveType::Int32);
+    let i32 = table.primitive(PrimitiveType::Int32);
 
-    let first = table.intern_array(int32);
-    let second = table.intern_array(int32);
+    let first = table.intern_array(i32);
+    let second = table.intern_array(i32);
 
     assert_eq!(first, second);
-    assert_eq!(table.kind(first), Some(&TypeKind::Array { element: int32 }));
+    assert_eq!(table.kind(first), Some(&TypeKind::Array { element: i32 }));
 }
 
 #[test]
 fn type_table_reuses_fixed_array_types() {
     let mut table = TypeTable::new();
-    let int32 = table.primitive(PrimitiveType::Int32);
+    let i32 = table.primitive(PrimitiveType::Int32);
 
-    let first = table.intern_fixed_array(int32, ArraySize::Known(4));
-    let second = table.intern_fixed_array(int32, ArraySize::Known(4));
+    let first = table.intern_fixed_array(i32, ArraySize::Known(4));
+    let second = table.intern_fixed_array(i32, ArraySize::Known(4));
 
     assert_eq!(first, second);
     assert_eq!(
         table.kind(first),
         Some(&TypeKind::FixedArray {
-            element: int32,
+            element: i32,
             size: ArraySize::Known(4),
         })
     );
@@ -57,11 +57,11 @@ fn type_table_reuses_fixed_array_types() {
 #[test]
 fn type_table_reuses_tuple_types() {
     let mut table = TypeTable::new();
-    let int32 = table.primitive(PrimitiveType::Int32);
+    let i32 = table.primitive(PrimitiveType::Int32);
     let bool_type = table.primitive(PrimitiveType::Bool);
 
-    let first = table.intern_tuple(vec![int32, bool_type]);
-    let second = table.intern_tuple(vec![int32, bool_type]);
+    let first = table.intern_tuple(vec![i32, bool_type]);
+    let second = table.intern_tuple(vec![i32, bool_type]);
 
     assert_eq!(first, second);
 }
@@ -71,16 +71,16 @@ fn type_table_normalizes_union_types() {
     let mut table = TypeTable::new();
 
     let null = table.primitive(PrimitiveType::Null);
-    let int32 = table.primitive(PrimitiveType::Int32);
+    let i32 = table.primitive(PrimitiveType::Int32);
     let bool_type = table.primitive(PrimitiveType::Bool);
 
-    let first = table.intern_union([int32, null, int32]);
-    let second = table.intern_union([null, int32]);
+    let first = table.intern_union([i32, null, i32]);
+    let second = table.intern_union([null, i32]);
 
     assert_eq!(first, second);
 
-    let nested = table.intern_union([first, bool_type, int32]);
-    let direct = table.intern_union([null, int32, bool_type]);
+    let nested = table.intern_union([first, bool_type, i32]);
+    let direct = table.intern_union([null, i32, bool_type]);
 
     assert_eq!(nested, direct);
 }
@@ -88,23 +88,23 @@ fn type_table_normalizes_union_types() {
 #[test]
 fn type_table_collapses_single_member_union() {
     let mut table = TypeTable::new();
-    let int32 = table.primitive(PrimitiveType::Int32);
+    let i32 = table.primitive(PrimitiveType::Int32);
 
-    let union = table.intern_union([int32, int32]);
+    let union = table.intern_union([i32, i32]);
 
-    assert_eq!(union, int32);
+    assert_eq!(union, i32);
 }
 
 #[test]
 fn type_table_reuses_function_types() {
     let mut table = TypeTable::new();
 
-    let int32 = table.primitive(PrimitiveType::Int32);
+    let i32 = table.primitive(PrimitiveType::Int32);
     let null = table.primitive(PrimitiveType::Null);
 
     let parameters = vec![
-        FunctionParameterType::new(int32),
-        FunctionParameterType::with_default(int32),
+        FunctionParameterType::new(i32),
+        FunctionParameterType::with_default(i32),
     ];
 
     let first = table.intern_function(parameters.clone(), null);
@@ -137,25 +137,25 @@ fn type_layer_binds_node_and_symbol_types() {
 
     let node = NodeId::new(1);
     let symbol = SymbolId::new(2);
-    let int32 = layer.table().primitive(PrimitiveType::Int32);
+    let i32 = layer.table().primitive(PrimitiveType::Int32);
 
-    layer.bind_node_type(node, int32);
-    layer.bind_symbol_type(symbol, int32);
+    layer.bind_node_type(node, i32);
+    layer.bind_symbol_type(symbol, i32);
 
-    assert_eq!(layer.node_type(node), Some(int32));
-    assert_eq!(layer.symbol_type(symbol), Some(int32));
+    assert_eq!(layer.node_type(node), Some(i32));
+    assert_eq!(layer.symbol_type(symbol), Some(i32));
 }
 
 #[test]
 fn type_table_describes_types() {
     let mut table = TypeTable::new();
 
-    let int32 = table.primitive(PrimitiveType::Int32);
+    let i32 = table.primitive(PrimitiveType::Int32);
     let null = table.primitive(PrimitiveType::Null);
-    let array = table.intern_array(int32);
+    let array = table.intern_array(i32);
     let union = table.intern_union([array, null]);
 
-    assert_eq!(table.describe(int32), "int32");
+    assert_eq!(table.describe(i32), "i32");
     assert!(table.describe(union).contains("null"));
-    assert!(table.describe(union).contains("[int32]"));
+    assert!(table.describe(union).contains("[i32]"));
 }

@@ -2,9 +2,8 @@ use super::super::*;
 
 #[test]
 fn parse_arrow_function_expression_body() {
-    let source = source(
-        "fn main(): null {\n  const double = (value: int32): int32 => value * 2\n  return\n}",
-    );
+    let source =
+        source("fn main(): null {\n  const double = (value: i32): i32 => value * 2\n  return\n}");
 
     let result = parse(&source);
 
@@ -33,7 +32,7 @@ fn parse_arrow_function_expression_body() {
 
     assert_eq!(
         source.slice(expression_node.span()),
-        Some("(value: int32): int32 => value * 2")
+        Some("(value: i32): i32 => value * 2")
     );
 
     assert_eq!(expression_node.child_count(), 3);
@@ -61,7 +60,7 @@ fn parse_arrow_function_expression_body() {
 #[test]
 fn parse_arrow_function_without_return_type() {
     let source =
-        source("fn main(): null {\n  const double = (value: int32) => value * 2\n  return\n}");
+        source("fn main(): null {\n  const double = (value: i32) => value * 2\n  return\n}");
 
     let result = parse(&source);
 
@@ -103,7 +102,7 @@ fn parse_arrow_function_without_return_type() {
 #[test]
 fn parse_arrow_function_block_body() {
     let source = source(
-        "fn main(): null {\n  const printer = (value: [int8]): null => {\n    print(value)\n    return\n  }\n  return\n}",
+        "fn main(): null {\n  const printer = (value: [i8]): null => {\n    print(value)\n    return\n  }\n  return\n}",
     );
 
     let result = parse(&source);
@@ -138,7 +137,7 @@ fn parse_arrow_function_block_body() {
 #[test]
 fn parse_arrow_function_with_rest_default_parameter() {
     let source = source(
-        "fn main(): null {\n  const summarize = (...values: [int32] | null = null): int32 => 0\n  return\n}",
+        "fn main(): null {\n  const summarize = (...values: [i32] | null = null): i32 => 0\n  return\n}",
     );
 
     let result = parse(&source);
@@ -202,7 +201,7 @@ fn parse_grouped_expression_still_works() {
 #[test]
 fn parse_arrow_function_as_call_argument() {
     let source =
-        source("fn main(): null {\n  items.map((item: int32): int32 => item * 2)\n  return\n}");
+        source("fn main(): null {\n  items.map((item: i32): i32 => item * 2)\n  return\n}");
 
     let result = parse(&source);
 

@@ -1,3 +1,9 @@
+use crate::{
+    ModuleAst, OperatorKind, ParserDiagnosticCode, SyntaxNodeKind, Token, TokenKind,
+    build_token_tree, lex,
+};
+use galfus_core::{Diagnostic, DiagnosticBag, NodeId, SourceFile, Span};
+
 #[cfg(test)]
 mod tests;
 
@@ -8,33 +14,37 @@ mod helpers;
 mod items;
 mod lists;
 mod literals;
+mod metadata;
 mod patterns;
 mod start;
 mod statements;
 mod syntax;
 mod syntax_types;
 
-use crate::{
-    ModuleGraph, OperatorKind, ParserDiagnosticCode, SyntaxNodeKind, Token, TokenKind, lex,
-};
-use galfus_core::{Diagnostic, DiagnosticBag, NodeId, SourceFile, Span};
-
 #[derive(Debug, Clone)]
 pub struct ParseResult {
-    graph: ModuleGraph,
+    graph: ModuleAst,
 }
 
 impl ParseResult {
-    pub fn new(graph: ModuleGraph) -> Self {
+    pub fn new(graph: ModuleAst) -> Self {
         Self { graph }
     }
 
-    pub fn graph(&self) -> &ModuleGraph {
+    pub fn ast(&self) -> &ModuleAst {
         &self.graph
     }
 
-    pub fn into_graph(self) -> ModuleGraph {
+    pub fn into_ast(self) -> ModuleAst {
         self.graph
+    }
+
+    pub fn graph(&self) -> &ModuleAst {
+        self.ast()
+    }
+
+    pub fn into_graph(self) -> ModuleAst {
+        self.into_ast()
     }
 
     pub fn diagnostics(&self) -> &DiagnosticBag {
@@ -49,12 +59,13 @@ impl ParseResult {
 pub struct Parser {
     tokens: Vec<Token>,
     position: usize,
-    graph: ModuleGraph,
+    graph: ModuleAst,
+    source_text: String,
 }
 
 impl Parser {
     pub fn new(source: &SourceFile, tokens: Vec<Token>, diagnostics: DiagnosticBag) -> Self {
-        let mut graph = ModuleGraph::new(source.id());
+        let mut graph = ModuleAst::new(source.id());
 
         graph.extend_diagnostics(diagnostics.into_vec());
 
@@ -62,7 +73,18 @@ impl Parser {
             tokens,
             position: 0,
             graph,
+            source_text: source.text().to_string(),
         }
+    }
+
+    fn token_text(&self, token: &Token) -> &str {
+        let span = token.span();
+        &self.source_text[span.start() as usize..span.end() as usize]
+    }
+
+    fn node_text(&self, node: NodeId) -> &str {
+        let span = self.node_span(node);
+        &self.source_text[span.start() as usize..span.end() as usize]
     }
 
     pub fn finish(mut self) -> ParseResult {
@@ -177,8 +199,13 @@ impl Parser {
 
 pub fn parse(source: &SourceFile) -> ParseResult {
     let lex_result = lex(source);
-    let (tokens, diagnostics) = lex_result.into_parts();
-    let mut parser = Parser::new(source, tokens, diagnostics);
+    let (tokens, mut diagnostics) = lex_result.into_parts();
+    let token_tree_result = build_token_tree(tokens);
+    let (tree, token_tree_diagnostics) = token_tree_result.into_parts();
+
+    diagnostics.extend(token_tree_diagnostics.into_vec());
+
+    let mut parser = Parser::new(source, tree.into_tokens(), diagnostics);
 
     parser.parse_source_file();
     parser.finish()

@@ -9,7 +9,7 @@ fn check_path_typechecks_named_imported_function_call() -> Result<()> {
         r#"
         import { add } from "./math"
 
-        var value: int32 = add(true, 2)
+        var value: i32 = add(true, 2)
 
         fn main(): null {
             return
@@ -21,7 +21,7 @@ fn check_path_typechecks_named_imported_function_call() -> Result<()> {
         root.as_path(),
         "math.gfs",
         r#"
-        export fn add(a: int32, b: int32): int32 {
+        export fn add(a: i32, b: i32): i32 {
             return a
         }
         "#,
@@ -32,9 +32,7 @@ fn check_path_typechecks_named_imported_function_call() -> Result<()> {
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
         diagnostic.code().as_str() == TypeDiagnosticCode::TypeMismatch.as_code()
-            && diagnostic
-                .message()
-                .contains("expected `int32`, got `bool`")
+            && diagnostic.message().contains("expected `i32`, got `bool`")
     }));
 
     fs::remove_dir_all(root)?;
@@ -51,7 +49,7 @@ fn check_path_accepts_named_imported_function_call() -> Result<()> {
         r#"
         import { add } from "./math"
 
-        var value: int32 = add(1, 2)
+        var value: i32 = add(1, 2)
 
         fn main(): null {
             return
@@ -63,7 +61,7 @@ fn check_path_accepts_named_imported_function_call() -> Result<()> {
         root.as_path(),
         "math.gfs",
         r#"
-        export fn add(a: int32, b: int32): int32 {
+        export fn add(a: i32, b: i32): i32 {
             return a
         }
         "#,
@@ -93,7 +91,7 @@ fn check_path_typechecks_named_imported_struct_field_access() -> Result<()> {
         r#"
         import { User } from "./user"
 
-        fn read(value: User): int64 {
+        fn read(value: User): i64 {
             return value.id
         }
 
@@ -108,7 +106,7 @@ fn check_path_typechecks_named_imported_struct_field_access() -> Result<()> {
         "user.gfs",
         r#"
         export struct User {
-            id: int64,
+            id: i64,
         }
         "#,
     )?;
@@ -181,8 +179,8 @@ fn check_path_typechecks_named_imported_choice_constructor() -> Result<()> {
         "result.gfs",
         r#"
         export choice Result {
-            Ok(int32),
-            Err([int8]),
+            Ok(i32),
+            Err([i8]),
         }
         "#,
     )?;
@@ -205,7 +203,7 @@ fn check_path_accepts_named_imported_choice_match() -> Result<()> {
         r#"
         import { Result } from "./result"
 
-        fn unwrap(value: Result): int32 {
+        fn unwrap(value: Result): i32 {
             return match value {
                 Result::Ok(inner) => inner,
                 Result::Err(message) => 0,
@@ -223,8 +221,8 @@ fn check_path_accepts_named_imported_choice_match() -> Result<()> {
         "result.gfs",
         r#"
         export choice Result {
-            Ok(int32),
-            Err([uint8]),
+            Ok(i32),
+            Err([u8]),
         }
         "#,
     )?;
@@ -247,7 +245,7 @@ fn check_path_reports_named_imported_choice_match_payload_mismatch() -> Result<(
         r#"
         import { Result } from "./result"
 
-        fn unwrap(value: Result): int32 {
+        fn unwrap(value: Result): i32 {
             return match value {
                 Result::Ok(true) => 1,
                 Result::Err(message) => 0,
@@ -265,8 +263,8 @@ fn check_path_reports_named_imported_choice_match_payload_mismatch() -> Result<(
         "result.gfs",
         r#"
         export choice Result {
-            Ok(int32),
-            Err([uint8]),
+            Ok(i32),
+            Err([u8]),
         }
         "#,
     )?;
@@ -293,7 +291,7 @@ fn check_path_reports_named_imported_choice_match_non_exhaustive() -> Result<()>
         r#"
         import { Result } from "./result"
 
-        fn unwrap(value: Result): int32 {
+        fn unwrap(value: Result): i32 {
             return match value {
                 Result::Ok(inner) => inner,
             }
@@ -310,8 +308,8 @@ fn check_path_reports_named_imported_choice_match_non_exhaustive() -> Result<()>
         "result.gfs",
         r#"
         export choice Result {
-            Ok(int32),
-            Err([uint8]),
+            Ok(i32),
+            Err([u8]),
         }
         "#,
     )?;
@@ -339,7 +337,7 @@ fn check_path_accepts_named_imported_constraint_application() -> Result<()> {
         import { Named } from "./contracts"
 
         struct User satisfies Named {
-            name: [uint8],
+            name: [u8],
         }
 
         fn main(): null {
@@ -353,7 +351,7 @@ fn check_path_accepts_named_imported_constraint_application() -> Result<()> {
         "contracts.gfs",
         r#"
         export constraint Named {
-            name: [uint8],
+            name: [u8],
         }
         "#,
     )?;
@@ -377,7 +375,7 @@ fn check_path_reports_named_imported_constraint_missing_field() -> Result<()> {
         import { Named } from "./contracts"
 
         struct User satisfies Named {
-            id: int64,
+            id: i64,
         }
 
         fn main(): null {
@@ -391,7 +389,7 @@ fn check_path_reports_named_imported_constraint_missing_field() -> Result<()> {
         "contracts.gfs",
         r#"
         export constraint Named {
-            name: [uint8],
+            name: [u8],
         }
         "#,
     )?;
@@ -430,7 +428,7 @@ fn check_path_typechecks_named_imported_alias() -> Result<()> {
         root.as_path(),
         "ids.gfs",
         r#"
-        export type UserId = int32
+        export type UserId = i32
         "#,
     )?;
 
@@ -439,9 +437,7 @@ fn check_path_typechecks_named_imported_alias() -> Result<()> {
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
         diagnostic.code().as_str() == TypeDiagnosticCode::TypeMismatch.as_code()
-            && diagnostic
-                .message()
-                .contains("expected `int32`, got `bool`")
+            && diagnostic.message().contains("expected `i32`, got `bool`")
     }));
 
     fs::remove_dir_all(root)?;
@@ -458,7 +454,7 @@ fn check_path_reports_named_imported_struct_unknown_field() -> Result<()> {
         r#"
         import { User } from "./user"
 
-        fn read(value: User): int64 {
+        fn read(value: User): i64 {
             return value.missing
         }
 
@@ -473,7 +469,7 @@ fn check_path_reports_named_imported_struct_unknown_field() -> Result<()> {
         "user.gfs",
         r#"
         export struct User {
-            id: int64,
+            id: i64,
         }
         "#,
     )?;
@@ -511,7 +507,7 @@ fn check_path_reports_named_import_from_private_symbol() -> Result<()> {
         "user.gfs",
         r#"
         struct User {
-            id: int64,
+            id: i64,
         }
         "#,
     )?;

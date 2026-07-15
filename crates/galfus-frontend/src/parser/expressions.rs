@@ -10,19 +10,15 @@ pub(super) enum ExpressionBoundary {
 
 impl Parser {
     pub(super) fn parse_expression(&mut self) -> Option<NodeId> {
-        self.parse_expression_with_boundary(ExpressionBoundary::None)
+        self.parse_binary_expression(0, ExpressionBoundary::None)
     }
 
     pub(super) fn parse_expression_before_block(&mut self) -> Option<NodeId> {
-        self.parse_expression_with_boundary(ExpressionBoundary::BeforeBlock)
-    }
-
-    fn parse_expression_with_boundary(&mut self, boundary: ExpressionBoundary) -> Option<NodeId> {
-        self.parse_binary_expression(0, boundary)
+        self.parse_binary_expression(0, ExpressionBoundary::BeforeBlock)
     }
 
     pub(super) fn parse_name_expression(&mut self) -> Option<NodeId> {
-        let identifier = self.parse_identifier()?;
+        let identifier = self.parse_identifier_or_self()?;
         let span = self.node_span(identifier);
 
         Some(self.add_node(SyntaxNodeKind::NameExpression, span, vec![identifier]))
@@ -45,7 +41,7 @@ impl Parser {
         }
 
         if self.at(&TokenKind::New) {
-            return self.parse_new_struct_literal();
+            return self.parse_new_literal();
         }
 
         if self.at(&TokenKind::Match) {
@@ -54,6 +50,10 @@ impl Parser {
 
         if self.at(&TokenKind::Instanceof) {
             return self.parse_instanceof_expression();
+        }
+
+        if self.at(&TokenKind::Typeof) {
+            return self.parse_typeof_expression();
         }
 
         if self.at(&TokenKind::Integer) {
@@ -76,7 +76,16 @@ impl Parser {
             return self.parse_null_literal();
         }
 
-        if self.at(&TokenKind::Identifier) {
+        if self.at(&TokenKind::Underscore) {
+            let token = self.bump();
+            return Some(self.add_node(
+                SyntaxNodeKind::WildcardExpression,
+                token.span(),
+                Vec::new(),
+            ));
+        }
+
+        if self.at(&TokenKind::Identifier) || self.at(&TokenKind::SelfKw) {
             return self.parse_name_expression();
         }
 
@@ -377,6 +386,22 @@ impl Parser {
         self.skip_newlines();
 
         let expression = self.parse_expression()?;
+
+        if self
+            .graph
+            .syntax()
+            .node(expression)
+            .is_some_and(|node| node.kind() == SyntaxNodeKind::RangeExpression)
+        {
+            let span = Span::cover(spread_token.span(), self.node_span(expression))
+                .unwrap_or(spread_token.span());
+            self.graph.push_diagnostic(Diagnostic::error_with_message(
+                ParserDiagnosticCode::UnexpectedToken,
+                "range expressions cannot be array spread targets",
+                span,
+            ));
+            return None;
+        }
 
         let span = Span::cover(spread_token.span(), self.node_span(expression))
             .unwrap_or(spread_token.span());

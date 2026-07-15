@@ -45,10 +45,10 @@ fn resolve_records_exported_anchored_function_by_qualified_name() {
     let source = source(
         r#"
         struct User {
-            name: [int8],
+            name: [i8],
         }
 
-        export fn User::rename(self: User, name: [int8]): User {
+        export fn User::rename(self, name: [i8]): User {
             return self
         }
         "#,
@@ -77,7 +77,7 @@ fn resolve_records_exported_anchored_function_by_qualified_name() {
 fn resolve_records_exported_type_items() {
     let source = source(
         r#"
-        export type UserId = int64
+        export type UserId = i64
 
         export struct User {
             id: UserId,
@@ -94,7 +94,7 @@ fn resolve_records_exported_type_items() {
         }
 
         export constraint Stringable<T> {
-            fn toString(self: T): [int8]
+            fn toString(self): [i8]
         }
         "#,
     );
@@ -191,7 +191,7 @@ fn resolve_does_not_export_non_exported_symbols() {
         }
 
         struct PrivateUser {
-            name: [int8],
+            name: [i8],
         }
 
         const privateVersion = "0.1.0"

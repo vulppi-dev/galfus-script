@@ -37,7 +37,8 @@ fn lexer_reads_keywords() {
     assert_eq!(
         kinds(
             "import from export as var const fn return struct enum choice type constraint \
-                 satisfies match instanceof if else for in while loop break continue weak null true false new copy"
+                 satisfies match instanceof if else for in loop break continue weak null true false new copy \
+                 transaction rollback self"
         ),
         vec![
             TokenKind::Import,
@@ -60,7 +61,6 @@ fn lexer_reads_keywords() {
             TokenKind::Else,
             TokenKind::For,
             TokenKind::In,
-            TokenKind::While,
             TokenKind::Loop,
             TokenKind::Break,
             TokenKind::Continue,
@@ -70,6 +70,9 @@ fn lexer_reads_keywords() {
             TokenKind::False,
             TokenKind::New,
             TokenKind::Copy,
+            TokenKind::Transaction,
+            TokenKind::Rollback,
+            TokenKind::SelfKw,
             TokenKind::Eof,
         ]
     );
@@ -96,7 +99,7 @@ fn lex_stamp_keyword() {
     assert_eq!(
         tokens,
         vec![
-            TokenKind::Stamp,
+            TokenKind::Identifier,
             TokenKind::Fn,
             TokenKind::Identifier,
             TokenKind::LeftParen,
@@ -109,8 +112,30 @@ fn lex_stamp_keyword() {
 }
 
 #[test]
+fn lex_other_identifiers_and_metadata() {
+    let tokens = kinds("shared after name commit while do try catch throw typeof");
+
+    assert_eq!(
+        tokens,
+        vec![
+            TokenKind::Identifier,
+            TokenKind::Identifier,
+            TokenKind::Identifier,
+            TokenKind::Identifier,
+            TokenKind::Identifier,
+            TokenKind::Identifier,
+            TokenKind::Identifier,
+            TokenKind::Identifier,
+            TokenKind::Identifier,
+            TokenKind::Typeof,
+            TokenKind::Eof,
+        ]
+    );
+}
+
+#[test]
 fn lex_string_type_name_as_identifier() {
-    let tokens = kinds("String [uint8]");
+    let tokens = kinds("String [u8]");
 
     assert_eq!(
         tokens,

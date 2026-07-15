@@ -1,6 +1,6 @@
-use super::control_flow::FnEmitter;
+use super::function::FnEmitter;
 use crate::mir::{Constant as MirConstant, MirBinaryOp, MirUnaryOp, Operand, RValue};
-use galfus_core::TypeId;
+use galfus_core::{SymbolId, TypeId};
 use galfus_frontend::{PrimitiveType, SymbolKind, TypeKind};
 use galfus_image::Instruction;
 use galfus_image::instruction::{FieldIdx, GlobalIdx, Reg};
@@ -10,6 +10,21 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
         match rvalue {
             RValue::Use(operand) => {
                 self.load_operand_to(operand, dest);
+
+                if matches!(operand, Operand::Constant(MirConstant::Int(_)) | Operand::Constant(MirConstant::Float(_)))
+                    && let Some(local) = self
+                        .func
+                        .locals
+                        .iter()
+                        .find(|local| local.id.raw() as u16 == dest.raw())
+                {
+                    let type_idx = crate::lower::types::lower_type(self.ctx, local.ty);
+                    self.instructions.push(Instruction::Cast {
+                        dest,
+                        src: dest,
+                        type_idx,
+                    });
+                }
             }
             RValue::UnaryOp(op, operand) => {
                 let src = self.operand_reg(operand);
@@ -22,8 +37,71 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                 self.free_temp_if_operand(operand);
             }
             RValue::BinaryOp(op, lhs, rhs) => {
-                let lhs_reg = self.operand_reg(lhs);
-                let rhs_reg = self.operand_reg(rhs);
+                let mut lhs_reg = self.operand_reg(lhs);
+                let mut rhs_reg = self.operand_reg(rhs);
+                let lhs_ty = self.get_operand_type(lhs);
+                let rhs_ty = self.get_operand_type(rhs);
+
+                let layer = self.ctx.type_result.layer();
+                let table = layer.table();
+
+                let is_numeric = |ty: TypeId| {
+                    matches!(
+                        table.kind(ty),
+                        Some(TypeKind::Primitive(
+                            PrimitiveType::Int8
+                                | PrimitiveType::Int16
+                                | PrimitiveType::Int32
+                                | PrimitiveType::Int64
+                                | PrimitiveType::Uint8
+                                | PrimitiveType::Uint16
+                                | PrimitiveType::Uint32
+                                | PrimitiveType::Uint64
+                                | PrimitiveType::Float16
+                                | PrimitiveType::Float32
+                                | PrimitiveType::Float64
+                        ))
+                    )
+                };
+
+                let mut cast_temp_count = 0;
+
+                if lhs_ty != rhs_ty && is_numeric(lhs_ty) && is_numeric(rhs_ty) {
+                    if matches!(lhs, Operand::Local(_)) && matches!(rhs, Operand::Constant(_)) {
+                        let temp = self.alloc_temp();
+                        cast_temp_count += 1;
+                        let type_idx = crate::lower::types::lower_type(self.ctx, lhs_ty);
+                        self.instructions.push(Instruction::Cast {
+                            dest: temp,
+                            src: rhs_reg,
+                            type_idx,
+                        });
+                        rhs_reg = temp;
+                    } else if matches!(rhs, Operand::Local(_))
+                        && matches!(lhs, Operand::Constant(_))
+                    {
+                        let temp = self.alloc_temp();
+                        cast_temp_count += 1;
+                        let type_idx = crate::lower::types::lower_type(self.ctx, rhs_ty);
+                        self.instructions.push(Instruction::Cast {
+                            dest: temp,
+                            src: lhs_reg,
+                            type_idx,
+                        });
+                        lhs_reg = temp;
+                    } else {
+                        let temp = self.alloc_temp();
+                        cast_temp_count += 1;
+                        let type_idx = crate::lower::types::lower_type(self.ctx, lhs_ty);
+                        self.instructions.push(Instruction::Cast {
+                            dest: temp,
+                            src: rhs_reg,
+                            type_idx,
+                        });
+                        rhs_reg = temp;
+                    }
+                }
+
                 let instr = match op {
                     MirBinaryOp::Add => Instruction::Add {
                         dest,
@@ -127,12 +205,13 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                     },
                 };
                 self.instructions.push(instr);
+                self.free_temps(cast_temp_count);
                 self.free_temp_if_operand(rhs);
                 self.free_temp_if_operand(lhs);
             }
             RValue::Cast(operand, ty) => {
                 let src = self.operand_reg(operand);
-                let type_idx = self.ctx.lower_type(*ty);
+                let type_idx = crate::lower::types::lower_type(self.ctx, *ty);
                 self.instructions.push(Instruction::Cast {
                     dest,
                     src,
@@ -140,9 +219,25 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                 });
                 self.free_temp_if_operand(operand);
             }
+            RValue::Copy(operand) => {
+                let src = self.operand_reg(operand);
+                self.instructions.push(Instruction::Copy { dest, src });
+                self.free_temp_if_operand(operand);
+            }
             RValue::Instanceof(operand, ty) => {
                 let src = self.operand_reg(operand);
-                let type_idx = self.ctx.lower_type(*ty);
+                let type_idx = crate::lower::types::lower_type(self.ctx, *ty);
+                self.instructions.push(Instruction::Instanceof {
+                    dest,
+                    src,
+                    type_idx,
+                });
+                self.free_temp_if_operand(operand);
+            }
+            RValue::ChoiceVariantIs(operand, variant) => {
+                let src = self.operand_reg(operand);
+                let type_idx =
+                    crate::lower::types::lower_choice_variant_type(&mut self.ctx, *variant);
                 self.instructions.push(Instruction::Instanceof {
                     dest,
                     src,
@@ -174,12 +269,12 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                 fields,
                 storage_meta: _,
             } => {
-                let type_idx = self.ctx.lower_type(*struct_type);
+                let type_idx = crate::lower::types::lower_type(self.ctx, *struct_type);
                 self.instructions
                     .push(Instruction::AllocLocal { dest, type_idx });
 
                 // Find fields list to map field names to indices
-                let _struct_symbol = self.struct_symbol_for_type(*struct_type).unwrap();
+                let _struct_symbol = self.struct_symbol_for_type(*struct_type);
 
                 for (i, val_operand) in fields.iter().enumerate() {
                     let val_reg = self.operand_reg(val_operand);
@@ -192,10 +287,11 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                 }
             }
             RValue::NewArray(element_type, elements) => {
-                let type_idx = self.ctx.lower_type(*element_type);
-                let size_const = self
-                    .ctx
-                    .get_or_create_constant(&MirConstant::Int(elements.len() as i64));
+                let type_idx = crate::lower::types::lower_type(self.ctx, *element_type);
+                let size_const = crate::lower::constants::get_or_create_constant(
+                    &mut self.ctx,
+                    &MirConstant::Int(elements.len() as i64),
+                );
                 let size_reg = self.alloc_temp();
                 self.instructions.push(Instruction::LoadConst {
                     dest: size_reg,
@@ -210,7 +306,10 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                 self.free_temps(1);
 
                 for (i, elem_operand) in elements.iter().enumerate() {
-                    let idx_const = self.ctx.get_or_create_constant(&MirConstant::Int(i as i64));
+                    let idx_const = crate::lower::constants::get_or_create_constant(
+                        self.ctx,
+                        &MirConstant::Int(i as i64),
+                    );
                     let idx_reg = self.alloc_temp();
                     self.instructions.push(Instruction::LoadConst {
                         dest: idx_reg,
@@ -230,17 +329,19 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
             RValue::NewArrayDynamic(array_type, elements) => {
                 use crate::mir::ArrayLiteralElement;
 
-                let type_idx = self.ctx.lower_type(*array_type);
+                let type_idx = crate::lower::types::lower_type(self.ctx, *array_type);
 
                 // 1. Calculate total length at runtime
                 let total_len_reg = self.alloc_temp();
-                let const_zero = self.ctx.get_or_create_constant(&MirConstant::Int(0));
+                let const_zero =
+                    crate::lower::constants::get_or_create_constant(self.ctx, &MirConstant::Int(0));
                 self.instructions.push(Instruction::LoadConst {
                     dest: total_len_reg,
                     const_idx: const_zero,
                 });
 
-                let const_one = self.ctx.get_or_create_constant(&MirConstant::Int(1));
+                let const_one =
+                    crate::lower::constants::get_or_create_constant(self.ctx, &MirConstant::Int(1));
 
                 for element in elements {
                     match element {
@@ -340,7 +441,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                 self.free_temps(2);
             }
             RValue::NewTuple(tuple_type, elements) => {
-                let type_idx = self.ctx.lower_type(*tuple_type);
+                let type_idx = crate::lower::types::lower_type(self.ctx, *tuple_type);
                 let start_reg = self.alloc_temp();
 
                 // Allocate remaining contiguous temps
@@ -373,38 +474,36 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
             }
             RValue::MemberAccess(obj_operand, field_name) => {
                 let obj = self.operand_reg(obj_operand);
-                let obj_type = self.get_operand_type(obj_operand);
-                let table = self.ctx.type_result.layer().table();
-                let resolved_type = self.ctx.resolve_alias_type(obj_type);
-
-                let field_idx = if matches!(table.kind(resolved_type), Some(TypeKind::Tuple { .. }))
-                {
-                    field_name.parse::<u16>().unwrap_or(0)
-                } else if let Some(symbol) = self.struct_symbol_for_type(obj_type) {
-                    let struct_fields = self.ctx.get_struct_fields(symbol);
-                    struct_fields
-                        .iter()
-                        .position(|(name, _)| name == field_name)
-                        .unwrap_or(0) as u16
-                } else {
-                    0
-                };
+                let field_idx = self.field_idx_for_member(obj_operand, field_name);
 
                 self.instructions.push(Instruction::LoadField {
                     dest,
                     obj,
-                    field: FieldIdx(field_idx),
+                    field: field_idx,
                 });
                 self.free_temp_if_operand(obj_operand);
             }
             RValue::Choice(choice_type, variant_name, payload_operand) => {
-                let type_idx = self.ctx.lower_type(*choice_type);
-                let choice_symbol = self.struct_symbol_for_type(*choice_type).unwrap();
-                let variants = self.ctx.get_choice_variants(choice_symbol);
-                let variant_idx = variants
-                    .iter()
-                    .position(|(name, _)| name == variant_name)
-                    .unwrap_or(0);
+                let type_idx = crate::lower::types::lower_type(self.ctx, *choice_type);
+                let variant_idx =
+                    if let Some(choice_symbol) = self.struct_symbol_for_type(*choice_type) {
+                        let variants =
+                            crate::lower::types::get_choice_variants(&self.ctx, choice_symbol);
+                        variants
+                            .iter()
+                            .position(|(name, _)| name == variant_name)
+                            .unwrap_or(0)
+                    } else if let Some(choice) =
+                        crate::lower::types::find_imported_choice_for_type(&self.ctx, *choice_type)
+                    {
+                        choice
+                            .variants
+                            .iter()
+                            .position(|v| v.name == *variant_name)
+                            .unwrap_or(0)
+                    } else {
+                        0
+                    };
 
                 let payload_reg = if let Some(op) = payload_operand {
                     self.operand_reg(op)
@@ -432,19 +531,111 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                 self.instructions.push(Instruction::Len { dest, src });
                 self.free_temp_if_operand(operand);
             }
+            RValue::NewArrayZeroed {
+                array_type, size, ..
+            } => {
+                // Emit:
+                //   len_reg = const(size)
+                //   dest = NewArray(array_type, len_reg)
+                //
+                // `array_type` must lower to ImageType::Array or ImageType::FixedArray.
+                // The VM extracts the element type from that image type and then
+                // zero-initialises the backing buffer.
+                let type_idx = crate::lower::types::lower_type(self.ctx, *array_type);
+
+                let size_const = crate::lower::constants::get_or_create_constant(
+                    &mut self.ctx,
+                    &MirConstant::Int(*size as i64),
+                );
+
+                let len_reg = self.alloc_temp();
+
+                self.instructions.push(Instruction::LoadConst {
+                    dest: len_reg,
+                    const_idx: size_const,
+                });
+
+                self.instructions.push(Instruction::NewArray {
+                    dest,
+                    type_idx,
+                    len_reg,
+                });
+
+                self.free_temps(1);
+            }
+            RValue::NewArrayZeroedDynamic {
+                array_type, length, ..
+            } => {
+                let type_idx = crate::lower::types::lower_type(self.ctx, *array_type);
+                let len_reg = self.operand_reg(length);
+
+                self.instructions.push(Instruction::NewArray {
+                    dest,
+                    type_idx,
+                    len_reg,
+                });
+
+                self.free_temp_if_operand(length);
+            }
         }
+    }
+
+    pub fn field_idx_for_member(&self, obj_operand: &Operand, field_name: &str) -> FieldIdx {
+        let obj_type = self.get_operand_type(obj_operand);
+        let table = self.ctx.type_result.layer().table();
+        let resolved_type = crate::lower::types::resolve_alias_type(self.ctx, obj_type);
+
+        let field_idx = if matches!(table.kind(resolved_type), Some(TypeKind::Tuple { .. })) {
+            field_name.parse::<u16>().unwrap_or(0)
+        } else if let Some(symbol) = self.struct_symbol_for_type(obj_type) {
+            let struct_fields = crate::lower::types::get_struct_fields(self.ctx, symbol);
+            struct_fields
+                .iter()
+                .position(|(name, _)| name == field_name)
+                .unwrap_or(0) as u16
+        } else {
+            0
+        };
+
+        FieldIdx(field_idx)
     }
 
     pub fn operand_reg(&mut self, operand: &Operand) -> Reg {
         match operand {
             Operand::Local(local_id) => Reg(local_id.raw() as u16),
-            Operand::Constant(constant) => {
-                let const_idx = self.ctx.get_or_create_constant(constant);
+            Operand::ConstRef(idx) => {
+                let constant = &self.ctx.mir_constants[*idx];
                 let temp = self.alloc_temp();
-                self.instructions.push(Instruction::LoadConst {
-                    dest: temp,
-                    const_idx,
-                });
+                match constant {
+                    MirConstant::Null => {
+                        self.instructions.push(Instruction::LoadNull { dest: temp })
+                    }
+                    _ => {
+                        let const_idx =
+                            crate::lower::constants::get_or_create_constant(self.ctx, constant);
+                        self.instructions.push(Instruction::LoadConst {
+                            dest: temp,
+                            const_idx,
+                        });
+                    }
+                }
+                temp
+            }
+            Operand::Constant(constant) => {
+                let temp = self.alloc_temp();
+                match constant {
+                    MirConstant::Null => {
+                        self.instructions.push(Instruction::LoadNull { dest: temp })
+                    }
+                    _ => {
+                        let const_idx =
+                            crate::lower::constants::get_or_create_constant(self.ctx, constant);
+                        self.instructions.push(Instruction::LoadConst {
+                            dest: temp,
+                            const_idx,
+                        });
+                    }
+                }
                 temp
             }
         }
@@ -458,11 +649,27 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                     self.instructions.push(Instruction::Move { dest, src });
                 }
             }
-            Operand::Constant(constant) => {
-                let const_idx = self.ctx.get_or_create_constant(constant);
-                self.instructions
-                    .push(Instruction::LoadConst { dest, const_idx });
+            Operand::ConstRef(idx) => {
+                let constant = &self.ctx.mir_constants[*idx];
+                match constant {
+                    MirConstant::Null => self.instructions.push(Instruction::LoadNull { dest }),
+                    _ => {
+                        let const_idx =
+                            crate::lower::constants::get_or_create_constant(self.ctx, constant);
+                        self.instructions
+                            .push(Instruction::LoadConst { dest, const_idx });
+                    }
+                }
             }
+            Operand::Constant(constant) => match constant {
+                MirConstant::Null => self.instructions.push(Instruction::LoadNull { dest }),
+                _ => {
+                    let const_idx =
+                        crate::lower::constants::get_or_create_constant(self.ctx, constant);
+                    self.instructions
+                        .push(Instruction::LoadConst { dest, const_idx });
+                }
+            },
         }
     }
 
@@ -478,6 +685,32 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                 let local_decl = self.func.locals.iter().find(|l| l.id == *local_id).unwrap();
                 local_decl.ty
             }
+            Operand::ConstRef(idx) => {
+                let constant = &self.ctx.mir_constants[*idx];
+                let layer = self.ctx.type_result.layer();
+                let table = layer.table();
+                let prim = match constant {
+                    MirConstant::Null => PrimitiveType::Null,
+                    MirConstant::Bool(_) => PrimitiveType::Bool,
+                    MirConstant::Int(_) => PrimitiveType::Int32,
+                    MirConstant::Float(_) => PrimitiveType::Float32,
+                    MirConstant::Function(_) => PrimitiveType::Null,
+                    MirConstant::String(_) => {
+                        // Find String type in type table
+                        for i in 0..table.len() {
+                            let ty_id = TypeId::new(i as u32);
+                            if matches!(
+                                table.kind(ty_id),
+                                Some(TypeKind::Primitive(PrimitiveType::Uint8))
+                            ) {
+                                // Fallback to Int32 if not found
+                            }
+                        }
+                        PrimitiveType::Int32
+                    }
+                };
+                table.primitive(prim)
+            }
             Operand::Constant(constant) => {
                 let layer = self.ctx.type_result.layer();
                 let table = layer.table();
@@ -487,6 +720,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                     MirConstant::Bool(_) => PrimitiveType::Bool,
                     MirConstant::Int(_) => PrimitiveType::Int32,
                     MirConstant::Float(_) => PrimitiveType::Float64,
+                    MirConstant::Function(_) => PrimitiveType::Null,
                     MirConstant::String(_) => {
                         // Find String type in type table
                         for i in 0..table.len() {
@@ -503,7 +737,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                 };
                 for i in 0..table.len() {
                     let ty_id = TypeId::new(i as u32);
-                    if matches!(table.kind(ty_id), Some(TypeKind::Primitive(p)) if *p == prim) {
+                    if matches!(table.kind(ty_id), Some(TypeKind::Primitive(p)) if p == &prim) {
                         return ty_id;
                     }
                 }
@@ -512,8 +746,8 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
         }
     }
 
-    fn struct_symbol_for_type(&self, ty: TypeId) -> Option<galfus_core::SymbolId> {
-        let ty = self.ctx.resolve_alias_type(ty);
+    fn struct_symbol_for_type(&self, ty: TypeId) -> Option<SymbolId> {
+        let ty = crate::lower::types::resolve_alias_type(self.ctx, ty);
         let layer = self.ctx.type_result.layer();
         let table = layer.table();
         let mut current = ty;

@@ -1,11 +1,11 @@
-#[cfg(test)]
-mod tests;
-
 use galfus_image::ModuleImage;
 use galfus_target::TargetCapabilityProvider;
 use galfus_vm::{HeapObject, VirtualMachine, VmPanic, VmValue};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+
+#[cfg(test)]
+mod tests;
 
 #[derive(Debug, thiserror::Error)]
 pub enum RuntimeError {
@@ -19,7 +19,7 @@ pub enum RuntimeError {
         expected: usize,
         found: usize,
     },
-    #[error("entry function `{name}` must return int32")]
+    #[error("entry function `{name}` must return i32")]
     EntryReturnTypeMismatch { name: String },
     #[error("entry arguments require image type `{0}`")]
     MissingArgumentType(&'static str),
@@ -60,10 +60,9 @@ impl EntryAbi {
     }
 
     fn accepts_return_type(self, ty: &galfus_image::ImageType) -> bool {
-        matches!(
-            (self.return_type, ty),
-            (EntryReturnType::Int32, galfus_image::ImageType::Int32)
-        )
+        match self.return_type {
+            EntryReturnType::Int32 => ty == &galfus_image::ImageType::Int32,
+        }
     }
 }
 
@@ -237,17 +236,17 @@ impl Runtime {
 
 fn build_entry_args(vm: &mut VirtualMachine, args: &[Vec<u8>]) -> Result<VmValue, RuntimeError> {
     let uint8_ty = find_type(&vm.image, |ty| matches!(ty, galfus_image::ImageType::Uint8))
-        .ok_or(RuntimeError::MissingArgumentType("uint8"))?;
+        .ok_or(RuntimeError::MissingArgumentType("u8"))?;
     let byte_array_ty = find_type(
         &vm.image,
         |ty| matches!(ty, galfus_image::ImageType::Array(element) if *element == uint8_ty),
     )
-    .ok_or(RuntimeError::MissingArgumentType("[uint8]"))?;
+    .ok_or(RuntimeError::MissingArgumentType("[u8]"))?;
     let args_array_ty = find_type(
         &vm.image,
         |ty| matches!(ty, galfus_image::ImageType::Array(element) if *element == byte_array_ty),
     )
-    .ok_or(RuntimeError::MissingArgumentType("[[uint8]]"))?;
+    .ok_or(RuntimeError::MissingArgumentType("[[u8]]"))?;
 
     let mut arg_values = Vec::with_capacity(args.len());
     for arg in args {

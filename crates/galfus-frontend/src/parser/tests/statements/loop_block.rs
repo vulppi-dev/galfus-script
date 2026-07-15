@@ -170,8 +170,8 @@ fn parse_loop_statement_requires_block() {
     let diagnostic = result
         .diagnostics()
         .iter()
-        .find(|diagnostic| diagnostic.message() == "expected `LeftBrace`, found `Break`")
-        .expect("missing expected block diagnostic");
+        .find(|diagnostic| diagnostic.message() == "expected expression, found `Break`")
+        .expect("missing expected expression diagnostic");
 
-    assert_eq!(diagnostic.code().as_str(), "P0001");
+    assert_eq!(diagnostic.code().as_str(), "P0006");
 }

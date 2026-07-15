@@ -5,7 +5,7 @@ fn resolve_binds_function_parameter_named_type() {
     let source = source(
         r#"
         struct User {
-            name: [int8],
+            name: [i8],
         }
 
         fn greet(user: User): null {
@@ -40,10 +40,10 @@ fn resolve_accepts_struct_function_anchor() {
     let source = source(
         r#"
         struct User {
-            name: [int8],
+            name: [i8],
         }
 
-        fn User::rename(self: User, name: [int8]): User {
+        fn User::rename(self, name: [i8]): User {
             return self
         }
         "#,
@@ -80,7 +80,7 @@ fn resolve_reports_non_struct_function_anchor() {
             Err(F),
         }
 
-        fn Result::map(self: Result<int32, [int8]>): Result<int32, [int8]> {
+        fn Result::map(self): Result<i32, [i8]> {
             return self
         }
         "#,
@@ -96,7 +96,7 @@ fn resolve_reports_non_struct_function_anchor() {
     let graph = resolve_result.graph();
 
     assert!(graph.diagnostics().iter().any(|diagnostic| {
-        diagnostic.code().as_str() == "R0004"
+        diagnostic.code().as_str() == "S0004"
             && diagnostic
                 .message()
                 .contains("function anchor `Result` must be a struct")
@@ -108,7 +108,7 @@ fn resolve_binds_function_return_named_type() {
     let source = source(
         r#"
         struct User {
-            name: [int8],
+            name: [i8],
         }
 
         fn create(): User {
@@ -143,7 +143,7 @@ fn resolve_binds_arrow_function_signature_named_types() {
     let source = source(
         r#"
         struct User {
-            name: [int8],
+            name: [i8],
         }
 
         fn main(): null {

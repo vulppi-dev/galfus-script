@@ -1,6 +1,7 @@
 use crate::mir::*;
 use galfus_core::{FunctionId, NodeId, SymbolId, TypeId};
 use galfus_frontend::{ModuleGraph, SymbolKind, SyntaxNodeKind, TypeCheckResult, TypeKind};
+use std::collections::{HashMap, HashSet};
 
 pub mod complex_literals;
 pub mod expression;
@@ -16,6 +17,11 @@ pub struct MirBuilder<'a> {
     pub(super) source_text: &'a str,
     pub(super) next_local_id: u32,
     pub(super) next_block_id: u32,
+    pub(super) next_specialized_function_id: u32,
+    pub(super) specialisations: HashMap<(FunctionId, Vec<TypeId>), FunctionId>,
+    pub(super) specialized_functions: Vec<MirFunction>,
+    pub(super) active_specialisations: HashSet<(FunctionId, Vec<TypeId>)>,
+    pub(super) workspace_ctx: Option<*mut (dyn WorkspaceContext + 'a)>,
 }
 
 impl<'a> MirBuilder<'a> {
@@ -30,7 +36,17 @@ impl<'a> MirBuilder<'a> {
             source_text,
             next_local_id: 0,
             next_block_id: 0,
+            next_specialized_function_id: 0x7FFF_FFFF,
+            specialisations: HashMap::new(),
+            specialized_functions: Vec::new(),
+            active_specialisations: HashSet::new(),
+            workspace_ctx: None,
         }
+    }
+
+    pub fn with_workspace_ctx(mut self, ctx: &'a mut dyn WorkspaceContext) -> Self {
+        self.workspace_ctx = Some(ctx as *mut (dyn WorkspaceContext + 'a));
+        self
     }
 
     pub fn build(mut self) -> MirModule {
@@ -116,7 +132,13 @@ impl<'a> MirBuilder<'a> {
             functions.push(init_func);
         }
 
-        MirModule { functions, globals }
+        functions.append(&mut self.specialized_functions);
+
+        MirModule {
+            functions,
+            globals,
+            constant_pool: Vec::new(),
+        }
     }
 
     fn collect_symbols_recursive_in_builder(&self, node_id: NodeId, symbols: &mut Vec<SymbolId>) {
@@ -135,16 +157,28 @@ impl<'a> MirBuilder<'a> {
     }
 
     fn build_global_initializers(&mut self, items: &[NodeId]) -> Option<MirFunction> {
+        self.next_local_id = 0;
+        self.next_block_id = 1;
+
         let mut builder_ctx = function::FunctionBuilder {
             builder: self,
             locals: Vec::new(),
             symbol_to_local: std::collections::HashMap::new(),
             current_instructions: Vec::new(),
+            blocks: vec![BasicBlock {
+                parameters: Vec::new(),
+                id: BlockId::new(0),
+                instructions: Vec::new(),
+                terminator: Terminator::Return(None),
+            }],
+            current_block: BlockId::new(0),
             scopes: vec![Vec::new()],
             return_type: TypeId::new(0),
+            type_substitutions: HashMap::new(),
+            loop_targets: Vec::new(),
+            transactions: Vec::new(),
         };
 
-        let mut statements = Vec::new();
         let syntax = builder_ctx.builder.graph.syntax();
 
         for &item in items {
@@ -157,7 +191,7 @@ impl<'a> MirBuilder<'a> {
                     syntax.first_child_of_kind(item, SyntaxNodeKind::Initializer)
                 && let Some(expr) = syntax.first_child(initializer)
             {
-                let operand = builder_ctx.lower_expression(expr, &mut statements);
+                let operand = builder_ctx.lower_expression(expr);
 
                 if let Some(binding) =
                     syntax.first_child_of_kind(item, SyntaxNodeKind::BindingPattern)
@@ -172,7 +206,6 @@ impl<'a> MirBuilder<'a> {
                             .map(|sym| sym.name().to_string())
                             .unwrap_or_default();
 
-                        builder_ctx.flush_current_instructions(&mut statements);
                         builder_ctx
                             .current_instructions
                             .push(Instruction::StoreGlobal(name, operand.clone()));
@@ -181,29 +214,25 @@ impl<'a> MirBuilder<'a> {
             }
         }
 
-        builder_ctx.flush_current_instructions(&mut statements);
+        builder_ctx.flush_current_instructions();
 
-        if statements.is_empty() {
+        if builder_ctx.blocks.len() == 1 && builder_ctx.blocks[0].instructions.is_empty() {
             return None;
         }
 
-        let body = if statements.len() == 1 {
-            statements.pop().unwrap()
-        } else {
-            MirBody::Block {
-                locals: Vec::new(),
-                statements,
-            }
-        };
+        builder_ctx.terminate_block(Terminator::Return(None));
 
-        Some(MirFunction {
+        let mut func = MirFunction {
             id: FunctionId::new(u32::MAX),
             name: "__init_module".to_string(),
             return_type: TypeId::new(0),
             parameter_types: Vec::new(),
             locals: builder_ctx.locals,
-            body,
-        })
+            blocks: builder_ctx.blocks,
+            type_substitutions: HashMap::new(),
+        };
+        crate::lower::ssa::convert_to_ssa(&mut func);
+        Some(func)
     }
 
     pub(super) fn is_owned_type(&self, ty: TypeId) -> bool {
@@ -379,4 +408,29 @@ impl<'a> MirBuilder<'a> {
             _ => false,
         }
     }
+}
+
+pub trait WorkspaceContext {
+    fn resolve_import(&self, node_id: NodeId) -> Option<(usize, SymbolId)>;
+    fn get_generic_params(
+        &self,
+        target_mod_idx: usize,
+        target_symbol: SymbolId,
+    ) -> Option<Vec<SymbolId>>;
+    fn specialize_function(
+        &mut self,
+        caller_node_id: NodeId,
+        target_mod_idx: usize,
+        target_symbol: SymbolId,
+        concrete_types: Vec<TypeId>,
+        substitutions: std::collections::HashMap<SymbolId, TypeId>,
+    ) -> FunctionId;
+    fn specialize_builtin_function(
+        &mut self,
+        caller_node_id: NodeId,
+        module_name: &str,
+        function_name: &str,
+        concrete_types: Vec<TypeId>,
+    ) -> Option<FunctionId>;
+    fn function_return_type(&self, func_id: FunctionId) -> Option<TypeId>;
 }

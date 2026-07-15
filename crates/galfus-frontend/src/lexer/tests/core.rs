@@ -132,10 +132,7 @@ fn lexer_reports_unknown_character() {
     let token = lexer.next_token();
 
     assert_eq!(token.kind(), &TokenKind::Unknown);
-    assert_eq!(
-        token.span(),
-        Span::new(SourceId::new(0), 0, "¬".len() as u32)
-    );
+    assert_eq!(token.span(), Span::new(SourceId::new(0), 0, "¬".len()));
 
     let diagnostics = lexer.diagnostics();
 
@@ -146,10 +143,7 @@ fn lexer_reports_unknown_character() {
 
     assert_eq!(diagnostic.code().as_str(), "L0004");
     assert_eq!(diagnostic.message(), "unknown character");
-    assert_eq!(
-        diagnostic.span(),
-        Span::new(SourceId::new(0), 0, "¬".len() as u32)
-    );
+    assert_eq!(diagnostic.span(), Span::new(SourceId::new(0), 0, "¬".len()));
 }
 
 #[test]

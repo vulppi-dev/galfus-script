@@ -5,8 +5,8 @@ mod tests;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct RowCol {
-    pub row: u32,
-    pub column: u32,
+    pub row: usize,
+    pub column: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -14,7 +14,7 @@ pub struct SourceFile {
     id: SourceId,
     name: String,
     text: String,
-    row_starts: Vec<u32>,
+    row_starts: Vec<usize>,
 }
 
 impl SourceFile {
@@ -25,7 +25,7 @@ impl SourceFile {
 
         for (byte_index, byte) in text.bytes().enumerate() {
             if byte == b'\n' {
-                row_starts.push((byte_index + 1) as u32);
+                row_starts.push(byte_index + 1);
             }
         }
 
@@ -49,15 +49,15 @@ impl SourceFile {
         self.text.as_str()
     }
 
-    pub fn len(&self) -> u32 {
-        self.text.len() as u32
+    pub fn len(&self) -> usize {
+        self.text.len()
     }
 
     pub fn is_empty(&self) -> bool {
         self.text.len() == 0
     }
 
-    pub fn row_col(&self, offset: u32) -> Option<RowCol> {
+    pub fn row_col(&self, offset: usize) -> Option<RowCol> {
         let len = self.len();
 
         if offset > len {
@@ -72,12 +72,12 @@ impl SourceFile {
         let start = self.row_starts[index];
 
         Some(RowCol {
-            row: (index as u32) + 1,
+            row: index + 1,
             column: offset - start + 1,
         })
     }
 
-    pub fn offset(&self, line_col: &RowCol) -> Option<u32> {
+    pub fn offset(&self, line_col: &RowCol) -> Option<usize> {
         let row_index = line_col.row.checked_sub(1)? as usize;
         let column_offset = line_col.column.checked_sub(1)?;
         let row_start = *self.row_starts.get(row_index)?;

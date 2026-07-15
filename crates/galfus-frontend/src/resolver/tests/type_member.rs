@@ -5,8 +5,8 @@ fn resolve_declares_struct_field_symbols_in_struct_scope() {
     let source = source(
         r#"
         struct User {
-            id: int64,
-            name: [uint8],
+            id: i64,
+            name: [u8],
             weak parent: User | null = null,
         }
         "#,
@@ -122,8 +122,8 @@ fn resolve_declares_constraint_member_symbols_in_constraint_scope() {
     let source = source(
         r#"
         constraint Entity<T> {
-            id: int64,
-            fn toString(self: T): [int8]
+            id: i64,
+            fn toString(self): [i8]
         }
         "#,
     );
@@ -160,8 +160,8 @@ fn resolve_reports_duplicate_struct_field_symbol() {
     let source = source(
         r#"
         struct User {
-            id: int64,
-            id: int32,
+            id: i64,
+            id: i32,
         }
         "#,
     );
@@ -188,8 +188,8 @@ fn resolve_reports_duplicate_constraint_member_symbol() {
     let source = source(
         r#"
         constraint Entity {
-            id: int64,
-            id: int32,
+            id: i64,
+            id: i32,
         }
         "#,
     );

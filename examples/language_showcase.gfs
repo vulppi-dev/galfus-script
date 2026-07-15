@@ -1,0 +1,216 @@
+import { println } from "std/io"
+
+type Bytes = [u8]
+type Scalar = i32 | bool | null
+
+enum(i16) Direction {
+  North,
+  South,
+  East,
+  West,
+}
+
+choice Outcome<T> {
+  Ok(T),
+  Err(Bytes),
+}
+
+constraint Renderable {
+  fn render(self): Bytes
+}
+
+struct Point {
+  x: i32,
+  y: i32,
+}
+
+struct Box<T: Scalar> {
+  value: T,
+}
+
+fn Point::move(self, dx: i32, dy: i32): Point {
+  return new {
+    x: self.x + dx,
+    y: self.y + dy,
+  }
+}
+
+fn bindings_and_literals(): i32 {
+  const base = 10
+  var total = base + 5
+  total += 3
+  return total
+}
+
+fn arrays_and_spread(): [i32] {
+  const first = [1, 2, 3]
+  return [...first, 4, 5]
+}
+
+fn new_dynamic_array(size: i32): [u8] {
+  return new([u8], size)
+}
+
+fn structs_and_methods(): Point {
+  const point = new(Point) {
+    x: 1,
+    y: 2,
+  }
+
+  return point::move(3, 4)
+}
+
+fn choices_and_match(value: Outcome<i32>): i32 {
+  return match value {
+    Outcome::Ok(number) => number,
+    Outcome::Err(_) => 0,
+  }
+}
+
+fn narrowing(value: Scalar): i32 {
+  return instanceof value {
+    i32 number => number,
+    bool flag => 1,
+    null => 0,
+  }
+}
+
+fn loops_and_ranges(): i32 {
+  var total = 0
+
+  for value in 0..10 {
+    total += value
+  }
+
+  for value in [10, 20, 30] {
+    total += value
+  }
+
+  return total
+}
+
+fn quantity_ranges(): i32 {
+  var total = 0
+
+  for value in 2::4%2 {
+    total += value
+  }
+
+  return total
+}
+
+fn loop_controls(limit: i32): i32 {
+  var count = 0
+  var total = 0
+
+  loop {
+    count += 1
+
+    if count == 2 {
+      continue
+    }
+
+    total += count
+
+    if count >= limit {
+      break
+    }
+  }
+
+  return total
+}
+
+fn named_loop_controls(): i32 {
+  var count = 0
+
+  loop(name: root) {
+    loop {
+      count += 1
+
+      if count >= 3 {
+        break root
+      }
+
+      continue
+    }
+  }
+
+  return count
+}
+
+fn type_dispatch<T: Scalar>(): i32 {
+  return typeof T {
+    i32 => 32,
+    bool => 1,
+    null => 0,
+    _ => -1,
+  }
+}
+
+fn arrow_functions(): i32 {
+  const double = (value: i32): i32 => value * 2
+  const add = (left: i32, right: i32): i32 => {
+    return left + right
+  }
+
+  return add(double(2), 3)
+}
+
+fn casts_and_copy(point: Point): Point {
+  const value = <i32>1
+  const cloned = copy point
+
+  return cloned::move(value, value)
+}
+
+fn transactions(): i32 {
+  var value = 1
+
+  transaction {
+    value += 1
+
+    if value > 10 {
+      rollback
+    }
+  }
+
+  return value
+}
+
+struct KeyValue { key: i32, value: i32 }
+
+fn destructuring_showcase({ x, y }: Point): i32 {
+  var { x: local_x, y: local_y } = new(Point) { x, y }
+  
+  const [first, ...rest] = [local_x, local_y, 10]
+  
+  var total = first
+  for { key, value } in [ new(KeyValue) { key: 1, value: 2 } ] {
+    total += key + value
+  }
+
+  const result = instanceof local_x {
+    i32 number => number,
+    _ => 0,
+  }
+
+  return total + result
+}
+
+export fn main(_args: [[u8]]): i32 {
+  const point = structs_and_methods()
+  const destructured = destructuring_showcase(point)
+  const result = choices_and_match(Outcome::Ok(bindings_and_literals()))
+  const narrowed = narrowing(result)
+  const ranged = loops_and_ranges() + quantity_ranges()
+  const looped = loop_controls(5)
+  const namedLooped = named_loop_controls()
+  const dispatched = type_dispatch<i32>()
+  const arrow = arrow_functions()
+  const copied = casts_and_copy(point)
+  const bytes = new_dynamic_array(16)
+
+  println(bytes)
+
+  return destructured + narrowed + ranged + looped + namedLooped + dispatched + arrow + copied.x
+}

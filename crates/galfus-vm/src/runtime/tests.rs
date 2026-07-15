@@ -43,6 +43,7 @@ fn create_test_image(instructions: Vec<Instruction>, constants: Vec<Constant>) -
                     ownership: OwnershipKind::Value,
                 },
             ],
+            constraints: vec![],
         }],
         choice_layouts: vec![ChoiceLayout {
             name: "OptionInt".to_string(),

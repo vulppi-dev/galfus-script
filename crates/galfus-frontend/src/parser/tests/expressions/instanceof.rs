@@ -17,7 +17,7 @@ fn first_instanceof_expression(result: &ParseResult) -> NodeId {
 #[test]
 fn parse_instanceof_expression_with_type_patterns() {
     let source = source(
-        "fn main(): int32 {\n  return instanceof value {\n    int32 v => v ** 2,\n    [int8] text => text.length,\n    _ => 0,\n  }\n}",
+        "fn main(): i32 {\n  return instanceof value {\n    i32 v => v ** 2,\n    [i8] text => text.length,\n    _ => 0,\n  }\n}",
     );
 
     let result = parse(&source);
@@ -54,7 +54,7 @@ fn parse_instanceof_expression_with_type_patterns() {
     let first_pattern_node = syntax.node(first_pattern).unwrap();
 
     assert_eq!(first_pattern_node.kind(), SyntaxNodeKind::TypePattern);
-    assert_eq!(source.slice(first_pattern_node.span()), Some("int32 v"));
+    assert_eq!(source.slice(first_pattern_node.span()), Some("i32 v"));
 
     let body = first_arm_node.child(1).unwrap();
     assert_eq!(
@@ -65,9 +65,8 @@ fn parse_instanceof_expression_with_type_patterns() {
 
 #[test]
 fn parse_instanceof_wildcard_pattern() {
-    let source = source(
-        "fn main(): int32 {\n  instanceof value {\n    _ => {\n      return 0\n    }\n  }\n}",
-    );
+    let source =
+        source("fn main(): i32 {\n  instanceof value {\n    _ => {\n      return 0\n    }\n  }\n}");
 
     let result = parse(&source);
 
@@ -93,7 +92,7 @@ fn parse_instanceof_wildcard_pattern() {
 #[test]
 fn parse_instanceof_expression_with_array_type_pattern() {
     let source = source(
-        "fn main(value: [uint8] | null): null {\n  instanceof value {\n    [uint8] name => {\n      return\n    }\n    _ => {\n      return\n    }\n  }\n}",
+        "fn main(value: [u8] | null): null {\n  instanceof value {\n    [u8] name => {\n      return\n    },\n    _ => {\n      return\n    }\n  }\n}",
     );
 
     let result = parse(&source);
@@ -110,7 +109,7 @@ fn parse_instanceof_expression_with_array_type_pattern() {
 #[test]
 fn parse_instanceof_expression_with_null_pattern_and_expression_arms() {
     let source = source(
-        "fn main(value: [uint8] | int32 | null): null {\n  instanceof value {\n    [uint8] name => log(name),\n    int32 count => log(count),\n    null => log(\"missing\"),\n  }\n}",
+        "fn main(value: [u8] | i32 | null): null {\n  instanceof value {\n    [u8] name => log(name),\n    i32 count => log(count),\n    null => log(\"missing\"),\n  }\n}",
     );
 
     let result = parse(&source);

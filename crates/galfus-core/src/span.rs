@@ -6,12 +6,12 @@ mod tests;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Span {
     source_id: SourceId,
-    start: u32,
-    end: u32,
+    start: usize,
+    end: usize,
 }
 
 impl Span {
-    pub const fn new(source_id: SourceId, start: u32, end: u32) -> Self {
+    pub const fn new(source_id: SourceId, start: usize, end: usize) -> Self {
         Self {
             source_id,
             start,
@@ -19,7 +19,7 @@ impl Span {
         }
     }
 
-    pub const fn empty(source_id: SourceId, offset: u32) -> Self {
+    pub const fn empty(source_id: SourceId, offset: usize) -> Self {
         Self {
             source_id,
             start: offset,
@@ -31,15 +31,15 @@ impl Span {
         self.source_id
     }
 
-    pub const fn start(self) -> u32 {
+    pub const fn start(self) -> usize {
         self.start
     }
 
-    pub const fn end(self) -> u32 {
+    pub const fn end(self) -> usize {
         self.end
     }
 
-    pub const fn len(self) -> u32 {
+    pub const fn len(self) -> usize {
         self.end.saturating_sub(self.start)
     }
 
@@ -47,11 +47,11 @@ impl Span {
         self.start == self.end
     }
 
-    pub const fn contains(self, offset: u32) -> bool {
+    pub const fn contains(self, offset: usize) -> bool {
         self.start <= offset && offset < self.end
     }
 
-    pub fn checked_new(source_id: SourceId, start: u32, end: u32) -> Option<Self> {
+    pub fn checked_new(source_id: SourceId, start: usize, end: usize) -> Option<Self> {
         if start <= end {
             Some(Self::new(source_id, start, end))
         } else {

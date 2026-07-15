@@ -1,11 +1,18 @@
-fn __builtin_write(text: [uint8]): null {}
+fn __builtin_write(text: [u8]): null {}
+fn __builtin_read(terminator: [u8]): [u8] {
+  return ""
+}
 
-export fn print(text: [uint8]): null {
+export fn read(terminator: [u8] = "\n"): [u8] {
+  return __builtin_read(terminator)
+}
+
+export fn print(text: [u8]): null {
   __builtin_write(text)
 }
 
-export fn println(text: [uint8]): null {
+export fn println(text: [u8]): null {
   __builtin_write(text)
-  __builtin_write([10])
+  __builtin_write([<u8>10])
 }
 

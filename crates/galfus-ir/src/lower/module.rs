@@ -3,19 +3,27 @@ use galfus_frontend::{ModuleGraph, SyntaxNodeKind, TypeCheckResult};
 use galfus_image::*;
 use std::collections::HashSet;
 
-use super::{LowerCtx, control_flow};
+use super::LowerCtx;
+
+use crate::mir::MirModule;
 
 pub fn lower_module(
-    mir_module: &crate::mir::MirModule,
+    mir_module: &MirModule,
     type_result: &TypeCheckResult,
     module_graph: &ModuleGraph,
     source_text: &str,
 ) -> ModuleImage {
-    let mut ctx = LowerCtx::new(type_result, module_graph, source_text);
+    let mut ctx = LowerCtx::new(
+        type_result,
+        module_graph,
+        source_text,
+        &mir_module.constant_pool,
+    );
 
     for (i, func) in mir_module.functions.iter().enumerate() {
         ctx.function_map.insert(func.id, FuncIdx(i as u16));
         ctx.function_names.insert(func.id, func.name.clone());
+        ctx.function_return_types.insert(func.id, func.return_type);
     }
 
     let mut functions = Vec::new();
@@ -27,18 +35,18 @@ pub fn lower_module(
             init_func_idx = Some(FuncIdx(i as u16));
         }
 
-        let return_ty = ctx.lower_type(mir_func.return_type);
+        let return_ty = crate::lower::types::lower_type(&mut ctx, mir_func.return_type);
         for &param_ty in &mir_func.parameter_types {
-            ctx.lower_type(param_ty);
+            crate::lower::types::lower_type(&mut ctx, param_ty);
         }
         for local_decl in &mir_func.locals {
-            ctx.lower_type(local_decl.ty);
+            crate::lower::types::lower_type(&mut ctx, local_decl.ty);
         }
         let param_count = mir_func.parameter_types.len() as u16;
         let local_count = (mir_func.locals.len() as u16).saturating_sub(param_count);
 
         let mut emitter =
-            control_flow::FnEmitter::new(&mut ctx, mir_func, param_count, local_count);
+            crate::lower::function::FnEmitter::new(&mut ctx, mir_func, param_count, local_count);
         let instructions = emitter.emit();
 
         functions.push(ImageFunction {

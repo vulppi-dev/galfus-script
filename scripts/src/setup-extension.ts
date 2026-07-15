@@ -1,17 +1,17 @@
-import { Command } from "commander";
-import { mkdir, cp, rm } from "fs/promises";
-import { join } from "path";
-import { homedir } from "os";
-import { existsSync } from "fs";
+import { Command } from 'commander';
+import { mkdir, cp, rm } from 'fs/promises';
+import { join } from 'path';
+import { homedir } from 'os';
+import { existsSync } from 'fs';
 
 async function setup() {
   const program = new Command();
   program
-    .name("setup-extension")
-    .description("Install Galfus Script syntax highlighting extension for VSCode/Antigravity")
-    .option("-v, --vscode", "Install to VS Code and VS Code Insiders")
-    .option("-a, --antigravity", "Install to Antigravity IDE")
-    .option("--all", "Install to all editors (default)")
+    .name('setup-extension')
+    .description('Install Galfus Script syntax highlighting extension for VSCode/Antigravity')
+    .option('-v, --vscode', 'Install to VS Code and VS Code Insiders')
+    .option('-a, --antigravity', 'Install to Antigravity IDE')
+    .option('--all', 'Install to all editors (default)')
     .parse(process.argv);
 
   const options = program.opts();
@@ -22,23 +22,27 @@ async function setup() {
 
   if (allTargets || options.vscode) {
     targets.push(
-      { name: "VS Code", path: join(home, ".vscode", "extensions", "galfus-vscode") },
-      { name: "VS Code Insiders", path: join(home, ".vscode-insiders", "extensions", "galfus-vscode") }
+      { name: 'VS Code', path: join(home, '.vscode', 'extensions', 'galfus-vscode') },
+      {
+        name: 'VS Code Insiders',
+        path: join(home, '.vscode-insiders', 'extensions', 'galfus-vscode'),
+      },
     );
   }
 
   if (allTargets || options.antigravity) {
-    targets.push(
-      { name: "Antigravity", path: join(home, ".antigravity", "extensions", "galfus-vscode") }
-    );
+    targets.push({
+      name: 'Antigravity',
+      path: join(home, '.antigravity-ide', 'extensions', 'galfus-vscode'),
+    });
   }
 
-  const sourceDir = join(__dirname, "..", "..", "editors", "vscode");
+  const sourceDir = join(__dirname, '..', '..', 'editors', 'vscode');
 
   let installedCount = 0;
 
   for (const target of targets) {
-    const parentDir = join(target.path, "..");
+    const parentDir = join(target.path, '..');
     if (existsSync(parentDir)) {
       console.log(`Installing extension to ${target.name} (${target.path})...`);
       try {
@@ -56,10 +60,14 @@ async function setup() {
   }
 
   if (installedCount === 0) {
-    console.warn("Could not find standard editor extension directories.");
-    console.info(`Please copy the 'editors/vscode' folder manually to your editor's extension folder.`);
+    console.warn('Could not find standard editor extension directories.');
+    console.info(
+      `Please copy the 'editors/vscode' folder manually to your editor's extension folder.`,
+    );
   } else {
-    console.log(`Setup complete! Please restart or reload your editor to apply syntax highlighting.`);
+    console.log(
+      `Setup complete! Please restart or reload your editor to apply syntax highlighting.`,
+    );
   }
 }
 

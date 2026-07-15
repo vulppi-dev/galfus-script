@@ -73,7 +73,7 @@ fn resolve_binds_parameter_default_name_expression() {
         r#"
         const fallback = 1
 
-        fn main(value: int32 = fallback): null {
+        fn main(value: i32 = fallback): null {
             return
         }
         "#,
@@ -174,7 +174,7 @@ fn resolve_does_not_bind_builtin_type_as_value_name() {
     let source = source(
         r#"
         fn main(): null {
-            var value = int8
+            var value = i8
             return
         }
         "#,
@@ -193,7 +193,7 @@ fn resolve_does_not_bind_builtin_type_as_value_name() {
 
     let root = syntax.root().unwrap();
 
-    let expression = find_name_expression_by_text(syntax, &source, root, "int8").unwrap();
+    let expression = find_name_expression_by_text(syntax, &source, root, "i8").unwrap();
 
     assert!(resolution.reference_symbol(expression).is_none());
 }
@@ -203,7 +203,7 @@ fn resolve_binds_struct_anchor_function_path_expression_member() {
     let source = source(
         r#"
 struct User {
-  id: int64,
+  id: i64,
 }
 
 fn User::rename(user: User): User {

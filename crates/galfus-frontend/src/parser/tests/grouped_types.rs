@@ -43,7 +43,7 @@ fn parse_grouped_function_type() {
 
 #[test]
 fn parse_function_type_returning_union() {
-    let source = source("type Callback = fn (): [int8] | null");
+    let source = source("type Callback = fn (): [i8] | null");
 
     let result = parse(&source);
 
@@ -69,7 +69,7 @@ fn parse_function_type_returning_union() {
 
     assert_eq!(
         source.slice(syntax.node(return_type).unwrap().span()),
-        Some("[int8] | null")
+        Some("[i8] | null")
     );
 }
 
@@ -148,7 +148,7 @@ fn parse_var_annotation_nullable_function_type() {
 
 #[test]
 fn parse_grouped_type_inside_generic_argument() {
-    let source = source("type Listener = Box<(fn ([int8]): null) | null>");
+    let source = source("type Listener = Box<(fn ([i8]): null) | null>");
 
     let result = parse(&source);
 
@@ -175,7 +175,7 @@ fn parse_grouped_type_inside_generic_argument() {
 
     assert_eq!(
         source.slice(syntax.node(first_arg).unwrap().span()),
-        Some("(fn ([int8]): null) | null")
+        Some("(fn ([i8]): null) | null")
     );
 }
 

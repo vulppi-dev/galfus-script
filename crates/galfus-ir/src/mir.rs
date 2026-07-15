@@ -1,5 +1,6 @@
-use galfus_core::{FunctionId, StorageMetadata, TypeId};
+use galfus_core::{FunctionId, StorageMetadata, SymbolId, TypeId};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct LocalId(u32);
@@ -37,6 +38,8 @@ pub struct GlobalDecl {
 pub struct MirModule {
     pub functions: Vec<MirFunction>,
     pub globals: Vec<GlobalDecl>,
+    #[serde(default)]
+    pub constant_pool: Vec<Constant>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -52,29 +55,15 @@ pub struct MirFunction {
     pub return_type: TypeId,
     pub parameter_types: Vec<TypeId>,
     pub locals: Vec<LocalDecl>,
-    pub body: MirBody,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum MirBody {
-    BasicBlock(BasicBlock),
-    Block {
-        locals: Vec<LocalDecl>,
-        statements: Vec<MirBody>,
-    },
-    If {
-        cond: Operand,
-        then_branch: Box<MirBody>,
-        else_branch: Option<Box<MirBody>>,
-    },
-    Loop {
-        body: Box<MirBody>,
-    },
+    pub blocks: Vec<BasicBlock>,
+    #[serde(default)]
+    pub type_substitutions: HashMap<SymbolId, TypeId>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BasicBlock {
     pub id: BlockId,
+    pub parameters: Vec<LocalDecl>,
     pub instructions: Vec<Instruction>,
     pub terminator: Terminator,
 }
@@ -84,6 +73,46 @@ pub enum Instruction {
     Assign(LocalId, RValue),
     Drop(LocalId),
     StoreGlobal(String, Operand),
+
+    /// Store a value into an indexed aggregate:
+    ///
+    /// `array[index] = value`
+    ///
+    /// This is a statement-level side effect, not an RValue, because it does
+    /// not produce a value. It lowers directly to bytecode `StoreIndex`.
+    StoreIndex {
+        arr: Operand,
+        idx: Operand,
+        val: Operand,
+    },
+    StoreField {
+        obj: Operand,
+        field_name: String,
+        val: Operand,
+    },
+    TransactionStart {
+        targets: Vec<Operand>,
+    },
+    TransactionCommit {
+        destination: LocalId,
+    },
+    TransactionRollback,
+    Call {
+        func: FunctionId,
+        args: Vec<Operand>,
+        destination: LocalId,
+    },
+    IndirectCall {
+        func: Operand,
+        args: Vec<Operand>,
+        destination: LocalId,
+    },
+    ConstraintCall {
+        method_name: String,
+        obj: Operand,
+        args: Vec<Operand>,
+        destination: LocalId,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -123,6 +152,7 @@ pub enum RValue {
     UnaryOp(MirUnaryOp, Operand),
     BinaryOp(MirBinaryOp, Operand, Operand),
     Cast(Operand, TypeId),
+    Copy(Operand),
     NewStruct {
         struct_type: TypeId,
         fields: Vec<Operand>,
@@ -130,10 +160,28 @@ pub enum RValue {
     },
     NewArray(TypeId, Vec<Operand>),
     NewArrayDynamic(TypeId, Vec<ArrayLiteralElement>),
+    /// Zero-initialised allocation with compile-time length.
+    /// `array_type` is the full `FixedArray` or `Array` TypeId.
+    /// `element_type` is the element TypeId (for zero-value generation).
+    /// `size` is the known compile-time length.
+    NewArrayZeroed {
+        array_type: TypeId,
+        element_type: TypeId,
+        size: usize,
+        storage: StorageMetadata,
+    },
+    /// Zero-initialised allocation with runtime length.
+    NewArrayZeroedDynamic {
+        array_type: TypeId,
+        element_type: TypeId,
+        length: Operand,
+        storage: StorageMetadata,
+    },
     NewTuple(TypeId, Vec<Operand>),
     MemberAccess(Operand, String),
     ArrayIndex(Operand, Operand),
     Choice(TypeId, String, Option<Operand>),
+    ChoiceVariantIs(Operand, SymbolId),
     Instanceof(Operand, TypeId),
     LoadGlobal(String),
     Len(Operand),
@@ -148,20 +196,24 @@ pub enum ArrayLiteralElement {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Terminator {
     Return(Option<Operand>),
-    Break,
-    Continue,
-    Call {
-        func: FunctionId,
+    Jump {
+        target: BlockId,
         args: Vec<Operand>,
-        destination: LocalId,
+    },
+    Branch {
+        cond: Operand,
+        true_block: BlockId,
+        true_args: Vec<Operand>,
+        false_block: BlockId,
+        false_args: Vec<Operand>,
     },
     Panic(String),
-    None,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Operand {
     Constant(Constant),
+    ConstRef(usize),
     Local(LocalId),
 }
 
@@ -172,4 +224,5 @@ pub enum Constant {
     Int(i64),
     Float(f64),
     String(String),
+    Function(FunctionId),
 }

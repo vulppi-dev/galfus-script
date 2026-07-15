@@ -22,9 +22,33 @@ impl Lexer<'_> {
     pub(super) fn skip_whitespace(&mut self) {
         while let Some(ch) = self.peek() {
             match ch {
-                ' ' | '\t' | '\u{000C}' => {
+                // ASCII horizontal whitespace
+                ' '          // U+0020 Space
+                | '\t'       // U+0009 Horizontal Tab
+                | '\u{000B}' // U+000B Vertical Tab
+                | '\u{000C}' // U+000C Form Feed
+                // Unicode non-breaking and special spaces
+                | '\u{00A0}' // U+00A0 No-Break Space
+                | '\u{1680}' // U+1680 Ogham Space Mark
+                | '\u{2000}' // U+2000 En Quad
+                | '\u{2001}' // U+2001 Em Quad
+                | '\u{2002}' // U+2002 En Space
+                | '\u{2003}' // U+2003 Em Space
+                | '\u{2004}' // U+2004 Three-Per-Em Space
+                | '\u{2005}' // U+2005 Four-Per-Em Space
+                | '\u{2006}' // U+2006 Six-Per-Em Space
+                | '\u{2007}' // U+2007 Figure Space
+                | '\u{2008}' // U+2008 Punctuation Space
+                | '\u{2009}' // U+2009 Thin Space
+                | '\u{200A}' // U+200A Hair Space
+                | '\u{202F}' // U+202F Narrow No-Break Space
+                | '\u{205F}' // U+205F Medium Mathematical Space
+                | '\u{3000}' // U+3000 Ideographic Space (CJK)
+                | '\u{FEFF}' // U+FEFF BOM / Zero Width No-Break Space
+                => {
                     self.bump();
                 }
+
                 _ => break,
             }
         }

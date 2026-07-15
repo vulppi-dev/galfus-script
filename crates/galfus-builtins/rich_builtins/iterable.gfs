@@ -1,0 +1,109 @@
+import { Iterable, Iterator } from "std/constraints"
+
+export struct RangeExclusive satisfies Iterable<i32>, Iterator<i32> {
+  start: i32,
+  end: i32,
+  current: i32,
+}
+
+export struct RangeStepped<T: i32 | f32> satisfies Iterable<T>, Iterator<T> {
+  start: T,
+  count: i32,
+  step: T,
+  current: T,
+}
+
+export fn range(start: i32, end: i32): RangeExclusive {
+  return new {
+    start,
+    end,
+    current: 0,
+  }
+}
+
+export fn rangeSteps<T: i32 | f32>(start: T, count: i32, step: T): RangeStepped<T> {
+  return new {
+    start,
+    count,
+    step,
+    current: 0,
+  }
+}
+
+fn RangeExclusive::iter(self): Iterator<i32> {
+  self.current = 0
+  return self
+}
+
+fn RangeExclusive::size(self): i32 {
+  if self.start < self.end {
+    return self.end - self.start
+  }
+
+  return self.start - self.end
+}
+
+fn RangeExclusive::next(self): i32 | null {
+  const direction: i32 = match self.start < self.end {
+    true => 1,
+    false => -1,
+  }
+  const value = self.start + self.current * direction
+
+  if value == self.end {
+    return null
+  }
+
+  self.current += 1
+  return value
+}
+
+fn RangeStepped<T>::iter(self): Iterator<T> {
+  self.current = 0
+  return self
+}
+
+fn RangeStepped<T>::size(self): i32 {
+  return self.count
+}
+
+fn RangeStepped<T>::next(self): T | null {
+  if self.current >= self.count {
+    return null
+  }
+
+  const value = self.start + self.current
+  self.current += self.step
+  return value
+}
+
+export struct ArrayIterator<T> satisfies Iterable<T>, Iterator<T> {
+  arr: [T],
+  current: i32,
+}
+
+export fn arrayIter<T>(arr: [T]): ArrayIterator<T> {
+  return new {
+    arr,
+    current: 0,
+  }
+}
+
+fn ArrayIterator<T>::iter(self): Iterator<T> {
+  self.current = 0
+  return self
+}
+
+fn ArrayIterator<T>::size(self): i32 {
+  return self.arr.length
+}
+
+fn ArrayIterator<T>::next(self): T | null {
+  if self.current >= self.arr.length {
+    return null
+  }
+
+  const value = self.arr[self.current]
+  self.current += 1
+  return value
+}

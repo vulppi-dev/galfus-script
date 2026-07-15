@@ -19,7 +19,67 @@ impl Parser {
         }
 
         if self.at(&TokenKind::Identifier) {
-            if matches!(self.peek_after_newlines(1).kind(), TokenKind::ColonColon) {
+            // Check if this is a struct pattern: if there is a `{` after the type part.
+            let mut offset = 1;
+            let mut depth = 0;
+            let is_struct_pattern = loop {
+                let kind = self.peek(offset).kind();
+                match kind {
+                    TokenKind::Newline => {
+                        offset += 1;
+                    }
+                    TokenKind::Less => {
+                        depth += 1;
+                        offset += 1;
+                    }
+                    TokenKind::Greater => {
+                        if depth > 0 {
+                            depth -= 1;
+                        }
+                        offset += 1;
+                    }
+                    TokenKind::LeftBrace if depth == 0 => {
+                        break true;
+                    }
+                    TokenKind::Identifier
+                    | TokenKind::ColonColon
+                    | TokenKind::Comma
+                    | TokenKind::Integer
+                    | TokenKind::Float
+                    | TokenKind::String
+                    | TokenKind::True
+                    | TokenKind::False => {
+                        offset += 1;
+                    }
+                    _ => {
+                        break false;
+                    }
+                }
+            };
+
+            if is_struct_pattern {
+                return self.parse_struct_pattern();
+            }
+
+            let mut is_generic_variant = false;
+            let mut next_idx = self.position + 1;
+            while next_idx < self.tokens.len()
+                && self.tokens[next_idx].kind() == &TokenKind::Newline
+            {
+                next_idx += 1;
+            }
+            if next_idx < self.tokens.len() && self.tokens[next_idx].kind() == &TokenKind::Less {
+                let saved_position = self.position;
+                self.position = next_idx;
+                if self.can_parse_generic_call_suffix() {
+                    is_generic_variant = true;
+                }
+                self.position = saved_position;
+            }
+
+            if is_generic_variant
+                || matches!(self.peek_after_newlines(1).kind(), TokenKind::ColonColon)
+            {
                 return self.parse_variant_pattern();
             }
 
@@ -139,9 +199,46 @@ impl Parser {
     }
 
     pub(super) fn parse_variant_pattern(&mut self) -> Option<NodeId> {
-        let target = self.parse_identifier()?;
+        let identifier = self.parse_identifier()?;
+        let span = self.node_span(identifier);
+        let mut target = self.add_node(SyntaxNodeKind::NameExpression, span, vec![identifier]);
 
-        self.skip_newlines();
+        loop {
+            self.skip_newlines();
+
+            if self.at(&TokenKind::Less) && self.can_parse_generic_call_suffix() {
+                target = self.parse_generic_expression(target)?;
+                continue;
+            }
+
+            if self.at(&TokenKind::ColonColon) {
+                let mut offset = 1;
+                while self.peek(offset).kind() == &TokenKind::Newline {
+                    offset += 1;
+                }
+                if self.peek(offset).kind() == &TokenKind::Identifier {
+                    offset += 1;
+                    while self.peek(offset).kind() == &TokenKind::Newline {
+                        offset += 1;
+                    }
+                    let next_next = self.peek(offset).kind();
+                    if next_next == &TokenKind::ColonColon || next_next == &TokenKind::Less {
+                        self.bump();
+                        let member = self.parse_identifier()?;
+                        let span = Span::cover(self.node_span(target), self.node_span(member))
+                            .unwrap_or_else(|| self.node_span(target));
+                        target = self.add_node(
+                            SyntaxNodeKind::PathExpression,
+                            span,
+                            vec![target, member],
+                        );
+                        continue;
+                    }
+                }
+            }
+
+            break;
+        }
 
         self.expect(TokenKind::ColonColon)?;
 
@@ -173,7 +270,7 @@ impl Parser {
 
         self.skip_newlines();
 
-        let body = self.parse_match_arm_body()?;
+        let body = self.parse_arm_body()?;
 
         let span = Span::cover(self.node_span(pattern), self.node_span(body))
             .unwrap_or_else(|| self.node_span(pattern));
@@ -212,11 +309,7 @@ impl Parser {
 
         self.skip_newlines();
 
-        if self.at(&TokenKind::LeftParen) {
-            let binding = self.parse_type_pattern_binding(true)?;
-            end_span = self.node_span(binding);
-            children.push(binding);
-        } else if self.at(&TokenKind::Identifier) {
+        if self.at(&TokenKind::Identifier) {
             let binding = self.parse_type_pattern_binding(false)?;
             end_span = self.node_span(binding);
             children.push(binding);
@@ -233,16 +326,57 @@ impl Parser {
             return self.parse_wildcard_pattern();
         }
 
-        if self.at(&TokenKind::Identifier)
-            && self.peek_after_newlines(1).kind() == &TokenKind::Arrow
-        {
-            return self.parse_binding_pattern();
+        if self.at(&TokenKind::Identifier) {
+            let mut offset = 1;
+            let mut depth = 0;
+            let is_struct_pattern = loop {
+                let kind = self.peek(offset).kind();
+                match kind {
+                    TokenKind::Newline => {
+                        offset += 1;
+                    }
+                    TokenKind::Less => {
+                        depth += 1;
+                        offset += 1;
+                    }
+                    TokenKind::Greater => {
+                        if depth > 0 {
+                            depth -= 1;
+                        }
+                        offset += 1;
+                    }
+                    TokenKind::LeftBrace if depth == 0 => {
+                        break true;
+                    }
+                    TokenKind::Identifier
+                    | TokenKind::ColonColon
+                    | TokenKind::Comma
+                    | TokenKind::Integer
+                    | TokenKind::Float
+                    | TokenKind::String
+                    | TokenKind::True
+                    | TokenKind::False => {
+                        offset += 1;
+                    }
+                    _ => {
+                        break false;
+                    }
+                }
+            };
+
+            if is_struct_pattern {
+                return self.parse_struct_pattern();
+            }
+
+            if self.peek_after_newlines(1).kind() == &TokenKind::Arrow {
+                return self.parse_binding_pattern();
+            }
         }
 
         self.parse_type_pattern()
     }
 
-    pub(super) fn parse_match_arm_body(&mut self) -> Option<NodeId> {
+    pub(super) fn parse_arm_body(&mut self) -> Option<NodeId> {
         if self.at(&TokenKind::LeftBrace) {
             return self.parse_block();
         }
@@ -400,5 +534,70 @@ impl Parser {
         let token = self.expect(TokenKind::Underscore)?;
 
         Some(self.add_node(SyntaxNodeKind::WildcardPattern, token.span(), Vec::new()))
+    }
+
+    pub(super) fn parse_struct_pattern(&mut self) -> Option<NodeId> {
+        let type_node = self.parse_type()?;
+        self.skip_newlines();
+
+        let _open = self.expect(TokenKind::LeftBrace)?;
+        self.skip_newlines();
+
+        let mut fields = Vec::new();
+
+        while !self.at(&TokenKind::RightBrace) && !self.at(&TokenKind::Eof) {
+            self.skip_newlines();
+
+            if self.at(&TokenKind::RightBrace) {
+                break;
+            }
+
+            let field = self.parse_struct_pattern_field()?;
+            fields.push(field);
+
+            self.skip_newlines();
+
+            if self.at(&TokenKind::Comma) {
+                self.bump();
+                self.skip_newlines();
+                continue;
+            }
+
+            break;
+        }
+
+        let close = self.expect(TokenKind::RightBrace)?;
+
+        let span = Span::cover(self.node_span(type_node), close.span())
+            .unwrap_or(self.node_span(type_node));
+
+        let mut children = vec![type_node];
+        children.extend(fields);
+
+        Some(self.add_node(SyntaxNodeKind::StructPattern, span, children))
+    }
+
+    pub(super) fn parse_struct_pattern_field(&mut self) -> Option<NodeId> {
+        self.skip_newlines();
+
+        let name = self.parse_identifier()?;
+        let mut children = vec![name];
+        let mut end_span = self.node_span(name);
+
+        self.skip_newlines();
+
+        if self.at(&TokenKind::Colon) {
+            self.bump();
+            self.skip_newlines();
+
+            let value_pattern = self.parse_pattern()?;
+            end_span = self.node_span(value_pattern);
+            children.push(value_pattern);
+        }
+
+        let span =
+            Span::cover(self.node_span(name), end_span).unwrap_or_else(|| self.node_span(name));
+
+        Some(self.add_node(SyntaxNodeKind::StructPatternField, span, children))
     }
 }

@@ -1,15 +1,16 @@
 use super::*;
 use crate::RangeOperatorKind;
+use crate::UnaryOperatorKind;
 use crate::parser::expressions::ExpressionBoundary;
 
 impl Parser {
-    pub(super) fn parse_new_struct_literal(&mut self) -> Option<NodeId> {
+    pub(super) fn parse_new_literal(&mut self) -> Option<NodeId> {
         let new_token = self.expect(TokenKind::New)?;
 
         self.skip_newlines();
 
         if self.at(&TokenKind::LeftParen) {
-            return self.parse_typed_struct_literal_after_new(new_token);
+            return self.parse_typed_new_after_paren(new_token);
         }
 
         let fields = self.parse_struct_literal_field_list()?;
@@ -20,19 +21,124 @@ impl Parser {
         Some(self.add_node(SyntaxNodeKind::InferredStructLiteral, span, vec![fields]))
     }
 
-    pub(super) fn parse_typed_struct_literal_after_new(
-        &mut self,
-        new_token: Token,
-    ) -> Option<NodeId> {
+    pub(super) fn parse_typed_new_after_paren(&mut self, new_token: Token) -> Option<NodeId> {
         self.expect(TokenKind::LeftParen)?;
 
         self.skip_newlines();
 
-        let target = self.parse_named_type_or_path()?;
+        let type_node = self.parse_type()?;
 
         self.skip_newlines();
 
-        self.expect(TokenKind::RightParen)?;
+        let type_kind = self
+            .graph
+            .syntax()
+            .node(type_node)
+            .map(|n| n.kind())
+            .unwrap_or(SyntaxNodeKind::NamedType);
+
+        if matches!(
+            type_kind,
+            SyntaxNodeKind::ArrayType | SyntaxNodeKind::FixedArrayType
+        ) {
+            let mut children = vec![type_node];
+            let mut metadata_items = Vec::new();
+            let mut metadata_span = None;
+
+            if self.at(&TokenKind::Comma) {
+                self.bump();
+                self.skip_newlines();
+
+                if !self.at(&TokenKind::RightParen) {
+                    if let Some(length) = self.parse_expression() {
+                        children.push(length);
+                    }
+                }
+
+                self.skip_newlines();
+            }
+
+            while self.at(&TokenKind::Comma) {
+                self.bump();
+                self.skip_newlines();
+
+                if self.at(&TokenKind::RightParen) {
+                    break;
+                }
+
+                let start_position = self.position;
+                if let Some(item) = self.parse_keyword_metadata_item() {
+                    if metadata_span.is_none() {
+                        metadata_span = Some(self.node_span(item));
+                    } else {
+                        metadata_span = Some(
+                            Span::cover(metadata_span.unwrap(), self.node_span(item))
+                                .unwrap_or(metadata_span.unwrap()),
+                        );
+                    }
+                    metadata_items.push(item);
+                }
+
+                self.skip_newlines();
+                if self.position == start_position {
+                    self.bump();
+                }
+            }
+
+            let close = self.expect(TokenKind::RightParen)?;
+
+            if !metadata_items.is_empty() {
+                let span = metadata_span.unwrap_or(close.span());
+                children.push(self.add_node(
+                    SyntaxNodeKind::KeywordMetadataList,
+                    span,
+                    metadata_items,
+                ));
+            }
+
+            let span = Span::cover(new_token.span(), close.span()).unwrap_or(new_token.span());
+
+            return Some(self.add_node(SyntaxNodeKind::NewArrayExpression, span, children));
+        }
+
+        let mut metadata_items = Vec::new();
+        let mut metadata_span = None;
+
+        while self.at(&TokenKind::Comma) {
+            self.bump();
+            self.skip_newlines();
+
+            if self.at(&TokenKind::RightParen) {
+                break;
+            }
+
+            let start_position = self.position;
+            if let Some(item) = self.parse_keyword_metadata_item() {
+                if metadata_span.is_none() {
+                    metadata_span = Some(self.node_span(item));
+                } else {
+                    metadata_span = Some(
+                        Span::cover(metadata_span.unwrap(), self.node_span(item))
+                            .unwrap_or(metadata_span.unwrap()),
+                    );
+                }
+                metadata_items.push(item);
+            }
+
+            self.skip_newlines();
+            if self.position == start_position {
+                self.bump();
+            }
+        }
+
+        let close = self.expect(TokenKind::RightParen)?;
+
+        let metadata_list = if !metadata_items.is_empty() {
+            let span = metadata_span.unwrap_or(close.span());
+            Some(self.add_node(SyntaxNodeKind::KeywordMetadataList, span, metadata_items))
+        } else {
+            None
+        };
 
         self.skip_newlines();
 
@@ -41,7 +147,13 @@ impl Parser {
         let span =
             Span::cover(new_token.span(), self.node_span(fields)).unwrap_or(new_token.span());
 
-        Some(self.add_node(SyntaxNodeKind::StructLiteral, span, vec![target, fields]))
+        let mut children = vec![type_node];
+        if let Some(metadata) = metadata_list {
+            children.push(metadata);
+        }
+        children.push(fields);
+
+        Some(self.add_node(SyntaxNodeKind::StructLiteral, span, children))
     }
 
     pub(super) fn parse_arrow_function_expression(&mut self) -> Option<NodeId> {
@@ -114,11 +226,7 @@ impl Parser {
     pub(super) fn parse_cast_expression(&mut self, boundary: ExpressionBoundary) -> Option<NodeId> {
         let left = self.expect(TokenKind::Less)?;
 
-        self.skip_newlines();
-
         let ty = self.parse_type()?;
-
-        self.skip_newlines();
 
         self.expect(TokenKind::Greater)?;
 
@@ -165,6 +273,25 @@ impl Parser {
     }
 
     pub(super) fn parse_range_operand(&mut self) -> Option<NodeId> {
+        if self.at(&TokenKind::Minus) {
+            let operator_token = self.bump();
+            let operator = self.graph.syntax_mut().add_operator_node(
+                SyntaxNodeKind::UnaryOperator,
+                operator_token.span(),
+                OperatorKind::Unary(UnaryOperatorKind::Negate),
+            );
+
+            let operand = self.parse_range_operand()?;
+            let span = Span::cover(operator_token.span(), self.node_span(operand))
+                .unwrap_or(operator_token.span());
+
+            return Some(self.add_node(
+                SyntaxNodeKind::UnaryExpression,
+                span,
+                vec![operator, operand],
+            ));
+        }
+
         if self.at(&TokenKind::Integer) {
             return self.parse_integer_literal();
         }
@@ -246,5 +373,22 @@ impl Parser {
             span,
             vec![subject, arms],
         ))
+    }
+
+    pub(super) fn parse_typeof_expression(&mut self) -> Option<NodeId> {
+        let typeof_token = self.expect(TokenKind::Typeof)?;
+
+        self.skip_newlines();
+
+        let subject = self.parse_expression_before_block()?;
+
+        self.skip_newlines();
+
+        let arms = self.parse_typeof_arm_list()?;
+
+        let span =
+            Span::cover(typeof_token.span(), self.node_span(arms)).unwrap_or(typeof_token.span());
+
+        Some(self.add_node(SyntaxNodeKind::TypeofExpression, span, vec![subject, arms]))
     }
 }

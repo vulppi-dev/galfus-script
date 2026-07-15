@@ -10,3 +10,6 @@ galfus-target = { path = "../galfus-target" }
 galfus-runtime = { path = "../galfus-runtime" }
 
 thiserror.workspace = true
+
+[dev-dependencies]
+galfus-frontend = { path = "../galfus-frontend" }

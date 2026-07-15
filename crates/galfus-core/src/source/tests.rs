@@ -12,7 +12,7 @@ fn source_file_stores_basic_data() {
     assert_eq!(source.id(), SourceId::new(0));
     assert_eq!(source.name(), "main.gfs");
     assert_eq!(source.text(), "fn main(): null {}");
-    assert_eq!(source.len(), "fn main(): null {}".len() as u32);
+    assert_eq!(source.len(), "fn main(): null {}".len());
     assert!(!source.is_empty());
 }
 

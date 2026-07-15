@@ -1,4 +1,5 @@
 use super::*;
+use std::collections::{HashMap, HashSet, VecDeque};
 
 impl VirtualMachine {
     pub(super) fn execute_object_instruction(
@@ -43,9 +44,11 @@ impl VirtualMachine {
                             .cloned()
                             .ok_or(VmError::FieldOutOfBounds { index: field })?;
                         self.write_reg(dest, val)?;
+                    } else if let HeapObject::Choice { payload, .. } = heap_obj {
+                        self.write_reg(dest, payload.clone())?;
                     } else {
                         return Err(VmError::TypeMismatch {
-                            expected: "Struct object".to_string(),
+                            expected: "Struct or Choice object".to_string(),
                             found: format!("{:?}", heap_obj),
                         });
                     }
@@ -117,7 +120,8 @@ impl VirtualMachine {
                         });
                     }
                 };
-                let elements = vec![Value::Null; len];
+                let zero = self.zero_value_for_type(element_ty)?;
+                let elements = vec![zero; len];
                 let obj_ref = self.alloc(HeapObject::Array {
                     element_ty,
                     elements,
@@ -127,18 +131,19 @@ impl VirtualMachine {
             Instruction::LoadIndex { dest, arr, idx } => {
                 let arr_val = self.read_reg(arr)?;
                 let idx_val = self.read_reg(idx)?;
-                let index = self.to_array_index(idx_val)?;
+                let raw_index = self.to_raw_array_index(idx_val)?;
+
                 if let Value::Object(obj_ref) = arr_val {
                     let heap_obj = self.get_object(obj_ref)?;
                     let val = match heap_obj {
                         HeapObject::Array { elements, .. } | HeapObject::Tuple { elements } => {
-                            elements
-                                .get(index)
-                                .cloned()
-                                .ok_or(VmError::IndexOutOfBounds {
-                                    index,
-                                    len: elements.len(),
-                                })?
+                            if let Some(index) =
+                                self.resolve_raw_array_index(raw_index, elements.len())
+                            {
+                                elements[index].clone()
+                            } else {
+                                Value::Null
+                            }
                         }
                         _ => {
                             return Err(VmError::TypeMismatch {
@@ -147,6 +152,7 @@ impl VirtualMachine {
                             });
                         }
                     };
+
                     self.write_reg(dest, val)?;
                 } else {
                     return Err(VmError::TypeMismatch {
@@ -158,22 +164,54 @@ impl VirtualMachine {
             Instruction::StoreIndex { arr, idx, val } => {
                 let arr_val = self.read_reg(arr)?;
                 let idx_val = self.read_reg(idx)?;
-                let index = self.to_array_index(idx_val)?;
+                let raw_index = self.to_raw_array_index(idx_val)?;
                 let val_to_store = self.read_reg(val)?;
+
                 if let Value::Object(obj_ref) = arr_val {
-                    let heap_obj = self.get_object_mut(obj_ref)?;
-                    match heap_obj {
-                        HeapObject::Array { elements, .. } | HeapObject::Tuple { elements } => {
-                            if index < elements.len() {
-                                elements[index] = val_to_store;
-                            } else {
-                                return Err(VmError::IndexOutOfBounds {
-                                    index,
-                                    len: elements.len(),
+                    let (index, val_to_store) = {
+                        let heap_obj = self.get_object(obj_ref)?;
+
+                        match heap_obj {
+                            HeapObject::Array {
+                                element_ty,
+                                elements,
+                            } => {
+                                let index = self
+                                    .resolve_raw_array_index(raw_index, elements.len())
+                                    .ok_or(VmError::IndexOutOfBounds {
+                                        index: raw_index,
+                                        len: elements.len(),
+                                    })?;
+
+                                let val_to_store = self.cast_value(&val_to_store, *element_ty)?;
+                                (index, val_to_store)
+                            }
+                            HeapObject::Tuple { elements } => {
+                                let index = self
+                                    .resolve_raw_array_index(raw_index, elements.len())
+                                    .ok_or(VmError::IndexOutOfBounds {
+                                        index: raw_index,
+                                        len: elements.len(),
+                                    })?;
+
+                                (index, val_to_store)
+                            }
+                            heap_obj => {
+                                return Err(VmError::TypeMismatch {
+                                    expected: "Array or Tuple object".to_string(),
+                                    found: format!("{:?}", heap_obj),
                                 });
                             }
                         }
-                        _ => {
+                    };
+
+                    let heap_obj = self.get_object_mut(obj_ref)?;
+
+                    match heap_obj {
+                        HeapObject::Array { elements, .. } | HeapObject::Tuple { elements } => {
+                            elements[index] = val_to_store;
+                        }
+                        heap_obj => {
                             return Err(VmError::TypeMismatch {
                                 expected: "Array or Tuple object".to_string(),
                                 found: format!("{:?}", heap_obj),
@@ -254,6 +292,11 @@ impl VirtualMachine {
                 let res = self.cast_value(&val, type_idx)?;
                 self.write_reg(dest, res)?;
             }
+            Instruction::Copy { dest, src } => {
+                let val = self.read_reg(src)?;
+                let copied = self.deep_copy_value(&val)?;
+                self.write_reg(dest, copied)?;
+            }
             Instruction::Instanceof {
                 dest,
                 src,
@@ -268,5 +311,320 @@ impl VirtualMachine {
         }
 
         Ok(ExecutionStep::Continue)
+    }
+
+    fn deep_copy_value(&mut self, value: &Value) -> Result<Value, VmError> {
+        let Value::Object(obj_ref) = value else {
+            return Ok(value.clone());
+        };
+
+        let strong_closure = self.discover_strong_copy_closure(*obj_ref)?;
+        let copied = self.allocate_copy_placeholders(&strong_closure)?;
+        self.fill_copy_placeholders(&strong_closure, &copied)?;
+
+        copied
+            .get(&obj_ref.raw())
+            .copied()
+            .map(Value::Object)
+            .ok_or_else(|| VmError::TypeMismatch {
+                expected: "copied root object".to_string(),
+                found: format!("{:?}", obj_ref),
+            })
+    }
+
+    fn discover_strong_copy_closure(&self, root_ref: ObjectRef) -> Result<HashSet<usize>, VmError> {
+        let mut closure = HashSet::new();
+        let mut pending = VecDeque::new();
+
+        closure.insert(root_ref.raw());
+        pending.push_back(root_ref);
+
+        while let Some(obj_ref) = pending.pop_front() {
+            let object = self.get_object(obj_ref)?;
+
+            match object {
+                HeapObject::Struct { layout_idx, fields } => {
+                    let layout = self
+                        .image
+                        .struct_layouts
+                        .get(layout_idx.raw() as usize)
+                        .ok_or(VmError::TypeMismatch {
+                            expected: "valid struct layout".to_string(),
+                            found: format!("{:?}", layout_idx),
+                        })?;
+
+                    for (index, field) in fields.iter().enumerate() {
+                        let is_weak = layout.fields.get(index).is_some_and(|field_layout| {
+                            field_layout.ownership == OwnershipKind::Weak
+                        });
+
+                        if !is_weak {
+                            self.enqueue_copy_target(field, &mut closure, &mut pending)?;
+                        }
+                    }
+                }
+                HeapObject::Array { elements, .. } | HeapObject::Tuple { elements } => {
+                    for element in elements {
+                        self.enqueue_copy_target(element, &mut closure, &mut pending)?;
+                    }
+                }
+                HeapObject::Choice { payload, .. } => {
+                    self.enqueue_copy_target(payload, &mut closure, &mut pending)?;
+                }
+            }
+        }
+
+        Ok(closure)
+    }
+
+    fn enqueue_copy_target(
+        &self,
+        value: &Value,
+        closure: &mut HashSet<usize>,
+        pending: &mut VecDeque<ObjectRef>,
+    ) -> Result<(), VmError> {
+        if let Value::Object(obj_ref) = value {
+            self.get_object(*obj_ref)?;
+
+            if closure.insert(obj_ref.raw()) {
+                pending.push_back(*obj_ref);
+            }
+        }
+
+        Ok(())
+    }
+
+    fn allocate_copy_placeholders(
+        &mut self,
+        strong_closure: &HashSet<usize>,
+    ) -> Result<HashMap<usize, ObjectRef>, VmError> {
+        let mut copied = HashMap::new();
+
+        for &old_raw in strong_closure {
+            let old_ref = VmObjectRef(old_raw);
+            let object = self.get_object(old_ref)?.clone();
+
+            let placeholder = match object {
+                HeapObject::Struct { layout_idx, fields } => {
+                    let layout = self
+                        .image
+                        .struct_layouts
+                        .get(layout_idx.raw() as usize)
+                        .ok_or(VmError::TypeMismatch {
+                            expected: "valid struct layout".to_string(),
+                            found: format!("{:?}", layout_idx),
+                        })?;
+
+                    if layout.fields.is_empty() {
+                        return Err(VmError::TypeMismatch {
+                            expected: "copyable struct with fields".to_string(),
+                            found: format!("fieldless struct `{}`", layout.name),
+                        });
+                    }
+
+                    HeapObject::Struct {
+                        layout_idx,
+                        fields: vec![Value::Null; fields.len()],
+                    }
+                }
+                HeapObject::Array { element_ty, .. } => HeapObject::Array {
+                    element_ty,
+                    elements: Vec::new(),
+                },
+                HeapObject::Tuple { .. } => HeapObject::Tuple {
+                    elements: Vec::new(),
+                },
+                HeapObject::Choice {
+                    layout_idx,
+                    variant_idx,
+                    ..
+                } => HeapObject::Choice {
+                    layout_idx,
+                    variant_idx,
+                    payload: Value::Null,
+                },
+            };
+
+            let copied_ref = self.alloc(placeholder);
+            copied.insert(old_raw, copied_ref);
+        }
+
+        Ok(copied)
+    }
+
+    fn fill_copy_placeholders(
+        &mut self,
+        strong_closure: &HashSet<usize>,
+        copied: &HashMap<usize, ObjectRef>,
+    ) -> Result<(), VmError> {
+        for &old_raw in strong_closure {
+            let old_ref = VmObjectRef(old_raw);
+            let copied_ref = *copied.get(&old_raw).ok_or_else(|| VmError::TypeMismatch {
+                expected: "copied object".to_string(),
+                found: format!("{:?}", old_ref),
+            })?;
+            let object = self.get_object(old_ref)?.clone();
+
+            match object {
+                HeapObject::Struct { layout_idx, fields } => {
+                    let layout = self
+                        .image
+                        .struct_layouts
+                        .get(layout_idx.raw() as usize)
+                        .ok_or(VmError::TypeMismatch {
+                            expected: "valid struct layout".to_string(),
+                            found: format!("{:?}", layout_idx),
+                        })?
+                        .clone();
+
+                    let copied_fields = fields
+                        .iter()
+                        .enumerate()
+                        .map(|(index, field)| {
+                            let is_weak = layout
+                                .fields
+                                .get(index)
+                                .is_some_and(|field| field.ownership == OwnershipKind::Weak);
+
+                            if is_weak {
+                                Ok(self.copy_weak_value(field, copied))
+                            } else {
+                                self.copy_strong_value(field, copied)
+                            }
+                        })
+                        .collect::<Result<Vec<_>, _>>()?;
+
+                    match self.get_object_mut(copied_ref)? {
+                        HeapObject::Struct { fields, .. } => {
+                            *fields = copied_fields;
+                        }
+                        other => {
+                            return Err(VmError::TypeMismatch {
+                                expected: "Struct object".to_string(),
+                                found: format!("{:?}", other),
+                            });
+                        }
+                    }
+                }
+                HeapObject::Array { elements, .. } => {
+                    let copied_elements = elements
+                        .iter()
+                        .map(|element| self.copy_strong_value(element, copied))
+                        .collect::<Result<Vec<_>, _>>()?;
+
+                    match self.get_object_mut(copied_ref)? {
+                        HeapObject::Array { elements, .. } => {
+                            *elements = copied_elements;
+                        }
+                        other => {
+                            return Err(VmError::TypeMismatch {
+                                expected: "Array object".to_string(),
+                                found: format!("{:?}", other),
+                            });
+                        }
+                    }
+                }
+                HeapObject::Tuple { elements } => {
+                    let copied_elements = elements
+                        .iter()
+                        .map(|element| self.copy_strong_value(element, copied))
+                        .collect::<Result<Vec<_>, _>>()?;
+
+                    match self.get_object_mut(copied_ref)? {
+                        HeapObject::Tuple { elements } => {
+                            *elements = copied_elements;
+                        }
+                        other => {
+                            return Err(VmError::TypeMismatch {
+                                expected: "Tuple object".to_string(),
+                                found: format!("{:?}", other),
+                            });
+                        }
+                    }
+                }
+                HeapObject::Choice { payload, .. } => {
+                    let copied_payload = self.copy_strong_value(&payload, copied)?;
+
+                    match self.get_object_mut(copied_ref)? {
+                        HeapObject::Choice { payload, .. } => {
+                            *payload = copied_payload;
+                        }
+                        other => {
+                            return Err(VmError::TypeMismatch {
+                                expected: "Choice object".to_string(),
+                                found: format!("{:?}", other),
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    fn copy_strong_value(
+        &self,
+        value: &Value,
+        copied: &HashMap<usize, ObjectRef>,
+    ) -> Result<Value, VmError> {
+        let Value::Object(obj_ref) = value else {
+            return Ok(value.clone());
+        };
+
+        if let Some(copied_ref) = copied.get(&obj_ref.raw()) {
+            return Ok(Value::Object(*copied_ref));
+        }
+
+        Err(VmError::TypeMismatch {
+            expected: "object in copied strong closure".to_string(),
+            found: format!("{:?}", obj_ref),
+        })
+    }
+
+    fn copy_weak_value(&self, value: &Value, copied: &HashMap<usize, ObjectRef>) -> Value {
+        let Value::Object(obj_ref) = value else {
+            return value.clone();
+        };
+
+        copied
+            .get(&obj_ref.raw())
+            .copied()
+            .map(Value::Object)
+            .unwrap_or(Value::Null)
+    }
+
+    /// Returns the default `Value` for element types that can be safely default-initialized.
+    fn zero_value_for_type(&self, type_idx: TypeIdx) -> Result<Value, VmError> {
+        let ty = self
+            .image
+            .types
+            .get(type_idx.raw() as usize)
+            .ok_or(VmError::TypeOutOfBounds { index: type_idx })?;
+
+        Ok(match ty {
+            ImageType::Bool => Value::Bool(false),
+            ImageType::Int8 => Value::Int8(0),
+            ImageType::Int16 => Value::Int16(0),
+            ImageType::Int32 => Value::Int32(0),
+            ImageType::Int64 => Value::Int64(0),
+            ImageType::Uint8 => Value::Uint8(0),
+            ImageType::Uint16 => Value::Uint16(0),
+            ImageType::Uint32 => Value::Uint32(0),
+            ImageType::Uint64 => Value::Uint64(0),
+            ImageType::Float32 => Value::Float32(0.0),
+            ImageType::Float64 => Value::Float64(0.0),
+            ImageType::Null => Value::Null,
+            ImageType::Struct(_)
+            | ImageType::Choice(_)
+            | ImageType::Array(_)
+            | ImageType::Tuple(_) => Value::Null,
+            _ => {
+                return Err(VmError::TypeMismatch {
+                    expected: "defaultable array element type".to_string(),
+                    found: format!("{:?}", ty),
+                });
+            }
+        })
     }
 }

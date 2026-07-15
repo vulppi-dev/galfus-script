@@ -1,10 +1,10 @@
 use super::*;
 use galfus_image::{ConstantPool, ModuleImage};
-use galfus_target::DefaultTargetCapabilityProvider;
+use galfus_target::NativeTarget;
 
 #[test]
 fn test_runtime_thread_spawn() {
-    let mut runtime = Runtime::new(Box::new(DefaultTargetCapabilityProvider));
+    let mut runtime = Runtime::new(Box::new(NativeTarget));
     let t1 = runtime.spawn_thread();
     let t2 = runtime.spawn_thread();
 

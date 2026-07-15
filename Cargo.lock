@@ -608,6 +608,7 @@ name = "galfus-builtins"
 version = "0.0.0"
 dependencies = [
  "galfus-core",
+ "galfus-frontend",
  "galfus-runtime",
  "galfus-target",
  "thiserror 2.0.18",
@@ -675,6 +676,19 @@ dependencies = [
  "galfus-ir",
  "galfus-vm",
  "thiserror 2.0.18",
+]
+
+[[package]]
+name = "galfus-playground"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "galfus-image",
+ "galfus-runner",
+ "galfus-runtime",
+ "galfus-target",
+ "serde_json",
+ "wasm-bindgen",
 ]
 
 [[package]]

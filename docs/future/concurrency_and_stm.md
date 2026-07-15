@@ -1,6 +1,6 @@
 # Galfus Future Concurrency and Transactional Shared Memory Architecture
 
-This document defines the conceptual design for the future multithreading, concurrency, and transactional shared memory (STM) architecture of the Galfus runtime. These features are scheduled for development after the MVP.
+This document defines the conceptual design for the future multithreading, concurrency, and transactional shared memory (STM) architecture of the Galfus runtime.
 
 ---
 
@@ -44,7 +44,7 @@ Memory is divided into two distinct regions to balance performance, local garbag
 ### Shared Heap
 
 * Shared globally across all logical threads.
-* Holds struct instances instantiated with `new(shared)`.
+* Holds struct instances instantiated with `new(TypeName, shared)`.
 * Struct fields can only reference primitives or other shared structs to prevent local reference escapes.
 
 ---
@@ -70,7 +70,7 @@ export var config: ConfigShared
 
 fn createConfigDefault(): ConfigShared {
   // Allocated on the Shared Heap
-  return new(shared) {
+  return new(ConfigShared, shared) {
     port: 3001,
     host: '127.0.0.1'
   }

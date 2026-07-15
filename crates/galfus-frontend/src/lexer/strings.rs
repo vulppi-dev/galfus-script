@@ -1,7 +1,7 @@
 use super::*;
 
 impl Lexer<'_> {
-    pub(super) fn lex_string(&mut self, start: u32, quote: char) -> TokenKind {
+    pub(super) fn lex_string(&mut self, start: usize, quote: char) -> TokenKind {
         while let Some(ch) = self.peek() {
             if ch == quote {
                 self.bump();
@@ -32,7 +32,7 @@ impl Lexer<'_> {
         TokenKind::String
     }
 
-    pub(super) fn lex_multiline_string(&mut self, start: u32) -> TokenKind {
+    pub(super) fn lex_multiline_string(&mut self, start: usize) -> TokenKind {
         while let Some(ch) = self.peek() {
             if ch == '`' {
                 self.bump();

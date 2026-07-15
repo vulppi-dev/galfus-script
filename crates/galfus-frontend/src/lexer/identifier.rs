@@ -21,11 +21,11 @@ impl Lexer<'_> {
             "satisfies" => TokenKind::Satisfies,
             "match" => TokenKind::Match,
             "instanceof" => TokenKind::Instanceof,
+            "typeof" => TokenKind::Typeof,
             "if" => TokenKind::If,
             "else" => TokenKind::Else,
             "for" => TokenKind::For,
             "in" => TokenKind::In,
-            "while" => TokenKind::While,
             "loop" => TokenKind::Loop,
             "break" => TokenKind::Break,
             "continue" => TokenKind::Continue,
@@ -35,7 +35,9 @@ impl Lexer<'_> {
             "false" => TokenKind::False,
             "new" => TokenKind::New,
             "copy" => TokenKind::Copy,
-            "stamp" => TokenKind::Stamp,
+            "transaction" => TokenKind::Transaction,
+            "rollback" => TokenKind::Rollback,
+            "self" => TokenKind::SelfKw,
             _ => return None,
         };
 
@@ -54,7 +56,7 @@ impl Lexer<'_> {
         Self::is_identifier_extra(ch) || unicode_ident::is_xid_continue(ch)
     }
 
-    pub(super) fn lex_identifier(&mut self, start: u32) -> TokenKind {
+    pub(super) fn lex_identifier(&mut self, start: usize) -> TokenKind {
         while let Some(ch) = self.peek() {
             if !Self::is_identifier_continue(ch) {
                 break;
@@ -63,7 +65,7 @@ impl Lexer<'_> {
             self.bump();
         }
 
-        let text = &self.text[start as usize..self.offset as usize];
+        let text = &self.text[start..self.offset];
 
         Self::keyword_kind(text).unwrap_or(TokenKind::Identifier)
     }

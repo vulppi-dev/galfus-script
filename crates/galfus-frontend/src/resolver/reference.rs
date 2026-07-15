@@ -63,6 +63,15 @@ impl<'a> Resolver<'a> {
     }
 
     fn resolve_node_references(&mut self, node: NodeId, current_scope: ScopeId) {
+        self.resolve_node_references_with_parent(node, current_scope, None);
+    }
+
+    fn resolve_node_references_with_parent(
+        &mut self,
+        node: NodeId,
+        current_scope: ScopeId,
+        parent_kind: Option<SyntaxNodeKind>,
+    ) {
         let Some(syntax_node) = self.syntax.node(node) else {
             return;
         };
@@ -72,6 +81,20 @@ impl<'a> Resolver<'a> {
         match syntax_node.kind() {
             SyntaxNodeKind::NameExpression => {
                 self.resolve_name_expression(node, scope);
+                return;
+            }
+
+            SyntaxNodeKind::StructLiteralFieldShorthand => {
+                if let Some(ident) = self.syntax.first_child(node) {
+                    let symbol_name = self.node_text(ident);
+                    let name_id = NameId::intern(&symbol_name);
+
+                    if let Some(symbol) = self.resolution.lookup_symbol(scope, name_id) {
+                        self.resolution.bind_reference(ident, symbol);
+                    } else {
+                        self.report_unresolved_name(ident, symbol_name);
+                    }
+                }
                 return;
             }
 
@@ -99,11 +122,22 @@ impl<'a> Resolver<'a> {
                 return;
             }
 
+            SyntaxNodeKind::WildcardExpression => {
+                if parent_kind != Some(SyntaxNodeKind::Argument) {
+                    self.diagnostics.push(Diagnostic::error_with_message(
+                        ResolverDiagnosticCode::UnresolvedName,
+                        "unresolved name `_`".to_string(),
+                        syntax_node.span(),
+                    ));
+                }
+                return;
+            }
+
             _ => {}
         }
 
         for child in syntax_node.children() {
-            self.resolve_node_references(*child, scope);
+            self.resolve_node_references_with_parent(*child, scope, Some(syntax_node.kind()));
         }
     }
 
@@ -141,7 +175,18 @@ impl<'a> Resolver<'a> {
 
         self.resolve_node_references(target, scope);
 
-        if let Some(symbol) = self.resolution.reference_symbol(target) {
+        let mut reference_target = target;
+        while self.syntax.node(reference_target).map(|n| n.kind())
+            == Some(SyntaxNodeKind::GenericExpression)
+        {
+            if let Some(first_child) = self.syntax.first_child(reference_target) {
+                reference_target = first_child;
+            } else {
+                break;
+            }
+        }
+
+        if let Some(symbol) = self.resolution.reference_symbol(reference_target) {
             self.resolution.bind_reference(expression, symbol);
             self.resolve_path_expression_member(expression, symbol);
         }
@@ -272,11 +317,32 @@ impl<'a> Resolver<'a> {
             return;
         };
 
-        let root_name = self.node_text(root);
-        let root_name_id = NameId::intern(&root_name);
+        self.resolve_node_references(root, scope);
 
-        let Some(root_symbol) = self.resolution.lookup_symbol(scope, root_name_id) else {
-            self.report_unresolved_name(root, root_name);
+        let mut reference_root = root;
+        while self.syntax.node(reference_root).map(|n| n.kind())
+            == Some(SyntaxNodeKind::GenericExpression)
+        {
+            if let Some(first_child) = self.syntax.first_child(reference_root) {
+                reference_root = first_child;
+            } else {
+                break;
+            }
+        }
+
+        let root_symbol = self
+            .resolution
+            .reference_symbol(reference_root)
+            .or_else(|| self.resolution.path_reference_symbol(reference_root))
+            .or_else(|| {
+                let root_name = self.node_text(reference_root);
+                let root_name_id = NameId::intern(&root_name);
+                self.resolution.lookup_symbol(scope, root_name_id)
+            });
+
+        let Some(root_symbol) = root_symbol else {
+            let root_name = self.node_text(reference_root);
+            self.report_unresolved_name(reference_root, root_name);
             return;
         };
 

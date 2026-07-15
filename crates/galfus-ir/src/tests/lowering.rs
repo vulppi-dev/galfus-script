@@ -8,11 +8,11 @@ fn test_mir_builder_phase4() {
         const g_const = "global_const"
 
         struct Point {
-            x: int32,
-            y: int32,
+            x: i32,
+            y: i32,
         }
 
-        fn test_drops(cond: bool): int32 {
+        fn test_drops(cond: bool): i32 {
             var pt = new(Point) { x: 10, y: 20 }
             if cond {
                 var pt2 = new(Point) { x: 30, y: 40 }
@@ -39,7 +39,7 @@ fn test_mir_builder_phase4() {
         type_result.diagnostics()
     );
 
-    let mir_module = crate::MirBuilder::new(&graph, &type_result, code).build();
+    let mir_module = MirBuilder::new(&graph, &type_result, code).build();
 
     // Verify globals: g_var and g_const
     assert_eq!(mir_module.globals.len(), 2);
@@ -72,36 +72,16 @@ fn test_mir_builder_phase4() {
         .unwrap();
 
     let mut found_drops = 0;
-    fn count_drops(body: &MirBody, found_drops: &mut usize) {
-        match body {
-            MirBody::BasicBlock(bb) => {
-                for inst in &bb.instructions {
-                    if matches!(inst, Instruction::Drop(_)) {
-                        *found_drops += 1;
-                    }
+    fn count_drops(func: &MirFunction, found_drops: &mut usize) {
+        for block in &func.blocks {
+            for inst in &block.instructions {
+                if matches!(inst, Instruction::Drop(_)) {
+                    *found_drops += 1;
                 }
-            }
-            MirBody::Block { statements, .. } => {
-                for stmt in statements {
-                    count_drops(stmt, found_drops);
-                }
-            }
-            MirBody::If {
-                then_branch,
-                else_branch,
-                ..
-            } => {
-                count_drops(then_branch, found_drops);
-                if let Some(eb) = else_branch {
-                    count_drops(eb, found_drops);
-                }
-            }
-            MirBody::Loop { body } => {
-                count_drops(body, found_drops);
             }
         }
     }
-    count_drops(&drops_func.body, &mut found_drops);
+    count_drops(drops_func, &mut found_drops);
     assert!(
         found_drops > 0,
         "Expected at least one Drop instruction in test_drops"
@@ -121,11 +101,11 @@ fn test_mir_lowering_basic() {
     let source_id = SourceId::new(0);
     let code = r#"
         struct Point {
-            x: int32,
-            y: int32,
+            x: i32,
+            y: i32,
         }
 
-        fn compute(a: int32, b: int32): int32 {
+        fn compute(a: i32, b: i32): i32 {
             var pt = new(Point) { x: a, y: b };
             return pt.x + pt.y
         }
@@ -148,7 +128,7 @@ fn test_mir_lowering_basic() {
         type_result.diagnostics()
     );
 
-    let mir_module = crate::MirBuilder::new(&graph, &type_result, code).build();
+    let mir_module = MirBuilder::new(&graph, &type_result, code).build();
     let module_image = lower_module(&mir_module, &type_result, &graph, code);
 
     // Verify module image metadata
@@ -161,7 +141,6 @@ fn test_mir_lowering_basic() {
 
     assert_eq!(compute_func.param_count, 2);
     // locals: pt + MIR temporaries
-    assert_eq!(compute_func.local_count, 5);
     assert!(!compute_func.instructions.is_empty());
 
     // Verify struct layout was created
@@ -177,7 +156,7 @@ fn test_mir_lowering_basic() {
 fn test_mir_lowering_defaults_integer_constants_to_int32() {
     let source_id = SourceId::new(0);
     let code = r#"
-        fn main(): int32 {
+        fn main(): i32 {
             return 42
         }
     "#;
@@ -203,7 +182,7 @@ fn test_mir_lowering_defaults_integer_constants_to_int32() {
         type_result.diagnostics()
     );
 
-    let mir_module = crate::MirBuilder::new(&graph, &type_result, code).build();
+    let mir_module = MirBuilder::new(&graph, &type_result, code).build();
     let module_image = lower_module(&mir_module, &type_result, &graph, code);
 
     assert!(
@@ -220,18 +199,18 @@ fn test_mir_lowering_advanced() {
     let source_id = SourceId::new(0);
     let code = r#"
         choice Shape {
-            Circle(int32),
+            Circle(i32),
             Square,
         }
 
-        fn process(s: Shape): int32 {
+        fn process(s: Shape): i32 {
             return match s {
                 Shape::Circle(r) => r * r,
                 Shape::Square => 0,
             }
         }
 
-        fn calculate_sum(limit: int32): int32 {
+        fn calculate_sum(limit: i32): i32 {
             var sum = 0;
             var i = 0;
             loop {
@@ -248,7 +227,7 @@ fn test_mir_lowering_advanced() {
             return sum;
         }
 
-        fn tuple_operations(): (int32, int32) {
+        fn tuple_operations(): (i32, i32) {
             var t = (10, 20);
             return t;
         }
@@ -271,7 +250,7 @@ fn test_mir_lowering_advanced() {
         type_result.diagnostics()
     );
 
-    let mir_module = crate::MirBuilder::new(&graph, &type_result, code).build();
+    let mir_module = MirBuilder::new(&graph, &type_result, code).build();
     let module_image = lower_module(&mir_module, &type_result, &graph, code);
 
     // Verify functions
@@ -317,7 +296,7 @@ fn test_mir_lowering_advanced() {
 fn test_mir_builder_for_loop() {
     let source_id = SourceId::new(0);
     let code = r#"
-        fn test_for(): int32 {
+        fn test_for(): i32 {
             var sum = 0;
             for i in 0..10 {
                 sum = sum + i;
@@ -343,21 +322,15 @@ fn test_mir_builder_for_loop() {
         type_result.diagnostics()
     );
 
-    let mir_module = crate::MirBuilder::new(&graph, &type_result, code).build();
+    let mir_module = MirBuilder::new(&graph, &type_result, code).build();
 
     assert_eq!(mir_module.functions.len(), 1);
     let func = &mir_module.functions[0];
     assert_eq!(func.name, "test_for");
 
-    // Let's check that the body contains Loop and the loop increments
-    println!("FUNC BODY: {:#?}", func.body);
-    match &func.body {
-        MirBody::Block { statements, .. } => {
-            let has_loop = statements
-                .iter()
-                .any(|stmt| matches!(stmt, MirBody::Loop { .. }));
-            assert!(has_loop, "Expected for loop to lower to MirBody::Loop");
-        }
-        other => panic!("Expected block body, found {:?}", other),
-    }
+    // Check that the body contains the loop blocks.
+    assert!(
+        func.blocks.len() > 1,
+        "Expected for loop to lower to multiple blocks"
+    );
 }

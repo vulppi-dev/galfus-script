@@ -1,12 +1,12 @@
 use serde::{Deserialize, Serialize};
 
-pub mod gfb;
-pub mod instruction;
-pub mod validation;
-
 pub use gfb::*;
 pub use instruction::*;
 pub use validation::*;
+
+pub mod gfb;
+pub mod instruction;
+pub mod validation;
 
 // =========================================================================
 // Image Value Model
@@ -36,6 +36,7 @@ pub enum ImageValue {
     Float32(f32),
     Float64(f64),
     Object(ImageObjectRef),
+    Function(FuncIdx),
 }
 
 // =========================================================================
@@ -52,6 +53,7 @@ pub enum Constant {
     Float(f64),
     String(String),
     Bytes(Vec<u8>),
+    Function(FuncIdx),
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -82,7 +84,9 @@ pub enum ImageType {
     FixedArray(TypeIdx, usize),
     Tuple(Vec<TypeIdx>),
     Choice(ChoiceLayoutIdx),
+    Constraint(String),
     Function { params: Vec<TypeIdx>, ret: TypeIdx },
+    ChoiceVariant(ChoiceLayoutIdx, u16),
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -104,6 +108,7 @@ pub struct FieldLayout {
 pub struct StructLayout {
     pub name: String,
     pub fields: Vec<FieldLayout>,
+    pub constraints: Vec<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

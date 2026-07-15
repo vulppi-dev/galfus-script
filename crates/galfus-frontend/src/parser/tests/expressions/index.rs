@@ -2,7 +2,7 @@ use super::super::*;
 
 #[test]
 fn parse_index_expression_in_return() {
-    let source = source("fn main(): int32 {\n  return items[0]\n}");
+    let source = source("fn main(): i32 {\n  return items[0]\n}");
 
     let result = parse(&source);
 
@@ -47,7 +47,7 @@ fn parse_index_expression_in_return() {
 
 #[test]
 fn parse_index_expression_with_binary_index() {
-    let source = source("fn main(): int32 {\n  return items[index + 1]\n}");
+    let source = source("fn main(): i32 {\n  return items[index + 1]\n}");
 
     let result = parse(&source);
 
@@ -84,7 +84,7 @@ fn parse_index_expression_with_binary_index() {
 
 #[test]
 fn parse_chained_index_expression() {
-    let source = source("fn main(): int32 {\n  return grid[x][y]\n}");
+    let source = source("fn main(): i32 {\n  return grid[x][y]\n}");
 
     let result = parse(&source);
 
@@ -123,7 +123,7 @@ fn parse_chained_index_expression() {
 
 #[test]
 fn parse_member_after_index_expression() {
-    let source = source("fn main(): [int8] {\n  return users[0].name\n}");
+    let source = source("fn main(): [i8] {\n  return users[0].name\n}");
 
     let result = parse(&source);
 
@@ -231,7 +231,7 @@ fn parse_index_compound_assignment_statement() {
 
 #[test]
 fn parse_index_expression_allows_newline_before_left_bracket() {
-    let source = source("fn main(): int32 {\n  return items\n  [index]\n}");
+    let source = source("fn main(): i32 {\n  return items\n  [index]\n}");
 
     let result = parse(&source);
 
@@ -261,7 +261,7 @@ fn parse_index_expression_allows_newline_before_left_bracket() {
 
 #[test]
 fn parse_index_expression_allows_internal_newlines() {
-    let source = source("fn main(): int32 {\n  return items[\n    index + 1\n  ]\n}");
+    let source = source("fn main(): i32 {\n  return items[\n    index + 1\n  ]\n}");
 
     let result = parse(&source);
 

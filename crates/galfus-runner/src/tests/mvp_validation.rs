@@ -37,30 +37,30 @@ fn mvp_validation_accepts_core_language_surface() -> Result<()> {
         root.as_path(),
         "main.gfs",
         r#"
-type Bytes = [uint8]
+type Bytes = [u8]
 
 const enabled: bool = true
-var count: int32 = <int32> 1
+var count: i32 = <i32> 1
 var bytes: Bytes = "ok"
-var fixed: [int32; 3] = [1, 2, 3]
-var values: [int32] = [0, ...fixed, 4]
-var last: int32 | null = values[-1]
-var point: (int32, bool) = (1, true)
+var fixed: [i32; 3] = [1, 2, 3]
+var values: [i32] = [0, ...fixed, 4]
+var last: i32 | null = values[-1]
+var point: (i32, bool) = (1, true)
 
-enum<uint8> Mode {
+enum(u8) Mode {
   Off(0),
   On(1),
 }
 
 choice MaybeInt {
-  Some(int32),
+  Some(i32),
   None,
 }
 
 struct Config {
-  const id: int32,
+  const id: i32,
   name: Bytes,
-  score: int32 = 1,
+  score: i32 = 1,
 }
 
 var config = new(Config) { id: 1, name: "main" }
@@ -69,18 +69,18 @@ var { id, name } = config
 var (left, flag) = point
 var [head, ...tail] = [1, 2, 3]
 
-fn(stamp) doubled(value: int32): int32 {
+fn(stamp) doubled(value: i32): i32 {
   return value + value
 }
 
-fn normalize(value: int32 | null): int32 {
+fn normalize(value: i32 | null): i32 {
   return instanceof value {
-    int32 number => number,
+    i32 number => number,
     null => 0,
   }
 }
 
-fn unwrap(value: MaybeInt): int32 {
+fn unwrap(value: MaybeInt): i32 {
   return match value {
     MaybeInt::Some(number) => number,
     MaybeInt::None => 0,
@@ -89,13 +89,13 @@ fn unwrap(value: MaybeInt): int32 {
 
 fn main(): null {
   var mode: Mode = Mode::On
-  var rawMode: uint8 = <uint8> Mode::On
+  var rawMode: u8 = <u8> Mode::On
   var maybe: MaybeInt = MaybeInt::Some(doubled(2))
-  var answer: int32 = unwrap(maybe)
-  var normalized: int32 = normalize(answer)
+  var answer: i32 = unwrap(maybe)
+  var normalized: i32 = normalize(answer)
 
   for value in values {
-    var item: int32 = value
+    var item: i32 = value
   }
 
   return
@@ -119,7 +119,7 @@ fn mvp_validation_accepts_constraints_decorators_generics_and_ownership() -> Res
         root.as_path(),
         "main.gfs",
         r#"
-type Bytes = [uint8]
+type Bytes = [u8]
 
 fn trim(target: Bytes): Bytes {
   return target
@@ -149,11 +149,11 @@ fn User::label(): Bytes {
   return "user"
 }
 
-fn identity<T>(value: T): T {
+fn identity<T: int | [u8]>(value: T): T {
   return value
 }
 
-fn collect(...values: [int32]): int32 {
+fn collect(...values: [i32]): i32 {
   return 0
 }
 
@@ -165,7 +165,7 @@ fn save(): null {
 fn main(): null {
   var user = new(User) { name: identity<Bytes>("Ana"), manager: null }
   var label: Bytes = User::label()
-  var first: int32 = collect(1, 2, 3)
+  var first: i32 = collect(1, 2, 3)
   var make = (): User => user
   var captured: User = make()
   save()
@@ -203,7 +203,7 @@ import user from "./user"
 import { add } from "./math"
 
 fn main(value: user::User): null {
-  var total: int32 = add(1, 2)
+  var total: i32 = add(1, 2)
   return
 }
 "#,
@@ -214,7 +214,7 @@ fn main(value: user::User): null {
         "user.gfs",
         r#"
 export struct User {
-  id: int32,
+  id: i32,
 }
 "#,
     )?;
@@ -223,7 +223,7 @@ export struct User {
         root.as_path(),
         "math.gfs",
         r#"
-export fn add(a: int32, b: int32): int32 {
+export fn add(a: i32, b: i32): i32 {
   return a + b
 }
 "#,
@@ -246,11 +246,11 @@ fn mvp_validation_reports_golden_frontend_diagnostics() -> Result<()> {
         root.as_path(),
         "parser_error.gfs",
         r#"
-fn call(value: int32): null {
+fn call(value: i32): null {
   return
 }
 
-fn main(values: [int32]): null {
+fn main(values: [i32]): null {
   call(...values)
   return
 }
@@ -271,7 +271,7 @@ fn main(values: [int32]): null {
         root.as_path(),
         "type_error.gfs",
         r#"
-enum<bool> Mode {
+enum(bool) Mode {
   Off,
   On,
 }

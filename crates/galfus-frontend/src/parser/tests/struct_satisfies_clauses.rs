@@ -2,7 +2,7 @@ use super::*;
 
 #[test]
 fn parse_struct_satisfies_single_constraint() {
-    let source = source("struct User satisfies Identifiable {\n  id: int64,\n}");
+    let source = source("struct User satisfies Identifiable {\n  id: i64,\n}");
 
     let result = parse(&source);
 
@@ -57,9 +57,8 @@ fn parse_struct_satisfies_single_constraint() {
 
 #[test]
 fn parse_struct_satisfies_multiple_constraints() {
-    let source = source(
-        "struct User satisfies Identifiable, Stringable {\n  id: int64,\n  name: [int8],\n}",
-    );
+    let source =
+        source("struct User satisfies Identifiable, Stringable {\n  id: i64,\n  name: [i8],\n}");
 
     let result = parse(&source);
 
@@ -99,7 +98,7 @@ fn parse_struct_satisfies_multiple_constraints() {
 #[test]
 fn parse_struct_satisfies_generic_constraint() {
     let source = source(
-        "struct Range satisfies Iterable<int32, RangeIterator> {\n  start: int32,\n  end: int32,\n}",
+        "struct Range satisfies Iterable<i32, RangeIterator> {\n  start: i32,\n  end: i32,\n}",
     );
 
     let result = parse(&source);
@@ -125,7 +124,7 @@ fn parse_struct_satisfies_generic_constraint() {
 
     assert_eq!(
         source.slice(constraint_node.span()),
-        Some("Iterable<int32, RangeIterator>")
+        Some("Iterable<i32, RangeIterator>")
     );
 }
 
@@ -170,7 +169,7 @@ fn parse_generic_struct_with_satisfies_clause() {
 
 #[test]
 fn parse_struct_without_satisfies_shape_is_unchanged() {
-    let source = source("struct User {\n  name: [int8],\n}");
+    let source = source("struct User {\n  name: [i8],\n}");
 
     let result = parse(&source);
 

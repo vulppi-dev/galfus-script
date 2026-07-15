@@ -2,7 +2,7 @@ use super::*;
 
 #[test]
 fn parse_type_alias_item() {
-    let source = source("type UserId = int32");
+    let source = source("type UserId = i32");
 
     let result = parse(&source);
 
@@ -19,7 +19,7 @@ fn parse_type_alias_item() {
     let item_node = syntax.node(item).unwrap();
 
     assert_eq!(item_node.kind(), SyntaxNodeKind::TypeAliasItem);
-    assert_eq!(source.slice(item_node.span()), Some("type UserId = int32"));
+    assert_eq!(source.slice(item_node.span()), Some("type UserId = i32"));
     assert_eq!(item_node.child_count(), 2);
 
     let name = item_node.first_child().unwrap();
@@ -40,13 +40,13 @@ fn parse_type_alias_item() {
     );
     assert_eq!(
         source.slice(syntax.node(aliased_type).unwrap().span()),
-        Some("int32")
+        Some("i32")
     );
 }
 
 #[test]
 fn parse_type_alias_followed_by_function() {
-    let source = source("type UserId = int32\nfn main(): null { return }");
+    let source = source("type UserId = i32\nfn main(): null { return }");
 
     let result = parse(&source);
 
@@ -75,7 +75,7 @@ fn parse_type_alias_followed_by_function() {
 
 #[test]
 fn parse_export_type_alias_item() {
-    let source = source("export type UserId = int32");
+    let source = source("export type UserId = i32");
 
     let result = parse(&source);
 
@@ -94,7 +94,7 @@ fn parse_export_type_alias_item() {
     assert_eq!(export_node.kind(), SyntaxNodeKind::ExportItem);
     assert_eq!(
         source.slice(export_node.span()),
-        Some("export type UserId = int32")
+        Some("export type UserId = i32")
     );
     assert_eq!(export_node.child_count(), 1);
 
@@ -293,7 +293,7 @@ fn parse_named_import_alias() {
 fn parse_export_constraint_item() {
     let source = source(
         "export constraint Stringable<T> {
-            fn toString(self: T): [int8]
+            fn toString(self): [i8]
         }",
     );
 

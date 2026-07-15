@@ -2,8 +2,7 @@ use super::super::*;
 
 #[test]
 fn parse_generic_anchor_call_expression() {
-    let source =
-        source("fn main(): null {\n  var buffer = buffer::array<int32>(size)\n  return\n}");
+    let source = source("fn main(): null {\n  var buffer = buffer::array<i32>(size)\n  return\n}");
 
     let result = parse(&source);
 
@@ -26,7 +25,7 @@ fn parse_generic_anchor_call_expression() {
     assert_eq!(expression_node.kind(), SyntaxNodeKind::CallExpression);
     assert_eq!(
         source.slice(expression_node.span()),
-        Some("buffer::array<int32>(size)")
+        Some("buffer::array<i32>(size)")
     );
 
     let target = expression_node.first_child().unwrap();
@@ -50,7 +49,7 @@ fn parse_generic_anchor_call_expression() {
 
 #[test]
 fn parse_generic_member_call_expression() {
-    let source = source("fn main(): null {\n  registry.get<[int8]>(\"name\")\n  return\n}");
+    let source = source("fn main(): null {\n  registry.get<[i8]>(\"name\")\n  return\n}");
 
     let result = parse(&source);
 
@@ -73,15 +72,12 @@ fn parse_generic_member_call_expression() {
     let target_node = syntax.node(target).unwrap();
 
     assert_eq!(target_node.kind(), SyntaxNodeKind::GenericExpression);
-    assert_eq!(
-        source.slice(target_node.span()),
-        Some("registry.get<[int8]>")
-    );
+    assert_eq!(source.slice(target_node.span()), Some("registry.get<[i8]>"));
 }
 
 #[test]
 fn parse_generic_call_with_multiple_arguments() {
-    let source = source("fn main(): null {\n  makePair<[int8], User>(name, user)\n  return\n}");
+    let source = source("fn main(): null {\n  makePair<[i8], User>(name, user)\n  return\n}");
 
     let result = parse(&source);
 
@@ -105,15 +101,12 @@ fn parse_generic_call_with_multiple_arguments() {
     let generic_args_node = syntax.node(generic_args).unwrap();
 
     assert_eq!(generic_args_node.child_count(), 2);
-    assert_eq!(
-        source.slice(generic_args_node.span()),
-        Some("<[int8], User>")
-    );
+    assert_eq!(source.slice(generic_args_node.span()), Some("<[i8], User>"));
 }
 
 #[test]
 fn parse_generic_call_with_nested_generic_argument() {
-    let source = source("fn main(): null {\n  makeBox<Map<[int8], User>>(value)\n  return\n}");
+    let source = source("fn main(): null {\n  makeBox<Map<[i8], User>>(value)\n  return\n}");
 
     let result = parse(&source);
 
@@ -133,7 +126,7 @@ fn parse_generic_call_with_nested_generic_argument() {
     assert_eq!(expression_node.kind(), SyntaxNodeKind::CallExpression);
     assert_eq!(
         source.slice(expression_node.span()),
-        Some("makeBox<Map<[int8], User>>(value)")
+        Some("makeBox<Map<[i8], User>>(value)")
     );
 
     let target = expression_node.first_child().unwrap();

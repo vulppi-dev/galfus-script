@@ -4,7 +4,7 @@ use super::super::*;
 
 #[test]
 fn parse_grouped_expression_changes_precedence() {
-    let source = source("fn main(): int32 {\n  return (1 + 2) * 3\n}");
+    let source = source("fn main(): i32 {\n  return (1 + 2) * 3\n}");
 
     let result = parse(&source);
 
@@ -56,7 +56,7 @@ fn parse_grouped_expression_changes_precedence() {
 
 #[test]
 fn parse_grouped_expression_allows_internal_newlines() {
-    let source = source("fn main(): int32 {\n  return (\n    1 + 2\n  ) * 3\n}");
+    let source = source("fn main(): i32 {\n  return (\n    1 + 2\n  ) * 3\n}");
 
     let result = parse(&source);
 
@@ -88,7 +88,7 @@ fn parse_grouped_expression_allows_internal_newlines() {
 
 #[test]
 fn parse_postfix_after_grouped_expression() {
-    let source = source("fn main(): [int8] {\n  return (getUser()).name\n}");
+    let source = source("fn main(): [i8] {\n  return (getUser()).name\n}");
 
     let result = parse(&source);
 
@@ -123,7 +123,7 @@ fn parse_postfix_after_grouped_expression() {
 
 #[test]
 fn parse_empty_grouped_expression_reports_error() {
-    let source = source("fn main(): int32 {\n  return ()\n}");
+    let source = source("fn main(): i32 {\n  return ()\n}");
 
     let result = parse(&source);
 
@@ -140,7 +140,7 @@ fn parse_empty_grouped_expression_reports_error() {
 
 #[test]
 fn parse_unary_minus_expression() {
-    let source = source("fn main(): int32 {\n  return -1\n}");
+    let source = source("fn main(): i32 {\n  return -1\n}");
 
     let result = parse(&source);
 
@@ -226,7 +226,7 @@ fn parse_logical_not_expression() {
 
 #[test]
 fn parse_unary_expression_has_higher_precedence_than_binary() {
-    let source = source("fn main(): int32 {\n  return -value * 2\n}");
+    let source = source("fn main(): i32 {\n  return -value * 2\n}");
 
     let result = parse(&source);
 
@@ -298,7 +298,7 @@ fn parse_unary_expression_with_member_operand() {
 
 #[test]
 fn parse_unary_expression_allows_newline_after_operator() {
-    let source = source("fn main(): int32 {\n  return -\n  1\n}");
+    let source = source("fn main(): i32 {\n  return -\n  1\n}");
 
     let result = parse(&source);
 

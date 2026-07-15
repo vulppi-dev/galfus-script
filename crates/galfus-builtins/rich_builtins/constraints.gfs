@@ -1,0 +1,12 @@
+export constraint Iterator<Item> {
+  fn next(self): Item | null
+}
+
+export constraint Iterable<Item> {
+  fn iter(self): Iterator<Item>,
+  fn size(self): i32
+}
+
+export constraint Comparable<Value> {
+  fn compare(self, value: Value): bool
+}

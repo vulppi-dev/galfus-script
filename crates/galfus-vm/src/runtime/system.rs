@@ -78,16 +78,20 @@ impl VirtualMachine {
                 let val = self.read_reg(src)?;
                 self.execute_write(val)?;
             }
+            Instruction::Read { dest } => {
+                let value = self.execute_read()?;
+                self.write_reg(dest, value)?;
+            }
             Instruction::Len { dest, src } => {
                 let val = self.read_reg(src)?;
                 if let Value::Object(obj_ref) = val {
                     let heap_obj = self.get_object(obj_ref)?;
                     match heap_obj {
                         HeapObject::Array { elements, .. } => {
-                            self.write_reg(dest, Value::Int64(elements.len() as i64))?;
+                            self.write_reg(dest, Value::Int32(elements.len() as i32))?;
                         }
                         HeapObject::Tuple { elements, .. } => {
-                            self.write_reg(dest, Value::Int64(elements.len() as i64))?;
+                            self.write_reg(dest, Value::Int32(elements.len() as i32))?;
                         }
                         _ => {
                             return Err(VmError::TypeMismatch {
@@ -147,7 +151,7 @@ impl VirtualMachine {
                     if let HeapObject::Array { elements, .. } = dest_obj {
                         if start_idx + src_elements.len() > elements.len() {
                             return Err(VmError::IndexOutOfBounds {
-                                index: start_idx + src_elements.len() - 1,
+                                index: (start_idx + src_elements.len() - 1) as i128,
                                 len: elements.len(),
                             });
                         }

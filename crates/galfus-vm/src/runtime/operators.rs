@@ -77,6 +77,7 @@ macro_rules! impl_bitwise_op {
         let lhs_val = $self.read_reg($lhs)?;
         let rhs_val = $self.read_reg($rhs)?;
         let res = match (lhs_val, rhs_val) {
+            (Value::Bool(l), Value::Bool(r)) => Value::Bool(l $op r),
             (Value::Int8(l), Value::Int8(r)) => Value::Int8(l $op r),
             (Value::Int16(l), Value::Int16(r)) => Value::Int16(l $op r),
             (Value::Int32(l), Value::Int32(r)) => Value::Int32(l $op r),
@@ -86,7 +87,7 @@ macro_rules! impl_bitwise_op {
             (Value::Uint32(l), Value::Uint32(r)) => Value::Uint32(l $op r),
             (Value::Uint64(l), Value::Uint64(r)) => Value::Uint64(l $op r),
             (l, r) => return Err(VmError::TypeMismatch {
-                expected: "matching integer types".to_string(),
+                expected: "matching integer or boolean types".to_string(),
                 found: format!("{:?} and {:?}", l, r),
             }),
         };

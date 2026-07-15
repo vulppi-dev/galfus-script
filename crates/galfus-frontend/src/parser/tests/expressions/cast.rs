@@ -2,7 +2,7 @@ use super::super::*;
 
 #[test]
 fn parse_cast_expression() {
-    let source = source("var a = <int8> 6.24");
+    let source = source("var a = <i8> 6.24");
 
     let result = parse(&source);
 
@@ -66,7 +66,7 @@ fn parse_cast_expression_with_path_type() {
 
 #[test]
 fn parse_cast_expression_as_unary_operand() {
-    let source = source("var a = -<int32> value");
+    let source = source("var a = -<i32> value");
 
     let result = parse(&source);
 
@@ -96,7 +96,7 @@ fn parse_cast_expression_as_unary_operand() {
 
 #[test]
 fn parse_cast_expression_inside_binary_expression() {
-    let source = source("var a = <int32> value + 1");
+    let source = source("var a = <i32> value + 1");
 
     let result = parse(&source);
 

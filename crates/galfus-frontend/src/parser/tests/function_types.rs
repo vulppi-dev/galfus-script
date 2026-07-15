@@ -38,7 +38,7 @@ fn parse_type_alias_function_type_no_parameters() {
 
 #[test]
 fn parse_type_alias_function_type_with_parameters() {
-    let source = source("type Predicate = fn ([int8], int32): bool");
+    let source = source("type Predicate = fn ([i8], i32): bool");
 
     let result = parse(&source);
 
@@ -56,7 +56,7 @@ fn parse_type_alias_function_type_with_parameters() {
     assert_eq!(function_type_node.kind(), SyntaxNodeKind::FunctionType);
     assert_eq!(
         source.slice(function_type_node.span()),
-        Some("fn ([int8], int32): bool")
+        Some("fn ([i8], i32): bool")
     );
 
     let parameters = function_type_node.first_child().unwrap();
@@ -69,12 +69,12 @@ fn parse_type_alias_function_type_with_parameters() {
 
     assert_eq!(
         source.slice(syntax.node(first).unwrap().span()),
-        Some("[int8]")
+        Some("[i8]")
     );
 
     assert_eq!(
         source.slice(syntax.node(second).unwrap().span()),
-        Some("int32")
+        Some("i32")
     );
 }
 
@@ -179,7 +179,7 @@ fn parse_generic_function_type() {
 
 #[test]
 fn parse_function_type_as_generic_argument() {
-    let source = source("type Listener = Box<fn ([int8]): null>");
+    let source = source("type Listener = Box<fn ([i8]): null>");
 
     let result = parse(&source);
 

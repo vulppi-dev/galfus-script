@@ -101,6 +101,32 @@ fn parse_quantity_range_expression_with_step() {
 }
 
 #[test]
+fn parse_quantity_range_expression_with_negative_step() {
+    let source = source("var range = 1::4%-3");
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors());
+
+    let syntax = result.graph().syntax();
+    let root = syntax.root().unwrap();
+    let var_item = syntax.first_child(root).unwrap();
+
+    let initializer = syntax
+        .first_child_of_kind(var_item, SyntaxNodeKind::Initializer)
+        .unwrap();
+
+    let expression = syntax.first_child(initializer).unwrap();
+    let step = syntax.child(expression, 3).unwrap();
+    let step_value = syntax.first_child(step).unwrap();
+
+    assert_eq!(
+        syntax.node(step_value).unwrap().kind(),
+        SyntaxNodeKind::UnaryExpression
+    );
+}
+
+#[test]
 fn parse_range_requires_numeric_literal_end() {
     let source = source("var range = 1::count");
 

@@ -6,7 +6,7 @@ fn parse_stores_tokens_in_graph() {
 
     let result = parse(&source);
 
-    assert!(!result.graph().syntax().tokens().is_empty());
+    assert!(!result.ast().syntax().tokens().is_empty());
 }
 
 #[test]
@@ -96,6 +96,21 @@ fn parse_creates_root_even_with_lexical_diagnostics() {
     let diagnostic = result.diagnostics().iter().next().unwrap();
 
     assert_eq!(diagnostic.code().as_str(), "L0002");
+}
+
+#[test]
+fn parse_includes_token_tree_diagnostics() {
+    let source = source("fn main(): null {");
+
+    let result = parse(&source);
+
+    assert!(result.has_errors());
+    assert!(
+        result
+            .diagnostics()
+            .iter()
+            .any(|diagnostic| diagnostic.code().as_str() == "B0001")
+    );
 }
 
 #[test]

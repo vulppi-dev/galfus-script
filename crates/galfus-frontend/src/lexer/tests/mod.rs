@@ -1,6 +1,7 @@
 use super::*;
 use galfus_core::{SourceFile, SourceId, Span};
 
+mod contracts;
 mod core;
 mod identifiers;
 mod numbers;

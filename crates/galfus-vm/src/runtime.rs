@@ -3,16 +3,17 @@ use galfus_image::instruction::{
     ChoiceLayoutIdx, FuncIdx, Instruction, Reg, StructLayoutIdx, TypeIdx,
 };
 use galfus_image::{Constant, ImageType, ModuleImage, OwnershipKind};
-use galfus_target::{DefaultTargetCapabilityProvider, TargetCapabilityProvider};
+use galfus_target::{NativeTarget, TargetCapabilityProvider};
 
 mod casts;
 mod control;
 mod data;
-mod gc;
+mod graph_release;
 mod heap;
 mod objects;
 mod operators;
 mod system;
+mod target_io;
 #[cfg(test)]
 mod tests;
 
@@ -45,10 +46,13 @@ pub enum VmValue {
     Float32(f32),
     Float64(f64),
     Object(VmObjectRef),
+    Function(FuncIdx),
 }
 
 type Value = VmValue;
 type ObjectRef = VmObjectRef;
+
+const RELEASE_ALLOCATION_THRESHOLD: usize = 64;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum HeapObject {
@@ -84,6 +88,7 @@ pub struct CallFrame {
     pub func_idx: FuncIdx,
     pub pc: usize,
     pub registers: Vec<Value>,
+    pub return_dest: Option<Reg>,
     pub in_transaction: bool,
 }
 
@@ -94,6 +99,7 @@ pub struct VirtualMachine {
     pub free_slots: Vec<usize>,
     pub call_stack: Vec<CallFrame>,
     pub context: VmContext,
+    allocations_since_release: usize,
 }
 
 impl VirtualMachine {
@@ -104,7 +110,8 @@ impl VirtualMachine {
             heap: Vec::new(),
             free_slots: Vec::new(),
             call_stack: Vec::new(),
-            context: VmContext::new(Box::new(DefaultTargetCapabilityProvider)),
+            context: VmContext::new(Box::new(NativeTarget)),
+            allocations_since_release: 0,
         }
     }
 
@@ -119,6 +126,8 @@ impl VirtualMachine {
     }
 
     pub fn alloc(&mut self, obj: HeapObject) -> ObjectRef {
+        self.allocations_since_release += 1;
+
         if let Some(idx) = self.free_slots.pop() {
             self.heap[idx] = Some(obj);
             VmObjectRef(idx)
@@ -179,6 +188,7 @@ impl VirtualMachine {
             func_idx,
             pc: 0,
             registers,
+            return_dest: None,
             in_transaction: false,
         });
 
@@ -208,16 +218,15 @@ impl VirtualMachine {
 
     fn execute_loop(&mut self) -> Result<Value, VmError> {
         loop {
-            let (instr, pc) = {
+            let instr = {
                 let frame = self.call_stack.last_mut().ok_or(VmError::EmptyCallStack)?;
                 let func = &self.image.functions[frame.func_idx.raw() as usize];
                 if frame.pc >= func.instructions.len() {
                     return Err(VmError::InstructionPointerOutOfBounds { pc: frame.pc });
                 }
                 let instr = func.instructions[frame.pc];
-                let pc = frame.pc;
                 frame.pc += 1;
-                (instr, pc)
+                instr
             };
 
             let step = match instr {
@@ -254,9 +263,11 @@ impl VirtualMachine {
                 | Instruction::JumpFalse { .. }
                 | Instruction::JumpNull { .. }
                 | Instruction::Call { .. }
+                | Instruction::CallMethod { .. }
+                | Instruction::CallDynamic { .. }
                 | Instruction::Ret { .. }
                 | Instruction::RetNull
-                | Instruction::Panic { .. } => self.execute_control_instruction(instr, pc)?,
+                | Instruction::Panic { .. } => self.execute_control_instruction(instr)?,
 
                 Instruction::AllocLocal { .. }
                 | Instruction::AllocShared { .. }
@@ -268,6 +279,7 @@ impl VirtualMachine {
                 | Instruction::NewTuple { .. }
                 | Instruction::NewChoice { .. }
                 | Instruction::Cast { .. }
+                | Instruction::Copy { .. }
                 | Instruction::Instanceof { .. } => self.execute_object_instruction(instr)?,
 
                 Instruction::Drop { .. }
@@ -277,14 +289,23 @@ impl VirtualMachine {
                 | Instruction::TxCommit { .. }
                 | Instruction::TxRollback
                 | Instruction::Write { .. }
+                | Instruction::Read { .. }
                 | Instruction::Len { .. }
                 | Instruction::CopyArray { .. } => self.execute_system_instruction(instr)?,
             };
 
             match step {
-                ExecutionStep::Continue => self.release_unreachable(),
+                ExecutionStep::Continue => self.release_unreachable_if_needed(instr),
                 ExecutionStep::Return(value) => return Ok(value),
             }
+        }
+    }
+
+    fn release_unreachable_if_needed(&mut self, instr: Instruction) {
+        if matches!(instr, Instruction::Drop { .. })
+            || self.allocations_since_release >= RELEASE_ALLOCATION_THRESHOLD
+        {
+            self.release_unreachable();
         }
     }
 }

@@ -83,7 +83,7 @@ fn parse_struct_field_type_path() {
 
 #[test]
 fn parse_simple_anchored_function_still_works_with_type_path() {
-    let source = source("fn User::rename(self: User): User {\n  return self\n}");
+    let source = source("fn User::rename(self): User {\n  return self\n}");
 
     let result = parse(&source);
 
@@ -116,7 +116,7 @@ fn parse_simple_anchored_function_still_works_with_type_path() {
 
 #[test]
 fn parse_type_path_anchored_function() {
-    let source = source("fn game::Texture::load(self: game::Texture): null {\n  return\n}");
+    let source = source("fn game::Texture::load(self): null {\n  return\n}");
 
     let result = parse(&source);
 
@@ -151,7 +151,7 @@ fn parse_type_path_anchored_function() {
 
 #[test]
 fn parse_generic_type_path_anchored_function() {
-    let source = source("fn std::Box<T>::unwrap(self: std::Box<T>): T {\n  return self.value\n}");
+    let source = source("fn std::Box<T>::unwrap(self): T {\n  return self.value\n}");
 
     let result = parse(&source);
 

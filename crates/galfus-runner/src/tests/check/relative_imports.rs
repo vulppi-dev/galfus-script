@@ -55,7 +55,7 @@ fn check_path_accepts_named_import_from_exported_symbol() -> Result<()> {
         "user.gfs",
         r#"
         export struct User {
-            id: int64,
+            id: i64,
         }
         "#,
     )?;

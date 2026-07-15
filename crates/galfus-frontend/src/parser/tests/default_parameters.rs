@@ -2,7 +2,7 @@ use super::*;
 
 #[test]
 fn parse_default_parameter() {
-    let source = source("fn greet(name: [int8], punctuation: [int8] = \"!\"): null {\n  return\n}");
+    let source = source("fn greet(name: [i8], punctuation: [i8] = \"!\"): null {\n  return\n}");
 
     let result = parse(&source);
 
@@ -26,7 +26,7 @@ fn parse_default_parameter() {
     assert_eq!(parameter_node.kind(), SyntaxNodeKind::Parameter);
     assert_eq!(
         source.slice(parameter_node.span()),
-        Some("punctuation: [int8] = \"!\"")
+        Some("punctuation: [i8] = \"!\"")
     );
 
     assert_eq!(parameter_node.child_count(), 3);
@@ -47,8 +47,7 @@ fn parse_default_parameter() {
 
 #[test]
 fn parse_multiple_default_parameters() {
-    let source =
-        source("fn spawn(kind: [int8] = \"enemy\", health: int32 = 100): null {\n  return\n}");
+    let source = source("fn spawn(kind: [i8] = \"enemy\", health: i32 = 100): null {\n  return\n}");
 
     let result = parse(&source);
 
@@ -82,7 +81,7 @@ fn parse_multiple_default_parameters() {
 
 #[test]
 fn parse_default_parameter_with_expression() {
-    let source = source("fn configure(limit: int32 = 10 + 20): null {\n  return\n}");
+    let source = source("fn configure(limit: i32 = 10 + 20): null {\n  return\n}");
 
     let result = parse(&source);
 
@@ -144,7 +143,7 @@ fn parse_default_parameter_with_struct_literal() {
 
 #[test]
 fn parse_default_parameter_accepts_trailing_comma() {
-    let source = source("fn greet(name: [int8] = \"Ana\",): null {\n  return\n}");
+    let source = source("fn greet(name: [i8] = \"Ana\",): null {\n  return\n}");
 
     let result = parse(&source);
 
@@ -170,9 +169,8 @@ fn parse_default_parameter_accepts_trailing_comma() {
 
 #[test]
 fn parse_rest_parameter_after_default_with_default_is_valid() {
-    let source = source(
-        "fn log(prefix: [int8] = \"\", ...values: [[int8]] | null = null): null {\n  return\n}",
-    );
+    let source =
+        source("fn log(prefix: [i8] = \"\", ...values: [[i8]] | null = null): null {\n  return\n}");
 
     let result = parse(&source);
 
@@ -212,7 +210,7 @@ fn parse_rest_parameter_after_default_with_default_is_valid() {
 #[test]
 fn parse_parameter_default_before_required_parameter() {
     let source = source(
-        "fn someFunction(name: [int8] = '', age: uint32): null {
+        "fn someFunction(name: [i8] = '', age: u32): null {
             return
         }",
     );
@@ -249,7 +247,7 @@ fn parse_parameter_default_before_required_parameter() {
 fn parse_initial_omitted_argument() {
     let source = source(
         "fn main(): null {
-            someFunction(, 32)
+            someFunction(_, 32)
             return
         }",
     );
@@ -293,7 +291,7 @@ fn parse_initial_omitted_argument() {
 fn parse_middle_omitted_argument() {
     let source = source(
         "fn main(): null {
-            someFunction(1, , 3)
+            someFunction(1, _, 3)
             return
         }",
     );

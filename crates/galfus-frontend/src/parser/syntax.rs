@@ -2,7 +2,33 @@ use super::*;
 
 impl Parser {
     pub(super) fn parse_identifier(&mut self) -> Option<NodeId> {
-        let token = self.expect(TokenKind::Identifier)?;
+        let token = if self.at(&TokenKind::Identifier) {
+            self.bump()
+        } else {
+            let found = self.current().clone();
+            self.graph.push_diagnostic(Diagnostic::error_with_message(
+                ParserDiagnosticCode::ExpectedToken,
+                format!("expected `Identifier`, found `{:?}`", found.kind()),
+                found.span(),
+            ));
+            return None;
+        };
+
+        Some(self.add_node(SyntaxNodeKind::Identifier, token.span(), Vec::new()))
+    }
+
+    pub(super) fn parse_identifier_or_self(&mut self) -> Option<NodeId> {
+        let token = if self.at(&TokenKind::Identifier) || self.at(&TokenKind::SelfKw) {
+            self.bump()
+        } else {
+            let found = self.current().clone();
+            self.graph.push_diagnostic(Diagnostic::error_with_message(
+                ParserDiagnosticCode::ExpectedToken,
+                format!("expected `Identifier`, found `{:?}`", found.kind()),
+                found.span(),
+            ));
+            return None;
+        };
 
         Some(self.add_node(SyntaxNodeKind::Identifier, token.span(), Vec::new()))
     }
@@ -103,10 +129,43 @@ impl Parser {
             return self.parse_rest_parameter(decorators);
         }
 
-        let name = self.parse_identifier()?;
+        let name = if self.at(&TokenKind::SelfKw) {
+            self.parse_identifier_or_self()?
+        } else {
+            self.parse_binding_pattern()?
+        };
         let name_span = self.node_span(name);
 
         self.skip_newlines();
+
+        if self.node_text(name) == "self"
+            && self.graph.syntax().node(name).unwrap().kind() == SyntaxNodeKind::Identifier
+        {
+            if self.at(&TokenKind::Colon) {
+                let colon = self.bump();
+                self.graph.push_diagnostic(Diagnostic::error_with_message(
+                    ParserDiagnosticCode::ExpectedToken,
+                    "`self` parameters are inferred and must not have a type annotation"
+                        .to_string(),
+                    colon.span(),
+                ));
+                self.skip_newlines();
+                let _ = self.parse_type();
+            }
+
+            let mut children = Vec::new();
+            if let Some(decorators) = decorators {
+                children.push(decorators);
+            }
+            children.push(name);
+
+            let start_span = decorators
+                .map(|decorators| self.node_span(decorators))
+                .unwrap_or(name_span);
+            let span = Span::cover(start_span, name_span).unwrap_or(name_span);
+
+            return Some(self.add_node(SyntaxNodeKind::Parameter, span, children));
+        }
 
         self.expect(TokenKind::Colon)?;
 
@@ -199,48 +258,11 @@ impl Parser {
 
         let element_type = self.parse_type()?;
 
-        if self.at(&TokenKind::Semicolon) {
-            self.bump();
-
-            let size = self.parse_array_size()?;
-            let right = self.expect(TokenKind::RightBracket)?;
-
-            let span = Span::cover(left.span(), right.span()).unwrap_or(left.span());
-
-            return Some(self.add_node(
-                SyntaxNodeKind::FixedArrayType,
-                span,
-                vec![element_type, size],
-            ));
-        }
-
         let right = self.expect(TokenKind::RightBracket)?;
 
         let span = Span::cover(left.span(), right.span()).unwrap_or(left.span());
 
         Some(self.add_node(SyntaxNodeKind::ArrayType, span, vec![element_type]))
-    }
-
-    pub(super) fn parse_array_size(&mut self) -> Option<NodeId> {
-        if !self.at(&TokenKind::Integer) {
-            let found = self.bump();
-
-            self.graph.push_diagnostic(Diagnostic::error_with_message(
-                ParserDiagnosticCode::ExpectedToken,
-                format!(
-                    "expected array size integer literal, found `{:?}`",
-                    found.kind()
-                ),
-                found.span(),
-            ));
-
-            return None;
-        }
-
-        let value = self.parse_integer_literal()?;
-        let span = self.node_span(value);
-
-        Some(self.add_node(SyntaxNodeKind::ArraySize, span, vec![value]))
     }
 
     pub(super) fn parse_import_clause(&mut self) -> Option<NodeId> {

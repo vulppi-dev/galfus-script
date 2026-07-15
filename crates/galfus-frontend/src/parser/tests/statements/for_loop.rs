@@ -215,3 +215,64 @@ fn parse_for_statement_requires_in_keyword() {
 
     assert_eq!(diagnostic.code().as_str(), "P0001");
 }
+
+#[test]
+fn parse_for_statement_with_ignored_binding() {
+    let source = source("fn main(): null {\n for _ in items {\n print(\"x\")\n }\n return\n}");
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors(), "{:?}", result.diagnostics());
+
+    let syntax = result.graph().syntax();
+    let root = syntax.root().unwrap();
+    let function = syntax.node(root).unwrap().first_child().unwrap();
+    let function_node = syntax.node(function).unwrap();
+    let body = function_node.child(3).unwrap();
+    let body_node = syntax.node(body).unwrap();
+    let for_statement = body_node.first_child().unwrap();
+    let for_node = syntax.node(for_statement).unwrap();
+
+    assert_eq!(for_node.kind(), SyntaxNodeKind::ForStatement);
+
+    let binding = for_node.first_child().unwrap();
+    let binding_node = syntax.node(binding).unwrap();
+
+    assert_eq!(binding_node.kind(), SyntaxNodeKind::ForBinding);
+    assert_eq!(binding_node.child_count(), 1);
+    assert_eq!(source.slice(binding_node.span()), Some("_"));
+
+    let wildcard = binding_node.first_child().unwrap();
+    assert_eq!(
+        syntax.node(wildcard).unwrap().kind(),
+        SyntaxNodeKind::WildcardPattern
+    );
+}
+
+#[test]
+fn parse_for_statement_with_index_binding() {
+    let source =
+        source("fn main(): null {\n for value, index in items {\n print(value)\n }\n return\n}");
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors(), "{:?}", result.diagnostics());
+
+    let syntax = result.graph().syntax();
+    let root = syntax.root().unwrap();
+    let function = syntax.node(root).unwrap().first_child().unwrap();
+    let function_node = syntax.node(function).unwrap();
+    let body = function_node.child(3).unwrap();
+    let body_node = syntax.node(body).unwrap();
+    let for_statement = body_node.first_child().unwrap();
+    let for_node = syntax.node(for_statement).unwrap();
+
+    assert_eq!(for_node.kind(), SyntaxNodeKind::ForStatement);
+
+    let binding = for_node.first_child().unwrap();
+    let binding_node = syntax.node(binding).unwrap();
+
+    assert_eq!(binding_node.kind(), SyntaxNodeKind::ForBinding);
+    assert_eq!(binding_node.child_count(), 2);
+    assert_eq!(source.slice(binding_node.span()), Some("value, index"));
+}
