@@ -325,11 +325,10 @@ fn surface_members_for_export(
                         .symbol_type(*member_symbol)
                         .and_then(|ty| transport_type(resolution, type_result, ty))?;
 
-                    Some((member.declaration(), ModuleSurfaceMember::new(
-                        name.to_string(),
-                        member.kind(),
-                        Some(ty),
-                    )))
+                    Some((
+                        member.declaration(),
+                        ModuleSurfaceMember::new(name.to_string(), member.kind(), Some(ty)),
+                    ))
                 }
 
                 SymbolKind::ConstraintFunction => {
@@ -338,28 +337,29 @@ fn surface_members_for_export(
                         .symbol_type(*member_symbol)
                         .and_then(|ty| transport_type(resolution, type_result, ty))?;
 
-                    Some((member.declaration(), ModuleSurfaceMember::new(
-                        name.to_string(),
-                        member.kind(),
-                        Some(ty),
-                    )))
+                    Some((
+                        member.declaration(),
+                        ModuleSurfaceMember::new(name.to_string(), member.kind(), Some(ty)),
+                    ))
                 }
 
-                SymbolKind::EnumVariant => Some((member.declaration(), ModuleSurfaceMember::new(
-                    name.to_string(),
-                    member.kind(),
-                    None,
-                ))),
+                SymbolKind::EnumVariant => Some((
+                    member.declaration(),
+                    ModuleSurfaceMember::new(name.to_string(), member.kind(), None),
+                )),
 
                 SymbolKind::ChoiceVariant => {
                     let payload_types =
                         choice_payload_types(graph, type_result, member.declaration())?;
 
-                    Some((member.declaration(), ModuleSurfaceMember::with_payload(
-                        name.to_string(),
-                        member.kind(),
-                        payload_types,
-                    )))
+                    Some((
+                        member.declaration(),
+                        ModuleSurfaceMember::with_payload(
+                            name.to_string(),
+                            member.kind(),
+                            payload_types,
+                        ),
+                    ))
                 }
 
                 _ => None,

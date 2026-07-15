@@ -201,7 +201,9 @@ impl VirtualMachine {
                         return true;
                     }
 
-                    let Some(actual_layout) = self.image.choice_layouts.get(layout_idx.raw() as usize) else {
+                    let Some(actual_layout) =
+                        self.image.choice_layouts.get(layout_idx.raw() as usize)
+                    else {
                         return false;
                     };
                     let Some(expected_layout) = self

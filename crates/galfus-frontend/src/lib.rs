@@ -13,9 +13,10 @@ pub use type_validation::*;
 pub use types::*;
 
 mod ast;
-mod diagnostics;
+pub mod diagnostics;
 mod inference_bind;
 mod lexer;
+pub mod modules;
 mod parser;
 mod resolver;
 mod string_table;

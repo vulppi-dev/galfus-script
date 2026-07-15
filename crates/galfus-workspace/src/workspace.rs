@@ -1,7 +1,8 @@
-use crate::config::{parse_workspace_config, WorkspaceConfig};
+use crate::config::{WorkspaceConfig, parse_workspace_config};
 use crate::source_store::{ModuleOrigin, SourceStore};
 use crate::state::{CheckState, CompileState, WorkspaceError};
-use galfus_core::{DiagnosticBag, ModulePath, Revision};
+use galfus_core::{DiagnosticBag, ModulePath, Revision, SourceFile, SourceId};
+use galfus_frontend::modules::{FrontendRoots, FrontendSession, FrontendUpdate};
 use std::sync::Arc;
 
 pub struct Workspace {
@@ -10,6 +11,7 @@ pub struct Workspace {
     revision: Revision,
     check_state: CheckState,
     compile_state: CompileState,
+    frontend: FrontendSession,
 }
 
 pub enum LoadResult {
@@ -43,6 +45,7 @@ impl Workspace {
                 previous_checked_revision: None,
             },
             compile_state: CompileState::Missing,
+            frontend: FrontendSession::new(),
         }
     }
 
@@ -68,7 +71,7 @@ impl Workspace {
         module_bytes: &[u8],
     ) -> Result<LoadResult, WorkspaceError> {
         let module_path = ModulePath::new(path).ok_or(WorkspaceError::InvalidPath)?;
-        
+
         self.revision.next();
         self.sources.load_module(
             module_path,
@@ -82,7 +85,7 @@ impl Workspace {
 
     pub fn remove_module(&mut self, path: &str) -> Result<RemoveResult, WorkspaceError> {
         let module_path = ModulePath::new(path).ok_or(WorkspaceError::InvalidPath)?;
-        
+
         if self.sources.remove_module(&module_path).is_some() {
             self.revision.next();
             self.mark_dirty();
@@ -121,26 +124,46 @@ impl Workspace {
     }
 
     pub fn check(&mut self) -> CheckReport<'_> {
-        // Here we will call FrontendSession::check() in Phase 2
-        // For now, we simulate a check result or just leave it dirty until we integrate frontend.
-        // Actually, we must produce a CheckReport.
-        
-        // Let's just create an empty diagnostic bag and pretend it failed or passed depending on if we have a config.
-        let mut bag = DiagnosticBag::new();
-        
-        if self.config.is_none() {
-            self.check_state = CheckState::Failed {
-                revision: self.revision,
-                diagnostics: bag,
-            };
-        } else {
-            // Normally this calls frontend.
-            // We pretend it passed for Phase 1 so we can pass tests.
-            self.check_state = CheckState::Passed {
-                revision: self.revision,
-                semantic_revision: galfus_core::SemanticRevision::new(1),
-                diagnostics: bag,
-            };
+        let is_dirty = matches!(self.check_state, CheckState::Dirty { .. });
+
+        if is_dirty {
+            if self.config.is_none() {
+                self.check_state = CheckState::Failed {
+                    revision: self.revision,
+                    diagnostics: DiagnosticBag::new(),
+                };
+            } else {
+                let mut sources = Vec::new();
+                for (id, entry) in self.sources.iter().enumerate() {
+                    let source_id = SourceId::new(id as u32);
+                    let text = std::str::from_utf8(&entry.bytes).unwrap_or("").to_string();
+                    let source = SourceFile::new(source_id, entry.path.to_string(), text);
+                    sources.push((entry.path.clone(), source));
+                }
+
+                let roots = FrontendRoots {};
+
+                let update = FrontendUpdate {
+                    source_revision: self.revision,
+                    sources: &sources,
+                    roots: &roots,
+                };
+
+                let report = self.frontend.check(update);
+
+                if report.diagnostics.has_errors() {
+                    self.check_state = CheckState::Failed {
+                        revision: report.source_revision,
+                        diagnostics: report.diagnostics,
+                    };
+                } else {
+                    self.check_state = CheckState::Passed {
+                        revision: report.source_revision,
+                        semantic_revision: report.semantic_revision,
+                        diagnostics: report.diagnostics,
+                    };
+                }
+            }
         }
 
         match &self.check_state {

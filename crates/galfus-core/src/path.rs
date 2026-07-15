@@ -25,7 +25,7 @@ impl ModulePath {
         }
 
         let normalized = segments.join("/");
-        
+
         if !normalized.ends_with(".gfs") {
             return None;
         }

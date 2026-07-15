@@ -53,8 +53,6 @@ pub(super) enum ConstraintApplicationError {
 }
 
 impl<'a> DeclarationTypeChecker<'a> {
-
-
     pub(super) fn check_constraint_satisfies(&mut self, node: NodeId) {
         let Some(syntax_node) = self.graph.syntax().node(node) else {
             return;

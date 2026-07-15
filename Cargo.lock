@@ -703,6 +703,7 @@ dependencies = [
  "galfus-ir",
  "galfus-runtime",
  "galfus-target",
+ "galfus-workspace",
  "notify",
  "serde",
  "thiserror 2.0.18",
@@ -746,6 +747,7 @@ name = "galfus-workspace"
 version = "0.0.0"
 dependencies = [
  "galfus-core",
+ "galfus-frontend",
  "serde",
  "toml 0.8.23",
 ]

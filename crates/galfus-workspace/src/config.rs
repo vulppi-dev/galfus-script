@@ -1,4 +1,4 @@
-use galfus_core::{Diagnostic, DiagnosticBag, Span, SourceId, ModulePath};
+use galfus_core::{Diagnostic, DiagnosticBag, ModulePath, SourceId, Span};
 use serde::Deserialize;
 use std::collections::BTreeMap;
 

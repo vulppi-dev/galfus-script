@@ -757,8 +757,6 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                     destination: iterator_local,
                 });
 
-
-
                 let loop_header = self.builder.next_block();
                 let loop_body = self.builder.next_block();
                 let loop_end = self.builder.next_block();

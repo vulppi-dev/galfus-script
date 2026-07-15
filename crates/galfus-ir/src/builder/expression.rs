@@ -675,15 +675,19 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
 
                 let temp_id = self.declare_local(None, ty);
                 let obj_ty = self.node_type(obj_node).unwrap_or_else(|| TypeId::new(0));
-                
+
                 let resolved_obj_ty = if let Operand::Local(l) = obj_operand {
-                    self.locals.iter().find(|decl| decl.id == l).map(|decl| decl.ty).unwrap_or(obj_ty)
+                    self.locals
+                        .iter()
+                        .find(|decl| decl.id == l)
+                        .map(|decl| decl.ty)
+                        .unwrap_or(obj_ty)
                 } else {
                     obj_ty
                 };
-                
+
                 let resolved_obj_ty = self.builder.resolve_alias_type(resolved_obj_ty);
-                
+
                 let is_array_length = member_name == "length"
                     && matches!(
                         self.builder

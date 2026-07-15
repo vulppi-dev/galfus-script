@@ -1,4 +1,4 @@
-use galfus_core::{ModuleId, SourceId, ModulePath, Revision};
+use galfus_core::{ModuleId, ModulePath, Revision, SourceId};
 use std::collections::HashMap;
 use std::sync::Arc;
 

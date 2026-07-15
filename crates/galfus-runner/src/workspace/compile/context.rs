@@ -338,18 +338,16 @@ impl<'a> MyWorkspaceContext<'a> {
             ty: function.return_type,
         });
         function.name = format!("{}#{}", function.name, specialized_id.raw());
-        function.blocks = vec![
-            BasicBlock {
-                parameters: Vec::new(),
-                id: BlockId::new(0),
-                instructions: vec![Instruction::Call {
-                    func: parse_function_id,
-                    args: vec![Operand::Local(LocalId::new(0))],
-                    destination: result_id,
-                }],
-                terminator: Terminator::Return(Some(Operand::Local(result_id))),
-            },
-        ];
+        function.blocks = vec![BasicBlock {
+            parameters: Vec::new(),
+            id: BlockId::new(0),
+            instructions: vec![Instruction::Call {
+                func: parse_function_id,
+                args: vec![Operand::Local(LocalId::new(0))],
+                destination: result_id,
+            }],
+            terminator: Terminator::Return(Some(Operand::Local(result_id))),
+        }];
 
         self.specialised_functions[target_mod_idx].push(function);
 

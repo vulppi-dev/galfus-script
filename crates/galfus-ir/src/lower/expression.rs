@@ -11,12 +11,15 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
             RValue::Use(operand) => {
                 self.load_operand_to(operand, dest);
 
-                if matches!(operand, Operand::Constant(MirConstant::Int(_)) | Operand::Constant(MirConstant::Float(_)))
-                    && let Some(local) = self
-                        .func
-                        .locals
-                        .iter()
-                        .find(|local| local.id.raw() as u16 == dest.raw())
+                if matches!(
+                    operand,
+                    Operand::Constant(MirConstant::Int(_))
+                        | Operand::Constant(MirConstant::Float(_))
+                ) && let Some(local) = self
+                    .func
+                    .locals
+                    .iter()
+                    .find(|local| local.id.raw() as u16 == dest.raw())
                 {
                     let type_idx = crate::lower::types::lower_type(self.ctx, local.ty);
                     self.instructions.push(Instruction::Cast {
