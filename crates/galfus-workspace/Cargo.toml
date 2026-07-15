@@ -8,5 +8,7 @@ license.workspace = true
 galfus-compiler = { version = "0.0.0", path = "../galfus-compiler" }
 galfus-core = { path = "../galfus-core" }
 galfus-frontend = { version = "0.0.0", path = "../galfus-frontend" }
+galfus-runtime = { version = "0.0.0", path = "../galfus-runtime" }
+galfus-target = { version = "0.0.0", path = "../galfus-target" }
 serde = { workspace = true }
 toml = { workspace = true }

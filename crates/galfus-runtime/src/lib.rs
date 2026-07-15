@@ -33,6 +33,10 @@ pub enum RuntimeError {
     VmPanic(#[from] VmPanic),
     #[error("runtime target provider is unavailable")]
     TargetUnavailable,
+    #[error(transparent)]
+    Link(#[from] RuntimeLinkError),
+    #[error("executing cross-module calls is not supported by the virtual machine yet")]
+    CrossModuleExecutionUnsupported,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -202,13 +206,32 @@ impl Runtime {
         self.modules.initialization_order(id)
     }
 
+    /// Execute an entry exported by a module loaded through [`Runtime::load`].
+    pub fn run_module_entry(
+        &mut self,
+        id: ModuleId,
+        entry_name: &str,
+        args: &[Vec<u8>],
+    ) -> Result<i32, RuntimeError> {
+        let link = self.link_module(id)?;
+        if !link.imports.is_empty() {
+            return Err(RuntimeError::CrossModuleExecutionUnsupported);
+        }
+        let image = self
+            .modules
+            .get(id)
+            .expect("linking only succeeds for loaded modules")
+            .image
+            .clone();
+        self.run_image_entry(image, entry_name, args)
+    }
+
     pub fn run_entry(
         &mut self,
         module_name: &str,
         entry_name: &str,
         args: &[Vec<u8>],
     ) -> Result<i32, RuntimeError> {
-        let abi = EntryAbi::default_app();
         let image = self
             .registry
             .lock()
@@ -216,6 +239,16 @@ impl Runtime {
             .get(module_name)
             .ok_or_else(|| RuntimeError::ModuleNotLoaded(module_name.to_string()))?;
         let image = (*image).clone();
+        self.run_image_entry(image, entry_name, args)
+    }
+
+    fn run_image_entry(
+        &mut self,
+        image: ModuleImage,
+        entry_name: &str,
+        args: &[Vec<u8>],
+    ) -> Result<i32, RuntimeError> {
+        let abi = EntryAbi::default_app();
         let entry_idx = image
             .exports
             .iter()

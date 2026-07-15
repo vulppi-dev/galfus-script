@@ -48,6 +48,17 @@ pub enum CompileBlocked {
     CompilerError(String),
 }
 
+/// Reason why `Workspace::run()` cannot proceed.
+#[derive(Debug)]
+pub enum RunBlocked {
+    /// `compile()` has not produced an up-to-date compiled graph.
+    CompileRequired,
+    /// The configured entry module is not in the compiled graph.
+    EntryModuleMissing,
+    /// The runtime rejected loading, linking, or executing the compiled graph.
+    RuntimeError(String),
+}
+
 #[derive(Debug)]
 pub enum CompileState {
     /// No compilation has ever been attempted.

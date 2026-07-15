@@ -1,9 +1,11 @@
 use crate::config::{WorkspaceConfig, parse_workspace_config};
 use crate::source_store::{ModuleOrigin, SourceStore};
-use crate::state::{CheckState, CompileBlocked, CompileState, WorkspaceError};
+use crate::state::{CheckState, CompileBlocked, CompileState, RunBlocked, WorkspaceError};
 use galfus_compiler::{CompiledImportEdge, CompiledModule, CompiledModuleGraph};
 use galfus_core::{DiagnosticBag, ModulePath, Revision, SourceFile};
 use galfus_frontend::modules::{FrontendRoots, FrontendSession, FrontendSource, FrontendUpdate};
+use galfus_runtime::Runtime;
+use galfus_target::{NativeTarget, TargetCapabilityProvider};
 use std::sync::Arc;
 
 #[cfg(test)]
@@ -16,6 +18,7 @@ pub struct Workspace {
     check_state: CheckState,
     compile_state: CompileState,
     frontend: FrontendSession,
+    runtime: Runtime,
 }
 
 pub enum LoadResult {
@@ -39,8 +42,16 @@ pub struct CompileReport {
     pub graph: Arc<CompiledModuleGraph>,
 }
 
+pub struct RunReport {
+    pub exit_code: i32,
+}
+
 impl Workspace {
     pub fn new() -> Self {
+        Self::with_target(Box::new(NativeTarget))
+    }
+
+    pub fn with_target(capabilities: Box<dyn TargetCapabilityProvider>) -> Self {
         Self {
             sources: SourceStore::new(),
             config: None,
@@ -51,6 +62,7 @@ impl Workspace {
             },
             compile_state: CompileState::Missing,
             frontend: FrontendSession::new(),
+            runtime: Runtime::new(capabilities),
         }
     }
 
@@ -299,5 +311,39 @@ impl Workspace {
         };
 
         Ok(CompileReport { graph })
+    }
+
+    /// Load the current compiled graph into the runtime and execute its configured entry.
+    pub fn run(&mut self, args: &[Vec<u8>]) -> Result<RunReport, RunBlocked> {
+        let graph = match &self.compile_state {
+            CompileState::Ready { graph, .. } => Arc::clone(graph),
+            _ => return Err(RunBlocked::CompileRequired),
+        };
+        let entry_path = self
+            .config
+            .as_ref()
+            .and_then(|config| config.entry.as_ref())
+            .ok_or(RunBlocked::EntryModuleMissing)?;
+        let entry_id = graph
+            .modules()
+            .find(|image| image.path() == entry_path)
+            .map(|image| image.id())
+            .ok_or(RunBlocked::EntryModuleMissing)?;
+        let entry_name = self
+            .config
+            .as_ref()
+            .expect("a successful compile requires configuration")
+            .run_entry
+            .clone();
+
+        for image in graph.modules() {
+            self.runtime.load(image.clone());
+        }
+
+        let exit_code = self
+            .runtime
+            .run_module_entry(entry_id, entry_name.as_str(), args)
+            .map_err(|error| RunBlocked::RuntimeError(error.to_string()))?;
+        Ok(RunReport { exit_code })
     }
 }

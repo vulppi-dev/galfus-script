@@ -57,3 +57,41 @@ fn compile_emits_one_image_per_module_with_import_slots() {
             .all(|function| function.name != "__init_workspace")
     );
 }
+
+#[test]
+fn run_requires_compile_and_executes_the_configured_entry() {
+    let mut workspace = Workspace::new();
+    assert!(matches!(
+        workspace.run(&[]),
+        Err(RunBlocked::CompileRequired)
+    ));
+
+    workspace
+        .load_config(
+            br#"
+            [module]
+            name = "run-entry"
+            target = "app"
+            entry = "main.gfs"
+            "#,
+        )
+        .expect("valid configuration");
+    workspace
+        .load_module(
+            "main.gfs",
+            br#"
+            export fn main(args: [[u8]]): i32 {
+                return 42
+            }
+            "#,
+        )
+        .expect("valid entry module");
+
+    assert!(matches!(
+        workspace.compile(),
+        Err(CompileBlocked::Dirty { .. })
+    ));
+    assert!(workspace.check().is_valid);
+    workspace.compile().expect("workspace compiles");
+    assert_eq!(workspace.run(&[]).expect("entry executes").exit_code, 42);
+}

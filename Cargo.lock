@@ -762,6 +762,8 @@ dependencies = [
  "galfus-compiler",
  "galfus-core",
  "galfus-frontend",
+ "galfus-runtime",
+ "galfus-target",
  "serde",
  "toml 0.8.23",
 ]
