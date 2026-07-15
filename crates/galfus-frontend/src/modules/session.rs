@@ -68,13 +68,18 @@ pub struct FrontendSource<'a> {
 
 pub struct FrontendUpdate<'a> {
     pub source_revision: Revision,
+    /// Sources added or changed since the previous check.
     pub sources: &'a [FrontendSource<'a>],
+    /// Stable IDs of sources removed since the previous check.
+    pub removed_modules: &'a [ModuleId],
     pub roots: &'a FrontendRoots,
 }
 
 pub struct FrontendReport {
     pub source_revision: Revision,
     pub semantic_revision: galfus_core::SemanticRevision,
+    /// Modules whose semantic result was recomputed in this check.
+    pub changed_modules: HashSet<ModuleId>,
     pub diagnostics: DiagnosticBag,
 }
 
@@ -94,38 +99,44 @@ impl FrontendSession {
     }
 
     pub fn check(&mut self, update: FrontendUpdate<'_>) -> FrontendReport {
-        self.modules.clear();
-        self.module_by_path.clear();
-        self.diagnostics = DiagnosticBag::new();
+        let mut changed_modules =
+            self.transitive_dependents(update.removed_modules.iter().copied());
+        for id in update.removed_modules {
+            changed_modules.insert(*id);
+        }
+        self.modules
+            .retain(|module| !update.removed_modules.contains(&module.id()));
+        self.rebuild_module_index();
 
         for input in update.sources {
-            let parse_result = parse(input.source);
-            let resolve_result = resolve(input.source, parse_result.into_graph());
-            let graph = resolve_result.into_graph();
-
-            self.diagnostics.extend(graph.diagnostics().iter().cloned());
-
-            // Each module gets its own semantic_revision so the compiler can
-            // detect which modules actually changed after a re-check.
-            self.next_semantic_revision += 1;
-            let semantic_revision = galfus_core::SemanticRevision::new(self.next_semantic_revision);
-
-            self.modules.push(SemanticModule {
-                id: input.module_id,
-                source_id: input.source.id(),
-                path: input.path.clone(),
-                source_revision: update.source_revision,
-                semantic_revision,
-                source: input.source.clone(),
-                graph,
-                type_result: None,
+            let existing_index = self
+                .modules
+                .iter()
+                .position(|module| module.id() == input.module_id)
+                .or_else(|| self.module_by_path.get(&input.path).copied());
+            let source_changed = existing_index.is_none_or(|index| {
+                let module = &self.modules[index];
+                module.path() != &input.path || module.source() != input.source
             });
-            self.module_by_path
-                .insert(input.path.clone(), self.modules.len() - 1);
+            if !source_changed {
+                continue;
+            }
+
+            if let Some(index) = existing_index {
+                changed_modules.insert(self.modules[index].id());
+                changed_modules.extend(self.transitive_dependents([self.modules[index].id()]));
+                self.modules[index] = self.parse_module(input, update.source_revision);
+            } else {
+                changed_modules.insert(input.module_id);
+                let module = self.parse_module(input, update.source_revision);
+                self.modules.push(module);
+            }
+            self.rebuild_module_index();
+            changed_modules.extend(self.transitive_dependents([input.module_id]));
         }
 
-        self.validate_imports();
-        self.type_check_modules();
+        self.type_check_modules(&changed_modules);
+        self.rebuild_diagnostics();
         self.semantic_graph = SemanticModuleGraph::build(update.roots.roots(), &self.modules);
 
         // Report the highest semantic revision produced in this check cycle.
@@ -141,12 +152,82 @@ impl FrontendSession {
         FrontendReport {
             source_revision: update.source_revision,
             semantic_revision,
+            changed_modules,
             diagnostics: self.diagnostics.clone(),
         }
     }
 
     pub fn semantic_graph(&self) -> &SemanticModuleGraph {
         &self.semantic_graph
+    }
+
+    fn parse_module(
+        &mut self,
+        input: &FrontendSource<'_>,
+        source_revision: Revision,
+    ) -> SemanticModule {
+        let parse_result = parse(input.source);
+        let resolve_result = resolve(input.source, parse_result.into_graph());
+        let graph = resolve_result.into_graph();
+        self.next_semantic_revision += 1;
+
+        SemanticModule {
+            id: input.module_id,
+            source_id: input.source.id(),
+            path: input.path.clone(),
+            source_revision,
+            semantic_revision: galfus_core::SemanticRevision::new(self.next_semantic_revision),
+            source: input.source.clone(),
+            graph,
+            type_result: None,
+        }
+    }
+
+    fn rebuild_module_index(&mut self) {
+        self.module_by_path = self
+            .modules
+            .iter()
+            .enumerate()
+            .map(|(index, module)| (module.path().clone(), index))
+            .collect();
+    }
+
+    fn transitive_dependents(
+        &self,
+        roots: impl IntoIterator<Item = ModuleId>,
+    ) -> HashSet<ModuleId> {
+        let mut changed = roots.into_iter().collect::<HashSet<_>>();
+        let mut pending = changed.iter().copied().collect::<Vec<_>>();
+        while let Some(target) = pending.pop() {
+            for (index, module) in self.modules.iter().enumerate() {
+                if changed.contains(&module.id()) {
+                    continue;
+                }
+                if self.module_imports(index).iter().any(|import| {
+                    self.import_target_index(index, import.source.as_str())
+                        .is_some_and(|target_index| self.modules[target_index].id() == target)
+                }) {
+                    changed.insert(module.id());
+                    pending.push(module.id());
+                }
+            }
+        }
+        changed
+    }
+
+    fn rebuild_diagnostics(&mut self) {
+        self.diagnostics = DiagnosticBag::new();
+        for module in &self.modules {
+            self.diagnostics
+                .extend(module.graph().diagnostics().iter().cloned());
+        }
+        self.validate_imports();
+        for module in &self.modules {
+            if let Some(result) = module.type_result() {
+                self.diagnostics
+                    .extend(result.diagnostics().iter().cloned());
+            }
+        }
     }
 
     fn validate_imports(&mut self) {
@@ -236,7 +317,7 @@ impl FrontendSession {
             .collect()
     }
 
-    fn type_check_modules(&mut self) {
+    fn type_check_modules(&mut self, changed_modules: &HashSet<ModuleId>) {
         let baseline_results = self
             .modules
             .iter()
@@ -259,6 +340,14 @@ impl FrontendSession {
             .enumerate()
             .zip(baseline_results.into_iter())
         {
+            if !changed_modules.contains(&self.modules[module_index].id()) {
+                continue;
+            }
+            if self.modules[module_index].type_result.is_some() {
+                self.next_semantic_revision += 1;
+                self.modules[module_index].semantic_revision =
+                    galfus_core::SemanticRevision::new(self.next_semantic_revision);
+            }
             let result = check_definition_types_with_surfaces(
                 self.modules[module_index].source(),
                 self.modules[module_index].graph(),
@@ -266,8 +355,6 @@ impl FrontendSession {
                 imported_type,
             );
 
-            self.diagnostics
-                .extend(result.diagnostics().iter().cloned());
             self.modules[module_index].type_result = Some(result);
         }
     }

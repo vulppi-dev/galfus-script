@@ -6,6 +6,7 @@ use galfus_core::{DiagnosticBag, ModulePath, Revision, SourceFile};
 use galfus_frontend::modules::{FrontendRoots, FrontendSession, FrontendSource, FrontendUpdate};
 use galfus_runtime::Runtime;
 use galfus_target::{NativeTarget, TargetCapabilityProvider};
+use std::collections::HashSet;
 use std::sync::Arc;
 
 #[cfg(test)]
@@ -19,6 +20,8 @@ pub struct Workspace {
     compile_state: CompileState,
     frontend: FrontendSession,
     runtime: Runtime,
+    dirty_sources: HashSet<ModulePath>,
+    removed_modules: Vec<galfus_core::ModuleId>,
 }
 
 pub enum LoadResult {
@@ -63,6 +66,8 @@ impl Workspace {
             compile_state: CompileState::Missing,
             frontend: FrontendSession::new(),
             runtime: Runtime::new(capabilities),
+            dirty_sources: HashSet::new(),
+            removed_modules: Vec::new(),
         }
     }
 
@@ -88,14 +93,22 @@ impl Workspace {
         module_bytes: &[u8],
     ) -> Result<LoadResult, WorkspaceError> {
         let module_path = ModulePath::new(path).ok_or(WorkspaceError::InvalidPath)?;
+        if self
+            .sources
+            .get(&module_path)
+            .is_some_and(|entry| entry.bytes.as_ref() == module_bytes)
+        {
+            return Ok(LoadResult::Success);
+        }
 
         self.revision.next();
         self.sources.load_module(
-            module_path,
+            module_path.clone(),
             Arc::from(module_bytes),
             ModuleOrigin::User,
             self.revision,
         );
+        self.dirty_sources.insert(module_path);
         self.mark_dirty();
         Ok(LoadResult::Success)
     }
@@ -103,8 +116,10 @@ impl Workspace {
     pub fn remove_module(&mut self, path: &str) -> Result<RemoveResult, WorkspaceError> {
         let module_path = ModulePath::new(path).ok_or(WorkspaceError::InvalidPath)?;
 
-        if self.sources.remove_module(&module_path).is_some() {
+        if let Some(entry) = self.sources.remove_module(&module_path) {
             self.revision.next();
+            self.dirty_sources.remove(&module_path);
+            self.removed_modules.push(entry.module_id);
             self.mark_dirty();
             Ok(RemoveResult::Success)
         } else {
@@ -155,8 +170,9 @@ impl Workspace {
                 };
             } else {
                 let source_files = self
-                    .sources
+                    .dirty_sources
                     .iter()
+                    .filter_map(|path| self.sources.get(path))
                     .map(|entry| {
                         (
                             entry.module_id,
@@ -183,6 +199,7 @@ impl Workspace {
                 let update = FrontendUpdate {
                     source_revision: self.revision,
                     sources: &sources,
+                    removed_modules: self.removed_modules.as_slice(),
                     roots: &roots,
                 };
 
@@ -200,6 +217,8 @@ impl Workspace {
                         diagnostics: report.diagnostics,
                     };
                 }
+                self.dirty_sources.clear();
+                self.removed_modules.clear();
             }
         }
 
