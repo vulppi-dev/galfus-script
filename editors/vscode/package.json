@@ -57,7 +57,12 @@
     ]
   },
   "type": "module",
-  "scripts": {},
+  "scripts": {
+    "check": "bun run check:types && bun run check:extension",
+    "check:types": "tsc --noEmit",
+    "check:extension": "bun run scripts/check.ts",
+    "dev": "code --extensionDevelopmentPath=\"$(pwd)\" --new-window \"$(realpath ../../examples/project)\""
+  },
   "devDependencies": {
     "@types/bun": "^1.3.14",
     "typescript": "^7.0.2"
