@@ -87,6 +87,7 @@ pub fn compile_changed_modules(
             .functions
             .append(&mut specialized);
     }
+    let specialized_targets = ws_ctx.specialised_id_to_target.clone();
     drop(ws_ctx);
 
     // Phase 2: Compile each module independently.
@@ -98,7 +99,7 @@ pub fn compile_changed_modules(
         }
         let path = modules[mod_idx].path().clone();
         let semantic_revision = modules[mod_idx].semantic_revision();
-        let image = compile_single_module(modules, &mir_modules, mod_idx)?;
+        let image = compile_single_module(modules, &mir_modules, &specialized_targets, mod_idx)?;
         if let Err(errors) = galfus_image::validation::validate_module_image(&image) {
             return Err(anyhow::anyhow!(
                 "ModuleImage validation failed for `{}`: {:?}",
@@ -120,6 +121,7 @@ pub fn compile_changed_modules(
 fn compile_single_module(
     modules: &mut [CompiledModule],
     mir_modules: &[Option<galfus_ir::mir::MirModule>],
+    specialized_targets: &HashMap<galfus_core::FunctionId, (usize, galfus_core::FunctionId)>,
     mod_idx: usize,
 ) -> Result<ModuleImage> {
     use crate::compile::resolve::{
@@ -139,7 +141,9 @@ fn compile_single_module(
         let mut targets = Vec::new();
         collect_call_targets(&func.blocks, &mut targets);
         for func_id in targets {
-            if let Some(resolved) = resolve_import_target(modules, mod_idx, func_id) {
+            if let Some(&resolved) = specialized_targets.get(&func_id) {
+                cross_module_calls.insert(func_id, resolved);
+            } else if let Some(resolved) = resolve_import_target(modules, mod_idx, func_id) {
                 cross_module_calls.insert(func_id, resolved);
             } else if let Some(local_id) =
                 resolve_local_call_target(modules, mod_idx, mir_mod, func_id)
@@ -211,6 +215,24 @@ fn compile_single_module(
                 }
             }
         }
+    }
+    for &(target_mod_idx, target_func_id) in specialized_targets.values() {
+        if target_mod_idx != mod_idx {
+            continue;
+        }
+        let Some(&local_idx) = local_func_map.get(&target_func_id) else {
+            continue;
+        };
+        if export_slots
+            .iter()
+            .any(|export| export.func_idx == local_idx)
+        {
+            continue;
+        }
+        export_slots.push(ExportSlot {
+            symbol_name: format!("func_{}", target_func_id.raw()),
+            func_idx: local_idx,
+        });
     }
 
     // Lowering phase.

@@ -35,8 +35,6 @@ pub enum RuntimeError {
     TargetUnavailable,
     #[error(transparent)]
     Link(#[from] RuntimeLinkError),
-    #[error("executing cross-module calls is not supported by the virtual machine yet")]
-    CrossModuleExecutionUnsupported,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -213,16 +211,7 @@ impl Runtime {
         entry_name: &str,
         args: &[Vec<u8>],
     ) -> Result<i32, RuntimeError> {
-        let link = self.link_module(id)?;
-        if !link.imports.is_empty() {
-            return Err(RuntimeError::CrossModuleExecutionUnsupported);
-        }
-        let image = self
-            .modules
-            .get(id)
-            .expect("linking only succeeds for loaded modules")
-            .image
-            .clone();
+        let image = self.modules.linked_image(id)?;
         self.run_image_entry(image, entry_name, args)
     }
 
@@ -301,16 +290,29 @@ impl Runtime {
 fn build_entry_args(vm: &mut VirtualMachine, args: &[Vec<u8>]) -> Result<VmValue, RuntimeError> {
     let uint8_ty = find_type(&vm.image, |ty| matches!(ty, galfus_image::ImageType::Uint8))
         .ok_or(RuntimeError::MissingArgumentType("u8"))?;
-    let byte_array_ty = find_type(
-        &vm.image,
-        |ty| matches!(ty, galfus_image::ImageType::Array(element) if *element == uint8_ty),
-    )
-    .ok_or(RuntimeError::MissingArgumentType("[u8]"))?;
-    let args_array_ty = find_type(
-        &vm.image,
-        |ty| matches!(ty, galfus_image::ImageType::Array(element) if *element == byte_array_ty),
-    )
-    .ok_or(RuntimeError::MissingArgumentType("[[u8]]"))?;
+    let byte_array_ty = vm
+        .image
+        .types
+        .iter()
+        .enumerate()
+        .find(|(_, ty)| {
+            matches!(ty, galfus_image::ImageType::Array(element)
+                if matches!(vm.image.types.get(element.raw() as usize), Some(galfus_image::ImageType::Uint8)))
+        })
+        .map(|(index, _)| galfus_image::instruction::TypeIdx(index as u16))
+        .ok_or(RuntimeError::MissingArgumentType("[u8]"))?;
+    let args_array_ty = vm
+        .image
+        .types
+        .iter()
+        .enumerate()
+        .find(|(_, ty)| {
+            matches!(ty, galfus_image::ImageType::Array(element)
+                if matches!(vm.image.types.get(element.raw() as usize), Some(galfus_image::ImageType::Array(inner))
+                    if matches!(vm.image.types.get(inner.raw() as usize), Some(galfus_image::ImageType::Uint8))))
+        })
+        .map(|(index, _)| galfus_image::instruction::TypeIdx(index as u16))
+        .ok_or(RuntimeError::MissingArgumentType("[[u8]]"))?;
 
     let mut arg_values = Vec::with_capacity(args.len());
     for arg in args {

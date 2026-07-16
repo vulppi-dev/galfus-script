@@ -315,6 +315,18 @@ impl Workspace {
             }
         }
 
+        // The first compilation has no graph to upsert into, so it must emit
+        // every semantic module even if the last frontend delta was narrower.
+        let compilation_targets = if matches!(self.compile_state, CompileState::Missing) {
+            self.frontend
+                .modules
+                .iter()
+                .map(|module| module.id())
+                .collect::<HashSet<_>>()
+        } else {
+            changed_modules.clone()
+        };
+
         // Build CompiledModule list from the frontend's semantic modules.
         let semantic_modules = &self.frontend.modules;
         let mut compiled_modules: Vec<CompiledModule> = semantic_modules
@@ -333,7 +345,7 @@ impl Workspace {
 
         // Compile each module individually — one ModuleImage per module.
         let outputs =
-            galfus_compiler::compile_changed_modules(&mut compiled_modules, &changed_modules)
+            galfus_compiler::compile_changed_modules(&mut compiled_modules, &compilation_targets)
                 .map_err(|e| CompileBlocked::CompilerError(e.to_string()))?;
 
         // Build import edges from the SemanticModuleGraph.
