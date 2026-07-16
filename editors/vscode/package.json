@@ -1,6 +1,9 @@
 {
   "name": "galfus-language",
+  "displayName": "Galfus Script",
+  "description": "Syntax highlighting and basic editor support for Galfus Script.",
   "version": "0.0.1",
+  "publisher": "galfus",
   "homepage": "https://galfus.com/",
   "repository": {
     "type": "git",
@@ -11,19 +14,30 @@
     "url": "https://github.com/vulppi-dev/galfus-script/issues"
   },
   "license": "MIT",
+  "engines": {
+    "vscode": "^1.60.0"
+  },
   "categories": [
     "Programming Languages"
+  ],
+  "keywords": [
+    "galfus",
+    "galfus-script",
+    "language",
+    "syntax-highlighting"
   ],
   "contributes": {
     "languages": [
       {
         "id": "galfus",
         "aliases": [
+          "Galfus Script",
           "Galfus",
           "galfus"
         ],
         "extensions": [
-          ".gfs"
+          ".gfs",
+          ".gfp"
         ],
         "configuration": "./language-configuration.json"
       }
@@ -36,7 +50,6 @@
       }
     ]
   },
-  "module": "index.ts",
   "type": "module",
   "scripts": {},
   "devDependencies": {

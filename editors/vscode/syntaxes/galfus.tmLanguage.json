@@ -111,7 +111,7 @@
         },
         {
           "name": "keyword.operator.assignment.gfs",
-          "match": "\\+=|-=\\*=|/=|%=|="
+          "match": "\\+=|-=|\\*=|/=|%=|="
         },
         {
           "name": "keyword.operator.logical.gfs",
