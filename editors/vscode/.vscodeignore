@@ -2,6 +2,10 @@ node_modules/**
 dist/**
 scripts/**
 tests/**
+.vscode/**
 resources/.gitkeep
 bun.lock
+tsconfig.json
+.gitignore
+*.vsix
 .DS_Store
