@@ -3,12 +3,12 @@ import { stringify, parse, ParseResult } from 'format'
 import { cyan } from 'format/ansi'
 import { trim } from 'text'
 
-
 export fn main(_args: [[u8]]): i32 {
   var value = match parse<i32>(trim(read())) {
     ParseResult::Ok(v) => v,
     ParseResult::Err(e) => 0,
   }
+
 
   println(cyan()::apply(stringify(value + 10)))
   return 0
