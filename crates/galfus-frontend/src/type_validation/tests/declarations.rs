@@ -263,3 +263,137 @@ var [head, ...tail] = [1, 2, 3]
         Some(TypeKind::Array { .. })
     ));
 }
+
+#[test]
+fn check_binds_self_symbol_type_in_simple_anchored_function() {
+    let (_source, graph, result) = check_source(
+        r#"
+struct Point {
+  x: i32,
+  y: i32,
+}
+
+fn Point::x(self): i32 {
+  return self.x
+}
+"#,
+    );
+
+    let self_symbol = symbol_by_name_and_kind(&graph, "self", SymbolKind::Parameter);
+    let point_symbol = symbol_by_name_and_kind(&graph, "Point", SymbolKind::Struct);
+    let ty = result.layer().symbol_type(self_symbol).unwrap();
+
+    assert_eq!(
+        result.layer().table().kind(ty),
+        Some(&TypeKind::Named {
+            symbol: point_symbol
+        })
+    );
+}
+
+#[test]
+fn check_binds_self_symbol_type_in_generic_anchored_function() {
+    let source = source(
+        r#"
+struct Box<T: i32 | bool> {
+  value: T,
+}
+
+fn Box<T>::value(self): T {
+  return self.value
+}
+"#,
+    );
+
+    let parse_result = parse(&source);
+    assert!(
+        !parse_result.has_errors(),
+        "{:?}",
+        parse_result.diagnostics()
+    );
+
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    assert!(
+        !resolve_result.has_errors(),
+        "{:?}",
+        resolve_result.diagnostics()
+    );
+
+    let graph = resolve_result.into_graph();
+    let result = crate::type_validation::check_declaration_types(&source, &graph);
+
+    // Verify the self symbol was bound to a generic instance (Box<T>), not bare Named or nothing
+    let self_symbol = symbol_by_name_and_kind(&graph, "self", SymbolKind::Parameter);
+    let ty = result.layer().symbol_type(self_symbol).unwrap();
+
+    assert!(
+        matches!(
+            result.layer().table().kind(ty),
+            Some(TypeKind::GenericInstance { .. })
+        ),
+        "expected GenericInstance for self, got {:?}",
+        result.layer().table().kind(ty)
+    );
+}
+
+#[test]
+fn check_accepts_match_on_self_field_in_anchored_function() {
+    let (_source, _graph, result) = check_source(
+        r#"
+struct Range {
+  start: i32,
+  end: i32,
+  current: i32,
+}
+
+fn Range::next(self): i32 | null {
+  const direction: i32 = match self.start < self.end {
+    true => 1,
+    false => -1,
+  }
+  const value = self.start + self.current * direction
+
+  if value == self.end {
+    return null
+  }
+
+  self.current += 1
+  return value
+}
+"#,
+    );
+
+    assert!(!result.has_errors(), "{:?}", result.diagnostics());
+}
+
+#[test]
+fn check_binds_self_and_annotated_params_in_multi_param_anchored_function() {
+    let (_source, graph, result) = check_source(
+        r#"
+struct Point {
+  x: i32,
+  y: i32,
+}
+
+fn Point::move(self, dx: i32, dy: i32): Point {
+  return new {
+    x: self.x + dx,
+    y: self.y + dy,
+  }
+}
+"#,
+    );
+
+    let self_symbol = symbol_by_name_and_kind(&graph, "self", SymbolKind::Parameter);
+    let point_symbol = symbol_by_name_and_kind(&graph, "Point", SymbolKind::Struct);
+    let self_ty = result.layer().symbol_type(self_symbol).unwrap();
+
+    assert_eq!(
+        result.layer().table().kind(self_ty),
+        Some(&TypeKind::Named {
+            symbol: point_symbol
+        })
+    );
+
+    assert!(!result.has_errors(), "{:?}", result.diagnostics());
+}
