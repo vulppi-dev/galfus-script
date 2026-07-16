@@ -694,10 +694,8 @@ name = "galfus-playground"
 version = "0.0.0"
 dependencies = [
  "anyhow",
- "galfus-image",
- "galfus-runner",
- "galfus-runtime",
  "galfus-target",
+ "galfus-workspace",
  "serde_json",
  "wasm-bindgen",
 ]
@@ -759,6 +757,7 @@ dependencies = [
 name = "galfus-workspace"
 version = "0.0.0"
 dependencies = [
+ "galfus-builtins",
  "galfus-compiler",
  "galfus-core",
  "galfus-frontend",

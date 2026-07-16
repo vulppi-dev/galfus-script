@@ -700,6 +700,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                 let is_array_type = matches!(
                     self.builder.type_result.layer().table().kind(iterable_ty),
                     Some(galfus_frontend::TypeKind::Array { .. })
+                        // TODO(Phase 12): remove fixed-array iteration; `[T; N]` is no longer supported.
                         | Some(galfus_frontend::TypeKind::FixedArray { .. })
                 );
 

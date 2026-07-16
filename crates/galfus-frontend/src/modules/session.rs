@@ -1,8 +1,11 @@
 use crate::ImportKind;
 use crate::diagnostics::CheckDiagnosticCode;
+use crate::modules::collect_implicit_dependencies;
 use crate::modules::graph::SemanticModuleGraph;
 use crate::modules::module::SemanticModule;
-use crate::modules::resolution::{is_resolvable_import, resolve_relative_import};
+use crate::modules::resolution::{
+    is_builtin_module, is_resolvable_import, resolve_relative_import,
+};
 use crate::{
     ImportedSurfaceTypes, ModuleGraph, ModuleSurface, TypeCheckResult, build_module_surface,
     check_declaration_types, check_definition_types_with_surfaces,
@@ -80,6 +83,8 @@ pub struct FrontendReport {
     pub semantic_revision: galfus_core::SemanticRevision,
     /// Modules whose semantic result was recomputed in this check.
     pub changed_modules: HashSet<ModuleId>,
+    /// Builtin modules required by explicit imports or compiler desugaring.
+    pub required_builtin_modules: HashSet<ModulePath>,
     pub diagnostics: DiagnosticBag,
 }
 
@@ -153,12 +158,40 @@ impl FrontendSession {
             source_revision: update.source_revision,
             semantic_revision,
             changed_modules,
+            required_builtin_modules: self.required_builtin_modules(),
             diagnostics: self.diagnostics.clone(),
         }
     }
 
     pub fn semantic_graph(&self) -> &SemanticModuleGraph {
         &self.semantic_graph
+    }
+
+    fn required_builtin_modules(&self) -> HashSet<ModulePath> {
+        let mut required = HashSet::new();
+        for (module_index, module) in self.modules.iter().enumerate() {
+            for import in self.module_imports(module_index) {
+                if is_builtin_module(import.source.as_str()) {
+                    required.insert(
+                        ModulePath::new(format!("{}.gfs", import.source).as_str())
+                            .expect("builtin module path is valid"),
+                    );
+                }
+            }
+
+            let Some(root) = module.graph().syntax().root() else {
+                continue;
+            };
+            let implicit = collect_implicit_dependencies(module.graph().syntax(), root);
+            if implicit.has_range {
+                required.insert(ModulePath::new("std/iterable.gfs").expect("valid builtin path"));
+            }
+            if implicit.has_match {
+                required
+                    .insert(ModulePath::new("std/constraints.gfs").expect("valid builtin path"));
+            }
+        }
+        required
     }
 
     fn parse_module(

@@ -170,41 +170,46 @@ impl Workspace {
                     diagnostics: DiagnosticBag::new(),
                 };
             } else {
-                let source_files = self
-                    .dirty_sources
-                    .iter()
-                    .filter_map(|path| self.sources.get(path))
-                    .map(|entry| {
-                        (
-                            entry.module_id,
-                            entry.path.clone(),
-                            SourceFile::new(
-                                entry.source_id,
-                                entry.path.to_string(),
-                                std::str::from_utf8(&entry.bytes).unwrap_or("").to_string(),
-                            ),
-                        )
-                    })
-                    .collect::<Vec<_>>();
-                let mut sources = Vec::new();
-                for (module_id, path, source) in &source_files {
-                    sources.push(FrontendSource {
-                        module_id: *module_id,
-                        path: path.clone(),
-                        source,
-                    });
-                }
-
                 let roots = FrontendRoots::default();
+                let report = loop {
+                    let source_files = self
+                        .dirty_sources
+                        .iter()
+                        .filter_map(|path| self.sources.get(path))
+                        .map(|entry| {
+                            (
+                                entry.module_id,
+                                entry.path.clone(),
+                                SourceFile::new(
+                                    entry.source_id,
+                                    entry.path.to_string(),
+                                    std::str::from_utf8(&entry.bytes).unwrap_or("").to_string(),
+                                ),
+                            )
+                        })
+                        .collect::<Vec<_>>();
+                    let sources = source_files
+                        .iter()
+                        .map(|(module_id, path, source)| FrontendSource {
+                            module_id: *module_id,
+                            path: path.clone(),
+                            source,
+                        })
+                        .collect::<Vec<_>>();
+                    let update = FrontendUpdate {
+                        source_revision: self.revision,
+                        sources: &sources,
+                        removed_modules: self.removed_modules.as_slice(),
+                        roots: &roots,
+                    };
+                    let report = self.frontend.check(update);
+                    self.dirty_sources.clear();
+                    self.removed_modules.clear();
 
-                let update = FrontendUpdate {
-                    source_revision: self.revision,
-                    sources: &sources,
-                    removed_modules: self.removed_modules.as_slice(),
-                    roots: &roots,
+                    if !self.load_required_builtins(&report.required_builtin_modules) {
+                        break report;
+                    }
                 };
-
-                let report = self.frontend.check(update);
 
                 if report.diagnostics.has_errors() {
                     self.check_state = CheckState::Failed {
@@ -219,8 +224,6 @@ impl Workspace {
                         diagnostics: report.diagnostics,
                     };
                 }
-                self.dirty_sources.clear();
-                self.removed_modules.clear();
             }
         }
 
@@ -235,6 +238,32 @@ impl Workspace {
             },
             CheckState::Dirty { .. } => unreachable!(),
         }
+    }
+
+    fn load_required_builtins(&mut self, paths: &HashSet<ModulePath>) -> bool {
+        let mut loaded = false;
+        for path in paths {
+            if self.sources.get(path).is_some() {
+                continue;
+            }
+            let builtin_name = path.as_str().strip_suffix(".gfs").unwrap_or(path.as_str());
+            let Some((_, source)) = galfus_builtins::BUILTIN_MODULES
+                .iter()
+                .find(|(name, _)| *name == builtin_name)
+            else {
+                continue;
+            };
+            self.revision.next();
+            self.sources.load_module(
+                path.clone(),
+                Arc::from(source.as_bytes()),
+                ModuleOrigin::Builtin,
+                self.revision,
+            );
+            self.dirty_sources.insert(path.clone());
+            loaded = true;
+        }
+        loaded
     }
 
     /// Compile the workspace into a [`CompiledModuleGraph`].
