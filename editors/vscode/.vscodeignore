@@ -1,0 +1,7 @@
+node_modules/**
+dist/**
+scripts/**
+tests/**
+resources/.gitkeep
+bun.lock
+.DS_Store

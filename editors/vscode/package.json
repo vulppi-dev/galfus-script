@@ -1,12 +1,16 @@
 {
-  "name": "galfus-vscode",
-  "displayName": "Galfus Script Syntax Highlighting",
-  "description": "Minimal syntax highlighting for Galfus Script (.gfs)",
-  "version": "0.1.0",
-  "publisher": "galfus",
-  "engines": {
-    "vscode": "^1.60.0"
+  "name": "galfus-language",
+  "version": "0.0.1",
+  "homepage": "https://galfus.com/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vulppi-dev/galfus-script.git",
+    "directory": "editors/vscode"
   },
+  "bugs": {
+    "url": "https://github.com/vulppi-dev/galfus-script/issues"
+  },
+  "license": "MIT",
   "categories": [
     "Programming Languages"
   ],
@@ -14,8 +18,13 @@
     "languages": [
       {
         "id": "galfus",
-        "aliases": ["Galfus", "galfus"],
-        "extensions": [".gfs"],
+        "aliases": [
+          "Galfus",
+          "galfus"
+        ],
+        "extensions": [
+          ".gfs"
+        ],
         "configuration": "./language-configuration.json"
       }
     ],
@@ -26,5 +35,12 @@
         "path": "./syntaxes/galfus.tmLanguage.json"
       }
     ]
+  },
+  "module": "index.ts",
+  "type": "module",
+  "scripts": {},
+  "devDependencies": {
+    "@types/bun": "^1.3.14",
+    "typescript": "^7.0.2"
   }
 }
