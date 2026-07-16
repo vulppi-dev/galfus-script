@@ -59,6 +59,104 @@ fn compile_emits_one_image_per_module_with_import_slots() {
 }
 
 #[test]
+fn compile_updates_changed_images_and_removes_deleted_images() {
+    let mut workspace = Workspace::new();
+    workspace
+        .load_config(
+            br#"
+            [module]
+            name = "incremental-compile"
+            target = "app"
+            entry = "main.gfs"
+            "#,
+        )
+        .expect("valid configuration");
+    workspace
+        .load_module(
+            "main.gfs",
+            br#"
+            export fn main(args: [[u8]]): i32 {
+                return 0
+            }
+            "#,
+        )
+        .expect("valid main module");
+    workspace
+        .load_module(
+            "helper.gfs",
+            br#"
+            export fn value(): i32 {
+                return 1
+            }
+            "#,
+        )
+        .expect("valid helper module");
+
+    assert!(workspace.check().is_valid);
+    let first_graph = workspace.compile().expect("initial compilation").graph;
+    let main = first_graph
+        .modules()
+        .find(|image| image.path().as_str() == "main.gfs")
+        .expect("main image");
+    let helper = first_graph
+        .modules()
+        .find(|image| image.path().as_str() == "helper.gfs")
+        .expect("helper image");
+    let main_id = main.id();
+    let helper_id = helper.id();
+    let main_revision = main.semantic_revision();
+    let helper_revision = helper.semantic_revision();
+
+    workspace
+        .load_module(
+            "helper.gfs",
+            br#"
+            export fn value(): i32 {
+                return 2
+            }
+            "#,
+        )
+        .expect("updated helper module");
+    assert!(workspace.check().is_valid);
+    let updated_graph = workspace.compile().expect("incremental compilation").graph;
+
+    assert_eq!(
+        updated_graph
+            .get(main_id)
+            .expect("cached main image")
+            .semantic_revision(),
+        main_revision
+    );
+    assert!(
+        updated_graph
+            .get(helper_id)
+            .expect("updated helper image")
+            .semantic_revision()
+            > helper_revision
+    );
+
+    assert!(matches!(
+        workspace.remove_module("helper.gfs"),
+        Ok(RemoveResult::Success)
+    ));
+    assert!(workspace.check().is_valid);
+    let deleted_graph = workspace
+        .compile()
+        .expect("compilation after deletion")
+        .graph;
+
+    assert_eq!(deleted_graph.len(), 1);
+    assert!(deleted_graph.get(helper_id).is_none());
+    assert_eq!(
+        deleted_graph
+            .get(main_id)
+            .expect("cached main image")
+            .semantic_revision(),
+        main_revision
+    );
+}
+
+#[test]
 fn run_requires_compile_and_executes_the_configured_entry() {
     let mut workspace = Workspace::new();
     assert!(matches!(

@@ -1,5 +1,6 @@
 use galfus_compiler::CompiledModuleGraph;
-use galfus_core::{DiagnosticBag, Revision, SemanticRevision};
+use galfus_core::{DiagnosticBag, ModuleId, Revision, SemanticRevision};
+use std::collections::HashSet;
 use std::sync::Arc;
 
 #[derive(Debug)]
@@ -11,6 +12,7 @@ pub enum CheckState {
     Passed {
         revision: Revision,
         semantic_revision: SemanticRevision,
+        changed_modules: HashSet<ModuleId>,
         diagnostics: DiagnosticBag,
     },
     Failed {
@@ -65,7 +67,8 @@ pub enum CompileState {
     Missing,
     /// A previous compiled graph exists but is stale (check result changed).
     Stale {
-        last_successful_revision: Option<SemanticRevision>,
+        semantic_revision: SemanticRevision,
+        graph: Arc<CompiledModuleGraph>,
     },
     /// A compiled graph is available and up-to-date with the last check.
     Ready {
@@ -87,7 +90,7 @@ impl CompileState {
 
     pub fn graph(&self) -> Option<&Arc<CompiledModuleGraph>> {
         match self {
-            Self::Ready { graph, .. } => Some(graph),
+            Self::Ready { graph, .. } | Self::Stale { graph, .. } => Some(graph),
             _ => None,
         }
     }

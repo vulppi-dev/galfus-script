@@ -2,7 +2,7 @@ use crate::config::{WorkspaceConfig, parse_workspace_config};
 use crate::source_store::{ModuleOrigin, SourceStore};
 use crate::state::{CheckState, CompileBlocked, CompileState, RunBlocked, WorkspaceError};
 use galfus_compiler::{CompiledImportEdge, CompiledModule, CompiledModuleGraph};
-use galfus_core::{DiagnosticBag, ModulePath, Revision, SourceFile};
+use galfus_core::{DiagnosticBag, ModuleId, ModulePath, Revision, SourceFile};
 use galfus_frontend::modules::{FrontendRoots, FrontendSession, FrontendSource, FrontendUpdate};
 use galfus_runtime::Runtime;
 use galfus_target::{NativeTarget, TargetCapabilityProvider};
@@ -21,7 +21,7 @@ pub struct Workspace {
     frontend: FrontendSession,
     runtime: Runtime,
     dirty_sources: HashSet<ModulePath>,
-    removed_modules: Vec<galfus_core::ModuleId>,
+    removed_modules: Vec<ModuleId>,
 }
 
 pub enum LoadResult {
@@ -149,12 +149,13 @@ impl Workspace {
 
         // Mark compile stale when check is invalidated.
         if let CompileState::Ready {
-            semantic_revision, ..
+            semantic_revision,
+            graph,
         } = &self.compile_state
         {
-            let rev = *semantic_revision;
             self.compile_state = CompileState::Stale {
-                last_successful_revision: Some(rev),
+                semantic_revision: *semantic_revision,
+                graph: Arc::clone(graph),
             };
         }
     }
@@ -214,6 +215,7 @@ impl Workspace {
                     self.check_state = CheckState::Passed {
                         revision: report.source_revision,
                         semantic_revision: report.semantic_revision,
+                        changed_modules: report.changed_modules,
                         diagnostics: report.diagnostics,
                     };
                 }
@@ -245,7 +247,7 @@ impl Workspace {
     /// - Returns `Ok(CompileReport)` with the compiled graph on success.
     pub fn compile(&mut self) -> Result<CompileReport, CompileBlocked> {
         // Gate: check must have passed.
-        let semantic_revision = match &self.check_state {
+        let (semantic_revision, changed_modules) = match &self.check_state {
             CheckState::Dirty {
                 current_revision,
                 previous_checked_revision,
@@ -265,8 +267,10 @@ impl Workspace {
                 });
             }
             CheckState::Passed {
-                semantic_revision, ..
-            } => *semantic_revision,
+                semantic_revision,
+                changed_modules,
+                ..
+            } => (*semantic_revision, changed_modules.clone()),
         };
 
         // Skip recompilation if already up-to-date.
@@ -299,8 +303,9 @@ impl Workspace {
             .collect();
 
         // Compile each module individually — one ModuleImage per module.
-        let outputs = galfus_compiler::compile_modules(&mut compiled_modules)
-            .map_err(|e| CompileBlocked::CompilerError(e.to_string()))?;
+        let outputs =
+            galfus_compiler::compile_changed_modules(&mut compiled_modules, &changed_modules)
+                .map_err(|e| CompileBlocked::CompilerError(e.to_string()))?;
 
         // Build import edges from the SemanticModuleGraph.
         let semantic_graph = self.frontend.semantic_graph();
@@ -317,7 +322,19 @@ impl Workspace {
             .collect();
 
         // Populate the CompiledModuleGraph — one image per module.
-        let mut module_graph = CompiledModuleGraph::new();
+        let mut module_graph = match &self.compile_state {
+            CompileState::Stale { graph, .. } => (**graph).clone(),
+            _ => CompiledModuleGraph::new(),
+        };
+        let current_modules = semantic_modules
+            .iter()
+            .map(|module| module.id())
+            .collect::<HashSet<_>>();
+        for id in &changed_modules {
+            if !current_modules.contains(id) {
+                module_graph.remove(*id);
+            }
+        }
         for image in outputs {
             module_graph.upsert(image);
         }

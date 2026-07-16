@@ -11,7 +11,7 @@ use galfus_image::{
     ExportSlot, ImageFunction, ImageType, ImportSlot, ModuleImage,
     instruction::{FuncIdx, TypeIdx},
 };
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::CompiledModuleImage;
 use crate::compile::{
@@ -27,11 +27,38 @@ use crate::input::CompiledModule;
 /// `FuncIdx` in the local import table. The runtime is responsible for
 /// resolving these at load time.
 pub fn compile_modules(modules: &mut [CompiledModule]) -> Result<Vec<CompiledModuleImage>> {
-    // Phase 1: Build MIR for all modules (needed for cross-module specialization).
-    let mut ws_ctx = MyWorkspaceContext::new(modules);
+    let module_ids = modules.iter().map(CompiledModule::id).collect();
+    compile_changed_modules(modules, &module_ids)
+}
 
-    let mut mir_modules = Vec::new();
-    for module in modules.iter() {
+/// Compile only modules identified by `changed_modules`.
+///
+/// All modules remain available as semantic context so imports and generic
+/// specializations can be resolved across module boundaries. Only the selected
+/// modules are lowered into new `CompiledModuleImage`s.
+pub fn compile_changed_modules(
+    modules: &mut [CompiledModule],
+    changed_modules: &HashSet<galfus_core::ModuleId>,
+) -> Result<Vec<CompiledModuleImage>> {
+    if changed_modules.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    // Phase 1: Build MIR only for changed modules. Generic specializations can
+    // add functions to an imported module, which then becomes affected too.
+    let mut ws_ctx = MyWorkspaceContext::new(modules);
+    let mut affected_modules = modules
+        .iter()
+        .enumerate()
+        .filter_map(|(index, module)| changed_modules.contains(&module.id()).then_some(index))
+        .collect::<HashSet<_>>();
+    let mut pending_modules = affected_modules.iter().copied().collect::<Vec<_>>();
+    let mut mir_modules = std::iter::repeat_with(|| None)
+        .take(modules.len())
+        .collect::<Vec<Option<galfus_ir::mir::MirModule>>>();
+
+    while let Some(module_index) = pending_modules.pop() {
+        let module = &modules[module_index];
         let type_res = module.type_result().ok_or_else(|| {
             anyhow::anyhow!(
                 "Module is missing type checking result: {}",
@@ -42,19 +69,33 @@ pub fn compile_modules(modules: &mut [CompiledModule]) -> Result<Vec<CompiledMod
             galfus_ir::builder::MirBuilder::new(module.graph(), type_res, module.source().text())
                 .with_workspace_ctx(&mut ws_ctx)
                 .build();
-        mir_modules.push(mir);
+        mir_modules[module_index] = Some(mir);
+
+        for (target_index, specialized) in ws_ctx.specialised_functions.iter().enumerate() {
+            if !specialized.is_empty() && affected_modules.insert(target_index) {
+                pending_modules.push(target_index);
+            }
+        }
     }
 
     // Append specialized functions.
-    for (i, mir_mod) in mir_modules.iter_mut().enumerate() {
-        let mut specialized = std::mem::take(&mut ws_ctx.specialised_functions[i]);
-        mir_mod.functions.append(&mut specialized);
+    for module_index in &affected_modules {
+        let mut specialized = std::mem::take(&mut ws_ctx.specialised_functions[*module_index]);
+        mir_modules[*module_index]
+            .as_mut()
+            .expect("affected module has MIR")
+            .functions
+            .append(&mut specialized);
     }
+    drop(ws_ctx);
 
     // Phase 2: Compile each module independently.
     let mut outputs = Vec::new();
     for mod_idx in 0..modules.len() {
         let module_id = modules[mod_idx].id();
+        if !affected_modules.contains(&mod_idx) {
+            continue;
+        }
         let path = modules[mod_idx].path().clone();
         let semantic_revision = modules[mod_idx].semantic_revision();
         let image = compile_single_module(modules, &mir_modules, mod_idx)?;
@@ -78,7 +119,7 @@ pub fn compile_modules(modules: &mut [CompiledModule]) -> Result<Vec<CompiledMod
 
 fn compile_single_module(
     modules: &mut [CompiledModule],
-    mir_modules: &[galfus_ir::mir::MirModule],
+    mir_modules: &[Option<galfus_ir::mir::MirModule>],
     mod_idx: usize,
 ) -> Result<ModuleImage> {
     use crate::compile::resolve::{
@@ -86,7 +127,9 @@ fn compile_single_module(
     };
     use galfus_frontend::SymbolKind;
 
-    let mir_mod = &mir_modules[mod_idx];
+    let mir_mod = mir_modules[mod_idx]
+        .as_ref()
+        .expect("compiled module has MIR");
 
     // Collect all cross-module call targets: (local_func_id → (target_mod, target_func)).
     let mut cross_module_calls: HashMap<galfus_core::FunctionId, (usize, galfus_core::FunctionId)> =
