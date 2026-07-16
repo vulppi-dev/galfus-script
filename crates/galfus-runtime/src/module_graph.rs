@@ -357,9 +357,6 @@ fn relocate_type(ty: ImageType, type_base: u16, struct_base: u16, choice_base: u
     match ty {
         ImageType::Struct(index) => ImageType::Struct(StructLayoutIdx(struct_base + index.raw())),
         ImageType::Array(index) => ImageType::Array(TypeIdx(type_base + index.raw())),
-        ImageType::FixedArray(index, len) => {
-            ImageType::FixedArray(TypeIdx(type_base + index.raw()), len)
-        }
         ImageType::Tuple(indices) => ImageType::Tuple(
             indices
                 .into_iter()

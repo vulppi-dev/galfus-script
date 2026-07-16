@@ -98,9 +98,7 @@ impl<'a> DeclarationTypeChecker<'a> {
         let target_type = self.resolve_alias_type(target_type);
 
         match self.layer.table().kind(target_type) {
-            Some(TypeKind::Array { .. }) | Some(TypeKind::FixedArray { .. })
-                if member_name == "length" =>
-            {
+            Some(TypeKind::Array { .. }) if member_name == "length" => {
                 Some(self.layer.table().primitive(PrimitiveType::Int32))
             }
 
@@ -234,8 +232,6 @@ impl<'a> DeclarationTypeChecker<'a> {
 
         match self.layer.table().kind(target_type) {
             Some(TypeKind::Array { element }) => Some(*element),
-
-            Some(TypeKind::FixedArray { element, .. }) => Some(*element),
 
             Some(TypeKind::Error) => Some(target_type),
 

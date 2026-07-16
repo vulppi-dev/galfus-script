@@ -7,13 +7,11 @@ use crate::modules::resolution::{
     is_builtin_module, is_resolvable_import, resolve_relative_import,
 };
 use crate::{
-    ImportedSurfaceTypes, ModuleGraph, ModuleSurface, TypeCheckResult, build_module_surface,
-    check_declaration_types, check_definition_types_with_surfaces,
-    imported_surface_types_for_named_export, parse, resolve,
+    ImportedSurfaceTypes, ModuleSurface, build_module_surface, check_declaration_types,
+    check_definition_types_with_surfaces, imported_surface_types_for_named_export, parse, resolve,
 };
 use galfus_core::{
-    Diagnostic, DiagnosticBag, ModuleId, ModulePath, NodeId, Revision, SourceFile, SourceId,
-    SymbolId,
+    Diagnostic, DiagnosticBag, ModuleId, ModulePath, NodeId, Revision, SourceFile, SymbolId,
 };
 use std::collections::{HashMap, HashSet};
 
@@ -31,15 +29,8 @@ pub(crate) struct ImportCheckRecord {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct NamedTypeCheckRecord {
-    pub(crate) node: NodeId,
-    pub(crate) name: String,
-}
-
-#[derive(Debug, Clone)]
 pub(crate) struct PathSegmentRecord {
     pub(crate) name: String,
-    pub(crate) node: NodeId,
 }
 
 #[derive(Debug, Clone)]
@@ -450,51 +441,6 @@ impl FrontendSession {
         self.collect_namespace_imported_path_types(module_index, surfaces, &mut imported_types);
 
         imported_types
-    }
-
-    fn collect_named_imported_type_types(
-        &self,
-        module_index: usize,
-        surfaces: &[ModuleSurface],
-        imported_types: &mut ImportedSurfaceTypes,
-    ) {
-        let imports = self.module_imports(module_index);
-        let named_imports = imports
-            .iter()
-            .filter(|import| {
-                import.kind == ImportKind::Named && is_resolvable_import(import.source.as_str())
-            })
-            .collect::<Vec<_>>();
-
-        if named_imports.is_empty() {
-            return;
-        }
-
-        for named_type in self.named_type_records(module_index) {
-            let Some(import) = named_imports
-                .iter()
-                .find(|import| import.local_name == named_type.name)
-            else {
-                continue;
-            };
-
-            let Some(imported_name) = import.imported_name.as_deref() else {
-                continue;
-            };
-
-            let Some(target_index) = self.import_target_index(module_index, import.source.as_str())
-            else {
-                continue;
-            };
-
-            let Some(imported_type) =
-                surfaces[target_index].imported_type_for_export(import.local_symbol, imported_name)
-            else {
-                continue;
-            };
-
-            imported_types.insert_path_type(named_type.node, imported_type);
-        }
     }
 
     pub(super) fn import_target_index(&self, module_index: usize, source: &str) -> Option<usize> {

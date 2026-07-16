@@ -325,11 +325,6 @@ impl<'a> DeclarationTypeChecker<'a> {
                 self.layer.table_mut().intern_array(element)
             }
 
-            ImportedType::FixedArray { element, size } => {
-                let element = self.lower_imported_type(element);
-                self.layer.table_mut().intern_fixed_array(element, *size)
-            }
-
             ImportedType::Range { element } => {
                 let element = self.lower_imported_type(element);
                 self.layer.table_mut().intern_range(element)

@@ -535,11 +535,6 @@ fn transport_type(
             element: Box::new(transport_type(resolution, result, element)?),
         }),
 
-        TypeKind::FixedArray { element, size } => Some(ImportedType::FixedArray {
-            element: Box::new(transport_type(resolution, result, element)?),
-            size,
-        }),
-
         TypeKind::Range { element } => Some(ImportedType::Range {
             element: Box::new(transport_type(resolution, result, element)?),
         }),

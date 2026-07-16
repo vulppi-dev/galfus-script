@@ -1,4 +1,5 @@
 use super::*;
+use galfus_core::SourceId;
 
 fn path(value: &str) -> ModulePath {
     ModulePath::new(value).expect("valid module path")

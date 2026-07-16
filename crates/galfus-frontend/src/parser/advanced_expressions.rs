@@ -37,10 +37,7 @@ impl Parser {
             .map(|n| n.kind())
             .unwrap_or(SyntaxNodeKind::NamedType);
 
-        if matches!(
-            type_kind,
-            SyntaxNodeKind::ArrayType | SyntaxNodeKind::FixedArrayType
-        ) {
+        if matches!(type_kind, SyntaxNodeKind::ArrayType) {
             let mut children = vec![type_node];
             let mut metadata_items = Vec::new();
             let mut metadata_span = None;

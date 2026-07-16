@@ -71,7 +71,7 @@ fn stringifyUint64(value: u64): [u8] {
     if n <= 0 {
       break
     }
-    digits[i] = (n % 10) + 48
+    digits[i] = (n % 10) + <u64> 48
     i -= 1
     n = n / 10
   }

@@ -520,9 +520,7 @@ impl<'a> DeclarationTypeChecker<'a> {
         let ty = self.resolve_alias_type(ty);
 
         match self.layer.table().kind(ty) {
-            Some(TypeKind::Array { element }) | Some(TypeKind::FixedArray { element, .. }) => {
-                Some(*element)
-            }
+            Some(TypeKind::Array { element }) => Some(*element),
 
             Some(TypeKind::Error) => Some(ty),
 

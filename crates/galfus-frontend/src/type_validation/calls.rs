@@ -121,27 +121,7 @@ impl<'a> DeclarationTypeChecker<'a> {
                 }
             }
             Some(TypeKind::Array { element: p_elem }) => {
-                if let Some(TypeKind::Array { element: a_elem })
-                | Some(TypeKind::FixedArray {
-                    element: a_elem, ..
-                }) = self.layer.table().kind(arg_ty)
-                {
-                    self.infer_substitutions_from_types(
-                        generic_params,
-                        *p_elem,
-                        *a_elem,
-                        substitutions,
-                    );
-                }
-            }
-            Some(TypeKind::FixedArray {
-                element: p_elem, ..
-            }) => {
-                if let Some(TypeKind::Array { element: a_elem })
-                | Some(TypeKind::FixedArray {
-                    element: a_elem, ..
-                }) = self.layer.table().kind(arg_ty)
-                {
+                if let Some(TypeKind::Array { element: a_elem }) = self.layer.table().kind(arg_ty) {
                     self.infer_substitutions_from_types(
                         generic_params,
                         *p_elem,
@@ -219,8 +199,6 @@ impl<'a> DeclarationTypeChecker<'a> {
     pub(super) fn rest_parameter_element_type(&self, rest_type: TypeId) -> Option<TypeId> {
         match self.layer.table().kind(rest_type) {
             Some(TypeKind::Array { element }) => Some(*element),
-
-            Some(TypeKind::FixedArray { element, .. }) => Some(*element),
 
             Some(TypeKind::Error) => Some(rest_type),
 

@@ -5,21 +5,9 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-galfus-builtins = { path = "../galfus-builtins" }
 galfus-core = { path = "../galfus-core" }
 galfus-frontend = { version = "0.0.0", path = "../galfus-frontend" }
-galfus-target = { path = "../galfus-target" }
-galfus-image = { path = "../galfus-image" }
-galfus-ir = { path = "../galfus-ir" }
-galfus-runtime = { path = "../galfus-runtime" }
-
-serde.workspace = true
 toml.workspace = true
 
-tracing.workspace = true
-notify.workspace = true
-
 anyhow.workspace = true
-thiserror.workspace = true
 galfus-workspace = { version = "0.0.0", path = "../galfus-workspace" }
-galfus-compiler = { version = "0.0.0", path = "../galfus-compiler" }

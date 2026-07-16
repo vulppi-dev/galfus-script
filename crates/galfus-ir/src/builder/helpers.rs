@@ -191,7 +191,6 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                 | SyntaxNodeKind::NamedType
                 | SyntaxNodeKind::Path
                 | SyntaxNodeKind::ArrayType
-                | SyntaxNodeKind::FixedArrayType
                 | SyntaxNodeKind::TupleType
                 | SyntaxNodeKind::GroupedType
                 | SyntaxNodeKind::UnionType

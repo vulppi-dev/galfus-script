@@ -128,19 +128,6 @@ impl<'a> MyWorkspaceContext<'a> {
                     element: target_element,
                 }
             }
-            TypeKind::FixedArray { element, size } => {
-                let target_element = self.translate_type_helper(
-                    caller_mod_idx,
-                    target_mod_idx,
-                    caller_table,
-                    target_table,
-                    *element,
-                );
-                TypeKind::FixedArray {
-                    element: target_element,
-                    size: *size,
-                }
-            }
             TypeKind::Range { element } => {
                 let target_element = self.translate_type_helper(
                     caller_mod_idx,

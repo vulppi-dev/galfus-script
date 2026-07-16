@@ -541,7 +541,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                 //   len_reg = const(size)
                 //   dest = NewArray(array_type, len_reg)
                 //
-                // `array_type` must lower to ImageType::Array or ImageType::FixedArray.
+                // `array_type` must lower to ImageType::Array.
                 // The VM extracts the element type from that image type and then
                 // zero-initialises the backing buffer.
                 let type_idx = crate::lower::types::lower_type(self.ctx, *array_type);

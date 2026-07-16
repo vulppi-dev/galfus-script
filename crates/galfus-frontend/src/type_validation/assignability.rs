@@ -53,30 +53,6 @@ impl<'a> DeclarationTypeChecker<'a> {
             ) => self.is_assignable(*expected_element, *actual_element),
 
             (
-                Some(TypeKind::Array {
-                    element: expected_element,
-                }),
-                Some(TypeKind::FixedArray {
-                    element: actual_element,
-                    ..
-                }),
-            ) => self.is_assignable(*expected_element, *actual_element),
-
-            (
-                Some(TypeKind::FixedArray {
-                    element: expected_element,
-                    size: expected_size,
-                }),
-                Some(TypeKind::FixedArray {
-                    element: actual_element,
-                    size: actual_size,
-                }),
-            ) => {
-                expected_size == actual_size
-                    && self.is_assignable(*expected_element, *actual_element)
-            }
-
-            (
                 Some(TypeKind::Primitive(expected_primitive)),
                 Some(TypeKind::Primitive(actual_primitive)),
             ) => {

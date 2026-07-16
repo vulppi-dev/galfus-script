@@ -81,7 +81,6 @@ pub enum ImageType {
     Float64,
     Struct(StructLayoutIdx),
     Array(TypeIdx),
-    FixedArray(TypeIdx, usize),
     Tuple(Vec<TypeIdx>),
     Choice(ChoiceLayoutIdx),
     Constraint(String),
