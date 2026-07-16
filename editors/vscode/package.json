@@ -48,6 +48,12 @@
         "scopeName": "source.gfs",
         "path": "./syntaxes/galfus.tmLanguage.json"
       }
+    ],
+    "snippets": [
+      {
+        "language": "galfus",
+        "path": "./snippets/galfus.json"
+      }
     ]
   },
   "type": "module",
