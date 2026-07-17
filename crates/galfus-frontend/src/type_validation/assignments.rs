@@ -156,12 +156,19 @@ impl<'a> DeclarationTypeChecker<'a> {
         member_name: &str,
     ) -> Option<NodeId> {
         let target_type = self.resolve_alias_type(target_type);
-        let TypeKind::Named { symbol } = self.layer.table().kind(target_type)? else {
-            return None;
+        let symbol = match self.layer.table().kind(target_type)? {
+            TypeKind::Named { symbol } => *symbol,
+            TypeKind::GenericInstance { base, .. } => {
+                let TypeKind::Named { symbol } = self.layer.table().kind(*base)? else {
+                    return None;
+                };
+                *symbol
+            }
+            _ => return None,
         };
 
         let resolution = self.graph.resolution()?;
-        let struct_name = resolution.symbol(*symbol)?.name();
+        let struct_name = resolution.symbol(symbol)?.name();
         let root = self.graph.syntax().root()?;
         let struct_item = self.struct_item_node_by_name(root, struct_name)?;
 

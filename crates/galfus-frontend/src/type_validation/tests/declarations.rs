@@ -293,7 +293,7 @@ fn Point::x(self): i32 {
 
 #[test]
 fn check_binds_self_symbol_type_in_generic_anchored_function() {
-    let source = source(
+    let (_source, graph, result) = check_source(
         r#"
 struct Box<T: i32 | bool> {
   value: T,
@@ -305,24 +305,6 @@ fn Box<T>::value(self): T {
 "#,
     );
 
-    let parse_result = parse(&source);
-    assert!(
-        !parse_result.has_errors(),
-        "{:?}",
-        parse_result.diagnostics()
-    );
-
-    let resolve_result = resolve(&source, parse_result.into_graph());
-    assert!(
-        !resolve_result.has_errors(),
-        "{:?}",
-        resolve_result.diagnostics()
-    );
-
-    let graph = resolve_result.into_graph();
-    let result = crate::type_validation::check_declaration_types(&source, &graph);
-
-    // Verify the self symbol was bound to a generic instance (Box<T>), not bare Named or nothing
     let self_symbol = symbol_by_name_and_kind(&graph, "self", SymbolKind::Parameter);
     let ty = result.layer().symbol_type(self_symbol).unwrap();
 
