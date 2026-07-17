@@ -1,0 +1,127 @@
+{
+  "Import module members": {
+    "prefix": "gimport",
+    "description": "Import members from a Galfus module",
+    "body": ["import { ${1:item} } from \"${2:module}\""]
+  },
+  "Exported main function": {
+    "prefix": "gmain",
+    "description": "Create the Galfus entry function",
+    "body": [
+      "export fn main(args: [[u8]]): i32 {",
+      "  ${1}",
+      "  return ${2:0}",
+      "}"
+    ]
+  },
+  "Function": {
+    "prefix": "gfn",
+    "description": "Create a Galfus function",
+    "body": ["fn ${1:name}(${2}): ${3:null} {", "  ${4}", "}"]
+  },
+  "Exported function": {
+    "prefix": "gexportfn",
+    "description": "Create an exported Galfus function",
+    "body": ["export fn ${1:name}(${2}): ${3:null} {", "  ${4}", "}"]
+  },
+  "Anchor function": {
+    "prefix": "ganchor",
+    "description": "Create a struct anchor function",
+    "body": ["fn ${1:Type}::${2:name}(self${3}): ${4:null} {", "  ${5}", "}"]
+  },
+  "Struct": {
+    "prefix": "gstruct",
+    "description": "Create a Galfus struct",
+    "body": ["struct ${1:Name} {", "  ${2:field}: ${3:Type}", "}"]
+  },
+  "Choice": {
+    "prefix": "gchoice",
+    "description": "Create a Galfus choice type",
+    "body": [
+      "choice ${1:Result} {",
+      "  ${2:Ok}(${3:Value})",
+      "  ${4:Error}(${5:[u8]})",
+      "}"
+    ]
+  },
+  "Variable": {
+    "prefix": "gvar",
+    "description": "Create a mutable variable",
+    "body": ["var ${1:name} = ${2:value}"]
+  },
+  "Constant": {
+    "prefix": "gconst",
+    "description": "Create a constant binding",
+    "body": ["const ${1:name} = ${2:value}"]
+  },
+  "New struct instance": {
+    "prefix": "gnew",
+    "description": "Create a Galfus struct instance",
+    "body": ["new(${1:Type}, {", "  ${2:field}: ${3:value}", "})"]
+  },
+  "If expression": {
+    "prefix": "gif",
+    "description": "Create an if block",
+    "body": ["if ${1:condition} {", "  ${2}", "}"]
+  },
+  "If else expression": {
+    "prefix": "gifelse",
+    "description": "Create an if-else expression",
+    "body": ["if ${1:condition} {", "  ${2}", "} else {", "  ${3}", "}"]
+  },
+  "For loop": {
+    "prefix": "gfor",
+    "description": "Iterate over an iterable value",
+    "body": ["for ${1:item}, ${2:_} in ${3:source} {", "  ${4}", "}"]
+  },
+  "Infinite loop": {
+    "prefix": "gloop",
+    "description": "Create an infinite loop",
+    "body": ["loop {", "  ${1}", "}"]
+  },
+  "Conditional loop": {
+    "prefix": "gloopif",
+    "description": "Create a conditional loop",
+    "body": ["loop ${1:condition} {", "  ${2}", "}"]
+  },
+  "Named loop": {
+    "prefix": "gnamedloop",
+    "description": "Create a named Galfus loop",
+    "body": ["loop(name: ${1:root}) {", "  ${2}", "}"]
+  },
+  "Match expression": {
+    "prefix": "gmatch",
+    "description": "Create a match expression",
+    "body": [
+      "match ${1:value} {",
+      "  ${2:Pattern} => ${3:result}",
+      "  _ => ${4:fallback}",
+      "}"
+    ]
+  },
+  "Instanceof expression": {
+    "prefix": "ginstanceof",
+    "description": "Narrow a value by runtime type",
+    "body": [
+      "instanceof ${1:value} {",
+      "  ${2:Type} ${3:narrowed} => ${4:result}",
+      "  _ => ${5:fallback}",
+      "}"
+    ]
+  },
+  "Typeof expression": {
+    "prefix": "gtypeof",
+    "description": "Narrow a value by type check",
+    "body": [
+      "typeof ${1:value} {",
+      "  ${2:Type} => ${3:result}",
+      "  _ => ${4:fallback}",
+      "}"
+    ]
+  },
+  "Transaction": {
+    "prefix": "gtransaction",
+    "description": "Create a transaction block",
+    "body": ["transaction {", "  ${1}", "}"]
+  }
+}
