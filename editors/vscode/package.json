@@ -1,6 +1,6 @@
 {
   "name": "galfus-language",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Syntax highlighting and basic editor support for Galfus Script.",
   "displayName": "Galfus Script",
   "publisher": "galfus",
@@ -16,7 +16,7 @@
   },
   "license": "MIT",
   "engines": {
-    "vscode": "^1.60.0"
+    "vscode": "^1.128.0"
   },
   "categories": [
     "Programming Languages"
@@ -40,7 +40,11 @@
           ".gfs",
           ".gfp"
         ],
-        "configuration": "./language-configuration.json"
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "dark": "./assets/icon-128.png",
+          "light": "./assets/icon-128.png"
+        }
       }
     ],
     "grammars": [
@@ -68,7 +72,6 @@
   },
   "devDependencies": {
     "@types/bun": "^1.3.14",
-    "@vscode/vsce": "^3.9.2",
     "typescript": "^7.0.2"
   }
 }

@@ -9,7 +9,6 @@ export fn main(_args: [[u8]]): i32 {
     ParseResult::Err(e) => 0,
   }
 
-
   println(cyan()::apply(stringify(value + 10)))
   return 0
 }
