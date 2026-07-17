@@ -4,6 +4,7 @@
   "description": "Syntax highlighting and basic editor support for Galfus Script.",
   "displayName": "Galfus Script",
   "publisher": "galfus",
+  "icon": "./assets/brand-128.png",
   "homepage": "https://galfus.com/",
   "repository": {
     "type": "git",
