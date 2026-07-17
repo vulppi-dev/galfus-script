@@ -3,7 +3,9 @@ use crate::source_store::{ModuleOrigin, SourceStore};
 use crate::state::{CheckState, CompileBlocked, CompileState, RunBlocked, WorkspaceError};
 use galfus_compiler::{CompiledImportEdge, CompiledModule, CompiledModuleGraph};
 use galfus_core::{DiagnosticBag, ModuleId, ModulePath, Revision, SourceFile};
-use galfus_frontend::modules::{FrontendRoots, FrontendSession, FrontendSource, FrontendUpdate};
+use galfus_frontend::modules::{
+    FrontendRoots, FrontendSession, FrontendSource, FrontendUpdate, SemanticRoot, SemanticRootKind,
+};
 use galfus_runtime::Runtime;
 use galfus_target::{NativeTarget, TargetCapabilityProvider};
 use std::collections::HashSet;
@@ -170,7 +172,7 @@ impl Workspace {
                     diagnostics: DiagnosticBag::new(),
                 };
             } else {
-                let roots = FrontendRoots::default();
+                let roots = self.frontend_roots();
                 let report = loop {
                     let source_files = self
                         .dirty_sources
@@ -264,6 +266,36 @@ impl Workspace {
             loaded = true;
         }
         loaded
+    }
+
+    fn frontend_roots(&self) -> FrontendRoots {
+        let Some(config) = &self.config else {
+            return FrontendRoots::default();
+        };
+
+        let mut roots = Vec::new();
+        if let Some(entry) = config.entry() {
+            if let Some(source) = self.sources.get(entry) {
+                roots.push(SemanticRoot::new(
+                    SemanticRootKind::Entry,
+                    source.module_id,
+                    entry.clone(),
+                ));
+            }
+        }
+        for export in config.exports() {
+            if let Some(source) = self.sources.get(export.path()) {
+                roots.push(SemanticRoot::new(
+                    SemanticRootKind::Export {
+                        address: export.address().to_string(),
+                    },
+                    source.module_id,
+                    export.path().clone(),
+                ));
+            }
+        }
+
+        FrontendRoots::new(roots)
     }
 
     /// Compile the workspace into a [`CompiledModuleGraph`].

@@ -1,6 +1,47 @@
 use super::*;
 
 #[test]
+fn check_includes_configured_entry_and_exports_as_semantic_roots() {
+    let mut workspace = Workspace::new();
+    workspace
+        .load_config(
+            br#"
+            [module]
+            name = "semantic-roots"
+            target = "app"
+            entry = "main.gfs"
+
+            [exports]
+            library = "library.gfs"
+            "#,
+        )
+        .expect("valid configuration");
+    workspace
+        .load_module(
+            "main.gfs",
+            b"export fn main(args: [[u8]]): i32 { return 0 }",
+        )
+        .expect("valid entry module");
+    workspace
+        .load_module("library.gfs", b"export fn value(): i32 { return 1 }")
+        .expect("valid export module");
+
+    assert!(workspace.check().is_valid);
+
+    let roots = workspace.frontend.semantic_graph().roots();
+    assert!(roots.iter().any(|root| {
+        root.kind() == &SemanticRootKind::Entry && root.path().as_str() == "main.gfs"
+    }));
+    assert!(roots.iter().any(|root| {
+        root.kind()
+            == &SemanticRootKind::Export {
+                address: "library".to_string(),
+            }
+            && root.path().as_str() == "library.gfs"
+    }));
+}
+
+#[test]
 fn compile_emits_one_image_per_module_with_import_slots() {
     let mut workspace = Workspace::new();
     workspace

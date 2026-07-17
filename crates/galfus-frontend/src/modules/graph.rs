@@ -11,6 +11,12 @@ pub enum SemanticRootKind {
     Export { address: String },
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SemanticImportKind {
+    Explicit(ImportKind),
+    Implicit,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SemanticRoot {
     kind: SemanticRootKind,
@@ -19,6 +25,14 @@ pub struct SemanticRoot {
 }
 
 impl SemanticRoot {
+    pub fn new(kind: SemanticRootKind, module_id: ModuleId, path: ModulePath) -> Self {
+        Self {
+            kind,
+            module_id,
+            path,
+        }
+    }
+
     pub fn kind(&self) -> &SemanticRootKind {
         &self.kind
     }
@@ -35,9 +49,9 @@ impl SemanticRoot {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SemanticImportEdge {
     from: ModuleId,
-    kind: ImportKind,
+    kind: SemanticImportKind,
     source: String,
-    source_node: NodeId,
+    source_node: Option<NodeId>,
     local_name: String,
     imported_name: Option<String>,
     target_path: ModulePath,
@@ -51,7 +65,7 @@ impl SemanticImportEdge {
         self.from
     }
 
-    pub fn kind(&self) -> ImportKind {
+    pub fn kind(&self) -> SemanticImportKind {
         self.kind
     }
 
@@ -59,7 +73,7 @@ impl SemanticImportEdge {
         self.source.as_str()
     }
 
-    pub fn source_node(&self) -> NodeId {
+    pub fn source_node(&self) -> Option<NodeId> {
         self.source_node
     }
 
@@ -117,6 +131,7 @@ impl SemanticModuleGraph {
 
         graph.roots = roots.to_vec();
         graph.add_import_edges(modules);
+        graph.add_implicit_import_edges(modules);
 
         graph
     }
@@ -170,9 +185,9 @@ impl SemanticModuleGraph {
 
                 self.import_edges.push(SemanticImportEdge {
                     from,
-                    kind: import.kind(),
+                    kind: SemanticImportKind::Explicit(import.kind()),
                     source: source.to_string(),
-                    source_node: import.source_node(),
+                    source_node: Some(import.source_node()),
                     local_name: import.local_name().to_string(),
                     imported_name: import.imported_name().map(str::to_string),
                     target_path,
@@ -182,6 +197,55 @@ impl SemanticModuleGraph {
                 });
             }
         }
+    }
+
+    fn add_implicit_import_edges(&mut self, modules: &[SemanticModule]) {
+        for module in modules {
+            let Some(root) = module.graph().syntax().root() else {
+                continue;
+            };
+            let dependencies =
+                crate::modules::collect_implicit_dependencies(module.graph().syntax(), root);
+
+            if dependencies.has_range {
+                self.add_implicit_import_edge(module.id(), "std/iterable.gfs");
+            }
+            if dependencies.has_match {
+                self.add_implicit_import_edge(module.id(), "std/constraints.gfs");
+            }
+        }
+    }
+
+    fn add_implicit_import_edge(&mut self, from: ModuleId, target_path: &str) {
+        let Some(target_path) = ModulePath::new(target_path) else {
+            return;
+        };
+        if self
+            .import_edges
+            .iter()
+            .any(|edge| edge.from == from && edge.target_path == target_path)
+        {
+            return;
+        }
+
+        let source = target_path
+            .as_str()
+            .strip_suffix(".gfs")
+            .unwrap_or(target_path.as_str())
+            .to_string();
+        let to = self.module_by_path(&target_path);
+        self.import_edges.push(SemanticImportEdge {
+            from,
+            kind: SemanticImportKind::Implicit,
+            source,
+            source_node: None,
+            local_name: String::new(),
+            imported_name: None,
+            target_path,
+            to,
+            export_name: None,
+            referenced_exports: Vec::new(),
+        });
     }
 
     fn resolve_import_export(

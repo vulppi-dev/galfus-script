@@ -1,4 +1,5 @@
 use super::*;
+use crate::modules::{SemanticImportKind, SemanticRoot, SemanticRootKind};
 use galfus_core::SourceId;
 
 fn path(value: &str) -> ModulePath {
@@ -146,4 +147,50 @@ fn check_reprocesses_changed_modules_and_transitive_dependents_only() {
             .semantic_revision(ModuleId::new(13)),
         Some(isolated_revision)
     );
+}
+
+#[test]
+fn check_records_resolved_implicit_range_dependency() {
+    let main = SourceFile::new(
+        SourceId::new(1),
+        "src/main.gfs".to_string(),
+        "fn main(): i32 { for value in 0..2 { } return 0 }".to_string(),
+    );
+    let iterable = SourceFile::new(
+        SourceId::new(2),
+        "std/iterable.gfs".to_string(),
+        "export fn range(start: i32, end: i32): i32 { return start }".to_string(),
+    );
+    let sources = [
+        FrontendSource {
+            module_id: ModuleId::new(1),
+            path: path("src/main.gfs"),
+            source: &main,
+        },
+        FrontendSource {
+            module_id: ModuleId::new(2),
+            path: path("std/iterable.gfs"),
+            source: &iterable,
+        },
+    ];
+    let roots = FrontendRoots::new(vec![SemanticRoot::new(
+        SemanticRootKind::Entry,
+        ModuleId::new(1),
+        path("src/main.gfs"),
+    )]);
+    let mut session = FrontendSession::new();
+
+    session.check(FrontendUpdate {
+        source_revision: Revision::new(1),
+        sources: &sources,
+        removed_modules: &[],
+        roots: &roots,
+    });
+
+    assert!(session.semantic_graph().import_edges().iter().any(|edge| {
+        edge.from() == ModuleId::new(1)
+            && edge.kind() == SemanticImportKind::Implicit
+            && edge.target_path() == &path("std/iterable.gfs")
+            && edge.to() == Some(ModuleId::new(2))
+    }));
 }
