@@ -6,4 +6,4 @@ license.workspace = true
 
 [dependencies]
 anyhow.workspace = true
-galfus-workspace = { version = "0.0.0", path = "../galfus-workspace" }
+galfus-workspace = { path = "../galfus-workspace" }

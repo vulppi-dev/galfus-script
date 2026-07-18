@@ -6,10 +6,10 @@ license.workspace = true
 
 [dependencies]
 galfus-builtins = { path = "../galfus-builtins" }
-galfus-compiler = { version = "0.0.0", path = "../galfus-compiler" }
+galfus-compiler = { path = "../galfus-compiler" }
 galfus-core = { path = "../galfus-core" }
-galfus-frontend = { version = "0.0.0", path = "../galfus-frontend" }
-galfus-runtime = { version = "0.0.0", path = "../galfus-runtime" }
-galfus-target = { version = "0.0.0", path = "../galfus-target" }
+galfus-frontend = { path = "../galfus-frontend" }
+galfus-runtime = { path = "../galfus-runtime" }
+galfus-target = { path = "../galfus-target" }
 serde = { workspace = true }
 toml = { workspace = true }
