@@ -61,7 +61,7 @@ fn load_workspace_accepts_standalone_source_file() {
     workspace.compile().expect("compiles standalone source");
     assert_eq!(
         workspace
-            .run(&[])
+            .run(&[], None)
             .expect("runs standalone source")
             .exit_code,
         42

@@ -1,30 +1,24 @@
 use super::*;
+use galfus_host::{IoProvider, IoProviderError, IoRead, Providers};
 
-struct BufferTarget {
+struct BufferIo {
     buffer: std::sync::Arc<std::sync::Mutex<Vec<u8>>>,
     input: std::sync::Arc<std::sync::Mutex<Vec<u8>>>,
 }
 
-impl galfus_target::TargetCapabilityProvider for BufferTarget {
-    fn invoke(
-        &mut self,
-        call: galfus_target::TargetCall<'_>,
-    ) -> Result<galfus_target::TargetResult, String> {
-        match call {
-            galfus_target::TargetCall::Write(data) => {
-                let mut buf = self.buffer.lock().unwrap();
-                buf.extend_from_slice(data);
-                Ok(galfus_target::TargetResult::Success)
-            }
-            galfus_target::TargetCall::Read => {
-                let mut input = self.input.lock().unwrap();
-                if input.is_empty() {
-                    Ok(galfus_target::TargetResult::ReadByte(None))
-                } else {
-                    Ok(galfus_target::TargetResult::ReadByte(Some(input.remove(0))))
-                }
-            }
+impl IoProvider for BufferIo {
+    fn read(&mut self, _terminator: &[u8]) -> Result<IoRead, IoProviderError> {
+        let mut input = self.input.lock().unwrap();
+        if input.is_empty() {
+            Ok(IoRead::EndOfInput)
+        } else {
+            Ok(IoRead::Bytes(std::mem::take(&mut *input)))
         }
+    }
+
+    fn write(&mut self, data: &[u8]) -> Result<(), IoProviderError> {
+        self.buffer.lock().unwrap().extend_from_slice(data);
+        Ok(())
     }
 }
 
@@ -40,11 +34,12 @@ fn test_target_write() {
     ];
     let image = create_test_image(instrs, vec![Constant::Int(42)]);
     let buffer = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
-    let target = BufferTarget {
+    let provider = BufferIo {
         buffer: buffer.clone(),
         input: std::sync::Arc::new(std::sync::Mutex::new(Vec::new())),
     };
-    let mut vm = VirtualMachine::new(image).with_target(Box::new(target));
+    let mut vm =
+        VirtualMachine::new(image).with_providers(Some(Providers::with_io(Box::new(provider))));
     let res = vm.run_function(FuncIdx(0), vec![]).unwrap();
     assert_eq!(res, Value::Null);
     let output = buffer.lock().unwrap();
@@ -59,11 +54,12 @@ fn test_target_read() {
     ];
     let image = create_test_image(instrs, vec![]);
     let input = std::sync::Arc::new(std::sync::Mutex::new(b"abc".to_vec()));
-    let target = BufferTarget {
+    let provider = BufferIo {
         buffer: std::sync::Arc::new(std::sync::Mutex::new(Vec::new())),
         input,
     };
-    let mut vm = VirtualMachine::new(image).with_target(Box::new(target));
+    let mut vm =
+        VirtualMachine::new(image).with_providers(Some(Providers::with_io(Box::new(provider))));
     let res = vm.run_function(FuncIdx(0), vec![]).unwrap();
     let arr_ref = match res {
         Value::Object(r) => r,

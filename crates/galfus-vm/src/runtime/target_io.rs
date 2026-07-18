@@ -63,43 +63,30 @@ impl VirtualMachine {
     }
 
     pub(super) fn execute_read(&mut self) -> Result<Value, VmError> {
-        let mut bytes = Vec::new();
-        loop {
-            let result = self
-                .context
-                .target
-                .invoke(galfus_target::TargetCall::Read)
-                .map_err(VmError::IoError)?;
-            match result {
-                galfus_target::TargetResult::ReadByte(Some(b'\n')) => break,
-                galfus_target::TargetResult::ReadByte(Some(byte)) => bytes.push(byte),
-                galfus_target::TargetResult::ReadByte(None) => break,
-                galfus_target::TargetResult::Success => {
-                    return Err(VmError::IoError(
-                        "unexpected target result for read: Success".to_string(),
-                    ));
-                }
-            }
-        }
-        // Strip trailing `\r` to handle Windows-style line endings.
-        if bytes.last() == Some(&b'\r') {
-            bytes.pop();
-        }
+        let input = self
+            .context
+            .providers
+            .as_mut()
+            .and_then(|providers| providers.io_mut())
+            .ok_or(VmError::IoProviderUnavailable { operation: "read" })?
+            .read(b"\n")
+            .map_err(|error| VmError::IoError(error.message().to_string()))?;
+
+        let bytes = match input {
+            galfus_host::IoRead::Bytes(bytes) => bytes,
+            galfus_host::IoRead::EndOfInput => Vec::new(),
+        };
         Ok(self.bytes_to_uint8_array(bytes))
     }
 
     pub(super) fn execute_write(&mut self, val: Value) -> Result<(), VmError> {
         let bytes = self.value_to_bytes(val)?;
-        let result = self
-            .context
-            .target
-            .invoke(galfus_target::TargetCall::Write(bytes.as_slice()))
-            .map_err(VmError::IoError)?;
-        if !matches!(result, galfus_target::TargetResult::Success) {
-            return Err(VmError::IoError(format!(
-                "unexpected target result for write: {result:?}"
-            )));
-        }
-        Ok(())
+        self.context
+            .providers
+            .as_mut()
+            .and_then(|providers| providers.io_mut())
+            .ok_or(VmError::IoProviderUnavailable { operation: "write" })?
+            .write(bytes.as_slice())
+            .map_err(|error| VmError::IoError(error.message().to_string()))
     }
 }

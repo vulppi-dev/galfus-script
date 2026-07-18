@@ -6,8 +6,8 @@ use galfus_core::{DiagnosticBag, ModuleId, ModulePath, Revision, SourceFile};
 use galfus_frontend::modules::{
     FrontendRoots, FrontendSession, FrontendSource, FrontendUpdate, SemanticRoot, SemanticRootKind,
 };
+use galfus_host::Providers;
 use galfus_runtime::Runtime;
-use galfus_target::{NativeTarget, TargetCapabilityProvider};
 use std::collections::HashSet;
 use std::sync::Arc;
 
@@ -53,10 +53,6 @@ pub struct RunReport {
 
 impl Workspace {
     pub fn new() -> Self {
-        Self::with_target(Box::new(NativeTarget))
-    }
-
-    pub fn with_target(capabilities: Box<dyn TargetCapabilityProvider>) -> Self {
         Self {
             sources: SourceStore::new(),
             config: None,
@@ -67,7 +63,7 @@ impl Workspace {
             },
             compile_state: CompileState::Missing,
             frontend: FrontendSession::new(),
-            runtime: Runtime::new(capabilities),
+            runtime: Runtime::new(),
             dirty_sources: HashSet::new(),
             removed_modules: Vec::new(),
         }
@@ -437,7 +433,11 @@ impl Workspace {
     }
 
     /// Load the current compiled graph into the runtime and execute its configured entry.
-    pub fn run(&mut self, args: &[Vec<u8>]) -> Result<RunReport, RunBlocked> {
+    pub fn run(
+        &mut self,
+        args: &[Vec<u8>],
+        providers: Option<Providers>,
+    ) -> Result<RunReport, RunBlocked> {
         let graph = match &self.compile_state {
             CompileState::Ready { graph, .. } => Arc::clone(graph),
             _ => return Err(RunBlocked::CompileRequired),
@@ -463,7 +463,7 @@ impl Workspace {
 
         let exit_code = self
             .runtime
-            .run_module_entry(entry_id, entry_name.as_str(), args)
+            .run_module_entry(entry_id, entry_name.as_str(), args, providers)
             .map_err(|error| RunBlocked::RuntimeError(error.to_string()))?;
         Ok(RunReport { exit_code })
     }

@@ -2,11 +2,10 @@ use super::*;
 use galfus_compiler::CompiledModuleImage;
 use galfus_core::{ModuleId, ModulePath, SemanticRevision};
 use galfus_image::{ConstantPool, ExportSlot, ImportSlot, ModuleImage, instruction::TypeIdx};
-use galfus_target::NativeTarget;
 
 #[test]
 fn test_runtime_thread_spawn() {
-    let mut runtime = Runtime::new(Box::new(NativeTarget));
+    let mut runtime = Runtime::new();
     let t1 = runtime.spawn_thread();
     let t2 = runtime.spawn_thread();
 
@@ -75,7 +74,7 @@ fn runtime_modules_upsert_unload_and_link_import_slots() {
         ..main.clone()
     };
 
-    let mut runtime = Runtime::new(Box::new(NativeTarget));
+    let mut runtime = Runtime::new();
     assert!(runtime.load(main).is_none());
     assert!(matches!(
         runtime.link_module(ModuleId::new(11)),

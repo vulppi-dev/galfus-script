@@ -1,5 +1,5 @@
 use anyhow::Result;
-use galfus_target::WebTarget;
+use galfus_host::Providers;
 use galfus_workspace::{LoadResult, Workspace};
 
 mod buffer_io;
@@ -30,9 +30,9 @@ pub fn run_source(code: &str, args: &[&str]) -> PlaygroundResult {
 }
 
 fn run_source_inner(code: &str, args: &[&str]) -> Result<PlaygroundResult> {
-    let target = WebTarget::new();
-    let output_target = target.clone();
-    let mut workspace = Workspace::with_target(Box::new(target));
+    let provider = BufferIoProvider::default();
+    let output_provider = provider.clone();
+    let mut workspace = Workspace::new();
 
     match workspace
         .load_config(PLAYGROUND_CONFIG.as_bytes())
@@ -66,11 +66,14 @@ fn run_source_inner(code: &str, args: &[&str]) -> Result<PlaygroundResult> {
         .compile()
         .map_err(|error| anyhow::anyhow!("playground compilation failed: {error:?}"))?;
     let exit_code = workspace
-        .run(args_bytes.as_slice())
+        .run(
+            args_bytes.as_slice(),
+            Some(Providers::with_io(Box::new(provider))),
+        )
         .map_err(|error| anyhow::anyhow!("playground execution failed: {error:?}"))?
         .exit_code;
 
-    let output = String::from_utf8_lossy(output_target.take_output().as_slice()).into_owned();
+    let output = String::from_utf8_lossy(output_provider.take_output().as_slice()).into_owned();
 
     Ok(PlaygroundResult {
         output,

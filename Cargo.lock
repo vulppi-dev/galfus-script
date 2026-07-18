@@ -690,7 +690,6 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "galfus-host",
- "galfus-target",
  "galfus-workspace",
  "serde_json",
  "wasm-bindgen",
@@ -711,8 +710,8 @@ version = "0.0.0"
 dependencies = [
  "galfus-compiler",
  "galfus-core",
+ "galfus-host",
  "galfus-image",
- "galfus-target",
  "galfus-vm",
  "smallvec",
  "thiserror 2.0.18",
@@ -731,8 +730,8 @@ name = "galfus-vm"
 version = "0.0.0"
 dependencies = [
  "galfus-core",
+ "galfus-host",
  "galfus-image",
- "galfus-target",
  "thiserror 2.0.18",
  "tracing",
 ]
@@ -745,8 +744,8 @@ dependencies = [
  "galfus-compiler",
  "galfus-core",
  "galfus-frontend",
+ "galfus-host",
  "galfus-runtime",
- "galfus-target",
  "serde",
  "toml 0.8.23",
 ]
