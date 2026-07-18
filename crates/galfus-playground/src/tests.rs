@@ -1,4 +1,4 @@
-use crate::run_source;
+use crate::{PLAYGROUND_CONFIG, Playground, run_source};
 
 #[test]
 fn run_source_captures_stdout() {
@@ -80,4 +80,31 @@ export fn main(args: [[u8]]): i32 {
 
     assert_eq!(result.error, None);
     assert_eq!(result.exit_code, 42);
+}
+
+#[test]
+fn playground_runs_incrementally_with_supplied_read_data() {
+    let mut playground = Playground::new();
+    playground
+        .set_config(PLAYGROUND_CONFIG.as_bytes())
+        .expect("configures playground");
+    playground
+        .set_source(
+            "src/main.gfs",
+            br#"
+import { println, read } from "std/io"
+
+export fn main(args: [[u8]]): i32 {
+  println(read())
+  return 9
+}
+"#,
+        )
+        .expect("loads source");
+    playground.send_read_data(b"hello\n");
+
+    assert!(playground.check().is_valid);
+    playground.compile().expect("compiles source");
+    assert_eq!(playground.run(&[]).expect("runs source"), 9);
+    assert_eq!(playground.take_output(), b"hello\n");
 }

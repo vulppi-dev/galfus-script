@@ -36,3 +36,14 @@ fn rejects_an_empty_terminator() {
 
     assert_eq!(error.operation(), IoOperation::Read);
 }
+
+#[test]
+fn receives_read_data_after_creation() {
+    let mut provider = BufferIoProvider::default();
+    provider.send_read_data(b"input\n");
+
+    assert_eq!(
+        provider.read(b"\n").expect("reads supplied input"),
+        IoRead::Bytes(b"input".to_vec())
+    );
+}

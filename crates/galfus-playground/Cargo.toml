@@ -15,8 +15,9 @@ anyhow = { workspace = true }
 
 # Optional wasm feature
 wasm-bindgen = { workspace = true, optional = true }
+js-sys = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
 
 [features]
 default = []
-wasm = ["dep:wasm-bindgen", "dep:serde_json"]
+wasm = ["dep:wasm-bindgen", "dep:js-sys", "dep:serde_json"]
