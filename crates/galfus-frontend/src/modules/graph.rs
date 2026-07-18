@@ -241,7 +241,7 @@ impl SemanticModuleGraph {
         let dependencies =
             crate::modules::collect_implicit_dependencies(module.graph().syntax(), root);
 
-        if dependencies.has_range {
+        if dependencies.requires_iterable {
             self.add_implicit_import_edge(module.id(), "std/iterable.gfs");
         }
         if dependencies.has_match {

@@ -179,7 +179,7 @@ impl FrontendSession {
                 continue;
             };
             let implicit = collect_implicit_dependencies(module.graph().syntax(), root);
-            if implicit.has_range {
+            if implicit.requires_iterable {
                 required.insert(ModulePath::new("std/iterable.gfs").expect("valid builtin path"));
             }
             if implicit.has_match {

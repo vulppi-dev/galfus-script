@@ -2,13 +2,13 @@ use crate::{SyntaxLayer, SyntaxNodeKind};
 use galfus_core::NodeId;
 
 pub struct ImplicitDependencies {
-    pub has_range: bool,
+    pub requires_iterable: bool,
     pub has_match: bool,
 }
 
 pub fn collect_implicit_dependencies(syntax: &SyntaxLayer, root: NodeId) -> ImplicitDependencies {
     let mut deps = ImplicitDependencies {
-        has_range: false,
+        requires_iterable: false,
         has_match: false,
     };
 
@@ -26,7 +26,9 @@ fn collect_compiler_known_uses(
     };
 
     match node.kind() {
-        SyntaxNodeKind::RangeExpression | SyntaxNodeKind::ForStatement => deps.has_range = true,
+        SyntaxNodeKind::RangeExpression | SyntaxNodeKind::ForStatement => {
+            deps.requires_iterable = true;
+        }
         SyntaxNodeKind::MatchExpression => deps.has_match = true,
         _ => {}
     }
