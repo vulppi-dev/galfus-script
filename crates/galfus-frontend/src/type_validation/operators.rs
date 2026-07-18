@@ -281,6 +281,10 @@ impl<'a> DeclarationTypeChecker<'a> {
     }
 
     fn common_numeric_type(&self, left: TypeId, right: TypeId) -> Option<TypeId> {
+        if self.is_same_numeric_type(left, right) {
+            return Some(left);
+        }
+
         if let Some(common) = self.common_integer_type(left, right) {
             return Some(common);
         }
@@ -327,6 +331,23 @@ impl<'a> DeclarationTypeChecker<'a> {
     pub(super) fn is_numeric_type(&self, ty: TypeId) -> bool {
         match self.layer.table().kind(ty) {
             Some(TypeKind::Primitive(primitive)) => self.is_numeric_primitive(*primitive),
+            Some(TypeKind::GenericParameter { symbol }) => self
+                .generic_parameter_bound_type(*symbol)
+                .is_some_and(|bound| self.is_numeric_bound(bound)),
+            Some(TypeKind::Error) => true,
+            _ => false,
+        }
+    }
+
+    fn is_numeric_bound(&self, ty: TypeId) -> bool {
+        match self.layer.table().kind(ty) {
+            Some(TypeKind::Primitive(primitive)) => self.is_numeric_primitive(*primitive),
+            Some(TypeKind::Union { members }) => {
+                members.iter().all(|member| self.is_numeric_bound(*member))
+            }
+            Some(TypeKind::GenericParameter { symbol }) => self
+                .generic_parameter_bound_type(*symbol)
+                .is_some_and(|bound| self.is_numeric_bound(bound)),
             Some(TypeKind::Error) => true,
             _ => false,
         }

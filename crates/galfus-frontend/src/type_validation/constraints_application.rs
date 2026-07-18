@@ -158,7 +158,7 @@ impl<'a> DeclarationTypeChecker<'a> {
         None
     }
 
-    fn constraint_base_name(&self, base: NodeId) -> Option<String> {
+    pub(super) fn constraint_base_name(&self, base: NodeId) -> Option<String> {
         let syntax = self.graph.syntax();
         let node = syntax.node(base)?;
 
@@ -326,8 +326,22 @@ impl<'a> DeclarationTypeChecker<'a> {
     ) -> Option<ConstraintApplication> {
         let ty = self.resolve_alias_type(ty);
 
-        let symbol = match self.layer.table().kind(ty).cloned()? {
-            TypeKind::Named { symbol } => symbol,
+        let (symbol, struct_substitution) = match self.layer.table().kind(ty).cloned()? {
+            TypeKind::Named { symbol } => (symbol, TypeSubstitution::new()),
+            TypeKind::GenericInstance { base, arguments } => {
+                let TypeKind::Named { symbol } = self.layer.table().kind(base).cloned()? else {
+                    return None;
+                };
+                let struct_item = self.type_item_for_symbol(symbol)?;
+                let parameters =
+                    self.declaration_symbols_in_node(struct_item, &[SymbolKind::GenericParameter]);
+
+                if parameters.len() != arguments.len() {
+                    return None;
+                }
+
+                (symbol, parameters.into_iter().zip(arguments).collect())
+            }
             _ => return None,
         };
 
@@ -357,7 +371,21 @@ impl<'a> DeclarationTypeChecker<'a> {
             };
 
             if application.constraint_name == constraint_name {
-                return Some(application);
+                let substitution = application
+                    .substitution
+                    .iter()
+                    .map(|(parameter, value)| {
+                        (
+                            *parameter,
+                            self.substitute_type(*value, &struct_substitution),
+                        )
+                    })
+                    .collect();
+
+                return Some(ConstraintApplication {
+                    substitution,
+                    ..application
+                });
             }
         }
 

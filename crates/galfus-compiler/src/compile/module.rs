@@ -67,6 +67,7 @@ pub fn compile_changed_modules(
         })?;
         let mir =
             galfus_ir::builder::MirBuilder::new(module.graph(), type_res, module.source().text())
+                .with_workspace_module_id(module.id())
                 .with_workspace_ctx(&mut ws_ctx)
                 .build();
         mir_modules[module_index] = Some(mir);

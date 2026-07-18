@@ -1,5 +1,5 @@
 use crate::mir::*;
-use galfus_core::{FunctionId, NodeId, SymbolId, TypeId};
+use galfus_core::{FunctionId, ModuleId, NodeId, SymbolId, TypeId};
 use galfus_frontend::{ModuleGraph, SymbolKind, SyntaxNodeKind, TypeCheckResult, TypeKind};
 use std::collections::{HashMap, HashSet};
 
@@ -22,6 +22,7 @@ pub struct MirBuilder<'a> {
     pub(super) specialized_functions: Vec<MirFunction>,
     pub(super) active_specialisations: HashSet<(FunctionId, Vec<TypeId>)>,
     pub(super) workspace_ctx: Option<*mut (dyn WorkspaceContext + 'a)>,
+    pub(super) workspace_module_id: Option<ModuleId>,
 }
 
 impl<'a> MirBuilder<'a> {
@@ -41,11 +42,17 @@ impl<'a> MirBuilder<'a> {
             specialized_functions: Vec::new(),
             active_specialisations: HashSet::new(),
             workspace_ctx: None,
+            workspace_module_id: None,
         }
     }
 
     pub fn with_workspace_ctx(mut self, ctx: &'a mut dyn WorkspaceContext) -> Self {
         self.workspace_ctx = Some(ctx as *mut (dyn WorkspaceContext + 'a));
+        self
+    }
+
+    pub fn with_workspace_module_id(mut self, module_id: ModuleId) -> Self {
+        self.workspace_module_id = Some(module_id);
         self
     }
 
@@ -64,7 +71,9 @@ impl<'a> MirBuilder<'a> {
                 if let Some(node) = self.graph.syntax().node(*item) {
                     match node.kind() {
                         SyntaxNodeKind::FunctionItem => {
-                            if let Some(func) = self.build_function(*item) {
+                            if !self.requires_specialization(*item)
+                                && let Some(func) = self.build_function(*item)
+                            {
                                 functions.push(func);
                             }
                         }
@@ -79,7 +88,9 @@ impl<'a> MirBuilder<'a> {
                                     })
                                     .unwrap_or(false);
                                 if is_func {
-                                    if let Some(func) = self.build_function(inner) {
+                                    if !self.requires_specialization(inner)
+                                        && let Some(func) = self.build_function(inner)
+                                    {
                                         functions.push(func);
                                     }
                                 } else if let Some(inner_node) = self.graph.syntax().node(inner)
@@ -290,109 +301,33 @@ impl<'a> MirBuilder<'a> {
         self.resolve_alias_type_with_visited(underlying_ty, visited)
     }
 
-    pub(super) fn is_assignable(&self, expected: TypeId, actual: TypeId) -> bool {
-        let expected = self.resolve_alias_type(expected);
-        let actual = self.resolve_alias_type(actual);
-
-        if expected == actual {
-            return true;
-        }
-
-        let table = self.type_result.layer().table();
-        let expected_kind = table.kind(expected);
-        let actual_kind = table.kind(actual);
-
-        if matches!(expected_kind, Some(TypeKind::Error)) {
-            return true;
-        }
-
-        if matches!(actual_kind, Some(TypeKind::Error)) {
-            return true;
-        }
-
-        match (expected_kind, actual_kind) {
-            (Some(TypeKind::Union { members }), _) => members
-                .iter()
-                .copied()
-                .any(|member| self.is_assignable(member, actual)),
-
-            (_, Some(TypeKind::Union { members })) => members
-                .iter()
-                .copied()
-                .all(|member| self.is_assignable(expected, member)),
-
-            (
-                Some(TypeKind::Array {
-                    element: expected_element,
-                }),
-                Some(TypeKind::Array {
-                    element: actual_element,
-                }),
-            ) => self.is_assignable(*expected_element, *actual_element),
-
-            (
-                Some(TypeKind::Primitive(expected_primitive)),
-                Some(TypeKind::Primitive(actual_primitive)),
-            ) => {
-                if expected_primitive == actual_primitive {
-                    true
-                } else {
-                    let is_expected_int = matches!(
-                        expected_primitive,
-                        galfus_frontend::PrimitiveType::Int8
-                            | galfus_frontend::PrimitiveType::Int16
-                            | galfus_frontend::PrimitiveType::Int32
-                            | galfus_frontend::PrimitiveType::Int64
-                            | galfus_frontend::PrimitiveType::Uint8
-                            | galfus_frontend::PrimitiveType::Uint16
-                            | galfus_frontend::PrimitiveType::Uint32
-                            | galfus_frontend::PrimitiveType::Uint64
-                    );
-                    let is_actual_int = matches!(
-                        actual_primitive,
-                        galfus_frontend::PrimitiveType::Int8
-                            | galfus_frontend::PrimitiveType::Int16
-                            | galfus_frontend::PrimitiveType::Int32
-                            | galfus_frontend::PrimitiveType::Int64
-                            | galfus_frontend::PrimitiveType::Uint8
-                            | galfus_frontend::PrimitiveType::Uint16
-                            | galfus_frontend::PrimitiveType::Uint32
-                            | galfus_frontend::PrimitiveType::Uint64
-                    );
-                    if is_expected_int && is_actual_int {
-                        true
-                    } else {
-                        let is_expected_float = matches!(
-                            expected_primitive,
-                            galfus_frontend::PrimitiveType::Float16
-                                | galfus_frontend::PrimitiveType::Float32
-                                | galfus_frontend::PrimitiveType::Float64
-                        );
-                        let is_actual_float = matches!(
-                            actual_primitive,
-                            galfus_frontend::PrimitiveType::Float16
-                                | galfus_frontend::PrimitiveType::Float32
-                                | galfus_frontend::PrimitiveType::Float64
-                        );
-                        is_expected_float && is_actual_float
-                    }
-                }
-            }
-
-            _ => false,
-        }
+    pub(super) fn is_same_type(&self, left: TypeId, right: TypeId) -> bool {
+        self.resolve_alias_type(left) == self.resolve_alias_type(right)
     }
 }
 
 pub trait WorkspaceContext {
-    fn resolve_import(&self, node_id: NodeId) -> Option<(usize, SymbolId)>;
+    fn resolve_import(
+        &self,
+        caller_module_id: ModuleId,
+        node_id: NodeId,
+    ) -> Option<(usize, SymbolId)>;
     fn get_generic_params(
         &self,
         target_mod_idx: usize,
         target_symbol: SymbolId,
     ) -> Option<Vec<SymbolId>>;
+    fn infer_imported_generic_arguments(
+        &mut self,
+        caller_module_id: ModuleId,
+        target_mod_idx: usize,
+        target_symbol: SymbolId,
+        generic_params: &[SymbolId],
+        arg_types: &[TypeId],
+    ) -> Option<Vec<TypeId>>;
     fn specialize_function(
         &mut self,
+        caller_module_id: ModuleId,
         caller_node_id: NodeId,
         target_mod_idx: usize,
         target_symbol: SymbolId,
@@ -401,6 +336,7 @@ pub trait WorkspaceContext {
     ) -> FunctionId;
     fn specialize_builtin_function(
         &mut self,
+        caller_module_id: ModuleId,
         caller_node_id: NodeId,
         module_name: &str,
         function_name: &str,

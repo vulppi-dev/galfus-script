@@ -1,12 +1,9 @@
 use galfus_core::{FunctionId, NodeId, SymbolId, TypeId};
 use galfus_frontend::{
-    FunctionParameterType, FunctionType, PrimitiveType, SymbolKind, SyntaxNodeKind, TypeKind,
-    TypeTable,
+    FunctionParameterType, FunctionType, SymbolKind, SyntaxNodeKind, TypeKind, TypeTable,
 };
 use galfus_ir::builder::WorkspaceContext;
-use galfus_ir::mir::{
-    BasicBlock, BlockId, Instruction, LocalDecl, LocalId, MirFunction, Operand, Terminator,
-};
+use galfus_ir::mir::MirFunction;
 use std::collections::HashMap;
 
 use crate::input::CompiledModule;
@@ -240,112 +237,18 @@ impl<'a> MyWorkspaceContext<'a> {
         };
         target_table.intern(translated_kind)
     }
-
-    fn specialize_format_parse(
-        &mut self,
-        target_mod_idx: usize,
-        target_symbol: SymbolId,
-        concrete_types: &[TypeId],
-        substitutions: HashMap<SymbolId, TypeId>,
-    ) -> Option<FunctionId> {
-        let target_module = &self.modules[target_mod_idx];
-
-        if target_module.source().name() != "format" && target_module.path().as_str() != "format" {
-            return None;
-        }
-
-        let resolution = target_module.graph().resolution()?;
-        if resolution.symbol(target_symbol)?.name() != "parse" {
-            return None;
-        }
-
-        let concrete_type = concrete_types.first().copied()?;
-        let target_type_result = target_module.type_result()?;
-        let parse_function_name = match target_type_result.layer().table().kind(concrete_type)? {
-            TypeKind::Primitive(PrimitiveType::Int8) => "parseInt8",
-            TypeKind::Primitive(PrimitiveType::Int16) => "parseInt16",
-            TypeKind::Primitive(PrimitiveType::Int32) => "parseInt32",
-            TypeKind::Primitive(PrimitiveType::Int64) => "parseInt64Raw",
-            TypeKind::Primitive(PrimitiveType::Uint8) => "parseUint8",
-            TypeKind::Primitive(PrimitiveType::Uint16) => "parseUint16",
-            TypeKind::Primitive(PrimitiveType::Uint32) => "parseUint32",
-            TypeKind::Primitive(PrimitiveType::Uint64) => "parseUint64Raw",
-            TypeKind::Primitive(PrimitiveType::Float32) => "parseFloat32",
-            TypeKind::Primitive(PrimitiveType::Float64) => "parseFloat64",
-            TypeKind::Primitive(PrimitiveType::Bool) => "parseBoolRaw",
-            TypeKind::Primitive(PrimitiveType::Null) => "parseNull",
-            _ => return None,
-        };
-
-        let parse_function_id = resolution
-            .symbols()
-            .iter()
-            .find(|symbol| {
-                symbol.kind() == SymbolKind::Function && symbol.name() == parse_function_name
-            })
-            .map(|symbol| FunctionId::new(symbol.id().raw()))?;
-
-        let key = (target_mod_idx, target_symbol, concrete_types.to_vec());
-        if let Some(func_id) = self.specialisations.get(&key).copied() {
-            return Some(func_id);
-        }
-
-        let specialized_id = FunctionId::new(self.next_specialised_id);
-        self.next_specialised_id = self.next_specialised_id.saturating_sub(1);
-        self.specialisations.insert(key, specialized_id);
-        self.specialised_id_to_target
-            .insert(specialized_id, (target_mod_idx, specialized_id));
-
-        let type_res = target_module.type_result()?;
-        let mut builder = galfus_ir::builder::MirBuilder::new(
-            target_module.graph(),
-            type_res,
-            target_module.source().text(),
-        );
-
-        let function_item = builder.function_item_for_symbol(target_symbol)?;
-        let mut function = builder.build_function_with_substitutions(
-            function_item,
-            Some(specialized_id),
-            substitutions,
-        )?;
-
-        let result_id = function
-            .locals
-            .iter()
-            .map(|local| local.id.raw())
-            .max()
-            .map(|id| LocalId::new(id + 1))
-            .unwrap_or_else(|| LocalId::new(function.parameter_types.len() as u32));
-
-        function.locals.push(LocalDecl {
-            id: result_id,
-            ty: function.return_type,
-        });
-        function.name = format!("{}#{}", function.name, specialized_id.raw());
-        function.blocks = vec![BasicBlock {
-            parameters: Vec::new(),
-            id: BlockId::new(0),
-            instructions: vec![Instruction::Call {
-                func: parse_function_id,
-                args: vec![Operand::Local(LocalId::new(0))],
-                destination: result_id,
-            }],
-            terminator: Terminator::Return(Some(Operand::Local(result_id))),
-        }];
-
-        self.specialised_functions[target_mod_idx].push(function);
-
-        Some(specialized_id)
-    }
 }
 
 impl<'a> WorkspaceContext for MyWorkspaceContext<'a> {
-    fn resolve_import(&self, node_id: NodeId) -> Option<(usize, SymbolId)> {
+    fn resolve_import(
+        &self,
+        caller_module_id: galfus_core::ModuleId,
+        node_id: NodeId,
+    ) -> Option<(usize, SymbolId)> {
         let current_mod_idx = self
             .modules
             .iter()
-            .position(|m| m.graph().syntax().node(node_id).is_some())?;
+            .position(|m| m.id() == caller_module_id)?;
 
         let mut real_target = node_id;
         let module = &self.modules[current_mod_idx];
@@ -383,9 +286,57 @@ impl<'a> WorkspaceContext for MyWorkspaceContext<'a> {
         Some(builder.generic_parameters_for_function_item(function_item))
     }
 
+    fn infer_imported_generic_arguments(
+        &mut self,
+        caller_module_id: galfus_core::ModuleId,
+        target_mod_idx: usize,
+        target_symbol: SymbolId,
+        generic_params: &[SymbolId],
+        arg_types: &[TypeId],
+    ) -> Option<Vec<TypeId>> {
+        let caller_mod_idx = self
+            .modules
+            .iter()
+            .position(|m| m.id() == caller_module_id)?;
+        let translated_arguments = arg_types
+            .iter()
+            .map(|&ty| self.translate_type(caller_mod_idx, target_mod_idx, ty))
+            .collect::<Vec<_>>();
+        let target_module = &self.modules[target_mod_idx];
+        let function_type = target_module
+            .type_result()?
+            .layer()
+            .symbol_type(target_symbol)?;
+        let TypeKind::Function(function) = target_module
+            .type_result()?
+            .layer()
+            .table()
+            .kind(function_type)?
+        else {
+            return None;
+        };
+
+        let mut substitutions = HashMap::new();
+        for (parameter, argument) in function.parameters().iter().zip(translated_arguments) {
+            self.infer_generic_argument_from_types(
+                target_mod_idx,
+                generic_params,
+                parameter.ty(),
+                argument,
+                &mut substitutions,
+            );
+        }
+
+        generic_params
+            .iter()
+            .map(|parameter| substitutions.get(parameter).copied())
+            .collect()
+    }
+
     fn specialize_function(
         &mut self,
-        caller_node_id: NodeId,
+        caller_module_id: galfus_core::ModuleId,
+        _caller_node_id: NodeId,
         target_mod_idx: usize,
         target_symbol: SymbolId,
         concrete_types: Vec<TypeId>,
@@ -394,7 +345,7 @@ impl<'a> WorkspaceContext for MyWorkspaceContext<'a> {
         let caller_mod_idx = self
             .modules
             .iter()
-            .position(|m| m.graph().syntax().node(caller_node_id).is_some())
+            .position(|m| m.id() == caller_module_id)
             .unwrap_or(0);
 
         let concrete_types = concrete_types
@@ -409,15 +360,6 @@ impl<'a> WorkspaceContext for MyWorkspaceContext<'a> {
                 (sym, translated_ty)
             })
             .collect::<HashMap<_, _>>();
-
-        if let Some(specialized_id) = self.specialize_format_parse(
-            target_mod_idx,
-            target_symbol,
-            &concrete_types,
-            substitutions.clone(),
-        ) {
-            return specialized_id;
-        }
 
         let key = (target_mod_idx, target_symbol, concrete_types.clone());
         if let Some(func_id) = self.specialisations.get(&key).copied() {
@@ -436,7 +378,8 @@ impl<'a> WorkspaceContext for MyWorkspaceContext<'a> {
             target_module.graph(),
             type_res,
             target_module.source().text(),
-        );
+        )
+        .with_workspace_module_id(target_module.id());
         builder = builder.with_workspace_ctx(self);
 
         if let Some(function_item) = builder.function_item_for_symbol(target_symbol) {
@@ -446,7 +389,20 @@ impl<'a> WorkspaceContext for MyWorkspaceContext<'a> {
                 substitutions,
             ) {
                 function.name = format!("{}#{}", function.name, specialized_id.raw());
+                let anchored_specializations = builder.anchored_function_specializations_for_type(
+                    function.return_type,
+                    &function.type_substitutions,
+                );
                 self.specialised_functions[target_mod_idx].push(function);
+
+                for (method_item, method_types, method_substitutions) in anchored_specializations {
+                    self.specialize_anchored_function(
+                        target_mod_idx,
+                        method_item,
+                        method_types,
+                        method_substitutions,
+                    );
+                }
             }
         }
 
@@ -455,6 +411,7 @@ impl<'a> WorkspaceContext for MyWorkspaceContext<'a> {
 
     fn specialize_builtin_function(
         &mut self,
+        caller_module_id: galfus_core::ModuleId,
         caller_node_id: NodeId,
         module_name: &str,
         function_name: &str,
@@ -480,6 +437,7 @@ impl<'a> WorkspaceContext for MyWorkspaceContext<'a> {
             .zip(concrete_types.clone())
             .collect();
         Some(self.specialize_function(
+            caller_module_id,
             caller_node_id,
             target_mod_idx,
             target_symbol,
@@ -494,5 +452,116 @@ impl<'a> WorkspaceContext for MyWorkspaceContext<'a> {
             .flat_map(|funcs| funcs.iter())
             .find(|f| f.id == func_id)
             .map(|f| f.return_type)
+    }
+}
+
+impl<'a> MyWorkspaceContext<'a> {
+    fn specialize_anchored_function(
+        &mut self,
+        target_mod_idx: usize,
+        function_item: NodeId,
+        concrete_types: Vec<TypeId>,
+        substitutions: HashMap<SymbolId, TypeId>,
+    ) {
+        let target_module = &self.modules[target_mod_idx];
+        let type_res = target_module.type_result().unwrap();
+        let mut builder = galfus_ir::builder::MirBuilder::new(
+            target_module.graph(),
+            type_res,
+            target_module.source().text(),
+        )
+        .with_workspace_module_id(target_module.id());
+        let Some(target_symbol) = builder.function_symbol_for_item(function_item) else {
+            return;
+        };
+        let key = (target_mod_idx, target_symbol, concrete_types);
+        if self.specialisations.contains_key(&key) {
+            return;
+        }
+
+        let specialized_id = FunctionId::new(self.next_specialised_id);
+        self.next_specialised_id = self.next_specialised_id.saturating_sub(1);
+        self.specialisations.insert(key, specialized_id);
+        self.specialised_id_to_target
+            .insert(specialized_id, (target_mod_idx, specialized_id));
+
+        builder = builder.with_workspace_ctx(self);
+        if let Some(mut function) = builder.build_function_with_substitutions(
+            function_item,
+            Some(specialized_id),
+            substitutions,
+        ) {
+            function.name = format!("{}#{}", function.name, specialized_id.raw());
+            self.specialised_functions[target_mod_idx].push(function);
+        }
+    }
+
+    fn infer_generic_argument_from_types(
+        &self,
+        module_idx: usize,
+        generic_params: &[SymbolId],
+        parameter_type: TypeId,
+        argument_type: TypeId,
+        substitutions: &mut HashMap<SymbolId, TypeId>,
+    ) {
+        let table = self.modules[module_idx]
+            .type_result()
+            .unwrap()
+            .layer()
+            .table();
+
+        match table.kind(parameter_type) {
+            Some(TypeKind::GenericParameter { symbol }) if generic_params.contains(symbol) => {
+                substitutions.entry(*symbol).or_insert(argument_type);
+            }
+            Some(TypeKind::Array { element }) => {
+                if let Some(TypeKind::Array {
+                    element: argument_element,
+                }) = table.kind(argument_type)
+                {
+                    self.infer_generic_argument_from_types(
+                        module_idx,
+                        generic_params,
+                        *element,
+                        *argument_element,
+                        substitutions,
+                    );
+                }
+            }
+            Some(TypeKind::Tuple { elements }) => {
+                if let Some(TypeKind::Tuple {
+                    elements: argument_elements,
+                }) = table.kind(argument_type)
+                {
+                    for (element, argument_element) in elements.iter().zip(argument_elements) {
+                        self.infer_generic_argument_from_types(
+                            module_idx,
+                            generic_params,
+                            *element,
+                            *argument_element,
+                            substitutions,
+                        );
+                    }
+                }
+            }
+            Some(TypeKind::GenericInstance { arguments, .. }) => {
+                if let Some(TypeKind::GenericInstance {
+                    arguments: argument_arguments,
+                    ..
+                }) = table.kind(argument_type)
+                {
+                    for (argument, parameter) in argument_arguments.iter().zip(arguments) {
+                        self.infer_generic_argument_from_types(
+                            module_idx,
+                            generic_params,
+                            *parameter,
+                            *argument,
+                            substitutions,
+                        );
+                    }
+                }
+            }
+            _ => {}
+        }
     }
 }

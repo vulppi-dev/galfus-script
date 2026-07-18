@@ -10,7 +10,7 @@ export struct RangeStepped<T: i32 | f32> satisfies Iterable<T>, Iterator<T> {
   start: T,
   count: i32,
   step: T,
-  current: T,
+  index: i32,
 }
 
 export fn range(start: i32, end: i32): RangeExclusive {
@@ -26,7 +26,7 @@ export fn rangeSteps<T: i32 | f32>(start: T, count: i32, step: T): RangeStepped<
     start,
     count,
     step,
-    current: 0,
+    index: 0,
   }
 }
 
@@ -59,7 +59,7 @@ fn RangeExclusive::next(self): i32 | null {
 }
 
 fn RangeStepped<T>::iter(self): Iterator<T> {
-  self.current = 0
+  self.index = 0
   return self
 }
 
@@ -68,12 +68,13 @@ fn RangeStepped<T>::size(self): i32 {
 }
 
 fn RangeStepped<T>::next(self): T | null {
-  if self.current >= self.count {
+  if self.index >= self.count {
     return null
   }
 
-  const value = self.start + self.current
-  self.current += self.step
+  const value = self.start + <T> self.index * self.step
+  self.index += 1
+
   return value
 }
 

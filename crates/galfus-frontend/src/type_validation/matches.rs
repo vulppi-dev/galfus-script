@@ -7,7 +7,11 @@ use crate::{PrimitiveType, SymbolKind, SyntaxNodeKind, TypeKind};
 use super::{DeclarationTypeChecker, LoweredImportedChoice, LoweredImportedChoiceVariant};
 
 impl<'a> DeclarationTypeChecker<'a> {
-    pub(super) fn infer_match_expression_type(&mut self, node: NodeId) -> Option<TypeId> {
+    pub(super) fn infer_match_expression_type(
+        &mut self,
+        node: NodeId,
+        expected: Option<TypeId>,
+    ) -> Option<TypeId> {
         let subject = self.graph.syntax().child(node, 0)?;
         let arms = self.graph.syntax().child(node, 1)?;
 
@@ -34,24 +38,39 @@ impl<'a> DeclarationTypeChecker<'a> {
 
         let mut arm_types = Vec::new();
 
-        for arm in arm_nodes {
-            let Some(arm_type) = self.check_match_arm_type(arm, subject_type) else {
+        for arm in arm_nodes.iter().copied() {
+            let Some(arm_type) = self.check_match_arm_type(arm, subject_type, expected) else {
                 continue;
             };
 
             arm_types.push((arm, arm_type));
         }
 
-        let Some((_, expected)) = arm_types
-            .iter()
-            .copied()
-            .find(|(_, ty)| !self.is_error_type(*ty))
-        else {
+        let Some(expected) = expected.or_else(|| {
+            arm_types
+                .iter()
+                .copied()
+                .find(|(_, ty)| !self.is_error_type(*ty))
+                .map(|(_, ty)| ty)
+        }) else {
             let error = self.layer.table_mut().error();
             self.layer.bind_node_type(node, error);
 
             return Some(error);
         };
+
+        if arm_types.iter().all(|(_, ty)| !self.is_error_type(*ty)) {
+            arm_types.clear();
+
+            for arm in arm_nodes {
+                let Some(arm_type) = self.check_match_arm_type(arm, subject_type, Some(expected))
+                else {
+                    continue;
+                };
+
+                arm_types.push((arm, arm_type));
+            }
+        }
 
         let mut has_error = false;
 
@@ -114,23 +133,32 @@ impl<'a> DeclarationTypeChecker<'a> {
         })
     }
 
-    fn check_match_arm_type(&mut self, arm: NodeId, subject_type: TypeId) -> Option<TypeId> {
+    fn check_match_arm_type(
+        &mut self,
+        arm: NodeId,
+        subject_type: TypeId,
+        expected: Option<TypeId>,
+    ) -> Option<TypeId> {
         let pattern = self.graph.syntax().child(arm, 0)?;
         let body = self.graph.syntax().child(arm, 1)?;
 
         self.check_match_pattern_type(pattern, subject_type);
 
-        self.infer_match_arm_body_type(body)
+        self.infer_match_arm_body_type(body, expected)
     }
 
-    fn infer_match_arm_body_type(&mut self, body: NodeId) -> Option<TypeId> {
+    fn infer_match_arm_body_type(
+        &mut self,
+        body: NodeId,
+        expected: Option<TypeId>,
+    ) -> Option<TypeId> {
         let body_node = self.graph.syntax().node(body)?;
 
         if body_node.kind() == SyntaxNodeKind::Block {
             return Some(self.layer.table().primitive(PrimitiveType::Null));
         }
 
-        self.infer_expression_type(body)
+        self.infer_expression_type_with_expected(body, expected)
     }
 
     fn check_match_pattern_type(&mut self, pattern: NodeId, expected: TypeId) {

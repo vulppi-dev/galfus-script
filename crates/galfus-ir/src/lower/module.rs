@@ -30,6 +30,7 @@ pub fn lower_module(
     let mut init_func_idx = None;
 
     for (i, mir_func) in mir_module.functions.iter().enumerate() {
+        ctx.active_substitutions = mir_func.type_substitutions.clone();
         let is_init = mir_func.name == "__init_module";
         if is_init {
             init_func_idx = Some(FuncIdx(i as u16));

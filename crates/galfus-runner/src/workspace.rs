@@ -47,13 +47,13 @@ pub fn run_project(root: &str, cli_args: &[String]) -> Result<()> {
 }
 
 fn load_workspace(root: &Path) -> Result<Workspace> {
-    let root = if root.is_file() {
-        root.parent().unwrap_or_else(|| Path::new(""))
-    } else {
-        root
+    if root.is_file() {
+        return load_source_file(root);
     }
-    .canonicalize()
-    .context("workspace root does not exist")?;
+
+    let root = root
+        .canonicalize()
+        .context("workspace root does not exist")?;
     let config = std::fs::read(root.join("galfus.toml"))?;
 
     let mut workspace = Workspace::new();
@@ -65,6 +65,34 @@ fn load_workspace(root: &Path) -> Result<Workspace> {
     }
 
     load_sources(&mut workspace, root.as_path(), root.as_path())?;
+    Ok(workspace)
+}
+
+fn load_source_file(file: &Path) -> Result<Workspace> {
+    if file.extension().is_none_or(|extension| extension != "gfs") {
+        bail!("source file must use the .gfs extension");
+    }
+
+    let file = file.canonicalize().context("source file does not exist")?;
+    let module_path = file
+        .file_name()
+        .and_then(|name| name.to_str())
+        .context("source file name is not valid UTF-8")?;
+    let source = std::fs::read(file.as_path())?;
+
+    let mut workspace = Workspace::new();
+    let config =
+        format!("[module]\nname = \"single-file\"\ntarget = \"app\"\nentry = \"{module_path}\"\n");
+    if let LoadResult::Diagnostics(diagnostics) = workspace
+        .load_config(config.as_bytes())
+        .map_err(|error| anyhow::anyhow!("workspace configuration error: {error:?}"))?
+    {
+        bail!("workspace configuration failed: {diagnostics:?}");
+    }
+
+    workspace
+        .load_module(module_path, source.as_slice())
+        .map_err(|error| anyhow::anyhow!("workspace source error: {error:?}"))?;
     Ok(workspace)
 }
 

@@ -143,6 +143,34 @@ fn unwrap(value: Outcome<i32>): i32 {
 }
 
 #[test]
+fn check_infers_match_literal_from_generic_choice_payload_type() {
+    let (_source, graph, result) = check_source(
+        r#"
+choice Outcome<T> {
+  Ok(T),
+  Err([u8]),
+}
+
+fn unwrap(value: Outcome<i32>): i32 {
+  var result = match value {
+    Outcome::Ok(result) => result,
+    Outcome::Err(_) => 0,
+  }
+  return result
+}
+"#,
+    );
+
+    let literal = find_node_by_kind(&graph, SyntaxNodeKind::IntegerLiteral).unwrap();
+    let literal_type = result.layer().node_type(literal).unwrap();
+
+    assert_eq!(
+        result.layer().table().kind(literal_type),
+        Some(&TypeKind::Primitive(PrimitiveType::Int32))
+    );
+}
+
+#[test]
 fn check_reports_choice_payload_pattern_count_mismatch() {
     let source = source(
         r#"

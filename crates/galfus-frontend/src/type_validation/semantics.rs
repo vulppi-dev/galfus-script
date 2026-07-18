@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use galfus_core::{NodeId, SymbolId, TypeId};
 
+use crate::builtin_constraints::is_builtin_constraint;
 use crate::{PrimitiveType, SymbolKind, SyntaxNodeKind, TypeKind};
 
 use super::DeclarationTypeChecker;
@@ -497,7 +498,7 @@ impl<'a> DeclarationTypeChecker<'a> {
             return false;
         }
 
-        if !matches!(symbol_data.name(), "Iterator" | "Iterable" | "Comparable") {
+        if !is_builtin_constraint(symbol_data.name()) {
             return false;
         }
 

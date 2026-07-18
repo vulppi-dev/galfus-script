@@ -219,6 +219,53 @@ fn test_mir_builder_specializes_generic_typeof_call() {
     assert!(has_string_assignment(specialized, "number"));
 }
 
+#[test]
+fn test_mir_builder_specializes_typeof_generic_parameter() {
+    let source_id = SourceId::new(0);
+    let code = r#"
+        fn label<T: i32 | bool>(): [u8] {
+            return typeof T {
+                i32 => "number",
+                bool => "flag",
+            }
+        }
+
+        fn main(): [u8] {
+            return label<i32>()
+        }
+    "#;
+    let source = SourceFile::new(source_id, "test.gfs".to_string(), code.to_string());
+
+    let parse_result = parse(&source);
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    let graph = resolve_result.into_graph();
+    assert!(!graph.has_errors(), "Parse or resolve errors occurred");
+
+    let type_result = check_declaration_types(&source, &graph);
+    assert!(
+        !type_result.has_errors(),
+        "Typecheck errors occurred: {:?}",
+        type_result.diagnostics()
+    );
+
+    let builder = builder::MirBuilder::new(&graph, &type_result, code);
+    let mir_module = builder.build();
+    let main = mir_module
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main function should be lowered");
+    let call_id = first_call_function_id(main).expect("main should call label");
+    let specialized = mir_module
+        .functions
+        .iter()
+        .find(|function| function.id == call_id)
+        .expect("specialized function should be emitted");
+
+    assert!(has_string_assignment(specialized, "number"));
+    assert!(!has_string_assignment(specialized, "flag"));
+}
+
 fn first_call_function_id(func: &MirFunction) -> Option<FunctionId> {
     for block in &func.blocks {
         for inst in &block.instructions {
@@ -232,7 +279,7 @@ fn first_call_function_id(func: &MirFunction) -> Option<FunctionId> {
 
 fn has_string_assignment(func: &MirFunction, expected_value: &str) -> bool {
     func.blocks.iter().any(|block| {
-        block.instructions.iter().any(|inst| {
+        let assigned = block.instructions.iter().any(|inst| {
             if let Instruction::Assign(_, RValue::Use(Operand::Constant(Constant::String(val)))) =
                 inst
             {
@@ -240,7 +287,13 @@ fn has_string_assignment(func: &MirFunction, expected_value: &str) -> bool {
             } else {
                 false
             }
-        })
+        });
+        let returned = matches!(
+            &block.terminator,
+            Terminator::Return(Some(Operand::Constant(Constant::String(value))))
+                if value == expected_value
+        );
+        assigned || returned
     })
 }
 
