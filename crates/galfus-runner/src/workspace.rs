@@ -1,9 +1,9 @@
 use anyhow::{Context, Result, bail};
-use galfus_core::{SourceFile, SourceId};
-use galfus_frontend::{parse, resolve};
 use galfus_workspace::{LoadResult, Workspace};
-use std::collections::HashSet;
-use std::path::{Path, PathBuf};
+use std::path::Path;
+
+#[cfg(test)]
+mod tests;
 
 pub fn check_workspace_root(root: &str) -> Result<()> {
     let mut workspace = load_workspace(Path::new(root))?;
@@ -55,7 +55,6 @@ fn load_workspace(root: &Path) -> Result<Workspace> {
     .canonicalize()
     .context("workspace root does not exist")?;
     let config = std::fs::read(root.join("galfus.toml"))?;
-    let entries = workspace_roots(config.as_slice())?;
 
     let mut workspace = Workspace::new();
     if let LoadResult::Diagnostics(diagnostics) = workspace
@@ -65,78 +64,31 @@ fn load_workspace(root: &Path) -> Result<Workspace> {
         bail!("workspace configuration failed: {diagnostics:?}");
     }
 
-    let mut loaded = HashSet::new();
-    for entry in entries {
-        load_source_closure(&mut workspace, root.as_path(), entry.as_path(), &mut loaded)?;
-    }
+    load_sources(&mut workspace, root.as_path(), root.as_path())?;
     Ok(workspace)
 }
 
-fn workspace_roots(config: &[u8]) -> Result<Vec<PathBuf>> {
-    let config = std::str::from_utf8(config).context("galfus.toml is not UTF-8")?;
-    let value = toml::from_str::<toml::Value>(config).context("invalid galfus.toml")?;
-    let mut roots = value
-        .get("module")
-        .and_then(toml::Value::as_table)
-        .and_then(|module| module.get("entry"))
-        .and_then(toml::Value::as_str)
-        .map(PathBuf::from)
-        .into_iter()
-        .collect::<Vec<_>>();
-    if let Some(exports) = value.get("exports").and_then(toml::Value::as_table) {
-        roots.extend(
-            exports
-                .values()
-                .filter_map(toml::Value::as_str)
-                .map(PathBuf::from),
-        );
-    }
-    if roots.is_empty() {
-        bail!("workspace has no source roots")
-    }
-    Ok(roots)
-}
-
-fn load_source_closure(
-    workspace: &mut Workspace,
-    root: &Path,
-    relative_path: &Path,
-    loaded: &mut HashSet<PathBuf>,
-) -> Result<()> {
-    let path = root
-        .join(relative_path)
-        .canonicalize()
-        .with_context(|| format!("source module `{}` does not exist", relative_path.display()))?;
-    if !loaded.insert(path.clone()) {
-        return Ok(());
-    }
-    let source = std::fs::read_to_string(path.as_path())?;
-    let module_path = path
-        .strip_prefix(root)
-        .context("source module is outside the workspace root")?;
-    let module_path = module_path.to_string_lossy().replace('\\', "/");
-    workspace
-        .load_module(module_path.as_str(), source.as_bytes())
-        .map_err(|error| anyhow::anyhow!("workspace source error: {error:?}"))?;
-
-    let source_file = SourceFile::new(SourceId::new(0), module_path, source);
-    let graph = resolve(&source_file, parse(&source_file).into_graph()).into_graph();
-    let Some(resolution) = graph.resolution() else {
-        return Ok(());
-    };
-    for import in resolution.imports() {
-        let import = import.source();
-        if !import.starts_with("./") && !import.starts_with("../") {
+fn load_sources(workspace: &mut Workspace, workspace_root: &Path, directory: &Path) -> Result<()> {
+    for entry in std::fs::read_dir(directory)? {
+        let entry = entry?;
+        let path = entry.path();
+        let file_type = entry.file_type()?;
+        if file_type.is_dir() {
+            load_sources(workspace, workspace_root, path.as_path())?;
             continue;
         }
-        let mut next = relative_path
-            .parent()
-            .unwrap_or_else(|| Path::new(""))
-            .join(import);
-        if next.extension().is_none() {
-            next.set_extension("gfs");
+        if !file_type.is_file() || path.extension().is_none_or(|extension| extension != "gfs") {
+            continue;
         }
-        load_source_closure(workspace, root, next.as_path(), loaded)?;
+
+        let source = std::fs::read(path.as_path())?;
+        let module_path = path
+            .strip_prefix(workspace_root)
+            .context("source module is outside the workspace root")?;
+        let module_path = module_path.to_string_lossy().replace('\\', "/");
+        workspace
+            .load_module(module_path.as_str(), source.as_slice())
+            .map_err(|error| anyhow::anyhow!("workspace source error: {error:?}"))?;
     }
     Ok(())
 }
