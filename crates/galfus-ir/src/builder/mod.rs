@@ -248,9 +248,7 @@ impl<'a> MirBuilder<'a> {
                     matches!(symbol.kind(), SymbolKind::Struct | SymbolKind::Choice)
                 }),
 
-            Some(TypeKind::Array { .. })
-            | Some(TypeKind::FixedArray { .. })
-            | Some(TypeKind::Tuple { .. }) => true,
+            Some(TypeKind::Array { .. }) | Some(TypeKind::Tuple { .. }) => true,
 
             Some(TypeKind::Union { members }) => members
                 .iter()
@@ -331,30 +329,6 @@ impl<'a> MirBuilder<'a> {
                     element: actual_element,
                 }),
             ) => self.is_assignable(*expected_element, *actual_element),
-
-            (
-                Some(TypeKind::Array {
-                    element: expected_element,
-                }),
-                Some(TypeKind::FixedArray {
-                    element: actual_element,
-                    ..
-                }),
-            ) => self.is_assignable(*expected_element, *actual_element),
-
-            (
-                Some(TypeKind::FixedArray {
-                    element: expected_element,
-                    size: expected_size,
-                }),
-                Some(TypeKind::FixedArray {
-                    element: actual_element,
-                    size: actual_size,
-                }),
-            ) => {
-                expected_size == actual_size
-                    && self.is_assignable(*expected_element, *actual_element)
-            }
 
             (
                 Some(TypeKind::Primitive(expected_primitive)),

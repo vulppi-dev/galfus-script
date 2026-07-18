@@ -1,6 +1,6 @@
 use super::LowerCtx;
 use galfus_core::{SymbolId, TypeId};
-use galfus_frontend::{ArraySize, PrimitiveType, SymbolKind, SyntaxNodeKind, TypeKind};
+use galfus_frontend::{PrimitiveType, SymbolKind, SyntaxNodeKind, TypeKind};
 use galfus_image::instruction::TypeIdx;
 use galfus_image::{
     ChoiceLayout, ChoiceLayoutIdx, ChoiceVariantLayout, FieldLayout, ImageType, OwnershipKind,
@@ -115,14 +115,6 @@ pub fn lower_type(ctx: &mut LowerCtx, ty: TypeId) -> TypeIdx {
         Some(TypeKind::Array { element }) => {
             let elem_idx = crate::lower::types::lower_type(ctx, *element);
             ImageType::Array(elem_idx)
-        }
-        Some(TypeKind::FixedArray { element, size }) => {
-            let elem_idx = crate::lower::types::lower_type(ctx, *element);
-            let len = match size {
-                ArraySize::Known(n) => *n,
-                _ => 0,
-            };
-            ImageType::FixedArray(elem_idx, len as usize)
         }
         Some(TypeKind::Tuple { elements }) => {
             let elem_idxs = elements

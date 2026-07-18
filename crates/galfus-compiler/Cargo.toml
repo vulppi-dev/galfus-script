@@ -1,0 +1,13 @@
+[package]
+name = "galfus-compiler"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+galfus-core = { path = "../galfus-core" }
+galfus-frontend = { path = "../galfus-frontend" }
+galfus-image = { path = "../galfus-image" }
+galfus-ir = { path = "../galfus-ir" }
+
+anyhow.workspace = true

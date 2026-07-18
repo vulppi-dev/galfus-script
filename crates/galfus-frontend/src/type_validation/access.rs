@@ -97,24 +97,33 @@ impl<'a> DeclarationTypeChecker<'a> {
     ) -> Option<TypeId> {
         let target_type = self.resolve_alias_type(target_type);
 
-        match self.layer.table().kind(target_type) {
-            Some(TypeKind::Array { .. }) | Some(TypeKind::FixedArray { .. })
-                if member_name == "length" =>
-            {
+        match self.layer.table().kind(target_type).cloned() {
+            Some(TypeKind::Array { .. }) if member_name == "length" => {
                 Some(self.layer.table().primitive(PrimitiveType::Int32))
             }
 
             Some(TypeKind::Named { symbol }) => self
-                .member_type_for_symbol(*symbol, member_name)
+                .member_type_for_symbol(symbol, member_name)
                 .or_else(|| {
-                    let key = ImportedMemberKey::new(*symbol, "", member_name);
+                    let key = ImportedMemberKey::new(symbol, "", member_name);
 
                     self.imported_member_types.get(&key).copied()
                 }),
 
+            Some(TypeKind::GenericInstance { base, .. }) => {
+                let TypeKind::Named { symbol } = self.layer.table().kind(base)? else {
+                    return None;
+                };
+
+                self.struct_fields_for_target(*symbol, target_type)
+                    .into_iter()
+                    .find(|field| field.name == member_name)
+                    .map(|field| field.ty)
+            }
+
             Some(TypeKind::Path { root, segments }) => {
                 let owner = segments.join("::");
-                let key = ImportedMemberKey::new(*root, owner, member_name);
+                let key = ImportedMemberKey::new(root, owner, member_name);
 
                 self.imported_member_types.get(&key).copied()
             }
@@ -167,6 +176,13 @@ impl<'a> DeclarationTypeChecker<'a> {
 
         match self.layer.table().kind(target_type) {
             Some(TypeKind::Named { symbol }) => self.member_symbol_for_symbol(*symbol, member_name),
+            Some(TypeKind::GenericInstance { base, .. }) => {
+                let TypeKind::Named { symbol } = self.layer.table().kind(*base)? else {
+                    return None;
+                };
+
+                self.member_symbol_for_symbol(*symbol, member_name)
+            }
 
             _ => None,
         }
@@ -234,8 +250,6 @@ impl<'a> DeclarationTypeChecker<'a> {
 
         match self.layer.table().kind(target_type) {
             Some(TypeKind::Array { element }) => Some(*element),
-
-            Some(TypeKind::FixedArray { element, .. }) => Some(*element),
 
             Some(TypeKind::Error) => Some(target_type),
 

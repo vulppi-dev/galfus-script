@@ -148,6 +148,53 @@ impl<'a> DeclarationTypeChecker<'a> {
         };
 
         self.layer.bind_symbol_type(symbol, ty);
+        self.bind_function_parameter_symbols(node, ty);
+    }
+
+    fn bind_function_parameter_symbols(&mut self, node: NodeId, function_ty: TypeId) {
+        let Some(parameters_node) = self
+            .graph
+            .syntax()
+            .first_child_of_kind(node, SyntaxNodeKind::ParameterList)
+        else {
+            return;
+        };
+
+        let Some(TypeKind::Function(function)) = self.layer.table().kind(function_ty).cloned()
+        else {
+            return;
+        };
+
+        let parameter_nodes = self
+            .graph
+            .syntax()
+            .node(parameters_node)
+            .map(|n| n.children().to_vec())
+            .unwrap_or_default();
+
+        let mut param_idx = 0usize;
+        for parameter in parameter_nodes {
+            let kind = self.graph.syntax().node(parameter).map(|n| n.kind());
+            if !matches!(
+                kind,
+                Some(SyntaxNodeKind::Parameter | SyntaxNodeKind::RestParameter)
+            ) {
+                continue;
+            }
+
+            if self.is_self_parameter(parameter) {
+                if let Some(param_type) = function.parameters().get(param_idx) {
+                    let ty = param_type.ty();
+                    if let Some(self_symbol) =
+                        self.direct_identifier_symbol_any(parameter, &[SymbolKind::Parameter])
+                    {
+                        self.layer.bind_symbol_type(self_symbol, ty);
+                    }
+                }
+            }
+
+            param_idx += 1;
+        }
     }
 
     fn bind_constraint_function_signature_type(&mut self, node: NodeId) {
@@ -520,9 +567,7 @@ impl<'a> DeclarationTypeChecker<'a> {
         let ty = self.resolve_alias_type(ty);
 
         match self.layer.table().kind(ty) {
-            Some(TypeKind::Array { element }) | Some(TypeKind::FixedArray { element, .. }) => {
-                Some(*element)
-            }
+            Some(TypeKind::Array { element }) => Some(*element),
 
             Some(TypeKind::Error) => Some(ty),
 

@@ -11,12 +11,15 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
             RValue::Use(operand) => {
                 self.load_operand_to(operand, dest);
 
-                if matches!(operand, Operand::Constant(MirConstant::Int(_)) | Operand::Constant(MirConstant::Float(_)))
-                    && let Some(local) = self
-                        .func
-                        .locals
-                        .iter()
-                        .find(|local| local.id.raw() as u16 == dest.raw())
+                if matches!(
+                    operand,
+                    Operand::Constant(MirConstant::Int(_))
+                        | Operand::Constant(MirConstant::Float(_))
+                ) && let Some(local) = self
+                    .func
+                    .locals
+                    .iter()
+                    .find(|local| local.id.raw() as u16 == dest.raw())
                 {
                     let type_idx = crate::lower::types::lower_type(self.ctx, local.ty);
                     self.instructions.push(Instruction::Cast {
@@ -538,7 +541,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                 //   len_reg = const(size)
                 //   dest = NewArray(array_type, len_reg)
                 //
-                // `array_type` must lower to ImageType::Array or ImageType::FixedArray.
+                // `array_type` must lower to ImageType::Array.
                 // The VM extracts the element type from that image type and then
                 // zero-initialises the backing buffer.
                 let type_idx = crate::lower::types::lower_type(self.ctx, *array_type);

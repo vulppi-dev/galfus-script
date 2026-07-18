@@ -95,10 +95,9 @@ impl VirtualMachine {
                     .ok_or(VmError::TypeOutOfBounds { index: type_idx })?;
                 let element_ty = match ty {
                     ImageType::Array(el_ty) => *el_ty,
-                    ImageType::FixedArray(el_ty, _) => *el_ty,
                     _ => {
                         return Err(VmError::TypeMismatch {
-                            expected: "Array or FixedArray type".to_string(),
+                            expected: "Array type".to_string(),
                             found: format!("{:?}", ty),
                         });
                     }

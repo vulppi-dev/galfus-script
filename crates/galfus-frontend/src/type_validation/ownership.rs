@@ -430,9 +430,7 @@ impl<'a> DeclarationTypeChecker<'a> {
                     matches!(symbol.kind(), SymbolKind::Struct | SymbolKind::Choice)
                 }),
 
-            Some(TypeKind::Array { .. })
-            | Some(TypeKind::FixedArray { .. })
-            | Some(TypeKind::Tuple { .. }) => true,
+            Some(TypeKind::Array { .. }) | Some(TypeKind::Tuple { .. }) => true,
 
             Some(TypeKind::Union { members }) => members
                 .iter()

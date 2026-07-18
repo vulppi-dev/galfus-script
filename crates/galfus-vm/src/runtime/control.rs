@@ -139,7 +139,6 @@ impl VirtualMachine {
                     }
                 }
 
-
                 let receiver_layout_name = match self.read_reg(obj)? {
                     Value::Object(obj_ref) => match self.get_object(obj_ref)? {
                         HeapObject::Struct { layout_idx, .. } => self
@@ -162,7 +161,11 @@ impl VirtualMachine {
                         .position(|function| {
                             let clean_name = if let Some(start) = function.name.find('<') {
                                 if let Some(end) = function.name.find(">::") {
-                                    format!("{}::{}", &function.name[..start], &function.name[end + 3..])
+                                    format!(
+                                        "{}::{}",
+                                        &function.name[..start],
+                                        &function.name[end + 3..]
+                                    )
                                 } else {
                                     function.name.clone()
                                 }
@@ -175,11 +178,20 @@ impl VirtualMachine {
                         })
                         .map(|index| FuncIdx(index as u16))
                         .ok_or_else(|| {
-                            let available = self.image.functions.iter().map(|f| f.name.clone()).collect::<Vec<_>>().join(", ");
+                            let available = self
+                                .image
+                                .functions
+                                .iter()
+                                .map(|f| f.name.clone())
+                                .collect::<Vec<_>>()
+                                .join(", ");
                             VmError::TypeMismatch {
-                            expected: format!("function named '{qualified_name}'. Available: {available}"),
-                            found: "no matching function in image".to_string(),
-                        }})?
+                                expected: format!(
+                                    "function named '{qualified_name}'. Available: {available}"
+                                ),
+                                found: "no matching function in image".to_string(),
+                            }
+                        })?
                 } else {
                     self.image
                         .functions
@@ -190,11 +202,20 @@ impl VirtualMachine {
                         })
                         .map(|index| FuncIdx(index as u16))
                         .ok_or_else(|| {
-                            let available = self.image.functions.iter().map(|f| f.name.clone()).collect::<Vec<_>>().join(", ");
+                            let available = self
+                                .image
+                                .functions
+                                .iter()
+                                .map(|f| f.name.clone())
+                                .collect::<Vec<_>>()
+                                .join(", ");
                             VmError::TypeMismatch {
-                            expected: format!("function named '{method_name}'. Available: {available}"),
-                            found: "no matching function in image".to_string(),
-                        }})?
+                                expected: format!(
+                                    "function named '{method_name}'. Available: {available}"
+                                ),
+                                found: "no matching function in image".to_string(),
+                            }
+                        })?
                 };
 
                 let callee = &self.image.functions[func_idx.raw() as usize];

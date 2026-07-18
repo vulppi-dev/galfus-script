@@ -161,7 +161,7 @@ pub enum RValue {
     NewArray(TypeId, Vec<Operand>),
     NewArrayDynamic(TypeId, Vec<ArrayLiteralElement>),
     /// Zero-initialised allocation with compile-time length.
-    /// `array_type` is the full `FixedArray` or `Array` TypeId.
+    /// `array_type` is the full `Array` TypeId.
     /// `element_type` is the element TypeId (for zero-value generation).
     /// `size` is the known compile-time length.
     NewArrayZeroed {

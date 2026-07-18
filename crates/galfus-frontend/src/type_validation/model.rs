@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use galfus_core::{DiagnosticBag, NodeId, SymbolId, TypeId};
 
-use crate::{ArraySize, PrimitiveType, TypeLayer};
+use crate::{PrimitiveType, TypeLayer};
 
 pub use ownership_model::*;
 
@@ -66,10 +66,6 @@ pub enum ImportedType {
     Array {
         element: Box<ImportedType>,
     },
-    FixedArray {
-        element: Box<ImportedType>,
-        size: ArraySize,
-    },
     Range {
         element: Box<ImportedType>,
     },
@@ -113,10 +109,6 @@ impl ImportedType {
             },
             Self::Array { element } => Self::Array {
                 element: Box::new(element.relocate(namespace)),
-            },
-            Self::FixedArray { element, size } => Self::FixedArray {
-                element: Box::new(element.relocate(namespace)),
-                size: *size,
             },
             Self::Range { element } => Self::Range {
                 element: Box::new(element.relocate(namespace)),

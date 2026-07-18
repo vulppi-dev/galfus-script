@@ -186,9 +186,6 @@ impl<'a> DeclarationTypeChecker<'a> {
             Some(TypeKind::Array { element }) => {
                 self.collect_generic_parameter_symbols_from_type(element, symbols, seen);
             }
-            Some(TypeKind::FixedArray { element, .. }) => {
-                self.collect_generic_parameter_symbols_from_type(element, symbols, seen);
-            }
             Some(TypeKind::Range { element }) => {
                 self.collect_generic_parameter_symbols_from_type(element, symbols, seen);
             }
@@ -238,10 +235,6 @@ impl<'a> DeclarationTypeChecker<'a> {
             Some(TypeKind::Array { element }) => {
                 let element = self.substitute_generic_expression_type(element, substitution);
                 self.layer.table_mut().intern_array(element)
-            }
-            Some(TypeKind::FixedArray { element, size }) => {
-                let element = self.substitute_generic_expression_type(element, substitution);
-                self.layer.table_mut().intern_fixed_array(element, size)
             }
             Some(TypeKind::Range { element }) => {
                 let element = self.substitute_generic_expression_type(element, substitution);

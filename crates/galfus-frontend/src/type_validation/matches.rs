@@ -211,7 +211,9 @@ impl<'a> DeclarationTypeChecker<'a> {
             let base = self.resolve_path_type(base);
             let owner_base = self.resolve_path_type(owner_type);
             if let Some(TypeKind::Named { symbol }) = self.layer.table().kind(base) {
-                if let Some(TypeKind::Named { symbol: owner_sym }) = self.layer.table().kind(owner_base) {
+                if let Some(TypeKind::Named { symbol: owner_sym }) =
+                    self.layer.table().kind(owner_base)
+                {
                     if *symbol == *owner_sym {
                         expected_choice_type = base;
                         generic_arguments = arguments;

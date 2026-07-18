@@ -143,9 +143,7 @@ impl<'a> DeclarationTypeChecker<'a> {
                 }
             }
 
-            Some(TypeKind::Array { element })
-            | Some(TypeKind::FixedArray { element, .. })
-            | Some(TypeKind::Range { element }) => {
+            Some(TypeKind::Array { element }) | Some(TypeKind::Range { element }) => {
                 self.collect_owned_struct_symbols(*element, symbols);
             }
 

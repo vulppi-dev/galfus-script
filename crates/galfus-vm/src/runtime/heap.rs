@@ -154,18 +154,6 @@ impl VirtualMachine {
                     false
                 }
             }
-            (Value::Object(obj_ref), ImageType::FixedArray(expected_el_ty, expected_len)) => {
-                if let Ok(HeapObject::Array {
-                    element_ty,
-                    elements,
-                }) = self.get_object(*obj_ref)
-                {
-                    self.type_idx_matches(*element_ty, *expected_el_ty)
-                        && elements.len() == *expected_len
-                } else {
-                    false
-                }
-            }
             (Value::Object(obj_ref), ImageType::Tuple(expected_tys)) => {
                 if let Ok(HeapObject::Tuple { elements }) = self.get_object(*obj_ref) {
                     if elements.len() == expected_tys.len() {
@@ -201,7 +189,9 @@ impl VirtualMachine {
                         return true;
                     }
 
-                    let Some(actual_layout) = self.image.choice_layouts.get(layout_idx.raw() as usize) else {
+                    let Some(actual_layout) =
+                        self.image.choice_layouts.get(layout_idx.raw() as usize)
+                    else {
                         return false;
                     };
                     let Some(expected_layout) = self
@@ -266,13 +256,6 @@ impl VirtualMachine {
         match (actual_ty, expected_ty) {
             (ImageType::Array(actual_el), ImageType::Array(expected_el)) => {
                 self.type_idx_matches_inner(*actual_el, *expected_el, seen)
-            }
-            (
-                ImageType::FixedArray(actual_el, actual_len),
-                ImageType::FixedArray(expected_el, expected_len),
-            ) => {
-                actual_len == expected_len
-                    && self.type_idx_matches_inner(*actual_el, *expected_el, seen)
             }
             (ImageType::Tuple(actual_elements), ImageType::Tuple(expected_elements)) => {
                 actual_elements.len() == expected_elements.len()
