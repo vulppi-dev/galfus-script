@@ -48,7 +48,7 @@ type RepoLabel = {
   name: string;
 };
 
-async function main(): Promise<void> {
+export async function syncChangelogLabels(): Promise<void> {
   const payload = await readEventPayload<PullRequestPayload>();
   const pr = payload.pull_request;
   if (!pr) {
@@ -122,8 +122,3 @@ async function main(): Promise<void> {
 
   console.log(`changelog labels added=[${toAdd.join(', ')}], removed=[${toRemove.join(', ')}]`);
 }
-
-main().catch((error) => {
-  console.error('[sync-changelog-labels] Failed:', error);
-  process.exitCode = 1;
-});
