@@ -8,10 +8,6 @@ pub use ownership_model::*;
 
 mod ownership_model;
 
-pub use ownership_model::*;
-
-mod ownership_model;
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ImportedFunctionParameterType {
     ty: ImportedType,

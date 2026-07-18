@@ -1,7 +1,7 @@
 use super::function::FunctionBuilder;
 use crate::mir::*;
 use galfus_core::{NodeId, StorageMetadata, TypeId};
-use galfus_frontend::{ArraySize, SyntaxNode, SyntaxNodeKind, TypeKind};
+use galfus_frontend::{SyntaxNode, SyntaxNodeKind, TypeKind};
 
 impl<'b, 'a> FunctionBuilder<'b, 'a> {
     pub(super) fn lower_struct_literal(&mut self, expr_id: NodeId, node: &SyntaxNode) -> Operand {
