@@ -60,3 +60,24 @@ export fn main(args: [[u8]]): i32 {
     assert_eq!(result.exit_code, 0);
     assert_eq!(result.output, "hello\n\x1b[38;2;220;38;38merror\x1b[0m\n");
 }
+
+#[test]
+fn run_source_preserves_i32_from_generic_format_parse() {
+    let result = run_source(
+        r#"
+import { parse, ParseResult } from "format"
+
+export fn main(args: [[u8]]): i32 {
+  var value = match parse<i32>("32") {
+    ParseResult::Ok(parsed) => parsed,
+    ParseResult::Err(_) => 0,
+  }
+  return value + 10
+}
+"#,
+        &[],
+    );
+
+    assert_eq!(result.error, None);
+    assert_eq!(result.exit_code, 42);
+}

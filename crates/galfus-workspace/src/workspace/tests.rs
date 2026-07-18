@@ -339,6 +339,52 @@ fn run_requires_compile_and_executes_the_configured_entry() {
 }
 
 #[test]
+#[ignore = "requires cross-module monomorphized typeof lowering"]
+fn run_specializes_typeof_generic_parameter_across_modules() {
+    let mut workspace = Workspace::new();
+    workspace
+        .load_config(
+            br#"
+            [module]
+            name = "cross-module-typeof"
+            target = "app"
+            entry = "main.gfs"
+            "#,
+        )
+        .expect("valid configuration");
+    workspace
+        .load_module(
+            "main.gfs",
+            br#"
+            import { dispatch } from "./generic"
+
+            export fn main(args: [[u8]]): i32 {
+                return dispatch(0)
+            }
+            "#,
+        )
+        .expect("valid entry module");
+    workspace
+        .load_module(
+            "generic.gfs",
+            br#"
+            export fn dispatch<T: i32 | bool>(value: T): i32 {
+                return typeof T {
+                    i32 => 42,
+                    bool => 0,
+                }
+            }
+            "#,
+        )
+        .expect("valid generic module");
+
+    let check = workspace.check();
+    assert!(check.is_valid, "check diagnostics: {:?}", check.diagnostics);
+    workspace.compile().expect("workspace compiles");
+    assert_eq!(workspace.run(&[]).expect("entry executes").exit_code, 42);
+}
+
+#[test]
 fn run_synchronizes_the_runtime_module_graph() {
     let mut workspace = Workspace::new();
     workspace
