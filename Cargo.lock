@@ -649,6 +649,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "galfus-host"
+version = "0.0.0"
+
+[[package]]
 name = "galfus-image"
 version = "0.0.0"
 dependencies = [
