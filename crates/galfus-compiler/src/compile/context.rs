@@ -1,12 +1,9 @@
 use galfus_core::{FunctionId, NodeId, SymbolId, TypeId};
 use galfus_frontend::{
-    FunctionParameterType, FunctionType, PrimitiveType, SymbolKind, SyntaxNodeKind, TypeKind,
-    TypeTable,
+    FunctionParameterType, FunctionType, SymbolKind, SyntaxNodeKind, TypeKind, TypeTable,
 };
 use galfus_ir::builder::WorkspaceContext;
-use galfus_ir::mir::{
-    BasicBlock, BlockId, Instruction, LocalDecl, LocalId, MirFunction, Operand, Terminator,
-};
+use galfus_ir::mir::MirFunction;
 use std::collections::HashMap;
 
 use crate::input::CompiledModule;
@@ -240,107 +237,6 @@ impl<'a> MyWorkspaceContext<'a> {
         };
         target_table.intern(translated_kind)
     }
-
-    fn specialize_format_parse(
-        &mut self,
-        target_mod_idx: usize,
-        target_symbol: SymbolId,
-        concrete_types: &[TypeId],
-        substitutions: HashMap<SymbolId, TypeId>,
-    ) -> Option<FunctionId> {
-        let target_module = &self.modules[target_mod_idx];
-
-        let is_format_module = [target_module.source().name(), target_module.path().as_str()]
-            .into_iter()
-            .any(|name| name.strip_suffix(".gfs").unwrap_or(name) == "format");
-        if !is_format_module {
-            return None;
-        }
-
-        let resolution = target_module.graph().resolution()?;
-        if resolution.symbol(target_symbol)?.name() != "parse" {
-            return None;
-        }
-
-        let concrete_type = concrete_types.first().copied()?;
-        let target_type_result = target_module.type_result()?;
-        let parse_function_name = match target_type_result.layer().table().kind(concrete_type)? {
-            TypeKind::Primitive(PrimitiveType::Int8) => "parseInt8",
-            TypeKind::Primitive(PrimitiveType::Int16) => "parseInt16",
-            TypeKind::Primitive(PrimitiveType::Int32) => "parseInt32",
-            TypeKind::Primitive(PrimitiveType::Int64) => "parseInt64Raw",
-            TypeKind::Primitive(PrimitiveType::Uint8) => "parseUint8",
-            TypeKind::Primitive(PrimitiveType::Uint16) => "parseUint16",
-            TypeKind::Primitive(PrimitiveType::Uint32) => "parseUint32",
-            TypeKind::Primitive(PrimitiveType::Uint64) => "parseUint64Raw",
-            TypeKind::Primitive(PrimitiveType::Float32) => "parseFloat32",
-            TypeKind::Primitive(PrimitiveType::Float64) => "parseFloat64",
-            TypeKind::Primitive(PrimitiveType::Bool) => "parseBoolRaw",
-            TypeKind::Primitive(PrimitiveType::Null) => "parseNull",
-            _ => return None,
-        };
-
-        let parse_function_id = resolution
-            .symbols()
-            .iter()
-            .find(|symbol| {
-                symbol.kind() == SymbolKind::Function && symbol.name() == parse_function_name
-            })
-            .map(|symbol| FunctionId::new(symbol.id().raw()))?;
-
-        let key = (target_mod_idx, target_symbol, concrete_types.to_vec());
-        if let Some(func_id) = self.specialisations.get(&key).copied() {
-            return Some(func_id);
-        }
-
-        let specialized_id = FunctionId::new(self.next_specialised_id);
-        self.next_specialised_id = self.next_specialised_id.saturating_sub(1);
-        self.specialisations.insert(key, specialized_id);
-        self.specialised_id_to_target
-            .insert(specialized_id, (target_mod_idx, specialized_id));
-
-        let type_res = target_module.type_result()?;
-        let mut builder = galfus_ir::builder::MirBuilder::new(
-            target_module.graph(),
-            type_res,
-            target_module.source().text(),
-        );
-
-        let function_item = builder.function_item_for_symbol(target_symbol)?;
-        let mut function = builder.build_function_with_substitutions(
-            function_item,
-            Some(specialized_id),
-            substitutions,
-        )?;
-
-        let result_id = function
-            .locals
-            .iter()
-            .map(|local| local.id.raw())
-            .max()
-            .map(|id| LocalId::new(id + 1))
-            .unwrap_or_else(|| LocalId::new(function.parameter_types.len() as u32));
-
-        function.locals.push(LocalDecl {
-            id: result_id,
-            ty: function.return_type,
-        });
-        function.name = format!("{}#{}", function.name, specialized_id.raw());
-        function.blocks = vec![BasicBlock {
-            parameters: Vec::new(),
-            id: BlockId::new(0),
-            instructions: vec![Instruction::Call {
-                func: parse_function_id,
-                args: vec![Operand::Local(LocalId::new(0))],
-                destination: result_id,
-            }],
-            terminator: Terminator::Return(Some(Operand::Local(result_id))),
-        }];
-
-        self.specialised_functions[target_mod_idx].push(function);
-
-        Some(specialized_id)
-    }
 }
 
 impl<'a> WorkspaceContext for MyWorkspaceContext<'a> {
@@ -464,15 +360,6 @@ impl<'a> WorkspaceContext for MyWorkspaceContext<'a> {
                 (sym, translated_ty)
             })
             .collect::<HashMap<_, _>>();
-
-        if let Some(specialized_id) = self.specialize_format_parse(
-            target_mod_idx,
-            target_symbol,
-            &concrete_types,
-            substitutions.clone(),
-        ) {
-            return specialized_id;
-        }
 
         let key = (target_mod_idx, target_symbol, concrete_types.clone());
         if let Some(func_id) = self.specialisations.get(&key).copied() {

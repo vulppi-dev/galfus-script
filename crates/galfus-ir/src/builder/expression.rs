@@ -140,7 +140,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                         .node(pattern)
                         .is_some_and(|pattern| pattern.kind() == SyntaxNodeKind::WildcardPattern);
                     let matches_subject = self.node_type(pattern).is_some_and(|pattern_type| {
-                        self.builder.is_assignable(pattern_type, subject_type)
+                        self.builder.is_same_type(pattern_type, subject_type)
                     });
 
                     if is_wildcard || matches_subject {
