@@ -574,6 +574,128 @@ fn run_specializes_generic_anchored_range_iterator_methods() {
 }
 
 #[test]
+fn run_specializes_nested_generic_types_across_modules() {
+    let mut workspace = Workspace::new();
+    workspace
+        .load_config(
+            br#"
+            [module]
+            name = "cross-module-nested-generics"
+            target = "app"
+            entry = "main.gfs"
+            "#,
+        )
+        .expect("valid configuration");
+    workspace
+        .load_module(
+            "main.gfs",
+            br#"
+            import { identity } from "./generic"
+
+            export fn main(args: [[u8]]): i32 {
+                var values: [i32] = [32]
+                return identity(values).length + 41
+            }
+            "#,
+        )
+        .expect("valid entry module");
+    workspace
+        .load_module(
+            "generic.gfs",
+            br#"
+            export fn identity<T>(values: [T]): [T] {
+                return values
+            }
+            "#,
+        )
+        .expect("valid generic module");
+
+    let check = workspace.check();
+    assert!(check.is_valid, "check diagnostics: {:?}", check.diagnostics);
+    workspace.compile().expect("workspace compiles");
+    assert_eq!(workspace.run(&[]).expect("entry executes").exit_code, 42);
+}
+
+#[test]
+fn run_specializes_explicit_imported_generic_typeof_parameter() {
+    let mut workspace = Workspace::new();
+    workspace
+        .load_config(
+            br#"
+            [module]
+            name = "cross-module-typeof"
+            target = "app"
+            entry = "main.gfs"
+            "#,
+        )
+        .expect("valid configuration");
+    workspace
+        .load_module(
+            "main.gfs",
+            br#"
+            import { dispatch } from "./generic"
+
+            export fn main(args: [[u8]]): i32 {
+                return dispatch<i32>(0)
+            }
+            "#,
+        )
+        .expect("valid entry module");
+    workspace
+        .load_module(
+            "generic.gfs",
+            br#"
+            export fn dispatch<T: i32 | bool>(value: T): i32 {
+                return typeof T {
+                    i32 => 42,
+                    bool => 0,
+                }
+            }
+            "#,
+        )
+        .expect("valid generic module");
+
+    let check = workspace.check();
+    assert!(check.is_valid, "check diagnostics: {:?}", check.diagnostics);
+    workspace.compile().expect("workspace compiles");
+    assert_eq!(workspace.run(&[]).expect("entry executes").exit_code, 42);
+}
+
+#[test]
+fn run_specializes_generic_anchored_range_iterator_methods() {
+    let mut workspace = Workspace::new();
+    workspace
+        .load_config(
+            br#"
+            [module]
+            name = "generic-range-method"
+            target = "app"
+            entry = "main.gfs"
+            "#,
+        )
+        .expect("valid configuration");
+    workspace
+        .load_module(
+            "main.gfs",
+            br#"
+            export fn main(args: [[u8]]): i32 {
+                var total = 0
+                for value in 2::4%2 {
+                    total += value
+                }
+                return total
+            }
+            "#,
+        )
+        .expect("valid entry module");
+
+    let check = workspace.check();
+    assert!(check.is_valid, "check diagnostics: {:?}", check.diagnostics);
+    workspace.compile().expect("workspace compiles");
+    assert_eq!(workspace.run(&[]).expect("entry executes").exit_code, 20);
+}
+
+#[test]
 fn run_synchronizes_the_runtime_module_graph() {
     let mut workspace = Workspace::new();
     workspace
