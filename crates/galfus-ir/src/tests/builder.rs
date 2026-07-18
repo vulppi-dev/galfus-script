@@ -138,6 +138,48 @@ fn test_mir_builder_lowers_copy_expression() {
 }
 
 #[test]
+fn test_mir_builder_applies_default_parameter_when_argument_is_null() {
+    let source_id = SourceId::new(0);
+    let code = r#"
+        fn read(terminator: [u8] = "\n"): [u8] {
+            return terminator
+        }
+    "#;
+    let source = SourceFile::new(source_id, "test.gfs".to_string(), code.to_string());
+
+    let parse_result = parse(&source);
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    let graph = resolve_result.into_graph();
+    let type_result = check_declaration_types(&source, &graph);
+
+    assert!(!type_result.has_errors(), "Typecheck errors occurred");
+
+    let builder = builder::MirBuilder::new(&graph, &type_result, code);
+    let mir_module = builder.build();
+    let function = mir_module
+        .functions
+        .iter()
+        .find(|function| function.name == "read")
+        .expect("read function should be lowered");
+
+    assert!(function.blocks.iter().any(|block| {
+        block.instructions.iter().any(|instruction| {
+            matches!(
+                instruction,
+                Instruction::Assign(
+                    _,
+                    RValue::BinaryOp(
+                        MirBinaryOp::NullFallback,
+                        Operand::Local(_),
+                        Operand::Constant(Constant::String(value)),
+                    ),
+                ) if value == "\n"
+            )
+        })
+    }));
+}
+
+#[test]
 fn test_mir_builder_lowers_concrete_typeof_branch() {
     let source_id = SourceId::new(0);
     let code = r#"

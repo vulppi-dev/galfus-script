@@ -90,6 +90,7 @@ impl<'a> MirBuilder<'a> {
 
         // Declare parameters as locals
         let mut param_locals_to_unpack = Vec::new();
+        let mut parameter_locals = Vec::new();
         for (symbol, ty, param_node) in param_symbols {
             let has_complex_pattern = syntax
                 .first_child_of_kind(param_node, SyntaxNodeKind::BindingPattern)
@@ -102,9 +103,30 @@ impl<'a> MirBuilder<'a> {
             if has_complex_pattern {
                 let local_id = builder_ctx.declare_local(None, ty);
                 param_locals_to_unpack.push((local_id, param_node));
+                parameter_locals.push((local_id, param_node));
             } else {
-                builder_ctx.declare_local(symbol, ty);
+                let local_id = builder_ctx.declare_local(symbol, ty);
+                parameter_locals.push((local_id, param_node));
             }
+        }
+
+        // Replace omitted arguments with their parameter defaults before the body runs.
+        for (local_id, param_node) in parameter_locals {
+            let Some(default) = syntax
+                .first_child_of_kind(param_node, SyntaxNodeKind::ParameterDefault)
+                .and_then(|default| syntax.first_child(default))
+            else {
+                continue;
+            };
+            let fallback = builder_ctx.lower_expression(default);
+            builder_ctx.current_instructions.push(Instruction::Assign(
+                local_id,
+                RValue::BinaryOp(
+                    MirBinaryOp::NullFallback,
+                    Operand::Local(local_id),
+                    fallback,
+                ),
+            ));
         }
 
         // Unpack destructured parameters
