@@ -427,6 +427,40 @@ fn run_specializes_explicit_imported_generic_typeof_parameter() {
 }
 
 #[test]
+fn run_specializes_generic_anchored_range_iterator_methods() {
+    let mut workspace = Workspace::new();
+    workspace
+        .load_config(
+            br#"
+            [module]
+            name = "generic-range-method"
+            target = "app"
+            entry = "main.gfs"
+            "#,
+        )
+        .expect("valid configuration");
+    workspace
+        .load_module(
+            "main.gfs",
+            br#"
+            export fn main(args: [[u8]]): i32 {
+                var total = 0
+                for value in 2::4%2 {
+                    total += value
+                }
+                return total
+            }
+            "#,
+        )
+        .expect("valid entry module");
+
+    let check = workspace.check();
+    assert!(check.is_valid, "check diagnostics: {:?}", check.diagnostics);
+    workspace.compile().expect("workspace compiles");
+    assert_eq!(workspace.run(&[]).expect("entry executes").exit_code, 20);
+}
+
+#[test]
 fn run_synchronizes_the_runtime_module_graph() {
     let mut workspace = Workspace::new();
     workspace

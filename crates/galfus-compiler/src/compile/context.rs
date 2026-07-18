@@ -389,7 +389,20 @@ impl<'a> WorkspaceContext for MyWorkspaceContext<'a> {
                 substitutions,
             ) {
                 function.name = format!("{}#{}", function.name, specialized_id.raw());
+                let anchored_specializations = builder.anchored_function_specializations_for_type(
+                    function.return_type,
+                    &function.type_substitutions,
+                );
                 self.specialised_functions[target_mod_idx].push(function);
+
+                for (method_item, method_types, method_substitutions) in anchored_specializations {
+                    self.specialize_anchored_function(
+                        target_mod_idx,
+                        method_item,
+                        method_types,
+                        method_substitutions,
+                    );
+                }
             }
         }
 
@@ -443,6 +456,46 @@ impl<'a> WorkspaceContext for MyWorkspaceContext<'a> {
 }
 
 impl<'a> MyWorkspaceContext<'a> {
+    fn specialize_anchored_function(
+        &mut self,
+        target_mod_idx: usize,
+        function_item: NodeId,
+        concrete_types: Vec<TypeId>,
+        substitutions: HashMap<SymbolId, TypeId>,
+    ) {
+        let target_module = &self.modules[target_mod_idx];
+        let type_res = target_module.type_result().unwrap();
+        let mut builder = galfus_ir::builder::MirBuilder::new(
+            target_module.graph(),
+            type_res,
+            target_module.source().text(),
+        )
+        .with_workspace_module_id(target_module.id());
+        let Some(target_symbol) = builder.function_symbol_for_item(function_item) else {
+            return;
+        };
+        let key = (target_mod_idx, target_symbol, concrete_types);
+        if self.specialisations.contains_key(&key) {
+            return;
+        }
+
+        let specialized_id = FunctionId::new(self.next_specialised_id);
+        self.next_specialised_id = self.next_specialised_id.saturating_sub(1);
+        self.specialisations.insert(key, specialized_id);
+        self.specialised_id_to_target
+            .insert(specialized_id, (target_mod_idx, specialized_id));
+
+        builder = builder.with_workspace_ctx(self);
+        if let Some(mut function) = builder.build_function_with_substitutions(
+            function_item,
+            Some(specialized_id),
+            substitutions,
+        ) {
+            function.name = format!("{}#{}", function.name, specialized_id.raw());
+            self.specialised_functions[target_mod_idx].push(function);
+        }
+    }
+
     fn infer_generic_argument_from_types(
         &self,
         module_idx: usize,

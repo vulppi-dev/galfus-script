@@ -71,7 +71,9 @@ impl<'a> MirBuilder<'a> {
                 if let Some(node) = self.graph.syntax().node(*item) {
                     match node.kind() {
                         SyntaxNodeKind::FunctionItem => {
-                            if let Some(func) = self.build_function(*item) {
+                            if !self.requires_specialization(*item)
+                                && let Some(func) = self.build_function(*item)
+                            {
                                 functions.push(func);
                             }
                         }
@@ -86,7 +88,9 @@ impl<'a> MirBuilder<'a> {
                                     })
                                     .unwrap_or(false);
                                 if is_func {
-                                    if let Some(func) = self.build_function(inner) {
+                                    if !self.requires_specialization(inner)
+                                        && let Some(func) = self.build_function(inner)
+                                    {
                                         functions.push(func);
                                     }
                                 } else if let Some(inner_node) = self.graph.syntax().node(inner)
