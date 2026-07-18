@@ -78,8 +78,9 @@ impl VirtualMachine {
                 let val = self.read_reg(src)?;
                 self.execute_write(val)?;
             }
-            Instruction::Read { dest } => {
-                let value = self.execute_read()?;
+            Instruction::Read { dest, terminator } => {
+                let terminator = self.read_reg(terminator)?;
+                let value = self.execute_read(terminator)?;
                 self.write_reg(dest, value)?;
             }
             Instruction::Len { dest, src } => {

@@ -62,14 +62,15 @@ impl VirtualMachine {
         Value::Object(self.alloc(obj))
     }
 
-    pub(super) fn execute_read(&mut self) -> Result<Value, VmError> {
+    pub(super) fn execute_read(&mut self, terminator: Value) -> Result<Value, VmError> {
+        let terminator = self.byte_array_value(terminator)?;
         let input = self
             .context
             .providers
             .as_mut()
             .and_then(|providers| providers.io_mut())
             .ok_or(VmError::IoProviderUnavailable { operation: "read" })?
-            .read(b"\n")
+            .read(terminator.as_slice())
             .map_err(|error| VmError::IoError(error.message().to_string()))?;
 
         let bytes = match input {
@@ -77,6 +78,33 @@ impl VirtualMachine {
             galfus_host::IoRead::EndOfInput => Vec::new(),
         };
         Ok(self.bytes_to_uint8_array(bytes))
+    }
+
+    fn byte_array_value(&self, value: Value) -> Result<Vec<u8>, VmError> {
+        let Value::Object(object) = value else {
+            return Err(VmError::TypeMismatch {
+                expected: "[u8]".to_string(),
+                found: format!("{value:?}"),
+            });
+        };
+        let heap_object = self.get_object(object)?;
+        let HeapObject::Array { elements, .. } = heap_object else {
+            return Err(VmError::TypeMismatch {
+                expected: "[u8]".to_string(),
+                found: format!("{heap_object:?}"),
+            });
+        };
+
+        elements
+            .iter()
+            .map(|element| match element {
+                Value::Uint8(byte) => Ok(*byte),
+                _ => Err(VmError::TypeMismatch {
+                    expected: "[u8]".to_string(),
+                    found: format!("{element:?}"),
+                }),
+            })
+            .collect()
     }
 
     pub(super) fn execute_write(&mut self, val: Value) -> Result<(), VmError> {

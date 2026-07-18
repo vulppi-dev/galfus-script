@@ -1,4 +1,21 @@
 use super::*;
+use galfus_host::{IoProvider, IoProviderError, IoRead, Providers};
+use std::sync::{Arc, Mutex};
+
+struct TerminatorIo {
+    terminator: Arc<Mutex<Vec<u8>>>,
+}
+
+impl IoProvider for TerminatorIo {
+    fn read(&mut self, terminator: &[u8]) -> Result<IoRead, IoProviderError> {
+        *self.terminator.lock().expect("terminator state") = terminator.to_vec();
+        Ok(IoRead::EndOfInput)
+    }
+
+    fn write(&mut self, _bytes: &[u8]) -> Result<(), IoProviderError> {
+        Ok(())
+    }
+}
 
 #[test]
 fn check_includes_configured_entry_and_exports_as_semantic_roots() {
@@ -379,6 +396,50 @@ fn run_reports_missing_io_provider_only_when_io_is_executed() {
         error,
         RunBlocked::RuntimeError(message) if message.contains("I/O provider is unavailable for write")
     ));
+}
+
+#[test]
+fn run_passes_read_terminator_to_the_io_provider() {
+    let mut workspace = Workspace::new();
+    workspace
+        .load_config(
+            br#"
+            [module]
+            name = "read-terminator"
+            target = "app"
+            entry = "main.gfs"
+            "#,
+        )
+        .expect("valid configuration");
+    workspace
+        .load_module(
+            "main.gfs",
+            br#"
+            import { read } from "std/io"
+
+            export fn main(args: [[u8]]): i32 {
+                read("!")
+                return 0
+            }
+            "#,
+        )
+        .expect("valid entry module");
+
+    assert!(workspace.check().is_valid);
+    workspace.compile().expect("workspace compiles");
+
+    let terminator = Arc::new(Mutex::new(Vec::new()));
+    let providers = Providers::with_io(Box::new(TerminatorIo {
+        terminator: Arc::clone(&terminator),
+    }));
+    assert_eq!(
+        workspace
+            .run(&[], Some(providers))
+            .expect("entry executes")
+            .exit_code,
+        0
+    );
+    assert_eq!(*terminator.lock().expect("terminator state"), b"!");
 }
 
 #[test]

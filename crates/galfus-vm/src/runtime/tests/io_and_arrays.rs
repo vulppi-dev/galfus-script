@@ -4,10 +4,12 @@ use galfus_host::{IoProvider, IoProviderError, IoRead, Providers};
 struct BufferIo {
     buffer: std::sync::Arc<std::sync::Mutex<Vec<u8>>>,
     input: std::sync::Arc<std::sync::Mutex<Vec<u8>>>,
+    terminator: std::sync::Arc<std::sync::Mutex<Vec<u8>>>,
 }
 
 impl IoProvider for BufferIo {
-    fn read(&mut self, _terminator: &[u8]) -> Result<IoRead, IoProviderError> {
+    fn read(&mut self, terminator: &[u8]) -> Result<IoRead, IoProviderError> {
+        *self.terminator.lock().unwrap() = terminator.to_vec();
         let mut input = self.input.lock().unwrap();
         if input.is_empty() {
             Ok(IoRead::EndOfInput)
@@ -37,6 +39,7 @@ fn test_target_write() {
     let provider = BufferIo {
         buffer: buffer.clone(),
         input: std::sync::Arc::new(std::sync::Mutex::new(Vec::new())),
+        terminator: std::sync::Arc::new(std::sync::Mutex::new(Vec::new())),
     };
     let mut vm =
         VirtualMachine::new(image).with_providers(Some(Providers::with_io(Box::new(provider))));
@@ -49,14 +52,23 @@ fn test_target_write() {
 #[test]
 fn test_target_read() {
     let instrs = vec![
-        Instruction::Read { dest: Reg(1) },
+        Instruction::LoadConst {
+            dest: Reg(2),
+            const_idx: ConstIdx(0),
+        },
+        Instruction::Read {
+            dest: Reg(1),
+            terminator: Reg(2),
+        },
         Instruction::Ret { src: Reg(1) },
     ];
-    let image = create_test_image(instrs, vec![]);
+    let image = create_test_image(instrs, vec![Constant::String("!".to_string())]);
     let input = std::sync::Arc::new(std::sync::Mutex::new(b"abc".to_vec()));
+    let terminator = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
     let provider = BufferIo {
         buffer: std::sync::Arc::new(std::sync::Mutex::new(Vec::new())),
         input,
+        terminator: terminator.clone(),
     };
     let mut vm =
         VirtualMachine::new(image).with_providers(Some(Providers::with_io(Box::new(provider))));
@@ -75,15 +87,23 @@ fn test_target_read() {
         }
         other => panic!("expected array, got {:?}", other),
     }
+    assert_eq!(*terminator.lock().unwrap(), b"!");
 }
 
 #[test]
 fn test_read_requires_an_io_provider_when_executed() {
     let instrs = vec![
-        Instruction::Read { dest: Reg(1) },
+        Instruction::LoadConst {
+            dest: Reg(2),
+            const_idx: ConstIdx(0),
+        },
+        Instruction::Read {
+            dest: Reg(1),
+            terminator: Reg(2),
+        },
         Instruction::Ret { src: Reg(1) },
     ];
-    let image = create_test_image(instrs, vec![]);
+    let image = create_test_image(instrs, vec![Constant::String("\n".to_string())]);
     let mut vm = VirtualMachine::new(image);
 
     let panic = vm

@@ -345,6 +345,7 @@ pub enum Instruction {
     },
     Read {
         dest: Reg,
+        terminator: Reg,
     },
     Len {
         dest: Reg,
