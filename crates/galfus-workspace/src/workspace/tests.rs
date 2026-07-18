@@ -382,7 +382,6 @@ fn run_specializes_nested_generic_types_across_modules() {
 }
 
 #[test]
-#[ignore = "requires cross-module monomorphized typeof lowering"]
 fn run_specializes_typeof_generic_parameter_across_modules() {
     let mut workspace = Workspace::new();
     workspace

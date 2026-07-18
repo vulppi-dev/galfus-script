@@ -220,7 +220,6 @@ fn test_mir_builder_specializes_generic_typeof_call() {
 }
 
 #[test]
-#[ignore = "requires monomorphized typeof lowering"]
 fn test_mir_builder_specializes_typeof_generic_parameter() {
     let source_id = SourceId::new(0);
     let code = r#"
@@ -280,7 +279,7 @@ fn first_call_function_id(func: &MirFunction) -> Option<FunctionId> {
 
 fn has_string_assignment(func: &MirFunction, expected_value: &str) -> bool {
     func.blocks.iter().any(|block| {
-        block.instructions.iter().any(|inst| {
+        let assigned = block.instructions.iter().any(|inst| {
             if let Instruction::Assign(_, RValue::Use(Operand::Constant(Constant::String(val)))) =
                 inst
             {
@@ -288,7 +287,13 @@ fn has_string_assignment(func: &MirFunction, expected_value: &str) -> bool {
             } else {
                 false
             }
-        })
+        });
+        let returned = matches!(
+            &block.terminator,
+            Terminator::Return(Some(Operand::Constant(Constant::String(value))))
+                if value == expected_value
+        );
+        assigned || returned
     })
 }
 

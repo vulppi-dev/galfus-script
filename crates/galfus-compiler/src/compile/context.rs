@@ -344,11 +344,15 @@ impl<'a> MyWorkspaceContext<'a> {
 }
 
 impl<'a> WorkspaceContext for MyWorkspaceContext<'a> {
-    fn resolve_import(&self, node_id: NodeId) -> Option<(usize, SymbolId)> {
+    fn resolve_import(
+        &self,
+        caller_module_id: galfus_core::ModuleId,
+        node_id: NodeId,
+    ) -> Option<(usize, SymbolId)> {
         let current_mod_idx = self
             .modules
             .iter()
-            .position(|m| m.graph().syntax().node(node_id).is_some())?;
+            .position(|m| m.id() == caller_module_id)?;
 
         let mut real_target = node_id;
         let module = &self.modules[current_mod_idx];
@@ -386,9 +390,57 @@ impl<'a> WorkspaceContext for MyWorkspaceContext<'a> {
         Some(builder.generic_parameters_for_function_item(function_item))
     }
 
+    fn infer_imported_generic_arguments(
+        &mut self,
+        caller_module_id: galfus_core::ModuleId,
+        target_mod_idx: usize,
+        target_symbol: SymbolId,
+        generic_params: &[SymbolId],
+        arg_types: &[TypeId],
+    ) -> Option<Vec<TypeId>> {
+        let caller_mod_idx = self
+            .modules
+            .iter()
+            .position(|m| m.id() == caller_module_id)?;
+        let translated_arguments = arg_types
+            .iter()
+            .map(|&ty| self.translate_type(caller_mod_idx, target_mod_idx, ty))
+            .collect::<Vec<_>>();
+        let target_module = &self.modules[target_mod_idx];
+        let function_type = target_module
+            .type_result()?
+            .layer()
+            .symbol_type(target_symbol)?;
+        let TypeKind::Function(function) = target_module
+            .type_result()?
+            .layer()
+            .table()
+            .kind(function_type)?
+        else {
+            return None;
+        };
+
+        let mut substitutions = HashMap::new();
+        for (parameter, argument) in function.parameters().iter().zip(translated_arguments) {
+            self.infer_generic_argument_from_types(
+                target_mod_idx,
+                generic_params,
+                parameter.ty(),
+                argument,
+                &mut substitutions,
+            );
+        }
+
+        generic_params
+            .iter()
+            .map(|parameter| substitutions.get(parameter).copied())
+            .collect()
+    }
+
     fn specialize_function(
         &mut self,
-        caller_node_id: NodeId,
+        caller_module_id: galfus_core::ModuleId,
+        _caller_node_id: NodeId,
         target_mod_idx: usize,
         target_symbol: SymbolId,
         concrete_types: Vec<TypeId>,
@@ -397,7 +449,7 @@ impl<'a> WorkspaceContext for MyWorkspaceContext<'a> {
         let caller_mod_idx = self
             .modules
             .iter()
-            .position(|m| m.graph().syntax().node(caller_node_id).is_some())
+            .position(|m| m.id() == caller_module_id)
             .unwrap_or(0);
 
         let concrete_types = concrete_types
@@ -439,7 +491,8 @@ impl<'a> WorkspaceContext for MyWorkspaceContext<'a> {
             target_module.graph(),
             type_res,
             target_module.source().text(),
-        );
+        )
+        .with_workspace_module_id(target_module.id());
         builder = builder.with_workspace_ctx(self);
 
         if let Some(function_item) = builder.function_item_for_symbol(target_symbol) {
@@ -458,6 +511,7 @@ impl<'a> WorkspaceContext for MyWorkspaceContext<'a> {
 
     fn specialize_builtin_function(
         &mut self,
+        caller_module_id: galfus_core::ModuleId,
         caller_node_id: NodeId,
         module_name: &str,
         function_name: &str,
@@ -483,6 +537,7 @@ impl<'a> WorkspaceContext for MyWorkspaceContext<'a> {
             .zip(concrete_types.clone())
             .collect();
         Some(self.specialize_function(
+            caller_module_id,
             caller_node_id,
             target_mod_idx,
             target_symbol,
@@ -497,5 +552,76 @@ impl<'a> WorkspaceContext for MyWorkspaceContext<'a> {
             .flat_map(|funcs| funcs.iter())
             .find(|f| f.id == func_id)
             .map(|f| f.return_type)
+    }
+}
+
+impl<'a> MyWorkspaceContext<'a> {
+    fn infer_generic_argument_from_types(
+        &self,
+        module_idx: usize,
+        generic_params: &[SymbolId],
+        parameter_type: TypeId,
+        argument_type: TypeId,
+        substitutions: &mut HashMap<SymbolId, TypeId>,
+    ) {
+        let table = self.modules[module_idx]
+            .type_result()
+            .unwrap()
+            .layer()
+            .table();
+
+        match table.kind(parameter_type) {
+            Some(TypeKind::GenericParameter { symbol }) if generic_params.contains(symbol) => {
+                substitutions.entry(*symbol).or_insert(argument_type);
+            }
+            Some(TypeKind::Array { element }) => {
+                if let Some(TypeKind::Array {
+                    element: argument_element,
+                }) = table.kind(argument_type)
+                {
+                    self.infer_generic_argument_from_types(
+                        module_idx,
+                        generic_params,
+                        *element,
+                        *argument_element,
+                        substitutions,
+                    );
+                }
+            }
+            Some(TypeKind::Tuple { elements }) => {
+                if let Some(TypeKind::Tuple {
+                    elements: argument_elements,
+                }) = table.kind(argument_type)
+                {
+                    for (element, argument_element) in elements.iter().zip(argument_elements) {
+                        self.infer_generic_argument_from_types(
+                            module_idx,
+                            generic_params,
+                            *element,
+                            *argument_element,
+                            substitutions,
+                        );
+                    }
+                }
+            }
+            Some(TypeKind::GenericInstance { arguments, .. }) => {
+                if let Some(TypeKind::GenericInstance {
+                    arguments: argument_arguments,
+                    ..
+                }) = table.kind(argument_type)
+                {
+                    for (argument, parameter) in argument_arguments.iter().zip(arguments) {
+                        self.infer_generic_argument_from_types(
+                            module_idx,
+                            generic_params,
+                            *parameter,
+                            *argument,
+                            substitutions,
+                        );
+                    }
+                }
+            }
+            _ => {}
+        }
     }
 }

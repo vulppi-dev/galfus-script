@@ -1,5 +1,5 @@
 use crate::mir::*;
-use galfus_core::{FunctionId, NodeId, SymbolId, TypeId};
+use galfus_core::{FunctionId, ModuleId, NodeId, SymbolId, TypeId};
 use galfus_frontend::{ModuleGraph, SymbolKind, SyntaxNodeKind, TypeCheckResult, TypeKind};
 use std::collections::{HashMap, HashSet};
 
@@ -22,6 +22,7 @@ pub struct MirBuilder<'a> {
     pub(super) specialized_functions: Vec<MirFunction>,
     pub(super) active_specialisations: HashSet<(FunctionId, Vec<TypeId>)>,
     pub(super) workspace_ctx: Option<*mut (dyn WorkspaceContext + 'a)>,
+    pub(super) workspace_module_id: Option<ModuleId>,
 }
 
 impl<'a> MirBuilder<'a> {
@@ -41,11 +42,17 @@ impl<'a> MirBuilder<'a> {
             specialized_functions: Vec::new(),
             active_specialisations: HashSet::new(),
             workspace_ctx: None,
+            workspace_module_id: None,
         }
     }
 
     pub fn with_workspace_ctx(mut self, ctx: &'a mut dyn WorkspaceContext) -> Self {
         self.workspace_ctx = Some(ctx as *mut (dyn WorkspaceContext + 'a));
+        self
+    }
+
+    pub fn with_workspace_module_id(mut self, module_id: ModuleId) -> Self {
+        self.workspace_module_id = Some(module_id);
         self
     }
 
@@ -385,14 +392,27 @@ impl<'a> MirBuilder<'a> {
 }
 
 pub trait WorkspaceContext {
-    fn resolve_import(&self, node_id: NodeId) -> Option<(usize, SymbolId)>;
+    fn resolve_import(
+        &self,
+        caller_module_id: ModuleId,
+        node_id: NodeId,
+    ) -> Option<(usize, SymbolId)>;
     fn get_generic_params(
         &self,
         target_mod_idx: usize,
         target_symbol: SymbolId,
     ) -> Option<Vec<SymbolId>>;
+    fn infer_imported_generic_arguments(
+        &mut self,
+        caller_module_id: ModuleId,
+        target_mod_idx: usize,
+        target_symbol: SymbolId,
+        generic_params: &[SymbolId],
+        arg_types: &[TypeId],
+    ) -> Option<Vec<TypeId>>;
     fn specialize_function(
         &mut self,
+        caller_module_id: ModuleId,
         caller_node_id: NodeId,
         target_mod_idx: usize,
         target_symbol: SymbolId,
@@ -401,6 +421,7 @@ pub trait WorkspaceContext {
     ) -> FunctionId;
     fn specialize_builtin_function(
         &mut self,
+        caller_module_id: ModuleId,
         caller_node_id: NodeId,
         module_name: &str,
         function_name: &str,

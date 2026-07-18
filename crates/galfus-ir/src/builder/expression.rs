@@ -85,8 +85,12 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                 let Some(ctx_ptr) = self.builder.workspace_ctx else {
                     return Operand::Constant(Constant::Null);
                 };
+                let Some(caller_module_id) = self.builder.workspace_module_id else {
+                    return Operand::Constant(Constant::Null);
+                };
                 let ctx = unsafe { &mut *ctx_ptr };
                 let Some(function) = ctx.specialize_builtin_function(
+                    caller_module_id,
                     expr_id,
                     "std/iterable",
                     function_name,
@@ -110,7 +114,16 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                 let Some(arms) = node.child(1) else {
                     return Operand::Constant(Constant::Null);
                 };
-                let subject_type = self.node_type(subject).unwrap_or_else(|| TypeId::new(0));
+                let Some(subject_type) = self.typeof_subject_type(subject) else {
+                    return Operand::Constant(Constant::Null);
+                };
+
+                if matches!(
+                    self.builder.type_result.layer().table().kind(subject_type),
+                    Some(TypeKind::GenericParameter { .. })
+                ) {
+                    return Operand::Constant(Constant::Null);
+                }
 
                 for arm in syntax
                     .node(arms)
@@ -861,6 +874,29 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
         }
     }
 
+    fn typeof_subject_type(&self, subject: NodeId) -> Option<TypeId> {
+        let syntax = self.builder.graph.syntax();
+        let resolution = self.builder.graph.resolution()?;
+
+        let generic_parameter_type = resolution
+            .reference_symbol(subject)
+            .or_else(|| {
+                syntax
+                    .first_child_of_kind(subject, SyntaxNodeKind::Identifier)
+                    .and_then(|identifier| resolution.reference_symbol(identifier))
+            })
+            .and_then(|symbol| self.builder.type_result.layer().symbol_type(symbol))
+            .filter(|ty| {
+                matches!(
+                    self.builder.type_result.layer().table().kind(*ty),
+                    Some(TypeKind::GenericParameter { .. })
+                )
+            })
+            .map(|ty| self.substitute_type(ty));
+
+        generic_parameter_type.or_else(|| self.node_type(subject))
+    }
+
     fn anchored_call_receiver(&self, target: NodeId) -> Option<NodeId> {
         if self.is_choice_variant_call_target(target) {
             return None;
@@ -987,16 +1023,28 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
 
             Some(specialized_id)
         } else if let Some(ctx_ptr) = self.builder.workspace_ctx {
+            let caller_module_id = self.builder.workspace_module_id?;
             let ctx = unsafe { &mut *ctx_ptr };
-            if let Some((target_mod_idx, target_symbol)) = ctx.resolve_import(target_node) {
+            if let Some((target_mod_idx, target_symbol)) =
+                ctx.resolve_import(caller_module_id, target_node)
+            {
                 if let Some(generic_params) = ctx.get_generic_params(target_mod_idx, target_symbol)
                 {
                     if generic_params.is_empty() {
                         return None;
                     }
 
-                    let concrete_types =
-                        self.concrete_generic_arguments(target_node, &generic_params, arg_types)?;
+                    let concrete_types = self
+                        .concrete_generic_arguments(target_node, &generic_params, arg_types)
+                        .or_else(|| {
+                            ctx.infer_imported_generic_arguments(
+                                caller_module_id,
+                                target_mod_idx,
+                                target_symbol,
+                                &generic_params,
+                                arg_types,
+                            )
+                        })?;
                     if concrete_types.len() != generic_params.len() {
                         return None;
                     }
@@ -1007,6 +1055,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                         .collect::<HashMap<_, _>>();
 
                     let specialized_id = ctx.specialize_function(
+                        caller_module_id,
                         target_node,
                         target_mod_idx,
                         target_symbol,

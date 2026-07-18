@@ -34,6 +34,7 @@ pub fn compile_to_image(input: &mut CompilerInput<'_>) -> Result<ModuleImage> {
         })?;
         let mir =
             galfus_ir::builder::MirBuilder::new(module.graph(), type_res, module.source().text())
+                .with_workspace_module_id(module.id())
                 .with_workspace_ctx(&mut ws_ctx)
                 .build();
         if let Err(errors) = galfus_ir::validate_module(&mir, type_res) {
