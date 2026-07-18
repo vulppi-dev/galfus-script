@@ -38,6 +38,24 @@ module path, computes dependency-safe initialization order, and links the
 reachable images only when executing an entry. The runtime never performs
 parsing, semantic checking, or compilation.
 
+## Host-provider boundary
+
+`galfus-host` defines optional host contracts independently of the workspace,
+runtime, and VM. A host constructs `Providers` with concrete implementations,
+then passes them only to `Workspace::run`. The workspace remains the final
+facade and does not expose its internal runtime or VM state.
+
+Providers are execution-scoped. The compiler does not inspect or validate
+them. The runtime passes them to the VM, which reports a runtime error only if
+an instruction requires a missing provider. Consequently, running without
+providers is a valid sandbox configuration for programs that do not reach
+host-backed builtins.
+
+The current `IoProvider` is synchronous and supports byte-stream reads with a
+terminator and writes. It is intentionally independent of native, WASM, or
+browser APIs: the CLI adapts native streams, and the playground adapts its
+buffered stream to JavaScript through its WASM-facing API.
+
 ## Gate rules
 
 `Workspace::compile` requires a successful, current `Workspace::check`.
