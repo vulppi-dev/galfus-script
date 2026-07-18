@@ -8,3 +8,6 @@
 - **Call Frame**: Manages local variables, function calls, and arguments return values.
 - **Ownership Graph**: Implements deterministic resource management, tracking owners, weak links, and cycles to automatically invalidate and deallocate heap objects.
 - **Panic Model**: Standard VM errors and unwinding logic.
+- **Host I/O Boundary**: Resolves `std/io` through the optional `IoProvider`
+  supplied for the current execution. Missing providers are reported only when
+  the corresponding I/O instruction executes.

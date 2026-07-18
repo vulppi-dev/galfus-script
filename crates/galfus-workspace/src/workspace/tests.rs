@@ -1,4 +1,21 @@
 use super::*;
+use galfus_host::{IoProvider, IoProviderError, IoRead, Providers};
+use std::sync::{Arc, Mutex};
+
+struct TerminatorIo {
+    terminator: Arc<Mutex<Vec<u8>>>,
+}
+
+impl IoProvider for TerminatorIo {
+    fn read(&mut self, terminator: &[u8]) -> Result<IoRead, IoProviderError> {
+        *self.terminator.lock().expect("terminator state") = terminator.to_vec();
+        Ok(IoRead::EndOfInput)
+    }
+
+    fn write(&mut self, _bytes: &[u8]) -> Result<(), IoProviderError> {
+        Ok(())
+    }
+}
 
 #[test]
 fn check_includes_configured_entry_and_exports_as_semantic_roots() {
@@ -304,7 +321,7 @@ fn compile_rebuilds_only_changed_modules_and_transitive_dependents() {
 fn run_requires_compile_and_executes_the_configured_entry() {
     let mut workspace = Workspace::new();
     assert!(matches!(
-        workspace.run(&[]),
+        workspace.run(&[], None),
         Err(RunBlocked::CompileRequired)
     ));
 
@@ -335,7 +352,225 @@ fn run_requires_compile_and_executes_the_configured_entry() {
     ));
     assert!(workspace.check().is_valid);
     workspace.compile().expect("workspace compiles");
-    assert_eq!(workspace.run(&[]).expect("entry executes").exit_code, 42);
+    assert_eq!(
+        workspace.run(&[], None).expect("entry executes").exit_code,
+        42
+    );
+}
+
+#[test]
+fn run_reports_missing_io_provider_only_when_io_is_executed() {
+    let mut workspace = Workspace::new();
+    workspace
+        .load_config(
+            br#"
+            [module]
+            name = "missing-io-provider"
+            target = "app"
+            entry = "main.gfs"
+            "#,
+        )
+        .expect("valid configuration");
+    workspace
+        .load_module(
+            "main.gfs",
+            br#"
+            import { println } from "std/io"
+
+            export fn main(args: [[u8]]): i32 {
+                println("output")
+                return 0
+            }
+            "#,
+        )
+        .expect("valid entry module");
+
+    assert!(workspace.check().is_valid);
+    workspace.compile().expect("workspace compiles");
+
+    let error = match workspace.run(&[], None) {
+        Err(error) => error,
+        Ok(_) => panic!("I/O requires a provider at runtime"),
+    };
+    assert!(matches!(
+        error,
+        RunBlocked::RuntimeError(message) if message.contains("I/O provider is unavailable for write")
+    ));
+}
+
+#[test]
+fn run_passes_read_terminator_to_the_io_provider() {
+    let mut workspace = Workspace::new();
+    workspace
+        .load_config(
+            br#"
+            [module]
+            name = "read-terminator"
+            target = "app"
+            entry = "main.gfs"
+            "#,
+        )
+        .expect("valid configuration");
+    workspace
+        .load_module(
+            "main.gfs",
+            br#"
+            import { read } from "std/io"
+
+            export fn main(args: [[u8]]): i32 {
+                read("!")
+                return 0
+            }
+            "#,
+        )
+        .expect("valid entry module");
+
+    assert!(workspace.check().is_valid);
+    workspace.compile().expect("workspace compiles");
+
+    let terminator = Arc::new(Mutex::new(Vec::new()));
+    let providers = Providers::with_io(Box::new(TerminatorIo {
+        terminator: Arc::clone(&terminator),
+    }));
+    assert_eq!(
+        workspace
+            .run(&[], Some(providers))
+            .expect("entry executes")
+            .exit_code,
+        0
+    );
+    assert_eq!(*terminator.lock().expect("terminator state"), b"!");
+}
+
+#[test]
+fn run_specializes_nested_generic_types_across_modules() {
+    let mut workspace = Workspace::new();
+    workspace
+        .load_config(
+            br#"
+            [module]
+            name = "cross-module-nested-generics"
+            target = "app"
+            entry = "main.gfs"
+            "#,
+        )
+        .expect("valid configuration");
+    workspace
+        .load_module(
+            "main.gfs",
+            br#"
+            import { identity } from "./generic"
+
+            export fn main(args: [[u8]]): i32 {
+                var values: [i32] = [32]
+                return identity(values).length + 41
+            }
+            "#,
+        )
+        .expect("valid entry module");
+    workspace
+        .load_module(
+            "generic.gfs",
+            br#"
+            export fn identity<T>(values: [T]): [T] {
+                return values
+            }
+            "#,
+        )
+        .expect("valid generic module");
+
+    let check = workspace.check();
+    assert!(check.is_valid, "check diagnostics: {:?}", check.diagnostics);
+    workspace.compile().expect("workspace compiles");
+    assert_eq!(
+        workspace.run(&[], None).expect("entry executes").exit_code,
+        42
+    );
+}
+
+#[test]
+fn run_specializes_explicit_imported_generic_typeof_parameter() {
+    let mut workspace = Workspace::new();
+    workspace
+        .load_config(
+            br#"
+            [module]
+            name = "cross-module-typeof"
+            target = "app"
+            entry = "main.gfs"
+            "#,
+        )
+        .expect("valid configuration");
+    workspace
+        .load_module(
+            "main.gfs",
+            br#"
+            import { dispatch } from "./generic"
+
+            export fn main(args: [[u8]]): i32 {
+                return dispatch<i32>(0)
+            }
+            "#,
+        )
+        .expect("valid entry module");
+    workspace
+        .load_module(
+            "generic.gfs",
+            br#"
+            export fn dispatch<T: i32 | bool>(value: T): i32 {
+                return typeof T {
+                    i32 => 42,
+                    bool => 0,
+                }
+            }
+            "#,
+        )
+        .expect("valid generic module");
+
+    let check = workspace.check();
+    assert!(check.is_valid, "check diagnostics: {:?}", check.diagnostics);
+    workspace.compile().expect("workspace compiles");
+    assert_eq!(
+        workspace.run(&[], None).expect("entry executes").exit_code,
+        42
+    );
+}
+
+#[test]
+fn run_specializes_generic_anchored_range_iterator_methods() {
+    let mut workspace = Workspace::new();
+    workspace
+        .load_config(
+            br#"
+            [module]
+            name = "generic-range-method"
+            target = "app"
+            entry = "main.gfs"
+            "#,
+        )
+        .expect("valid configuration");
+    workspace
+        .load_module(
+            "main.gfs",
+            br#"
+            export fn main(args: [[u8]]): i32 {
+                var total = 0
+                for value in 2::4%2 {
+                    total += value
+                }
+                return total
+            }
+            "#,
+        )
+        .expect("valid entry module");
+
+    let check = workspace.check();
+    assert!(check.is_valid, "check diagnostics: {:?}", check.diagnostics);
+    workspace.compile().expect("workspace compiles");
+    assert_eq!(
+        workspace.run(&[], None).expect("entry executes").exit_code,
+        20
+    );
 }
 
 #[test]
@@ -496,7 +731,10 @@ fn run_synchronizes_the_runtime_module_graph() {
     let main_id = main.id();
     let helper_id = helper.id();
 
-    assert_eq!(workspace.run(&[]).expect("entry executes").exit_code, 0);
+    assert_eq!(
+        workspace.run(&[], None).expect("entry executes").exit_code,
+        0
+    );
     assert_eq!(workspace.runtime.modules().len(), 2);
 
     assert!(matches!(
@@ -505,7 +743,10 @@ fn run_synchronizes_the_runtime_module_graph() {
     ));
     assert!(workspace.check().is_valid);
     workspace.compile().expect("workspace recompiles");
-    assert_eq!(workspace.run(&[]).expect("entry executes").exit_code, 0);
+    assert_eq!(
+        workspace.run(&[], None).expect("entry executes").exit_code,
+        0
+    );
     assert!(workspace.runtime.modules().get(main_id).is_some());
     assert!(workspace.runtime.modules().get(helper_id).is_none());
 }

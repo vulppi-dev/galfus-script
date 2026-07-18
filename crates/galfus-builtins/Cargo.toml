@@ -6,7 +6,6 @@ license.workspace = true
 
 [dependencies]
 galfus-core = { path = "../galfus-core" }
-galfus-target = { path = "../galfus-target" }
 galfus-runtime = { path = "../galfus-runtime" }
 
 thiserror.workspace = true

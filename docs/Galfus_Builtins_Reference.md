@@ -79,6 +79,11 @@ Example configuration:
 
 Basic console and standard input/output stream interaction.
 
+`std/io` is resolved at execution time through the optional host `IoProvider`.
+The compiler does not require a provider. If execution reaches `std/io` with
+no I/O provider configured, it fails at runtime. This permits hosts to run
+code without providers as a sandbox.
+
 ```galfus
 # Read bytes from standard input until the delimiter is reached or EOF.
 # The delimiter is not included in the returned bytes.

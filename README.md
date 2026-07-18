@@ -80,10 +80,10 @@ galfus-script/
   │    ├── galfus-frontend/   # Lexer, parser, resolver, checker, and semantic validation
   │    ├── galfus-ir/         # MIR representation and VM lowering code
   │    ├── galfus-image/      # Bytecode format, validation, and in-memory module image layouts
+  │    ├── galfus-host/       # Optional host-provider contracts used at execution time
   │    ├── galfus-runtime/    # Concurrency runtime, threads, loader, and registry
   │    ├── galfus-vm/         # Virtual Machine interpreter and ownership graph engine
   │    ├── galfus-jit/        # Just-in-Time compilation engine skeleton
-  │    ├── galfus-target/     # Low-level target capabilities provider interface
   │    ├── galfus-builtins/   # Standard library builtins and rich_builtins files
   │    ├── galfus-runner/     # Workspace compilation pipeline and linker
   │    └── galfus-cli/        # CLI interface (Command Line Interface)
@@ -101,7 +101,14 @@ A minimal virtual standard library is available to user scripts, including:
 
 Offers basic console input/output interface:
 
+- `fn read(terminator: [u8] = "\n"): [u8]`: Reads bytes until the delimiter or end of input. The delimiter is not returned.
 - `fn print(text: [u8]): null`: Output a slice of u8 characters directly to the standard output.
+- `fn println(text: [u8]): null`: Output a slice of u8 characters followed by a newline.
+
+The workspace is host-neutral. A host optionally supplies `Providers` when
+calling `Workspace::run`; the CLI supplies native streams and the playground
+supplies buffered streams. A program that reaches `std/io` without an I/O
+provider fails at runtime, so a host can create a sandbox by supplying none.
 
 ---
 

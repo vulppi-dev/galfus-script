@@ -43,6 +43,11 @@ area:runtime:
       - any-glob-to-any-file:
           - 'crates/galfus-runtime/**'
 
+area:playground:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'crates/galfus-playground/**'
+
 area:tools:
   - changed-files:
       - any-glob-to-any-file:
@@ -53,6 +58,11 @@ area:vm:
       - any-glob-to-any-file:
           - 'crates/galfus-vm/**'
 
+area:workspace:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'crates/galfus-workspace/**'
+
 area:docs:
   - changed-files:
       - any-glob-to-any-file:
@@ -60,4 +70,5 @@ area:docs:
           - 'CONTRIBUTING.md'
           - 'AGENTS.md'
           - 'docs/**'
+          - 'crates/*/README.md'
           - '.github/**/*.md'

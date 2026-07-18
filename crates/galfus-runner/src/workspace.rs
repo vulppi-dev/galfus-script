@@ -1,4 +1,5 @@
 use anyhow::{Context, Result, bail};
+use galfus_host::Providers;
 use galfus_workspace::{LoadResult, Workspace};
 use std::path::Path;
 
@@ -23,7 +24,7 @@ pub fn check_workspace_root(root: &str) -> Result<()> {
     }
 }
 
-pub fn run_project(root: &str, cli_args: &[String]) -> Result<()> {
+pub fn run_project(root: &str, cli_args: &[String]) -> Result<i32> {
     let mut workspace = load_workspace(Path::new(root))?;
     let report = workspace.check();
     if !report.is_valid {
@@ -37,13 +38,12 @@ pub fn run_project(root: &str, cli_args: &[String]) -> Result<()> {
         .map(|argument| argument.as_bytes().to_vec())
         .collect::<Vec<_>>();
     let report = workspace
-        .run(args.as_slice())
+        .run(
+            args.as_slice(),
+            Some(Providers::with_io(Box::new(super::NativeIoProvider))),
+        )
         .map_err(|error| anyhow::anyhow!("workspace execution failed: {error:?}"))?;
-    println!(
-        "Program exited successfully with code: {}",
-        report.exit_code
-    );
-    Ok(())
+    Ok(report.exit_code)
 }
 
 fn load_workspace(root: &Path) -> Result<Workspace> {

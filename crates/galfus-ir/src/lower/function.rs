@@ -263,9 +263,13 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
 
                             self.free_temps(1);
                         } else if builtin_name == Some("__builtin_read") {
+                            let terminator = self.alloc_temp();
+                            self.load_operand_to(&args[0], terminator);
                             self.instructions.push(Instruction::Read {
                                 dest: Reg(destination.raw() as u16),
+                                terminator,
                             });
+                            self.free_temps(1);
                         } else {
                             let start_reg = self.alloc_temp();
                             let mut temp_regs = vec![start_reg];

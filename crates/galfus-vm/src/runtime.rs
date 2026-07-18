@@ -1,9 +1,9 @@
 use crate::error::{StackFrameInfo, VmError, VmPanic};
+use galfus_host::Providers;
 use galfus_image::instruction::{
     ChoiceLayoutIdx, FuncIdx, Instruction, Reg, StructLayoutIdx, TypeIdx,
 };
 use galfus_image::{Constant, ImageType, ModuleImage, OwnershipKind};
-use galfus_target::{NativeTarget, TargetCapabilityProvider};
 
 mod casts;
 mod control;
@@ -75,12 +75,12 @@ pub enum HeapObject {
 }
 
 pub struct VmContext {
-    pub target: Box<dyn TargetCapabilityProvider>,
+    providers: Option<Providers>,
 }
 
 impl VmContext {
-    pub fn new(target: Box<dyn TargetCapabilityProvider>) -> Self {
-        Self { target }
+    pub fn new(providers: Option<Providers>) -> Self {
+        Self { providers }
     }
 }
 
@@ -110,7 +110,7 @@ impl VirtualMachine {
             heap: Vec::new(),
             free_slots: Vec::new(),
             call_stack: Vec::new(),
-            context: VmContext::new(Box::new(NativeTarget)),
+            context: VmContext::new(None),
             allocations_since_release: 0,
         }
     }
@@ -120,8 +120,8 @@ impl VirtualMachine {
         self
     }
 
-    pub fn with_target(mut self, target: Box<dyn TargetCapabilityProvider>) -> Self {
-        self.context = VmContext::new(target);
+    pub fn with_providers(mut self, providers: Option<Providers>) -> Self {
+        self.context = VmContext::new(providers);
         self
     }
 

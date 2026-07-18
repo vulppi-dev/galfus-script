@@ -3,16 +3,26 @@ name: VSCode Extension CI
 on:
   pull_request:
     branches:
-      - editor/**
+      - stable/editor/**
+      - alpha/editor/**
+      - beta/editor/**
+      - next/editor/**
+      - latest/editor/**
     paths:
       - 'editors/**'
+      - 'scripts/github/prepare-component-version.ts'
       - '.github/workflows/editors-ci.yml'
 
   push:
     branches:
-      - editor/**
+      - stable/editor/**
+      - alpha/editor/**
+      - beta/editor/**
+      - next/editor/**
+      - latest/editor/**
     paths:
       - 'editors/**'
+      - 'scripts/github/prepare-component-version.ts'
       - '.github/workflows/editors-ci.yml'
 
   workflow_dispatch:
@@ -42,6 +52,10 @@ jobs:
         with:
           bun-version-file: .bun-version
 
+      - name: Apply version from release branch
+        id: version
+        run: bun ../../scripts/github/prepare-component-version.ts editor
+
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
@@ -66,7 +80,7 @@ jobs:
       - name: Upload VSIX artifact
         uses: actions/upload-artifact@v7
         with:
-          name: galfus-language-vsix-${{ github.sha }}
+          name: galfus-language-vsix-${{ steps.version.outputs.channel }}-${{ steps.version.outputs.version }}-${{ github.sha }}
           path: editors/vscode/dist/*.vsix
           if-no-files-found: error
           retention-days: 14

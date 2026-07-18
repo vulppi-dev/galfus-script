@@ -56,6 +56,9 @@ pub enum VmError {
 
     #[error("I/O error: {0}")]
     IoError(String),
+
+    #[error("I/O provider is unavailable for {operation}")]
+    IoProviderUnavailable { operation: &'static str },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

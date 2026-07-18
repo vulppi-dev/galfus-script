@@ -2,8 +2,8 @@ mod module_graph;
 
 use galfus_compiler::CompiledModuleImage;
 use galfus_core::ModuleId;
+use galfus_host::Providers;
 use galfus_image::ModuleImage;
-use galfus_target::TargetCapabilityProvider;
 use galfus_vm::{HeapObject, VirtualMachine, VmPanic, VmValue};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -31,8 +31,6 @@ pub enum RuntimeError {
     MissingArgumentType(&'static str),
     #[error("{0}")]
     VmPanic(#[from] VmPanic),
-    #[error("runtime target provider is unavailable")]
-    TargetUnavailable,
     #[error(transparent)]
     Link(#[from] RuntimeLinkError),
 }
@@ -150,16 +148,14 @@ pub struct Runtime {
     registry: Arc<Mutex<ModuleRegistry>>,
     modules: RuntimeModuleGraph,
     threads: Vec<LogicalThread>,
-    capabilities: Option<Box<dyn TargetCapabilityProvider>>,
 }
 
 impl Runtime {
-    pub fn new(capabilities: Box<dyn TargetCapabilityProvider>) -> Self {
+    pub fn new() -> Self {
         Self {
             registry: Arc::new(Mutex::new(ModuleRegistry::new())),
             modules: RuntimeModuleGraph::new(),
             threads: Vec::new(),
-            capabilities: Some(capabilities),
         }
     }
 
@@ -210,9 +206,10 @@ impl Runtime {
         id: ModuleId,
         entry_name: &str,
         args: &[Vec<u8>],
+        providers: Option<Providers>,
     ) -> Result<i32, RuntimeError> {
         let image = self.modules.linked_image(id)?;
-        self.run_image_entry(image, entry_name, args)
+        self.run_image_entry(image, entry_name, args, providers)
     }
 
     pub fn run_entry(
@@ -220,6 +217,7 @@ impl Runtime {
         module_name: &str,
         entry_name: &str,
         args: &[Vec<u8>],
+        providers: Option<Providers>,
     ) -> Result<i32, RuntimeError> {
         let image = self
             .registry
@@ -228,7 +226,7 @@ impl Runtime {
             .get(module_name)
             .ok_or_else(|| RuntimeError::ModuleNotLoaded(module_name.to_string()))?;
         let image = (*image).clone();
-        self.run_image_entry(image, entry_name, args)
+        self.run_image_entry(image, entry_name, args, providers)
     }
 
     fn run_image_entry(
@@ -236,6 +234,7 @@ impl Runtime {
         image: ModuleImage,
         entry_name: &str,
         args: &[Vec<u8>],
+        providers: Option<Providers>,
     ) -> Result<i32, RuntimeError> {
         let abi = EntryAbi::default_app();
         let entry_idx = image
@@ -260,11 +259,7 @@ impl Runtime {
             });
         }
 
-        let target = self
-            .capabilities
-            .take()
-            .ok_or(RuntimeError::TargetUnavailable)?;
-        let mut vm = VirtualMachine::new(image).with_target(target);
+        let mut vm = VirtualMachine::new(image).with_providers(providers);
 
         let result = (|| {
             if let Some(init_idx) = vm.image.init_func_idx {
@@ -275,7 +270,6 @@ impl Runtime {
             vm.run_function(entry_idx, vec![entry_args])
                 .map_err(RuntimeError::VmPanic)
         })();
-        self.capabilities = Some(vm.context.target);
         let result = result?;
 
         match result {
