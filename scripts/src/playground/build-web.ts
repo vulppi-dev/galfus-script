@@ -65,7 +65,12 @@ async function ensureWasmBindgen(): Promise<void> {
 }
 
 async function getWasmBindgenVersion(): Promise<string | undefined> {
-  const process = Bun.spawn(['wasm-bindgen', '--version'], {
+  const wasmBindgenPath = Bun.which('wasm-bindgen');
+  if (!wasmBindgenPath) {
+    return undefined;
+  }
+
+  const process = Bun.spawn([wasmBindgenPath, '--version'], {
     cwd: repositoryRoot,
     stderr: 'ignore',
     stdout: 'pipe',
