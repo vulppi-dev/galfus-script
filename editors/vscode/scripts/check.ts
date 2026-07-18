@@ -1,5 +1,5 @@
-import { existsSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { existsSync } from 'fs';
+import { resolve } from 'path';
 
 type JsonObject = Record<string, unknown>;
 
