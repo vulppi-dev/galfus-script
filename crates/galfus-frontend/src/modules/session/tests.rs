@@ -194,3 +194,55 @@ fn check_records_resolved_implicit_range_dependency() {
             && edge.to() == Some(ModuleId::new(2))
     }));
 }
+
+#[test]
+fn check_removes_modules_and_refreshes_dependent_edges() {
+    let main = SourceFile::new(
+        SourceId::new(1),
+        "src/main.gfs".to_string(),
+        "import { value } from './utility'\nfn main(): i32 { return value() }".to_string(),
+    );
+    let utility = SourceFile::new(
+        SourceId::new(2),
+        "src/utility.gfs".to_string(),
+        "export fn value(): i32 { return 1 }".to_string(),
+    );
+    let initial_sources = [
+        FrontendSource {
+            module_id: ModuleId::new(1),
+            path: path("src/main.gfs"),
+            source: &main,
+        },
+        FrontendSource {
+            module_id: ModuleId::new(2),
+            path: path("src/utility.gfs"),
+            source: &utility,
+        },
+    ];
+    let roots = FrontendRoots::new(vec![SemanticRoot::new(
+        SemanticRootKind::Entry,
+        ModuleId::new(1),
+        path("src/main.gfs"),
+    )]);
+    let mut session = FrontendSession::new();
+
+    session.check(FrontendUpdate {
+        source_revision: Revision::new(1),
+        sources: &initial_sources,
+        removed_modules: &[],
+        roots: &roots,
+    });
+    session.check(FrontendUpdate {
+        source_revision: Revision::new(2),
+        sources: &[],
+        removed_modules: &[ModuleId::new(2)],
+        roots: &roots,
+    });
+
+    assert!(session.semantic_graph().get(ModuleId::new(2)).is_none());
+    assert!(session.semantic_graph().import_edges().iter().any(|edge| {
+        edge.from() == ModuleId::new(1)
+            && edge.target_path() == &path("src/utility.gfs")
+            && edge.to().is_none()
+    }));
+}

@@ -3,7 +3,7 @@ use crate::modules::module::SemanticModule;
 use crate::modules::resolution::resolve_relative_import;
 use crate::{ImportRecord, SyntaxNodeKind};
 use galfus_core::{ModuleId, ModulePath, NodeId, SemanticRevision};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SemanticRootKind {
@@ -121,19 +121,58 @@ pub struct SemanticModuleGraph {
 impl SemanticModuleGraph {
     pub fn build(roots: &[SemanticRoot], modules: &[SemanticModule]) -> Self {
         let mut graph = Self::default();
+        let changed_modules = modules.iter().map(SemanticModule::id).collect();
+        graph.apply_delta(roots, modules, &changed_modules, &[]);
+
+        graph
+    }
+
+    pub fn apply_delta(
+        &mut self,
+        roots: &[SemanticRoot],
+        modules: &[SemanticModule],
+        changed_modules: &HashSet<ModuleId>,
+        removed_modules: &[ModuleId],
+    ) {
+        self.roots = roots.to_vec();
+
+        for id in removed_modules {
+            if let Some(previous) = self.modules.remove(id) {
+                self.module_by_path.remove(previous.path());
+            }
+        }
 
         for module in modules {
-            graph.modules.insert(module.id(), module.clone());
-            graph
-                .module_by_path
+            if !changed_modules.contains(&module.id()) {
+                continue;
+            }
+            if let Some(previous) = self.modules.insert(module.id(), module.clone())
+                && previous.path() != module.path()
+            {
+                self.module_by_path.remove(previous.path());
+            }
+            self.module_by_path
                 .insert(module.path().clone(), module.id());
         }
 
-        graph.roots = roots.to_vec();
-        graph.add_import_edges(modules);
-        graph.add_implicit_import_edges(modules);
+        self.import_edges.retain(|edge| {
+            !changed_modules.contains(&edge.from) && !removed_modules.contains(&edge.from)
+        });
+        for edge in &mut self.import_edges {
+            if edge.to.is_some_and(|id| removed_modules.contains(&id)) {
+                edge.to = None;
+                edge.export_name = None;
+                edge.referenced_exports.clear();
+            }
+        }
 
-        graph
+        for module in modules {
+            if !changed_modules.contains(&module.id()) {
+                continue;
+            }
+            self.add_import_edges_for(module, modules);
+            self.add_implicit_import_edges_for(module);
+        }
     }
 
     pub fn roots(&self) -> &[SemanticRoot] {
@@ -160,59 +199,53 @@ impl SemanticModuleGraph {
         self.get(id).map(SemanticModule::semantic_revision)
     }
 
-    fn add_import_edges(&mut self, modules: &[SemanticModule]) {
-        for module in modules {
-            let from = module.id();
+    fn add_import_edges_for(&mut self, module: &SemanticModule, modules: &[SemanticModule]) {
+        let from = module.id();
 
-            let Some(resolution) = module.graph().resolution() else {
+        let Some(resolution) = module.graph().resolution() else {
+            return;
+        };
+
+        for import in resolution.imports() {
+            let source = import.source();
+
+            let Some(target_path) = resolve_relative_import(module.path(), source) else {
                 continue;
             };
 
-            for import in resolution.imports() {
-                let source = import.source();
+            let to = self.module_by_path(&target_path);
 
-                // Phase 2 logic expects implicit relative imports resolution.
-                // In frontend, `resolve_relative_import` uses `ModulePath`.
-                let Some(target_path) = resolve_relative_import(module.path(), source) else {
-                    continue;
-                };
+            let export_name = self.resolve_import_export(import, to, modules);
+            let referenced_exports =
+                self.resolve_namespace_referenced_exports(module, import, to, modules);
 
-                let to = self.module_by_path(&target_path);
-
-                let export_name = self.resolve_import_export(import, to, modules);
-                let referenced_exports =
-                    self.resolve_namespace_referenced_exports(module, import, to, modules);
-
-                self.import_edges.push(SemanticImportEdge {
-                    from,
-                    kind: SemanticImportKind::Explicit(import.kind()),
-                    source: source.to_string(),
-                    source_node: Some(import.source_node()),
-                    local_name: import.local_name().to_string(),
-                    imported_name: import.imported_name().map(str::to_string),
-                    target_path,
-                    to,
-                    export_name,
-                    referenced_exports,
-                });
-            }
+            self.import_edges.push(SemanticImportEdge {
+                from,
+                kind: SemanticImportKind::Explicit(import.kind()),
+                source: source.to_string(),
+                source_node: Some(import.source_node()),
+                local_name: import.local_name().to_string(),
+                imported_name: import.imported_name().map(str::to_string),
+                target_path,
+                to,
+                export_name,
+                referenced_exports,
+            });
         }
     }
 
-    fn add_implicit_import_edges(&mut self, modules: &[SemanticModule]) {
-        for module in modules {
-            let Some(root) = module.graph().syntax().root() else {
-                continue;
-            };
-            let dependencies =
-                crate::modules::collect_implicit_dependencies(module.graph().syntax(), root);
+    fn add_implicit_import_edges_for(&mut self, module: &SemanticModule) {
+        let Some(root) = module.graph().syntax().root() else {
+            return;
+        };
+        let dependencies =
+            crate::modules::collect_implicit_dependencies(module.graph().syntax(), root);
 
-            if dependencies.has_range {
-                self.add_implicit_import_edge(module.id(), "std/iterable.gfs");
-            }
-            if dependencies.has_match {
-                self.add_implicit_import_edge(module.id(), "std/constraints.gfs");
-            }
+        if dependencies.has_range {
+            self.add_implicit_import_edge(module.id(), "std/iterable.gfs");
+        }
+        if dependencies.has_match {
+            self.add_implicit_import_edge(module.id(), "std/constraints.gfs");
         }
     }
 

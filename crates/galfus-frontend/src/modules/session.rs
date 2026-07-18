@@ -133,7 +133,12 @@ impl FrontendSession {
 
         self.type_check_modules(&changed_modules);
         self.rebuild_diagnostics();
-        self.semantic_graph = SemanticModuleGraph::build(update.roots.roots(), &self.modules);
+        self.semantic_graph.apply_delta(
+            update.roots.roots(),
+            &self.modules,
+            &changed_modules,
+            update.removed_modules,
+        );
 
         // Report the highest semantic revision produced in this check cycle.
         let semantic_revision = self
