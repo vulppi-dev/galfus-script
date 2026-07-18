@@ -84,7 +84,6 @@ galfus-script/
   │    ├── galfus-runtime/    # Concurrency runtime, threads, loader, and registry
   │    ├── galfus-vm/         # Virtual Machine interpreter and ownership graph engine
   │    ├── galfus-jit/        # Just-in-Time compilation engine skeleton
-  │    ├── galfus-target/     # Legacy target integration crate, pending removal
   │    ├── galfus-builtins/   # Standard library builtins and rich_builtins files
   │    ├── galfus-runner/     # Workspace compilation pipeline and linker
   │    └── galfus-cli/        # CLI interface (Command Line Interface)
