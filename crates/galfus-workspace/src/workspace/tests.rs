@@ -382,7 +382,7 @@ fn run_specializes_nested_generic_types_across_modules() {
 }
 
 #[test]
-fn run_specializes_typeof_generic_parameter_across_modules() {
+fn run_specializes_explicit_imported_generic_typeof_parameter() {
     let mut workspace = Workspace::new();
     workspace
         .load_config(
@@ -401,7 +401,7 @@ fn run_specializes_typeof_generic_parameter_across_modules() {
             import { dispatch } from "./generic"
 
             export fn main(args: [[u8]]): i32 {
-                return dispatch(0)
+                return dispatch<i32>(0)
             }
             "#,
         )

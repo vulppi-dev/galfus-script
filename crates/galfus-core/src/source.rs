@@ -78,7 +78,7 @@ impl SourceFile {
     }
 
     pub fn offset(&self, line_col: &RowCol) -> Option<usize> {
-        let row_index = line_col.row.checked_sub(1)? as usize;
+        let row_index = line_col.row.checked_sub(1)?;
         let column_offset = line_col.column.checked_sub(1)?;
         let row_start = *self.row_starts.get(row_index)?;
         Some(row_start + column_offset)
@@ -89,7 +89,7 @@ impl SourceFile {
             return None;
         }
 
-        self.text.get(span.start() as usize..span.end() as usize)
+        self.text.get(span.start()..span.end())
     }
 
     pub fn span(&self) -> Span {

@@ -10,7 +10,7 @@ impl ModulePath {
         }
 
         let mut segments = Vec::new();
-        for segment in path.split(|c| c == '/' || c == '\\') {
+        for segment in path.split(['/', '\\']) {
             if segment.is_empty() || segment == "." {
                 continue;
             }
