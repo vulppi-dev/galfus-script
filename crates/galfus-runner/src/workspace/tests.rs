@@ -38,3 +38,34 @@ fn load_workspace_reads_all_nested_source_files() {
 
     std::fs::remove_dir_all(workspace_root).expect("remove temporary workspace");
 }
+
+#[test]
+fn load_workspace_accepts_standalone_source_file() {
+    let source_path = std::env::current_dir()
+        .expect("current directory")
+        .join(".tmp")
+        .join(format!(
+            "runner-standalone-source-{}.gfs",
+            NEXT_WORKSPACE_ID.fetch_add(1, Ordering::Relaxed)
+        ));
+    std::fs::create_dir_all(source_path.parent().expect("temporary directory"))
+        .expect("temporary directory");
+    std::fs::write(
+        source_path.as_path(),
+        "export fn main(args: [[u8]]): i32 { return 42 }",
+    )
+    .expect("entry source");
+
+    let mut workspace = load_workspace(source_path.as_path()).expect("loads standalone source");
+    assert!(workspace.check().is_valid);
+    workspace.compile().expect("compiles standalone source");
+    assert_eq!(
+        workspace
+            .run(&[])
+            .expect("runs standalone source")
+            .exit_code,
+        42
+    );
+
+    std::fs::remove_file(source_path).expect("remove temporary source");
+}
