@@ -69,3 +69,29 @@ fn load_workspace_accepts_standalone_source_file() {
 
     std::fs::remove_file(source_path).expect("remove temporary source");
 }
+
+#[test]
+fn run_project_returns_the_application_exit_code() {
+    let source_path = std::env::current_dir()
+        .expect("current directory")
+        .join(".tmp")
+        .join(format!(
+            "runner-project-exit-code-{}.gfs",
+            NEXT_WORKSPACE_ID.fetch_add(1, Ordering::Relaxed)
+        ));
+    std::fs::create_dir_all(source_path.parent().expect("temporary directory"))
+        .expect("temporary directory");
+    std::fs::write(
+        source_path.as_path(),
+        "export fn main(args: [[u8]]): i32 { return 42 }",
+    )
+    .expect("entry source");
+
+    assert_eq!(
+        run_project(source_path.to_str().expect("UTF-8 source path"), &[])
+            .expect("runs standalone source"),
+        42
+    );
+
+    std::fs::remove_file(source_path).expect("remove temporary source");
+}

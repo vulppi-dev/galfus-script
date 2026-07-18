@@ -24,7 +24,10 @@ enum Command {
 fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
     match Cli::parse().command {
-        Command::Run { workspace, args } => galfus_runner::run_project(&workspace, &args),
+        Command::Run { workspace, args } => {
+            let exit_code = galfus_runner::run_project(&workspace, &args)?;
+            std::process::exit(exit_code);
+        }
         Command::Check { workspace } => galfus_runner::check_workspace_root(&workspace),
     }
 }

@@ -28,6 +28,14 @@ struct Box<T: Scalar> {
   value: T,
 }
 
+struct Label satisfies Renderable {
+  text: Bytes,
+}
+
+fn Label::render(self): Bytes {
+  return self.text
+}
+
 fn Point::move(self, dx: i32, dy: i32): Point {
   return new {
     x: self.x + dx,
@@ -47,6 +55,31 @@ fn arrays_and_spread(): [i32] {
   return [...first, 4, 5]
 }
 
+fn literals_operators_and_branching(): i32 {
+  // Literal, unary, arithmetic, comparison, logical, and else coverage.
+  const decimal = 1_000
+  const fraction = 2.5
+  const enabled = !false && decimal > 0
+
+  if enabled || fraction > 0.0 {
+    return decimal / 10 + (3 * 2) - 1
+  } else {
+    return 0
+  }
+}
+
+fn calculation_to_text(value: i32): [u8] {
+  const hundreds = value / 100
+  const tens = (value / 10) % 10
+  const units = value % 10
+
+  return [
+    <u8> hundreds + <u8> 48,
+    <u8> tens + <u8> 48,
+    <u8> units + <u8> 48,
+  ]
+}
+
 fn new_dynamic_array(size: i32): [u8] {
   return new([u8], size)
 }
@@ -58,6 +91,22 @@ fn structs_and_methods(): Point {
   }
 
   return point::move(3, 4)
+}
+
+fn enums_constraints_and_generics(): i32 {
+  const direction = Direction::East
+  const label = new(Label) { text: "showcase" }
+
+  const direction_value = match direction {
+    Direction::North => 1,
+    Direction::South => 2,
+    Direction::East => 3,
+    Direction::West => 4,
+  }
+
+  println(label::render())
+
+  return direction_value
 }
 
 fn choices_and_match(value: Outcome<i32>): i32 {
@@ -149,11 +198,12 @@ fn type_dispatch<T: Scalar>(): i32 {
 
 fn arrow_functions(): i32 {
   const double = (value: i32): i32 => value * 2
+  const increment = (value: i32) => value + 1
   const add = (left: i32, right: i32): i32 => {
     return left + right
   }
 
-  return add(double(2), 3)
+  return add(increment(double(2)), 3)
 }
 
 fn casts_and_copy(point: Point): Point {
@@ -202,15 +252,19 @@ export fn main(_args: [[u8]]): i32 {
   const destructured = destructuring_showcase(point)
   const result = choices_and_match(Outcome::Ok(bindings_and_literals()))
   const narrowed = narrowing(result)
+  const array_values = arrays_and_spread()
+  const bytes = new_dynamic_array(16)
   const ranged = loops_and_ranges() + quantity_ranges()
   const looped = loop_controls(5)
   const namedLooped = named_loop_controls()
   const dispatched = type_dispatch<i32>()
   const arrow = arrow_functions()
   const copied = casts_and_copy(point)
-  const bytes = new_dynamic_array(16)
+  const literals = literals_operators_and_branching()
+  const transacted = transactions()
+  const calculation = destructured + narrowed + ranged + looped + namedLooped + dispatched + arrow + copied.x + literals + transacted
 
-  println(bytes)
+  println(calculation_to_text(calculation))
 
-  return destructured + narrowed + ranged + looped + namedLooped + dispatched + arrow + copied.x
+  return 0
 }
