@@ -1,4 +1,7 @@
 {
+  "include": [
+    "**/*.ts"
+  ],
   "compilerOptions": {
     // Environment setup & latest features
     "lib": [

@@ -37,6 +37,10 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
 
+      - name: Install script dependencies
+        working-directory: scripts
+        run: bun install --frozen-lockfile
+
       - name: Label PR by changed files
         uses: actions/labeler@v5
         with:
@@ -60,9 +64,10 @@ jobs:
           github_api_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Sync changelog labels from checked checklist
+        working-directory: scripts
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: bun scripts/github/sync-changelog-labels.ts
+        run: bun run cmd github sync-changelog-labels
 
   validate:
     needs:
@@ -79,7 +84,12 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
 
+      - name: Install script dependencies
+        working-directory: scripts
+        run: bun install --frozen-lockfile
+
       - name: Validate PR policy
+        working-directory: scripts
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: bun scripts/github/validate-pr-policy.ts
+        run: bun run cmd github validate-pr-policy

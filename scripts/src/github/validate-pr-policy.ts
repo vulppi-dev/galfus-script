@@ -30,7 +30,7 @@ const CHANGELOG_LABELS = [
   'changelog:internal',
 ];
 
-async function main(): Promise<void> {
+export async function validatePrPolicy(): Promise<void> {
   const payload = await readEventPayload<PullRequestPayload>();
   const pr = payload.pull_request;
   if (!pr || pr.draft) {
@@ -149,8 +149,3 @@ async function main(): Promise<void> {
     throw new Error(errors.map((message) => `- ${message}`).join('\n'));
   }
 }
-
-main().catch((error) => {
-  console.error('[validate-pr-policy] Failed:', error);
-  process.exitCode = 1;
-});

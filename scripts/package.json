@@ -3,9 +3,10 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "setup-vscode": "bun run src/setup-extension.ts --vscode",
-    "setup-antigravity": "bun run src/setup-extension.ts --antigravity",
-    "setup-all": "bun run src/setup-extension.ts --all"
+    "cmd": "bun src/cmd.ts",
+    "setup-vscode": "bun cmd setup extension --vscode",
+    "setup-antigravity": "bun cmd setup extension --antigravity",
+    "setup-all": "bun cmd setup extension --all"
   },
   "dependencies": {
     "commander": "^15.0.0"

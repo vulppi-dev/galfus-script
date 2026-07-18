@@ -1,20 +1,15 @@
-import { Command } from 'commander';
 import { mkdir, cp, rm } from 'fs/promises';
 import { join } from 'path';
 import { homedir } from 'os';
 import { existsSync } from 'fs';
 
-async function setup() {
-  const program = new Command();
-  program
-    .name('setup-extension')
-    .description('Install Galfus Script syntax highlighting extension for VSCode/Antigravity')
-    .option('-v, --vscode', 'Install to VS Code and VS Code Insiders')
-    .option('-a, --antigravity', 'Install to Antigravity IDE')
-    .option('--all', 'Install to all editors (default)')
-    .parse(process.argv);
+export type SetupExtensionOptions = {
+  antigravity?: boolean;
+  all?: boolean;
+  vscode?: boolean;
+};
 
-  const options = program.opts();
+export async function setupExtension(options: SetupExtensionOptions): Promise<void> {
   const allTargets = options.all || (!options.vscode && !options.antigravity);
 
   const home = homedir();
@@ -37,7 +32,7 @@ async function setup() {
     });
   }
 
-  const sourceDir = join(__dirname, '..', '..', 'editors', 'vscode');
+  const sourceDir = join(import.meta.dir, '..', '..', '..', 'editors', 'vscode');
 
   let installedCount = 0;
 
@@ -70,5 +65,3 @@ async function setup() {
     );
   }
 }
-
-setup().catch(console.error);
