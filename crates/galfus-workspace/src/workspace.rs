@@ -347,16 +347,31 @@ impl Workspace {
             }
         }
 
+        let cached_graph = match &self.compile_state {
+            CompileState::Stale { graph, .. } => Some(graph),
+            _ => None,
+        };
+
         // The first compilation has no graph to upsert into, so it must emit
         // every semantic module even if the last frontend delta was narrower.
-        let compilation_targets = if matches!(self.compile_state, CompileState::Missing) {
+        let compilation_targets = if let Some(cached_graph) = cached_graph {
+            self.frontend
+                .modules
+                .iter()
+                .filter(|module| changed_modules.contains(&module.id()))
+                .filter(|module| {
+                    cached_graph
+                        .get(module.id())
+                        .is_none_or(|image| image.semantic_revision() != module.semantic_revision())
+                })
+                .map(|module| module.id())
+                .collect::<HashSet<_>>()
+        } else {
             self.frontend
                 .modules
                 .iter()
                 .map(|module| module.id())
                 .collect::<HashSet<_>>()
-        } else {
-            changed_modules.clone()
         };
 
         // Build CompiledModule list from the frontend's semantic modules.
@@ -395,10 +410,9 @@ impl Workspace {
             .collect();
 
         // Populate the CompiledModuleGraph — one image per module.
-        let mut module_graph = match &self.compile_state {
-            CompileState::Stale { graph, .. } => (**graph).clone(),
-            _ => CompiledModuleGraph::new(),
-        };
+        let mut module_graph = cached_graph
+            .map(|graph| (**graph).clone())
+            .unwrap_or_else(CompiledModuleGraph::new);
         let current_modules = semantic_modules
             .iter()
             .map(|module| module.id())

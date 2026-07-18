@@ -198,6 +198,109 @@ fn compile_updates_changed_images_and_removes_deleted_images() {
 }
 
 #[test]
+fn compile_rebuilds_only_changed_modules_and_transitive_dependents() {
+    let mut workspace = Workspace::new();
+    workspace
+        .load_config(
+            br#"
+            [module]
+            name = "dependent-compile"
+            target = "app"
+            entry = "main.gfs"
+            "#,
+        )
+        .expect("valid configuration");
+    workspace
+        .load_module(
+            "main.gfs",
+            br#"
+            import { value } from "./dependency"
+
+            export fn main(args: [[u8]]): i32 {
+                return value()
+            }
+            "#,
+        )
+        .expect("valid entry module");
+    workspace
+        .load_module(
+            "dependency.gfs",
+            br#"
+            export fn value(): i32 {
+                return 1
+            }
+            "#,
+        )
+        .expect("valid dependency module");
+    workspace
+        .load_module(
+            "isolated.gfs",
+            br#"
+            export fn isolated(): i32 {
+                return 0
+            }
+            "#,
+        )
+        .expect("valid isolated module");
+
+    assert!(workspace.check().is_valid);
+    let first = workspace.compile().expect("initial compilation").graph;
+    let main = first
+        .modules()
+        .find(|image| image.path().as_str() == "main.gfs")
+        .expect("main image");
+    let dependency = first
+        .modules()
+        .find(|image| image.path().as_str() == "dependency.gfs")
+        .expect("dependency image");
+    let isolated = first
+        .modules()
+        .find(|image| image.path().as_str() == "isolated.gfs")
+        .expect("isolated image");
+    let main_revision = main.semantic_revision();
+    let dependency_revision = dependency.semantic_revision();
+    let isolated_revision = isolated.semantic_revision();
+    let main_id = main.id();
+    let dependency_id = dependency.id();
+    let isolated_id = isolated.id();
+
+    workspace
+        .load_module(
+            "dependency.gfs",
+            br#"
+            export fn value(): i32 {
+                return 2
+            }
+            "#,
+        )
+        .expect("updated dependency module");
+    assert!(workspace.check().is_valid);
+    let updated = workspace.compile().expect("incremental compilation").graph;
+
+    assert!(
+        updated
+            .get(main_id)
+            .expect("recompiled main")
+            .semantic_revision()
+            > main_revision
+    );
+    assert!(
+        updated
+            .get(dependency_id)
+            .expect("recompiled dependency")
+            .semantic_revision()
+            > dependency_revision
+    );
+    assert_eq!(
+        updated
+            .get(isolated_id)
+            .expect("cached isolated module")
+            .semantic_revision(),
+        isolated_revision
+    );
+}
+
+#[test]
 fn run_requires_compile_and_executes_the_configured_entry() {
     let mut workspace = Workspace::new();
     assert!(matches!(
