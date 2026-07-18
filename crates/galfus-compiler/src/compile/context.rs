@@ -250,7 +250,10 @@ impl<'a> MyWorkspaceContext<'a> {
     ) -> Option<FunctionId> {
         let target_module = &self.modules[target_mod_idx];
 
-        if target_module.source().name() != "format" && target_module.path().as_str() != "format" {
+        let is_format_module = [target_module.source().name(), target_module.path().as_str()]
+            .into_iter()
+            .any(|name| name.strip_suffix(".gfs").unwrap_or(name) == "format");
+        if !is_format_module {
             return None;
         }
 
