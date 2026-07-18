@@ -78,6 +78,25 @@ fn test_target_read() {
 }
 
 #[test]
+fn test_read_requires_an_io_provider_when_executed() {
+    let instrs = vec![
+        Instruction::Read { dest: Reg(1) },
+        Instruction::Ret { src: Reg(1) },
+    ];
+    let image = create_test_image(instrs, vec![]);
+    let mut vm = VirtualMachine::new(image);
+
+    let panic = vm
+        .run_function(FuncIdx(0), vec![])
+        .expect_err("read without I/O provider fails");
+
+    assert_eq!(
+        panic.error,
+        VmError::IoProviderUnavailable { operation: "read" }
+    );
+}
+
+#[test]
 fn test_len_and_copy_array() {
     let instrs = vec![
         // Create source array [1, 2, 3] of type idx 1 (Array of Int64)
