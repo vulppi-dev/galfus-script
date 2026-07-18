@@ -66,19 +66,9 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
 
-      - name: Install wasm-bindgen CLI
-        run: cargo install wasm-bindgen-cli --version 0.2.122 --locked
-
-      - name: Build playground WebAssembly module
-        run: cargo build -p galfus-playground --target wasm32-unknown-unknown --features wasm --release
-
-      - name: Generate web bindings
-        run: |
-          wasm-bindgen \
-            --target web \
-            --out-dir dist/playground-web \
-            --out-name galfus_playground \
-            build/cargo-target/wasm32-unknown-unknown/release/galfus_playground.wasm
+      - name: Build playground web artifact
+        working-directory: scripts
+        run: bun cmd playground build-web
 
       - name: Show generated web artifact
         run: ls -lh dist/playground-web

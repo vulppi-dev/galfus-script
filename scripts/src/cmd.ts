@@ -3,6 +3,7 @@ import { Command } from 'commander';
 import { setVersion } from './github/set-version';
 import { syncChangelogLabels } from './github/sync-changelog-labels';
 import { validatePrPolicy } from './github/validate-pr-policy';
+import { buildPlaygroundWeb } from './playground/build-web';
 import { setupExtension } from './setup/extension';
 
 const program = new Command();
@@ -13,6 +14,9 @@ const github = program
   .description('GitHub workflow commands');
 
 const setup = program.command('setup').description('Local development setup commands');
+const playground = program
+  .command('playground')
+  .description('Playground development and distribution commands');
 
 github
   .command('set-version')
@@ -39,6 +43,12 @@ setup
   .option('-a, --antigravity', 'Install to Antigravity IDE')
   .option('--all', 'Install to all editors (default)')
   .action(setupExtension);
+
+playground
+  .command('build-web')
+  .description('Build the playground WebAssembly module and generate web bindings')
+  .option('-o, --out-dir <path>', 'Output directory relative to the repository root')
+  .action(buildPlaygroundWeb);
 
 program.parseAsync(process.argv).catch((error) => {
   console.error('[galfus-scripts] Failed:', error);
