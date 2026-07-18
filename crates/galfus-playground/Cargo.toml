@@ -9,6 +9,7 @@ description = "Galfus playground API — run Galfus source in-process and captur
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+galfus-host = { path = "../galfus-host" }
 galfus-target = { path = "../galfus-target" }
 galfus-workspace = { path = "../galfus-workspace" }
 anyhow = { workspace = true }

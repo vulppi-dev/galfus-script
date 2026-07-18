@@ -2,11 +2,15 @@ use anyhow::Result;
 use galfus_target::WebTarget;
 use galfus_workspace::{LoadResult, Workspace};
 
+mod buffer_io;
+
 #[cfg(feature = "wasm")]
 mod wasm;
 
 #[cfg(test)]
 mod tests;
+
+pub use buffer_io::BufferIoProvider;
 
 pub struct PlaygroundResult {
     pub output: String,

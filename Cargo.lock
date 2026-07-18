@@ -689,6 +689,7 @@ name = "galfus-playground"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "galfus-host",
  "galfus-target",
  "galfus-workspace",
  "serde_json",
@@ -700,6 +701,7 @@ name = "galfus-runner"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "galfus-host",
  "galfus-workspace",
 ]
 
