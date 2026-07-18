@@ -1,33 +1,10 @@
 use super::*;
+use crate::builtin_constraints::{BUILTIN_CONSTRAINTS, BuiltinConstraint};
 use galfus_core::ScopeId;
 
 const BUILTIN_TYPES: &[&str] = &[
     "null", "bool", "i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f16", "f32", "f64",
     "int", "uint", "float",
-];
-
-struct BuiltinConstraint {
-    name: &'static str,
-    generic_parameters: &'static [&'static str],
-    functions: &'static [&'static str],
-}
-
-const BUILTIN_CONSTRAINTS: &[BuiltinConstraint] = &[
-    BuiltinConstraint {
-        name: "Iterator",
-        generic_parameters: &["T", "Item"],
-        functions: &["next"],
-    },
-    BuiltinConstraint {
-        name: "Iterable",
-        generic_parameters: &["T", "Item", "Iter"],
-        functions: &["iter"],
-    },
-    BuiltinConstraint {
-        name: "Comparable",
-        generic_parameters: &["Pattern", "Value"],
-        functions: &["compare"],
-    },
 ];
 
 impl<'a> Resolver<'a> {
@@ -119,7 +96,7 @@ impl<'a> Resolver<'a> {
         }
 
         for function in constraint.functions {
-            let func_name_id = NameId::intern(function);
+            let func_name_id = NameId::intern(function.name);
             let symbol = self.resolution.add_symbol(
                 SymbolKind::ConstraintFunction,
                 func_name_id,

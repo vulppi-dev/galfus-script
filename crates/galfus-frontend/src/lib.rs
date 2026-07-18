@@ -12,6 +12,7 @@ pub use type_validation::*;
 pub use types::*;
 
 mod ast;
+mod builtin_constraints;
 pub mod diagnostics;
 mod lexer;
 pub mod modules;

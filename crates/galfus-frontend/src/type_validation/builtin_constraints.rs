@@ -1,5 +1,9 @@
 use galfus_core::{SymbolId, TypeId};
 
+use crate::builtin_constraints::{
+    BUILTIN_CONSTRAINTS, BuiltinConstraint, BuiltinConstraintFunctionSignature, builtin_constraint,
+    is_builtin_constraint,
+};
 use crate::{FunctionParameterType, PrimitiveType, SymbolKind, TypeKind};
 
 use super::DeclarationTypeChecker;
@@ -15,7 +19,7 @@ impl<'a> DeclarationTypeChecker<'a> {
         for symbol in symbols {
             match symbol.kind() {
                 SymbolKind::Constraint => {
-                    if self.is_builtin_constraint_name(symbol.name()) {
+                    if is_builtin_constraint(symbol.name()) {
                         let ty = self.layer.table_mut().intern_named(symbol.id());
                         self.layer.bind_symbol_type(symbol.id(), ty);
                     }
@@ -28,9 +32,7 @@ impl<'a> DeclarationTypeChecker<'a> {
             }
         }
 
-        self.bind_builtin_iterator_signature();
-        self.bind_builtin_iterable_signature();
-        self.bind_builtin_comparable_signature();
+        self.bind_builtin_constraint_signatures();
     }
 
     pub(super) fn builtin_constraint_generic_parameters(
@@ -39,17 +41,8 @@ impl<'a> DeclarationTypeChecker<'a> {
     ) -> Option<Vec<SymbolId>> {
         let name = self.symbol_name(constraint_symbol)?;
 
-        match name.as_str() {
-            "Iterator" => {
-                self.builtin_constraint_parameters_by_name(constraint_symbol, &["T", "Item"])
-            }
-            "Iterable" => self
-                .builtin_constraint_parameters_by_name(constraint_symbol, &["T", "Item", "Iter"]),
-            "Comparable" => {
-                self.builtin_constraint_parameters_by_name(constraint_symbol, &["Pattern", "Value"])
-            }
-            _ => None,
-        }
+        let metadata = builtin_constraint(name.as_str())?;
+        self.builtin_constraint_parameters_by_name(constraint_symbol, metadata.generic_parameters)
     }
 
     pub(super) fn iterable_item_type(&mut self, source_type: TypeId) -> Option<TypeId> {
@@ -111,103 +104,87 @@ impl<'a> DeclarationTypeChecker<'a> {
         self.is_assignable(left, right) && self.is_assignable(right, left)
     }
 
-    fn bind_builtin_iterator_signature(&mut self) {
-        let Some((constraint, parameters)) =
-            self.builtin_constraint_with_parameters("Iterator", &["T", "Item"])
-        else {
-            return;
-        };
-
-        let Some(function) = self.builtin_constraint_function(constraint, "next") else {
-            return;
-        };
-
-        let self_type = self
-            .layer
-            .table_mut()
-            .intern_generic_parameter(parameters[0]);
-        let item_type = self
-            .layer
-            .table_mut()
-            .intern_generic_parameter(parameters[1]);
-        let null_type = self.layer.table().primitive(PrimitiveType::Null);
-        let return_type = self.layer.table_mut().intern_union([item_type, null_type]);
-
-        let function_type = self
-            .layer
-            .table_mut()
-            .intern_function(vec![FunctionParameterType::new(self_type)], return_type);
-
-        self.layer.bind_symbol_type(function, function_type);
+    fn bind_builtin_constraint_signatures(&mut self) {
+        for metadata in BUILTIN_CONSTRAINTS {
+            self.bind_builtin_constraint_signature(metadata);
+        }
     }
 
-    fn bind_builtin_iterable_signature(&mut self) {
-        let Some((constraint, parameters)) =
-            self.builtin_constraint_with_parameters("Iterable", &["T", "Item", "Iter"])
+    fn bind_builtin_constraint_signature(&mut self, metadata: &BuiltinConstraint) {
+        let Some((constraint, parameters)) = self.builtin_constraint_with_parameters(metadata)
         else {
             return;
         };
 
-        let Some(function) = self.builtin_constraint_function(constraint, "iter") else {
-            return;
-        };
+        for function in metadata.functions {
+            let Some(symbol) = self.builtin_constraint_function(constraint, function.name) else {
+                continue;
+            };
+            let Some(function_type) =
+                self.builtin_constraint_function_type(function.signature, parameters.as_slice())
+            else {
+                continue;
+            };
 
-        let self_type = self
-            .layer
-            .table_mut()
-            .intern_generic_parameter(parameters[0]);
-        let iter_type = self
-            .layer
-            .table_mut()
-            .intern_generic_parameter(parameters[2]);
-
-        let function_type = self
-            .layer
-            .table_mut()
-            .intern_function(vec![FunctionParameterType::new(self_type)], iter_type);
-
-        self.layer.bind_symbol_type(function, function_type);
+            self.layer.bind_symbol_type(symbol, function_type);
+        }
     }
 
-    fn bind_builtin_comparable_signature(&mut self) {
-        let Some((constraint, parameters)) =
-            self.builtin_constraint_with_parameters("Comparable", &["Pattern", "Value"])
-        else {
-            return;
+    fn builtin_constraint_function_type(
+        &mut self,
+        signature: BuiltinConstraintFunctionSignature,
+        parameters: &[SymbolId],
+    ) -> Option<TypeId> {
+        let mut parameter_type = |index| {
+            parameters
+                .get(index)
+                .copied()
+                .map(|symbol| self.layer.table_mut().intern_generic_parameter(symbol))
         };
 
-        let Some(function) = self.builtin_constraint_function(constraint, "compare") else {
-            return;
-        };
-
-        let pattern_type = self
-            .layer
-            .table_mut()
-            .intern_generic_parameter(parameters[0]);
-        let value_type = self
-            .layer
-            .table_mut()
-            .intern_generic_parameter(parameters[1]);
-        let bool_type = self.layer.table().primitive(PrimitiveType::Bool);
-
-        let function_type = self.layer.table_mut().intern_function(
-            vec![
-                FunctionParameterType::new(pattern_type),
-                FunctionParameterType::new(value_type),
-            ],
-            bool_type,
-        );
-
-        self.layer.bind_symbol_type(function, function_type);
+        match signature {
+            BuiltinConstraintFunctionSignature::IteratorNext => {
+                let self_type = parameter_type(0)?;
+                let item_type = parameter_type(1)?;
+                let null_type = self.layer.table().primitive(PrimitiveType::Null);
+                let return_type = self.layer.table_mut().intern_union([item_type, null_type]);
+                Some(
+                    self.layer
+                        .table_mut()
+                        .intern_function(vec![FunctionParameterType::new(self_type)], return_type),
+                )
+            }
+            BuiltinConstraintFunctionSignature::IterableIter => {
+                let self_type = parameter_type(0)?;
+                let iter_type = parameter_type(2)?;
+                Some(
+                    self.layer
+                        .table_mut()
+                        .intern_function(vec![FunctionParameterType::new(self_type)], iter_type),
+                )
+            }
+            BuiltinConstraintFunctionSignature::ComparableCompare => {
+                let pattern_type = parameter_type(0)?;
+                let value_type = parameter_type(1)?;
+                let bool_type = self.layer.table().primitive(PrimitiveType::Bool);
+                Some(self.layer.table_mut().intern_function(
+                    vec![
+                        FunctionParameterType::new(pattern_type),
+                        FunctionParameterType::new(value_type),
+                    ],
+                    bool_type,
+                ))
+            }
+        }
     }
 
     fn builtin_constraint_with_parameters(
         &self,
-        name: &str,
-        parameter_names: &[&str],
+        metadata: &BuiltinConstraint,
     ) -> Option<(SymbolId, Vec<SymbolId>)> {
-        let constraint = self.builtin_constraint_symbol(name)?;
-        let parameters = self.builtin_constraint_parameters_by_name(constraint, parameter_names)?;
+        let constraint = self.builtin_constraint_symbol(metadata.name)?;
+        let parameters =
+            self.builtin_constraint_parameters_by_name(constraint, metadata.generic_parameters)?;
         Some((constraint, parameters))
     }
 
@@ -264,9 +241,5 @@ impl<'a> DeclarationTypeChecker<'a> {
         }
 
         Some(symbol)
-    }
-
-    fn is_builtin_constraint_name(&self, name: &str) -> bool {
-        matches!(name, "Iterator" | "Iterable" | "Comparable")
     }
 }
