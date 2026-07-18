@@ -73,6 +73,11 @@ impl RuntimeModuleGraph {
         self.modules.get(&id)
     }
 
+    /// Stable IDs for every module currently loaded by the runtime.
+    pub fn module_ids(&self) -> impl Iterator<Item = ModuleId> + '_ {
+        self.modules.keys().copied()
+    }
+
     pub fn len(&self) -> usize {
         self.modules.len()
     }

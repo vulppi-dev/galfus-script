@@ -459,14 +459,38 @@ impl Workspace {
             .run_entry
             .clone();
 
-        for image in graph.modules() {
-            self.runtime.load(image.clone());
-        }
+        self.sync_runtime_graph(graph.as_ref());
 
         let exit_code = self
             .runtime
             .run_module_entry(entry_id, entry_name.as_str(), args)
             .map_err(|error| RunBlocked::RuntimeError(error.to_string()))?;
         Ok(RunReport { exit_code })
+    }
+
+    fn sync_runtime_graph(&mut self, graph: &CompiledModuleGraph) {
+        let compiled_ids = graph
+            .modules()
+            .map(|image| image.id())
+            .collect::<HashSet<_>>();
+        let removed_ids = self
+            .runtime
+            .modules()
+            .module_ids()
+            .filter(|id| !compiled_ids.contains(id))
+            .collect::<Vec<_>>();
+        for id in removed_ids {
+            self.runtime.unload(id);
+        }
+
+        for image in graph.modules() {
+            let needs_upsert = self.runtime.modules().get(image.id()).is_none_or(|loaded| {
+                loaded.path() != image.path()
+                    || loaded.semantic_revision() != image.semantic_revision()
+            });
+            if needs_upsert {
+                self.runtime.load(image.clone());
+            }
+        }
     }
 }
