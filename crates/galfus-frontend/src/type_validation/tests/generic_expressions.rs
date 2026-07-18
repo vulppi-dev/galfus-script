@@ -1,6 +1,33 @@
 use super::*;
 
 #[test]
+fn check_binds_generic_cast_type_in_anchored_function() {
+    let (_source, graph, result) = check_source(
+        r#"
+struct Range<T: i32 | f32> {
+  value: T,
+  index: i32,
+}
+
+fn Range<T>::next(self): T {
+  return self.value + <T>self.index * self.value
+}
+"#,
+    );
+
+    let cast = find_node_by_kind(&graph, SyntaxNodeKind::CastExpression).unwrap();
+    let target = graph.syntax().child(cast, 0).unwrap();
+    let cast_type = result.layer().node_type(cast).unwrap();
+    let target_type = result.layer().node_type(target).unwrap();
+
+    assert_eq!(cast_type, target_type);
+    assert!(matches!(
+        result.layer().table().kind(cast_type),
+        Some(TypeKind::GenericParameter { .. })
+    ));
+}
+
+#[test]
 fn check_accepts_explicit_generic_function_call() {
     let (_source, _graph, result) = check_source(
         r#"

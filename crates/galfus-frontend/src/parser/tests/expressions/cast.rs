@@ -65,6 +65,25 @@ fn parse_cast_expression_with_path_type() {
 }
 
 #[test]
+fn parse_cast_expression_with_generic_type_and_self_member() {
+    let source = source("fn scale<T>(self, index: i32): T { return <T>self.index }");
+
+    let result = parse(&source);
+
+    assert!(!result.has_errors(), "{:?}", result.diagnostics());
+
+    let syntax = result.graph().syntax();
+    let root = syntax.root().unwrap();
+    let cast = find_first_of_kind(syntax, root, SyntaxNodeKind::CastExpression).unwrap();
+
+    assert_eq!(syntax.node(cast).unwrap().child_count(), 2);
+    assert_eq!(
+        source.slice(syntax.node(syntax.child(cast, 0).unwrap()).unwrap().span()),
+        Some("T")
+    );
+}
+
+#[test]
 fn parse_cast_expression_as_unary_operand() {
     let source = source("var a = -<i32> value");
 

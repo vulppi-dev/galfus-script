@@ -1,6 +1,8 @@
+use std::collections::HashMap;
+
 use galfus_core::{NodeId, TypeId};
 
-use crate::{PrimitiveType, SyntaxNodeKind};
+use crate::{PrimitiveType, SymbolKind, SyntaxNodeKind, TypeKind};
 
 use super::DeclarationTypeChecker;
 
@@ -59,6 +61,10 @@ impl<'a> DeclarationTypeChecker<'a> {
             return;
         }
 
+        if self.value_satisfies_return_constraint(expected, actual) {
+            return;
+        }
+
         let diagnostic_node = self
             .graph
             .syntax()
@@ -66,5 +72,78 @@ impl<'a> DeclarationTypeChecker<'a> {
             .unwrap_or(return_statement);
 
         self.report_type_mismatch(diagnostic_node, expected, actual);
+    }
+
+    fn value_satisfies_return_constraint(&mut self, expected: TypeId, actual: TypeId) -> bool {
+        let expected = self.resolve_alias_type(expected);
+        let Some(TypeKind::GenericInstance { base, arguments }) =
+            self.layer.table().kind(expected).cloned()
+        else {
+            return false;
+        };
+        let Some(TypeKind::Named { symbol }) = self.layer.table().kind(base) else {
+            return false;
+        };
+        let Some(constraint_name) = self.symbol_name(*symbol) else {
+            return false;
+        };
+        let actual = self.resolve_alias_type(actual);
+        let (struct_symbol, struct_substitution) = match self.layer.table().kind(actual).cloned() {
+            Some(TypeKind::Named { symbol }) => (symbol, HashMap::new()),
+            Some(TypeKind::GenericInstance { base, arguments }) => {
+                let Some(TypeKind::Named { symbol }) = self.layer.table().kind(base) else {
+                    return false;
+                };
+                let Some(struct_item) = self.type_item_for_symbol(*symbol) else {
+                    return false;
+                };
+                let parameters =
+                    self.declaration_symbols_in_node(struct_item, &[SymbolKind::GenericParameter]);
+
+                if parameters.len() != arguments.len() {
+                    return false;
+                }
+
+                (*symbol, parameters.into_iter().zip(arguments).collect())
+            }
+            _ => return false,
+        };
+        let Some(struct_item) = self.type_item_for_symbol(struct_symbol) else {
+            return false;
+        };
+        let Some(satisfies) = self
+            .graph
+            .syntax()
+            .first_child_of_kind(struct_item, SyntaxNodeKind::SatisfiesClause)
+        else {
+            return false;
+        };
+
+        self.graph
+            .syntax()
+            .node(satisfies)
+            .map(|node| node.children().to_vec())
+            .unwrap_or_default()
+            .into_iter()
+            .any(|constraint| {
+                let Some(base) = self.constraint_application_base_node(constraint) else {
+                    return false;
+                };
+                if self.constraint_base_name(base).as_deref() != Some(constraint_name.as_str()) {
+                    return false;
+                }
+
+                let actual_arguments = self
+                    .constraint_application_argument_types(constraint)
+                    .into_iter()
+                    .map(|argument| self.substitute_type(argument, &struct_substitution))
+                    .collect::<Vec<_>>();
+
+                arguments.len() == actual_arguments.len()
+                    && arguments
+                        .iter()
+                        .zip(actual_arguments)
+                        .all(|(expected, actual)| self.is_assignable(*expected, actual))
+            })
     }
 }
