@@ -114,8 +114,6 @@ pub enum SyntaxNodeKind {
     GenericType,
     TypeArgumentList,
     ArrayType,
-    FixedArrayType,
-    ArraySize,
     UnionType,
     FunctionType,
     FunctionTypeParameterList,
@@ -259,7 +257,6 @@ impl SyntaxNodeKind {
                 | SyntaxNodeKind::Path
                 | SyntaxNodeKind::GenericType
                 | SyntaxNodeKind::ArrayType
-                | SyntaxNodeKind::FixedArrayType
                 | SyntaxNodeKind::UnionType
                 | SyntaxNodeKind::FunctionType
                 | SyntaxNodeKind::GroupedType

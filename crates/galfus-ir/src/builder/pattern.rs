@@ -564,7 +564,8 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
 
         if pattern_node.kind() == SyntaxNodeKind::Identifier {
             let resolution = self.builder.graph.resolution();
-            if let Some(symbol) = resolution.and_then(|res| res.declaration_symbol(pattern_node_id)) {
+            if let Some(symbol) = resolution.and_then(|res| res.declaration_symbol(pattern_node_id))
+            {
                 let ty = self.symbol_type(symbol).unwrap_or_else(|| TypeId::new(0));
                 let local_id = self.declare_local(Some(symbol), ty);
                 self.current_instructions

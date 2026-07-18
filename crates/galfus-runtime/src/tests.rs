@@ -1,5 +1,7 @@
 use super::*;
-use galfus_image::{ConstantPool, ModuleImage};
+use galfus_compiler::CompiledModuleImage;
+use galfus_core::{ModuleId, ModulePath, SemanticRevision};
+use galfus_image::{ConstantPool, ExportSlot, ImportSlot, ModuleImage, instruction::TypeIdx};
 use galfus_target::NativeTarget;
 
 #[test]
@@ -37,4 +39,90 @@ fn test_module_loading() {
     let found = registry.lock().unwrap().get("test_mod");
     assert!(found.is_some());
     assert_eq!(found.unwrap().name, "test_mod");
+}
+
+#[test]
+fn runtime_modules_upsert_unload_and_link_import_slots() {
+    let dependency = CompiledModuleImage {
+        id: ModuleId::new(7),
+        path: ModulePath::new("math.gfs").expect("valid path"),
+        semantic_revision: SemanticRevision::new(1),
+        image: module_image(
+            "math.gfs",
+            vec![],
+            vec![ExportSlot {
+                symbol_name: "add".to_string(),
+                func_idx: galfus_image::instruction::FuncIdx(3),
+            }],
+        ),
+    };
+    let main = CompiledModuleImage {
+        id: ModuleId::new(11),
+        path: ModulePath::new("main.gfs").expect("valid path"),
+        semantic_revision: SemanticRevision::new(1),
+        image: module_image(
+            "main.gfs",
+            vec![ImportSlot {
+                module_name: "math.gfs".to_string(),
+                symbol_name: "add".to_string(),
+                ty: TypeIdx(0),
+            }],
+            vec![],
+        ),
+    };
+    let replacement = CompiledModuleImage {
+        semantic_revision: SemanticRevision::new(2),
+        ..main.clone()
+    };
+
+    let mut runtime = Runtime::new(Box::new(NativeTarget));
+    assert!(runtime.load(main).is_none());
+    assert!(matches!(
+        runtime.link_module(ModuleId::new(11)),
+        Err(RuntimeLinkError::ImportModuleNotLoaded { .. })
+    ));
+    assert!(runtime.load(dependency).is_none());
+
+    let link = runtime
+        .link_module(ModuleId::new(11))
+        .expect("links imports");
+    assert_eq!(link.imports.len(), 1);
+    assert_eq!(link.imports[0].module_id, ModuleId::new(7));
+    assert_eq!(link.imports[0].function.raw(), 3);
+    assert_eq!(
+        runtime
+            .initialization_order(ModuleId::new(11))
+            .expect("orders dependencies"),
+        vec![ModuleId::new(7), ModuleId::new(11)]
+    );
+
+    let previous = runtime.load(replacement).expect("replaces main module");
+    assert_eq!(previous.semantic_revision, SemanticRevision::new(1));
+    assert_eq!(
+        runtime
+            .modules()
+            .get(ModuleId::new(11))
+            .unwrap()
+            .semantic_revision,
+        SemanticRevision::new(2)
+    );
+    assert!(runtime.unload(ModuleId::new(7)).is_some());
+    assert!(matches!(
+        runtime.link_module(ModuleId::new(11)),
+        Err(RuntimeLinkError::ImportModuleNotLoaded { .. })
+    ));
+}
+
+fn module_image(name: &str, imports: Vec<ImportSlot>, exports: Vec<ExportSlot>) -> ModuleImage {
+    ModuleImage {
+        name: name.to_string(),
+        constants: ConstantPool::default(),
+        functions: vec![],
+        types: vec![],
+        struct_layouts: vec![],
+        choice_layouts: vec![],
+        imports,
+        exports,
+        init_func_idx: None,
+    }
 }

@@ -32,7 +32,8 @@ fn test_mir_builder_phase4() {
         graph.diagnostics()
     );
 
-    let type_result = check_declaration_types(&source, &graph);
+    let type_result =
+        check_definition_types(&source, &graph, check_declaration_types(&source, &graph));
     assert!(
         !type_result.has_errors(),
         "Typecheck errors occurred: {:?}",
@@ -121,7 +122,8 @@ fn test_mir_lowering_basic() {
         graph.diagnostics()
     );
 
-    let type_result = check_declaration_types(&source, &graph);
+    let type_result =
+        check_definition_types(&source, &graph, check_declaration_types(&source, &graph));
     assert!(
         !type_result.has_errors(),
         "Typecheck error: {:?}",

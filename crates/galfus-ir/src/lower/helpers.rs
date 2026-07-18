@@ -173,7 +173,6 @@ pub fn first_type_child(ctx: &LowerCtx, node: NodeId) -> Option<NodeId> {
                 child_node.kind(),
                 SyntaxNodeKind::NamedType
                     | SyntaxNodeKind::ArrayType
-                    | SyntaxNodeKind::FixedArrayType
                     | SyntaxNodeKind::TupleType
                     | SyntaxNodeKind::UnionType
             )

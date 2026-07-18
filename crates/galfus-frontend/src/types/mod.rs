@@ -72,13 +72,6 @@ impl PrimitiveType {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum ArraySize {
-    Known(u64),
-    Runtime(NodeId),
-    Unknown,
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct FunctionParameterType {
     ty: TypeId,
@@ -166,11 +159,6 @@ pub enum TypeKind {
 
     Array {
         element: TypeId,
-    },
-
-    FixedArray {
-        element: TypeId,
-        size: ArraySize,
     },
 
     Range {
@@ -285,10 +273,6 @@ impl TypeTable {
         self.intern(TypeKind::Array { element })
     }
 
-    pub fn intern_fixed_array(&mut self, element: TypeId, size: ArraySize) -> TypeId {
-        self.intern(TypeKind::FixedArray { element, size })
-    }
-
     pub fn intern_range(&mut self, element: TypeId) -> TypeId {
         self.intern(TypeKind::Range { element })
     }
@@ -370,16 +354,6 @@ impl TypeTable {
 
             TypeKind::Array { element } => {
                 format!("[{}]", self.describe(*element))
-            }
-
-            TypeKind::FixedArray { element, size } => {
-                let size = match size {
-                    ArraySize::Known(size) => size.to_string(),
-                    ArraySize::Runtime(node) => format!("node#{}", node.raw()),
-                    ArraySize::Unknown => "?".to_string(),
-                };
-
-                format!("[{}; {}]", self.describe(*element), size)
             }
 
             TypeKind::Range { element } => {

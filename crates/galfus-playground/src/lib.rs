@@ -1,10 +1,6 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 use galfus_target::WebTarget;
-use std::{
-    fs,
-    path::{Path, PathBuf},
-    time::{SystemTime, UNIX_EPOCH},
-};
+use galfus_workspace::{LoadResult, Workspace};
 
 #[cfg(feature = "wasm")]
 mod wasm;
@@ -30,36 +26,45 @@ pub fn run_source(code: &str, args: &[&str]) -> PlaygroundResult {
 }
 
 fn run_source_inner(code: &str, args: &[&str]) -> Result<PlaygroundResult> {
-    let workspace = PlaygroundWorkspace::create(code)?;
-    let check_result = galfus_runner::check_workspace(workspace.root())?;
+    let target = WebTarget::new();
+    let output_target = target.clone();
+    let mut workspace = Workspace::with_target(Box::new(target));
 
-    if check_result.has_errors() {
+    match workspace
+        .load_config(PLAYGROUND_CONFIG.as_bytes())
+        .map_err(|error| anyhow::anyhow!("playground configuration error: {error:?}"))?
+    {
+        LoadResult::Success => {}
+        LoadResult::Diagnostics(diagnostics) => {
+            return Err(anyhow::anyhow!(
+                "playground configuration diagnostics: {diagnostics:?}"
+            ));
+        }
+    }
+    workspace
+        .load_module("src/main.gfs", code.as_bytes())
+        .map_err(|error| anyhow::anyhow!("playground source error: {error:?}"))?;
+
+    let check = workspace.check();
+    if !check.is_valid {
         return Ok(PlaygroundResult {
             output: String::new(),
             exit_code: 1,
-            error: Some(format!("{:?}", check_result.diagnostics())),
+            error: Some(format!("{:?}", check.diagnostics)),
         });
     }
-
-    let module_image = galfus_runner::compile_workspace_to_image(&check_result)?;
-    let module_name = module_image.name.clone();
-
-    let target = WebTarget::new();
-    let output_target = target.clone();
-    let mut runtime = galfus_runtime::Runtime::new(Box::new(target));
-    runtime.loader().load(module_image);
 
     let args_bytes = args
         .iter()
         .map(|arg| arg.as_bytes().to_vec())
         .collect::<Vec<_>>();
-    let exit_code = runtime
-        .run_entry(
-            module_name.as_str(),
-            check_result.run_entry(),
-            args_bytes.as_slice(),
-        )
-        .map_err(|error| anyhow::anyhow!("{error}"))?;
+    workspace
+        .compile()
+        .map_err(|error| anyhow::anyhow!("playground compilation failed: {error:?}"))?;
+    let exit_code = workspace
+        .run(args_bytes.as_slice())
+        .map_err(|error| anyhow::anyhow!("playground execution failed: {error:?}"))?
+        .exit_code;
 
     let output = String::from_utf8_lossy(output_target.take_output().as_slice()).into_owned();
 
@@ -70,38 +75,5 @@ fn run_source_inner(code: &str, args: &[&str]) -> Result<PlaygroundResult> {
     })
 }
 
-struct PlaygroundWorkspace {
-    root: PathBuf,
-}
-
-impl PlaygroundWorkspace {
-    fn create(code: &str) -> Result<Self> {
-        let root = std::env::temp_dir().join(format!(
-            "galfus-playground-{}-{}",
-            std::process::id(),
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .context("system clock is before UNIX_EPOCH")?
-                .as_nanos()
-        ));
-        let src = root.join("src");
-        fs::create_dir_all(src.as_path())?;
-        fs::write(
-            root.join("galfus.toml"),
-            "[module]\nname = \"playground\"\ntarget = \"app\"\nentry = \"src/main.gfs\"\n",
-        )?;
-        fs::write(src.join("main.gfs"), code)?;
-
-        Ok(Self { root })
-    }
-
-    fn root(&self) -> &Path {
-        self.root.as_path()
-    }
-}
-
-impl Drop for PlaygroundWorkspace {
-    fn drop(&mut self) {
-        let _ = fs::remove_dir_all(self.root.as_path());
-    }
-}
+const PLAYGROUND_CONFIG: &str =
+    "[module]\nname = \"playground\"\ntarget = \"app\"\nentry = \"src/main.gfs\"\n";

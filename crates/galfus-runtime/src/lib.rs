@@ -1,3 +1,7 @@
+mod module_graph;
+
+use galfus_compiler::CompiledModuleImage;
+use galfus_core::ModuleId;
 use galfus_image::ModuleImage;
 use galfus_target::TargetCapabilityProvider;
 use galfus_vm::{HeapObject, VirtualMachine, VmPanic, VmValue};
@@ -6,6 +10,8 @@ use std::sync::{Arc, Mutex};
 
 #[cfg(test)]
 mod tests;
+
+pub use module_graph::{LinkedImport, ModuleLink, RuntimeLinkError, RuntimeModuleGraph};
 
 #[derive(Debug, thiserror::Error)]
 pub enum RuntimeError {
@@ -27,6 +33,8 @@ pub enum RuntimeError {
     VmPanic(#[from] VmPanic),
     #[error("runtime target provider is unavailable")]
     TargetUnavailable,
+    #[error(transparent)]
+    Link(#[from] RuntimeLinkError),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -140,6 +148,7 @@ impl LogicalThread {
 
 pub struct Runtime {
     registry: Arc<Mutex<ModuleRegistry>>,
+    modules: RuntimeModuleGraph,
     threads: Vec<LogicalThread>,
     capabilities: Option<Box<dyn TargetCapabilityProvider>>,
 }
@@ -148,6 +157,7 @@ impl Runtime {
     pub fn new(capabilities: Box<dyn TargetCapabilityProvider>) -> Self {
         Self {
             registry: Arc::new(Mutex::new(ModuleRegistry::new())),
+            modules: RuntimeModuleGraph::new(),
             threads: Vec::new(),
             capabilities: Some(capabilities),
         }
@@ -171,13 +181,46 @@ impl Runtime {
         RuntimeLoader::new(self.registry())
     }
 
+    /// Upsert a compiled module using its stable `ModuleId`.
+    pub fn load(&mut self, image: CompiledModuleImage) -> Option<CompiledModuleImage> {
+        self.modules.load(image)
+    }
+
+    /// Remove a compiled module and its path lookup entry.
+    pub fn unload(&mut self, id: ModuleId) -> Option<CompiledModuleImage> {
+        self.modules.unload(id)
+    }
+
+    pub fn modules(&self) -> &RuntimeModuleGraph {
+        &self.modules
+    }
+
+    /// Resolve a module's import slots against the currently loaded modules.
+    pub fn link_module(&self, id: ModuleId) -> Result<ModuleLink, RuntimeLinkError> {
+        self.modules.link(id)
+    }
+
+    pub fn initialization_order(&self, id: ModuleId) -> Result<Vec<ModuleId>, RuntimeLinkError> {
+        self.modules.initialization_order(id)
+    }
+
+    /// Execute an entry exported by a module loaded through [`Runtime::load`].
+    pub fn run_module_entry(
+        &mut self,
+        id: ModuleId,
+        entry_name: &str,
+        args: &[Vec<u8>],
+    ) -> Result<i32, RuntimeError> {
+        let image = self.modules.linked_image(id)?;
+        self.run_image_entry(image, entry_name, args)
+    }
+
     pub fn run_entry(
         &mut self,
         module_name: &str,
         entry_name: &str,
         args: &[Vec<u8>],
     ) -> Result<i32, RuntimeError> {
-        let abi = EntryAbi::default_app();
         let image = self
             .registry
             .lock()
@@ -185,6 +228,16 @@ impl Runtime {
             .get(module_name)
             .ok_or_else(|| RuntimeError::ModuleNotLoaded(module_name.to_string()))?;
         let image = (*image).clone();
+        self.run_image_entry(image, entry_name, args)
+    }
+
+    fn run_image_entry(
+        &mut self,
+        image: ModuleImage,
+        entry_name: &str,
+        args: &[Vec<u8>],
+    ) -> Result<i32, RuntimeError> {
+        let abi = EntryAbi::default_app();
         let entry_idx = image
             .exports
             .iter()
@@ -237,16 +290,29 @@ impl Runtime {
 fn build_entry_args(vm: &mut VirtualMachine, args: &[Vec<u8>]) -> Result<VmValue, RuntimeError> {
     let uint8_ty = find_type(&vm.image, |ty| matches!(ty, galfus_image::ImageType::Uint8))
         .ok_or(RuntimeError::MissingArgumentType("u8"))?;
-    let byte_array_ty = find_type(
-        &vm.image,
-        |ty| matches!(ty, galfus_image::ImageType::Array(element) if *element == uint8_ty),
-    )
-    .ok_or(RuntimeError::MissingArgumentType("[u8]"))?;
-    let args_array_ty = find_type(
-        &vm.image,
-        |ty| matches!(ty, galfus_image::ImageType::Array(element) if *element == byte_array_ty),
-    )
-    .ok_or(RuntimeError::MissingArgumentType("[[u8]]"))?;
+    let byte_array_ty = vm
+        .image
+        .types
+        .iter()
+        .enumerate()
+        .find(|(_, ty)| {
+            matches!(ty, galfus_image::ImageType::Array(element)
+                if matches!(vm.image.types.get(element.raw() as usize), Some(galfus_image::ImageType::Uint8)))
+        })
+        .map(|(index, _)| galfus_image::instruction::TypeIdx(index as u16))
+        .ok_or(RuntimeError::MissingArgumentType("[u8]"))?;
+    let args_array_ty = vm
+        .image
+        .types
+        .iter()
+        .enumerate()
+        .find(|(_, ty)| {
+            matches!(ty, galfus_image::ImageType::Array(element)
+                if matches!(vm.image.types.get(element.raw() as usize), Some(galfus_image::ImageType::Array(inner))
+                    if matches!(vm.image.types.get(inner.raw() as usize), Some(galfus_image::ImageType::Uint8))))
+        })
+        .map(|(index, _)| galfus_image::instruction::TypeIdx(index as u16))
+        .ok_or(RuntimeError::MissingArgumentType("[[u8]]"))?;
 
     let mut arg_values = Vec::with_capacity(args.len());
     for arg in args {

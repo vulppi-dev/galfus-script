@@ -37,24 +37,6 @@ fn type_table_reuses_array_types() {
 }
 
 #[test]
-fn type_table_reuses_fixed_array_types() {
-    let mut table = TypeTable::new();
-    let i32 = table.primitive(PrimitiveType::Int32);
-
-    let first = table.intern_fixed_array(i32, ArraySize::Known(4));
-    let second = table.intern_fixed_array(i32, ArraySize::Known(4));
-
-    assert_eq!(first, second);
-    assert_eq!(
-        table.kind(first),
-        Some(&TypeKind::FixedArray {
-            element: i32,
-            size: ArraySize::Known(4),
-        })
-    );
-}
-
-#[test]
 fn type_table_reuses_tuple_types() {
     let mut table = TypeTable::new();
     let i32 = table.primitive(PrimitiveType::Int32);

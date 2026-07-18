@@ -215,7 +215,6 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
             .kind(resolved_array_type)
         {
             Some(TypeKind::Array { element }) => Some(*element),
-            Some(TypeKind::FixedArray { element, .. }) => Some(*element),
             _ => self.node_type(target),
         }
     }
@@ -700,7 +699,6 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                 let is_array_type = matches!(
                     self.builder.type_result.layer().table().kind(iterable_ty),
                     Some(galfus_frontend::TypeKind::Array { .. })
-                        | Some(galfus_frontend::TypeKind::FixedArray { .. })
                 );
 
                 let mut actual_iterable_ty = iterable_ty;
@@ -714,7 +712,6 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                         .unwrap()
                     {
                         galfus_frontend::TypeKind::Array { element } => element,
-                        galfus_frontend::TypeKind::FixedArray { element, .. } => element,
                         _ => unreachable!(),
                     };
                     let Some(ctx_ptr) = self.builder.workspace_ctx else {
@@ -756,8 +753,6 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                     args: Vec::new(),
                     destination: iterator_local,
                 });
-
-
 
                 let loop_header = self.builder.next_block();
                 let loop_body = self.builder.next_block();

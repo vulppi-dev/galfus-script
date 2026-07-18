@@ -57,7 +57,6 @@ impl<'a> DeclarationTypeChecker<'a> {
 
         match self.layer.table().kind(source_type).cloned() {
             Some(TypeKind::Array { element }) => return Some(element),
-            Some(TypeKind::FixedArray { element, .. }) => return Some(element),
             Some(TypeKind::Range { element }) => return Some(element),
             Some(TypeKind::Error) => return Some(source_type),
             _ => {}

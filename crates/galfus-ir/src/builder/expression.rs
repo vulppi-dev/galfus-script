@@ -353,7 +353,6 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                                         .kind(resolved_param_ty)
                                     {
                                         Some(TypeKind::Array { element }) => *element,
-                                        Some(TypeKind::FixedArray { element, .. }) => *element,
                                         _ => expected_ty,
                                     }
                                 } else {
@@ -372,7 +371,6 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                                         .kind(resolved_param_ty)
                                     {
                                         Some(TypeKind::Array { element }) => *element,
-                                        Some(TypeKind::FixedArray { element, .. }) => *element,
                                         _ => expected_ty,
                                     };
                                     self.insert_cast_if_needed(arg_op, arg_ty, target_expected_ty)
@@ -675,15 +673,19 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
 
                 let temp_id = self.declare_local(None, ty);
                 let obj_ty = self.node_type(obj_node).unwrap_or_else(|| TypeId::new(0));
-                
+
                 let resolved_obj_ty = if let Operand::Local(l) = obj_operand {
-                    self.locals.iter().find(|decl| decl.id == l).map(|decl| decl.ty).unwrap_or(obj_ty)
+                    self.locals
+                        .iter()
+                        .find(|decl| decl.id == l)
+                        .map(|decl| decl.ty)
+                        .unwrap_or(obj_ty)
                 } else {
                     obj_ty
                 };
-                
+
                 let resolved_obj_ty = self.builder.resolve_alias_type(resolved_obj_ty);
-                
+
                 let is_array_length = member_name == "length"
                     && matches!(
                         self.builder
@@ -691,7 +693,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                             .layer()
                             .table()
                             .kind(resolved_obj_ty),
-                        Some(TypeKind::Array { .. }) | Some(TypeKind::FixedArray { .. })
+                        Some(TypeKind::Array { .. })
                     );
 
                 let rval = if is_array_length {
@@ -1101,13 +1103,9 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
             Some(TypeKind::GenericParameter { symbol }) if generic_params.contains(symbol) => {
                 substitutions.entry(*symbol).or_insert(argument_ty);
             }
-            Some(TypeKind::Array { element }) | Some(TypeKind::FixedArray { element, .. }) => {
+            Some(TypeKind::Array { element }) => {
                 if let Some(TypeKind::Array {
                     element: arg_element,
-                })
-                | Some(TypeKind::FixedArray {
-                    element: arg_element,
-                    ..
                 }) = self.builder.type_result.layer().table().kind(argument_ty)
                 {
                     self.infer_generic_argument_from_types(

@@ -3,7 +3,7 @@ use clap::{Parser, Subcommand};
 
 #[derive(Debug, Parser)]
 #[command(name = "galfus")]
-#[command(about = "Galfus Script runner and tooling")]
+#[command(about = "Galfus Script tooling")]
 struct Cli {
     #[command(subcommand)]
     command: Command,
@@ -12,44 +12,19 @@ struct Cli {
 #[derive(Debug, Subcommand)]
 enum Command {
     Run {
-        file: String,
+        workspace: String,
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
     Check {
-        file: String,
+        workspace: String,
     },
-    CheckWorkspace {
-        root: String,
-    },
-    Graph {
-        file: String,
-    },
-    Repl,
 }
 
 fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
-
-    let cli = Cli::parse();
-
-    match cli.command {
-        Command::Run { file, args } => {
-            galfus_runner::run_project(&file, &args)?;
-        }
-        Command::Check { file } => {
-            galfus_runner::check_file(&file)?;
-        }
-        Command::CheckWorkspace { root } => {
-            galfus_runner::check_workspace_root(&root)?;
-        }
-        Command::Graph { file } => {
-            galfus_runner::print_local_graph_file(&file)?;
-        }
-        Command::Repl => {
-            galfus_runner::repl()?;
-        }
+    match Cli::parse().command {
+        Command::Run { workspace, args } => galfus_runner::run_project(&workspace, &args),
+        Command::Check { workspace } => galfus_runner::check_workspace_root(&workspace),
     }
-
-    Ok(())
 }

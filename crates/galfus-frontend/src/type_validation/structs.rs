@@ -180,7 +180,7 @@ impl<'a> DeclarationTypeChecker<'a> {
         self.struct_fields_with_visited(struct_symbol, &mut visited)
     }
 
-    fn struct_fields_for_target(
+    pub(super) fn struct_fields_for_target(
         &mut self,
         struct_symbol: SymbolId,
         target_type: TypeId,

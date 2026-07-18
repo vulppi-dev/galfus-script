@@ -190,14 +190,12 @@ fn initialized_at_block_entries(
             if !blocks.contains_key(&successor) {
                 continue;
             }
-            
             let mut edge_outgoing = outgoing.clone();
             for arg in args {
                 if let Operand::Local(l) = arg {
                     edge_outgoing.remove(l);
                 }
             }
-            
             let changed = match initialized.get(&successor) {
                 Some(previous) => {
                     let merged = previous

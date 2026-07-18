@@ -134,7 +134,6 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
             .kind(resolved_array_type)
         {
             Some(TypeKind::Array { element }) => Some(*element),
-            Some(TypeKind::FixedArray { element, .. }) => Some(*element),
             _ => None,
         };
 
@@ -309,14 +308,6 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                     length,
                 }
             }
-            Some(TypeKind::FixedArray {
-                element,
-                size: ArraySize::Known(size),
-            }) => NewArrayZeroedAllocation::Fixed {
-                element_type: *element,
-                size: *size as usize,
-            },
-
             _ => return Operand::Constant(Constant::Null),
         };
 
@@ -349,22 +340,15 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
 
         let temp_id = self.declare_local(None, array_type);
 
-        let rvalue = match allocation {
-            NewArrayZeroedAllocation::Fixed { element_type, size } => RValue::NewArrayZeroed {
-                array_type,
-                element_type,
-                size,
-                storage,
-            },
-            NewArrayZeroedAllocation::Dynamic {
-                element_type,
-                length,
-            } => RValue::NewArrayZeroedDynamic {
-                array_type,
-                element_type,
-                length,
-                storage,
-            },
+        let NewArrayZeroedAllocation::Dynamic {
+            element_type,
+            length,
+        } = allocation;
+        let rvalue = RValue::NewArrayZeroedDynamic {
+            array_type,
+            element_type,
+            length,
+            storage,
         };
 
         self.current_instructions
@@ -375,10 +359,6 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
 }
 
 enum NewArrayZeroedAllocation {
-    Fixed {
-        element_type: TypeId,
-        size: usize,
-    },
     Dynamic {
         element_type: TypeId,
         length: Operand,
