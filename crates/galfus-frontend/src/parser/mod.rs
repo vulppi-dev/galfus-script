@@ -79,12 +79,12 @@ impl Parser {
 
     fn token_text(&self, token: &Token) -> &str {
         let span = token.span();
-        &self.source_text[span.start() as usize..span.end() as usize]
+        &self.source_text[span.start()..span.end()]
     }
 
     fn node_text(&self, node: NodeId) -> &str {
         let span = self.node_span(node);
-        &self.source_text[span.start() as usize..span.end() as usize]
+        &self.source_text[span.start()..span.end()]
     }
 
     pub fn finish(mut self) -> ParseResult {

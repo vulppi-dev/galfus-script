@@ -8,7 +8,7 @@ pub struct FunctionBuilder<'b, 'a> {
     pub(super) builder: &'b mut MirBuilder<'a>,
     pub(super) locals: Vec<LocalDecl>,
     pub(super) symbol_to_local: std::collections::HashMap<SymbolId, LocalId>,
-    pub(super) current_instructions: Vec<Instruction>,
+    pub(super) current_instructions: Vec<(Instruction, Option<galfus_core::Span>)>,
     pub(super) blocks: Vec<BasicBlock>,
     pub(super) current_block: BlockId,
     pub(super) scopes: Vec<Vec<LocalId>>,
@@ -96,7 +96,10 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
             .iter()
             .position(|b| b.id == self.current_block)
             .unwrap();
-        !matches!(self.blocks[block_idx].terminator, Terminator::Return(None))
+        !matches!(
+            self.blocks[block_idx].terminator.0,
+            Terminator::Return(None)
+        )
     }
 
     pub(super) fn lower_block(&mut self, block_node_id: NodeId) {
@@ -109,7 +112,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                     .iter()
                     .position(|b| b.id == self.current_block)
                     .unwrap();
-                self.blocks[current_idx].terminator = Terminator::Return(None);
+                self.blocks[current_idx].terminator = (Terminator::Return(None), None);
             }
             return;
         };
@@ -127,7 +130,8 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                 if let Some(decl) = self.locals.iter().find(|l| l.id == local_id)
                     && self.builder.is_owned_type(decl.ty)
                 {
-                    self.current_instructions.push(Instruction::Drop(local_id));
+                    self.current_instructions
+                        .push((Instruction::Drop(local_id), None));
                 }
             }
         }
@@ -150,15 +154,16 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
             .iter()
             .position(|b| b.id == self.current_block)
             .unwrap();
-        self.blocks[block_idx].terminator = terminator;
-        let next_block = self.builder.next_block();
-        self.blocks.push(BasicBlock {
-            id: next_block,
+        self.blocks[block_idx].terminator = (terminator, None);
+        let id = self.builder.next_block();
+        let bb = BasicBlock {
+            id,
             parameters: Vec::new(),
             instructions: Vec::new(),
-            terminator: Terminator::Return(None),
-        });
-        self.current_block = next_block;
+            terminator: (Terminator::Return(None), None),
+        };
+        self.blocks.push(bb);
+        self.current_block = id;
     }
 
     fn loop_target_name(&self, loop_node: NodeId) -> Option<String> {
@@ -256,26 +261,35 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
             self.insert_cast_if_needed(value_operand, value_type, expected_value_type);
         let assigned_value = if let Some(binary_op) = binary_op {
             let current = self.declare_local(None, expected_value_type);
-            self.current_instructions.push(Instruction::Assign(
-                current,
-                RValue::ArrayIndex(array_operand.clone(), index_operand.clone()),
+            self.current_instructions.push((
+                Instruction::Assign(
+                    current,
+                    RValue::ArrayIndex(array_operand.clone(), index_operand.clone()),
+                ),
+                None,
             ));
 
             let result = self.declare_local(None, expected_value_type);
-            self.current_instructions.push(Instruction::Assign(
-                result,
-                RValue::BinaryOp(binary_op, Operand::Local(current), value_operand),
+            self.current_instructions.push((
+                Instruction::Assign(
+                    result,
+                    RValue::BinaryOp(binary_op, Operand::Local(current), value_operand),
+                ),
+                None,
             ));
             Operand::Local(result)
         } else {
             value_operand
         };
 
-        self.current_instructions.push(Instruction::StoreIndex {
-            arr: array_operand,
-            idx: index_operand,
-            val: assigned_value,
-        });
+        self.current_instructions.push((
+            Instruction::StoreIndex {
+                arr: array_operand,
+                idx: index_operand,
+                val: assigned_value,
+            },
+            None,
+        ));
 
         true
     }
@@ -309,26 +323,35 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
         let field_name = self.builder.node_text(member_node).to_string();
         let assigned_value = if let Some(binary_op) = binary_op {
             let current = self.declare_local(None, target_ty);
-            self.current_instructions.push(Instruction::Assign(
-                current,
-                RValue::MemberAccess(obj_operand.clone(), field_name.clone()),
+            self.current_instructions.push((
+                Instruction::Assign(
+                    current,
+                    RValue::MemberAccess(obj_operand.clone(), field_name.clone()),
+                ),
+                None,
             ));
 
             let result = self.declare_local(None, target_ty);
-            self.current_instructions.push(Instruction::Assign(
-                result,
-                RValue::BinaryOp(binary_op, Operand::Local(current), value_operand),
+            self.current_instructions.push((
+                Instruction::Assign(
+                    result,
+                    RValue::BinaryOp(binary_op, Operand::Local(current), value_operand),
+                ),
+                None,
             ));
             Operand::Local(result)
         } else {
             value_operand
         };
 
-        self.current_instructions.push(Instruction::StoreField {
-            obj: obj_operand,
-            field_name,
-            val: assigned_value,
-        });
+        self.current_instructions.push((
+            Instruction::StoreField {
+                obj: obj_operand,
+                field_name,
+                val: assigned_value,
+            },
+            None,
+        ));
 
         true
     }
@@ -346,13 +369,14 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                 if let Some(decl) = self.locals.iter().find(|l| l.id == local_id)
                     && self.builder.is_owned_type(decl.ty)
                 {
-                    self.current_instructions.push(Instruction::Drop(local_id));
+                    self.current_instructions
+                        .push((Instruction::Drop(local_id), None));
                 }
             }
             for t in self.transactions.iter().rev() {
                 if t.scope_depth == i {
                     self.current_instructions
-                        .push(Instruction::TransactionRollback);
+                        .push((Instruction::TransactionRollback, None));
                 }
             }
         }
@@ -413,21 +437,24 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                             if let Some(local_id) = self.symbol_to_local.get(&sym).copied() {
                                 let assigned_value = if let Some(binary_op) = binary_op {
                                     let result = self.declare_local(None, target_ty);
-                                    self.current_instructions.push(Instruction::Assign(
-                                        result,
-                                        RValue::BinaryOp(
-                                            binary_op,
-                                            Operand::Local(local_id),
-                                            casted_operand,
+                                    self.current_instructions.push((
+                                        Instruction::Assign(
+                                            result,
+                                            RValue::BinaryOp(
+                                                binary_op,
+                                                Operand::Local(local_id),
+                                                casted_operand,
+                                            ),
                                         ),
+                                        None,
                                     ));
                                     Operand::Local(result)
                                 } else {
                                     casted_operand
                                 };
-                                self.current_instructions.push(Instruction::Assign(
-                                    local_id,
-                                    RValue::Use(assigned_value),
+                                self.current_instructions.push((
+                                    Instruction::Assign(local_id, RValue::Use(assigned_value)),
+                                    None,
                                 ));
                             } else {
                                 let is_global = resolution.is_some_and(|res| {
@@ -441,8 +468,10 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                                         .and_then(|res| res.symbol(sym))
                                         .map(|s| s.name().to_string())
                                         .unwrap_or_default();
-                                    self.current_instructions
-                                        .push(Instruction::StoreGlobal(name, casted_operand));
+                                    self.current_instructions.push((
+                                        Instruction::StoreGlobal(name, casted_operand),
+                                        None,
+                                    ));
                                 }
                             }
                         }
@@ -505,7 +534,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                     })
                     .unwrap_or_default();
                 self.current_instructions
-                    .push(Instruction::TransactionStart { targets });
+                    .push((Instruction::TransactionStart { targets }, None));
 
                 let end = self.builder.next_block();
                 self.transactions.push(TransactionTargets {
@@ -523,10 +552,12 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                         .table()
                         .primitive(PrimitiveType::Bool);
                     let committed = self.declare_local(None, bool_type);
-                    self.current_instructions
-                        .push(Instruction::TransactionCommit {
+                    self.current_instructions.push((
+                        Instruction::TransactionCommit {
                             destination: committed,
-                        });
+                        },
+                        None,
+                    ));
                     self.terminate_block(Terminator::Jump {
                         target: end,
                         args: Vec::new(),
@@ -539,7 +570,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
             SyntaxNodeKind::RollbackStatement => {
                 if let Some(transaction) = self.transactions.last() {
                     self.current_instructions
-                        .push(Instruction::TransactionRollback);
+                        .push((Instruction::TransactionRollback, None));
                     self.terminate_block(Terminator::Jump {
                         target: transaction.end,
                         args: Vec::new(),
@@ -734,29 +765,35 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                     let iter_obj_ty = ctx.function_return_type(iter_func).unwrap();
                     let iter_obj_local = self.declare_local(None, iter_obj_ty);
 
-                    self.current_instructions.push(Instruction::Call {
-                        func: iter_func,
-                        args: vec![iterable_operand],
-                        destination: iter_obj_local,
-                    });
+                    self.current_instructions.push((
+                        Instruction::Call {
+                            func: iter_func,
+                            args: vec![iterable_operand],
+                            destination: iter_obj_local,
+                        },
+                        None,
+                    ));
 
                     iterable_operand = Operand::Local(iter_obj_local);
                     actual_iterable_ty = iter_obj_ty;
                 }
 
                 let iterable_local = self.declare_local(None, actual_iterable_ty);
-                self.current_instructions.push(Instruction::Assign(
-                    iterable_local,
-                    RValue::Use(iterable_operand),
+                self.current_instructions.push((
+                    Instruction::Assign(iterable_local, RValue::Use(iterable_operand)),
+                    None,
                 ));
 
                 let iterator_local = self.declare_local(None, actual_iterable_ty);
-                self.current_instructions.push(Instruction::ConstraintCall {
-                    method_name: "iter".to_string(),
-                    obj: Operand::Local(iterable_local),
-                    args: Vec::new(),
-                    destination: iterator_local,
-                });
+                self.current_instructions.push((
+                    Instruction::ConstraintCall {
+                        method_name: "iter".to_string(),
+                        obj: Operand::Local(iterable_local),
+                        args: Vec::new(),
+                        destination: iterator_local,
+                    },
+                    None,
+                ));
 
                 let loop_header = self.builder.next_block();
                 let loop_body = self.builder.next_block();
@@ -770,20 +807,26 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                 self.current_block = loop_header;
 
                 let next_local = self.declare_local(None, binding_ty);
-                self.current_instructions.push(Instruction::ConstraintCall {
-                    method_name: "next".to_string(),
-                    obj: Operand::Local(iterator_local),
-                    args: Vec::new(),
-                    destination: next_local,
-                });
+                self.current_instructions.push((
+                    Instruction::ConstraintCall {
+                        method_name: "next".to_string(),
+                        obj: Operand::Local(iterator_local),
+                        args: Vec::new(),
+                        destination: next_local,
+                    },
+                    None,
+                ));
                 let cond_local = self.declare_local(None, bool_type_id);
-                self.current_instructions.push(Instruction::Assign(
-                    cond_local,
-                    RValue::BinaryOp(
-                        MirBinaryOp::NotEqual,
-                        Operand::Local(next_local),
-                        Operand::Constant(Constant::Null),
+                self.current_instructions.push((
+                    Instruction::Assign(
+                        cond_local,
+                        RValue::BinaryOp(
+                            MirBinaryOp::NotEqual,
+                            Operand::Local(next_local),
+                            Operand::Constant(Constant::Null),
+                        ),
                     ),
+                    None,
                 ));
                 self.terminate_block(Terminator::Branch {
                     cond: Operand::Local(cond_local),

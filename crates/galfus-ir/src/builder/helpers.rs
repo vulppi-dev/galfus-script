@@ -316,15 +316,61 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
         let to_ty = self.builder.resolve_alias_type(to_ty);
 
         let actual_from_ty = match &operand {
-            Operand::Constant(Constant::Int(val)) => {
-                let prim = if i32::try_from(*val).is_ok() {
-                    galfus_frontend::PrimitiveType::Int32
-                } else {
-                    galfus_frontend::PrimitiveType::Int64
-                };
-                self.builder.type_result.layer().table().primitive(prim)
-            }
-            Operand::Constant(Constant::Float(_)) => self
+            Operand::Constant(Constant::Int8(_)) => self
+                .builder
+                .type_result
+                .layer()
+                .table()
+                .primitive(galfus_frontend::PrimitiveType::Int8),
+            Operand::Constant(Constant::Int16(_)) => self
+                .builder
+                .type_result
+                .layer()
+                .table()
+                .primitive(galfus_frontend::PrimitiveType::Int16),
+            Operand::Constant(Constant::Int32(_)) => self
+                .builder
+                .type_result
+                .layer()
+                .table()
+                .primitive(galfus_frontend::PrimitiveType::Int32),
+            Operand::Constant(Constant::Int64(_)) => self
+                .builder
+                .type_result
+                .layer()
+                .table()
+                .primitive(galfus_frontend::PrimitiveType::Int64),
+            Operand::Constant(Constant::Uint8(_)) => self
+                .builder
+                .type_result
+                .layer()
+                .table()
+                .primitive(galfus_frontend::PrimitiveType::Uint8),
+            Operand::Constant(Constant::Uint16(_)) => self
+                .builder
+                .type_result
+                .layer()
+                .table()
+                .primitive(galfus_frontend::PrimitiveType::Uint16),
+            Operand::Constant(Constant::Uint32(_)) => self
+                .builder
+                .type_result
+                .layer()
+                .table()
+                .primitive(galfus_frontend::PrimitiveType::Uint32),
+            Operand::Constant(Constant::Uint64(_)) => self
+                .builder
+                .type_result
+                .layer()
+                .table()
+                .primitive(galfus_frontend::PrimitiveType::Uint64),
+            Operand::Constant(Constant::Float32(_)) => self
+                .builder
+                .type_result
+                .layer()
+                .table()
+                .primitive(galfus_frontend::PrimitiveType::Float32),
+            Operand::Constant(Constant::Float64(_)) => self
                 .builder
                 .type_result
                 .layer()
@@ -358,8 +404,10 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
 
         if is_numeric(actual_from_ty) && is_numeric(to_ty) {
             let temp_id = self.declare_local(None, to_ty);
-            self.current_instructions
-                .push(Instruction::Assign(temp_id, RValue::Cast(operand, to_ty)));
+            self.current_instructions.push((
+                Instruction::Assign(temp_id, RValue::Cast(operand, to_ty)),
+                None,
+            ));
             Operand::Local(temp_id)
         } else {
             operand

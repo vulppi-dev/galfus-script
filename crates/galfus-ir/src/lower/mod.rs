@@ -1,9 +1,9 @@
 use crate::lower::constants::HashableConstant;
 use crate::mir::Constant as MirConstant;
+use galfus_bytecode::instruction::{ConstIdx, FuncIdx, TypeIdx};
+use galfus_bytecode::*;
 use galfus_core::{FunctionId, SymbolId, TypeId};
 use galfus_frontend::{ModuleGraph, TypeCheckResult};
-use galfus_image::instruction::{ConstIdx, FuncIdx, TypeIdx};
-use galfus_image::*;
 pub use module::*;
 use std::collections::HashMap;
 
@@ -19,7 +19,7 @@ pub struct LowerCtx<'a> {
     pub type_result: &'a TypeCheckResult,
     pub graph: &'a ModuleGraph,
     pub source_text: &'a str,
-    pub types: Vec<ImageType>,
+    pub types: Vec<BytecodeType>,
     pub struct_layouts: Vec<StructLayout>,
     pub choice_layouts: Vec<ChoiceLayout>,
     pub type_map: HashMap<TypeId, TypeIdx>,

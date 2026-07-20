@@ -6,6 +6,7 @@ license.workspace = true
 
 [dependencies]
 galfus-builtins = { path = "../galfus-builtins" }
+galfus-bytecode = { path = "../galfus-bytecode" }
 galfus-compiler = { path = "../galfus-compiler" }
 galfus-core = { path = "../galfus-core" }
 galfus-frontend = { path = "../galfus-frontend" }

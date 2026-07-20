@@ -71,7 +71,7 @@ impl<'a> DeclarationTypeChecker<'a> {
             }
 
             for &param in &generic_params {
-                if !substitutions.contains_key(&param) {
+                if let std::collections::hash_map::Entry::Vacant(e) = substitutions.entry(param) {
                     let param_name = self
                         .graph
                         .resolution()
@@ -82,7 +82,7 @@ impl<'a> DeclarationTypeChecker<'a> {
                         node,
                         format!("cannot infer generic type `{}`", param_name),
                     );
-                    substitutions.insert(param, self.layer.table_mut().error());
+                    e.insert(self.layer.table_mut().error());
                 }
             }
 

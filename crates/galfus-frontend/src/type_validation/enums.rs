@@ -74,18 +74,15 @@ impl<'a> DeclarationTypeChecker<'a> {
             .graph
             .syntax()
             .first_child_of_kind(enum_item, SyntaxNodeKind::KeywordMetadataList)
+            && let Some(metadata_list) = self.graph.syntax().node(metadata_list_node)
         {
-            if let Some(metadata_list) = self.graph.syntax().node(metadata_list_node) {
-                for child in metadata_list.children() {
-                    if let Some(child_node) = self.graph.syntax().node(*child) {
-                        if child_node.kind() == SyntaxNodeKind::KeywordMetadataType {
-                            if let Some(type_node) = child_node.first_child() {
-                                if let Some(ty) = self.layer.node_type(type_node) {
-                                    return Some((type_node, ty));
-                                }
-                            }
-                        }
-                    }
+            for child in metadata_list.children() {
+                if let Some(child_node) = self.graph.syntax().node(*child)
+                    && child_node.kind() == SyntaxNodeKind::KeywordMetadataType
+                    && let Some(type_node) = child_node.first_child()
+                    && let Some(ty) = self.layer.node_type(type_node)
+                {
+                    return Some((type_node, ty));
                 }
             }
         }

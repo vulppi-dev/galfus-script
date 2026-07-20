@@ -5,7 +5,7 @@
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE.md)
 [![Rust](https://img.shields.io/badge/rust-stable-orange.svg)](https://www.rust-lang.org/)
 
-> A small, efficient, highly modular interpreted scripting language built around typed source code, an in-memory module image, and a deterministic VM runtime.
+> A small, efficient, highly modular interpreted scripting language built around typed source code, an in-memory executable graph, and a deterministic VM runtime.
 
 Galfus Script is a programming language validating a compact, modular, VM-first scripting model. The compiler pipeline and VM interpreter are fully implemented and verified.
 
@@ -37,7 +37,7 @@ The entire core execution pipeline is complete. You can parse, typecheck, compil
                     └── Ownership Check
                           └── MIR Lowering (Structured IR)
                                 └── Bytecode Emitter
-                                       └── Galfus Module Image (in-memory)
+                                       └── BytecodeGraph (in-memory)
                                                    └── VM Interpreter Execution
 ```
 
@@ -76,17 +76,16 @@ Galfus Script is structured as a cargo workspace containing the following crates
 ```txt
 galfus-script/
   ├── crates/
-  │    ├── galfus-core/       # Shared IDs, diagnostics, spans, and primitive metadata
-  │    ├── galfus-frontend/   # Lexer, parser, resolver, checker, and semantic validation
-  │    ├── galfus-ir/         # MIR representation and VM lowering code
-  │    ├── galfus-image/      # Bytecode format, validation, and in-memory module image layouts
-  │    ├── galfus-host/       # Optional host-provider contracts used at execution time
-  │    ├── galfus-runtime/    # Concurrency runtime, threads, loader, and registry
-  │    ├── galfus-vm/         # Virtual Machine interpreter and ownership graph engine
-  │    ├── galfus-jit/        # Just-in-Time compilation engine skeleton
-  │    ├── galfus-builtins/   # Standard library builtins and rich_builtins files
-  │    ├── galfus-runner/     # Workspace compilation pipeline and linker
-  │    └── galfus-cli/        # CLI interface (Command Line Interface)
+       ├── galfus-core/       # Shared IDs, diagnostics, spans, and primitive metadata
+       ├── galfus-frontend/   # Lexer, parser, resolver, checker, and semantic validation
+       ├── galfus-ir/         # MIR representation and VM lowering code
+       ├── galfus-bytecode/   # Bytecode format, validation, and in-memory executable graph
+       ├── galfus-host/       # Optional host-provider contracts used at execution time
+       ├── galfus-runtime/    # Runtime execution state, module globals, and VM setup
+       ├── galfus-vm/         # Virtual Machine interpreter and ownership graph engine
+       ├── galfus-builtins/   # Standard library builtins and rich_builtins files
+       ├── galfus-runner/     # Workspace compilation pipeline and executor
+       └── galfus-cli/        # CLI interface (Command Line Interface)
   └── examples/
        └── project/           # Sample workspace project with local main.gfs and config
 ```

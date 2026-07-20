@@ -1,14 +1,21 @@
 use super::LowerCtx;
 use crate::mir::Constant as MirConstant;
-use galfus_image::Constant;
-use galfus_image::instruction::ConstIdx;
+use galfus_bytecode::Constant;
+use galfus_bytecode::instruction::ConstIdx;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum HashableConstant {
     Bool(bool),
+    Int8(i8),
+    Int16(i16),
     Int32(i32),
     Int64(i64),
-    FloatBits(u64),
+    Uint8(u8),
+    Uint16(u16),
+    Uint32(u32),
+    Uint64(u64),
+    Float32Bits(u32),
+    Float64Bits(u64),
     String(String),
     Function(u32),
 }
@@ -18,12 +25,16 @@ impl HashableConstant {
         match constant {
             MirConstant::Null => None,
             MirConstant::Bool(b) => Some(Self::Bool(*b)),
-            MirConstant::Int(i) => Some(
-                i32::try_from(*i)
-                    .map(Self::Int32)
-                    .unwrap_or(Self::Int64(*i)),
-            ),
-            MirConstant::Float(f) => Some(Self::FloatBits(f.to_bits())),
+            MirConstant::Int8(i) => Some(Self::Int8(*i)),
+            MirConstant::Int16(i) => Some(Self::Int16(*i)),
+            MirConstant::Int32(i) => Some(Self::Int32(*i)),
+            MirConstant::Int64(i) => Some(Self::Int64(*i)),
+            MirConstant::Uint8(i) => Some(Self::Uint8(*i)),
+            MirConstant::Uint16(i) => Some(Self::Uint16(*i)),
+            MirConstant::Uint32(i) => Some(Self::Uint32(*i)),
+            MirConstant::Uint64(i) => Some(Self::Uint64(*i)),
+            MirConstant::Float32(f) => Some(Self::Float32Bits(f.to_bits())),
+            MirConstant::Float64(f) => Some(Self::Float64Bits(f.to_bits())),
             MirConstant::String(s) => Some(Self::String(s.clone())),
             MirConstant::Function(id) => Some(Self::Function(id.raw())),
         }
@@ -46,10 +57,16 @@ pub fn get_or_create_constant(ctx: &mut LowerCtx, constant: &MirConstant) -> Con
     let c = match constant {
         MirConstant::Null => unreachable!(),
         MirConstant::Bool(b) => Constant::Bool(*b),
-        MirConstant::Int(i) => i32::try_from(*i)
-            .map(Constant::Int32)
-            .unwrap_or(Constant::Int64(*i)),
-        MirConstant::Float(f) => Constant::Float(*f),
+        MirConstant::Int8(i) => Constant::Int8(*i),
+        MirConstant::Int16(i) => Constant::Int16(*i),
+        MirConstant::Int32(i) => Constant::Int32(*i),
+        MirConstant::Int64(i) => Constant::Int64(*i),
+        MirConstant::Uint8(i) => Constant::Uint8(*i),
+        MirConstant::Uint16(i) => Constant::Uint16(*i),
+        MirConstant::Uint32(i) => Constant::Uint32(*i),
+        MirConstant::Uint64(i) => Constant::Uint64(*i),
+        MirConstant::Float32(f) => Constant::Float32(*f),
+        MirConstant::Float64(f) => Constant::Float64(*f),
         MirConstant::String(s) => Constant::String(s.clone()),
         MirConstant::Function(id) => {
             let func_idx = *ctx.function_map.get(id).unwrap_or_else(|| {

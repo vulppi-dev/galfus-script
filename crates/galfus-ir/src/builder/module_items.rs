@@ -78,7 +78,7 @@ impl<'a> MirBuilder<'a> {
                 parameters: Vec::new(),
                 id: BlockId::new(0),
                 instructions: Vec::new(),
-                terminator: Terminator::Return(None),
+                terminator: (Terminator::Return(None), None),
             }],
             current_block: BlockId::new(0),
             scopes: vec![Vec::new()],
@@ -119,13 +119,16 @@ impl<'a> MirBuilder<'a> {
                 continue;
             };
             let fallback = builder_ctx.lower_expression(default);
-            builder_ctx.current_instructions.push(Instruction::Assign(
-                local_id,
-                RValue::BinaryOp(
-                    MirBinaryOp::NullFallback,
-                    Operand::Local(local_id),
-                    fallback,
+            builder_ctx.current_instructions.push((
+                Instruction::Assign(
+                    local_id,
+                    RValue::BinaryOp(
+                        MirBinaryOp::NullFallback,
+                        Operand::Local(local_id),
+                        fallback,
+                    ),
                 ),
+                None,
             ));
         }
 
@@ -216,7 +219,7 @@ impl<'a> MirBuilder<'a> {
                 parameters: Vec::new(),
                 id: BlockId::new(0),
                 instructions: Vec::new(),
-                terminator: Terminator::Return(None),
+                terminator: (Terminator::Return(None), None),
             }],
             current_block: BlockId::new(0),
             scopes: vec![Vec::new()],

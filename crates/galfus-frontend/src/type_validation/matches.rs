@@ -238,27 +238,25 @@ impl<'a> DeclarationTypeChecker<'a> {
         {
             let base = self.resolve_path_type(base);
             let owner_base = self.resolve_path_type(owner_type);
-            if let Some(TypeKind::Named { symbol }) = self.layer.table().kind(base) {
-                if let Some(TypeKind::Named { symbol: owner_sym }) =
+            if let Some(TypeKind::Named { symbol }) = self.layer.table().kind(base)
+                && let Some(TypeKind::Named { symbol: owner_sym }) =
                     self.layer.table().kind(owner_base)
-                {
-                    if *symbol == *owner_sym {
-                        expected_choice_type = base;
-                        generic_arguments = arguments;
-                    }
-                }
+                && *symbol == *owner_sym
+            {
+                expected_choice_type = base;
+                generic_arguments = arguments;
             }
         }
 
-        if let Some(target) = self.graph.syntax().child(pattern, 0) {
-            if let Some(target_type) = self.infer_expression_type(target) {
-                let resolved = self.resolve_path_type(target_type);
-                if let Some(TypeKind::GenericInstance { arguments, .. }) =
-                    self.layer.table().kind(resolved)
-                {
-                    owner_type = resolved;
-                    generic_arguments = arguments.clone();
-                }
+        if let Some(target) = self.graph.syntax().child(pattern, 0)
+            && let Some(target_type) = self.infer_expression_type(target)
+        {
+            let resolved = self.resolve_path_type(target_type);
+            if let Some(TypeKind::GenericInstance { arguments, .. }) =
+                self.layer.table().kind(resolved)
+            {
+                owner_type = resolved;
+                generic_arguments = arguments.clone();
             }
         }
 

@@ -1,7 +1,7 @@
 use super::*;
 use std::collections::{HashMap, HashSet, VecDeque};
 
-impl VirtualMachine {
+impl<'a> VirtualMachine<'a> {
     pub(super) fn execute_object_instruction(
         &mut self,
         instr: Instruction,
@@ -11,18 +11,21 @@ impl VirtualMachine {
             Instruction::AllocLocal { dest, type_idx }
             | Instruction::AllocShared { dest, type_idx } => {
                 let ty = self
-                    .image
+                    .current_image()
+                    .unwrap()
                     .types
                     .get(type_idx.raw() as usize)
                     .ok_or(VmError::TypeOutOfBounds { index: type_idx })?;
-                if let ImageType::Struct(layout_idx) = ty {
+                if let BytecodeType::Struct(layout_idx) = ty {
                     let layout = self
-                        .image
+                        .current_image()
+                        .unwrap()
                         .struct_layouts
                         .get(layout_idx.raw() as usize)
                         .ok_or(VmError::TypeOutOfBounds { index: type_idx })?;
                     let fields = vec![Value::Null; layout.fields.len()];
                     let obj_ref = self.alloc(HeapObject::Struct {
+                        module_id: self.call_stack.last().unwrap().module_id,
                         layout_idx: *layout_idx,
                         fields,
                     });
@@ -89,12 +92,13 @@ impl VirtualMachine {
                 len_reg,
             } => {
                 let ty = self
-                    .image
+                    .current_image()
+                    .unwrap()
                     .types
                     .get(type_idx.raw() as usize)
                     .ok_or(VmError::TypeOutOfBounds { index: type_idx })?;
                 let element_ty = match ty {
-                    ImageType::Array(el_ty) => *el_ty,
+                    BytecodeType::Array(el_ty) => *el_ty,
                     _ => {
                         return Err(VmError::TypeMismatch {
                             expected: "Array type".to_string(),
@@ -231,11 +235,12 @@ impl VirtualMachine {
                 count,
             } => {
                 let ty = self
-                    .image
+                    .current_image()
+                    .unwrap()
                     .types
                     .get(type_idx.raw() as usize)
                     .ok_or(VmError::TypeOutOfBounds { index: type_idx })?;
-                if let ImageType::Tuple(tys) = ty {
+                if let BytecodeType::Tuple(tys) = ty {
                     if count as usize != tys.len() {
                         return Err(VmError::TypeMismatch {
                             expected: format!("Tuple size {}", tys.len()),
@@ -263,13 +268,15 @@ impl VirtualMachine {
                 payload,
             } => {
                 let ty = self
-                    .image
+                    .current_image()
+                    .unwrap()
                     .types
                     .get(type_idx.raw() as usize)
                     .ok_or(VmError::TypeOutOfBounds { index: type_idx })?;
-                if let ImageType::Choice(layout_idx) = ty {
+                if let BytecodeType::Choice(layout_idx) = ty {
                     let payload_val = self.read_reg(payload)?;
                     let obj_ref = self.alloc(HeapObject::Choice {
+                        module_id: self.call_stack.last().unwrap().module_id,
                         layout_idx: *layout_idx,
                         variant_idx,
                         payload: payload_val,
@@ -342,9 +349,16 @@ impl VirtualMachine {
             let object = self.get_object(obj_ref)?;
 
             match object {
-                HeapObject::Struct { layout_idx, fields } => {
+                HeapObject::Struct {
+                    module_id,
+                    layout_idx,
+                    fields,
+                } => {
                     let layout = self
-                        .image
+                        .graph
+                        .get(*module_id)
+                        .unwrap()
+                        .module
                         .struct_layouts
                         .get(layout_idx.raw() as usize)
                         .ok_or(VmError::TypeMismatch {
@@ -404,9 +418,16 @@ impl VirtualMachine {
             let object = self.get_object(old_ref)?.clone();
 
             let placeholder = match object {
-                HeapObject::Struct { layout_idx, fields } => {
+                HeapObject::Struct {
+                    module_id,
+                    layout_idx,
+                    fields,
+                } => {
                     let layout = self
-                        .image
+                        .graph
+                        .get(module_id)
+                        .unwrap()
+                        .module
                         .struct_layouts
                         .get(layout_idx.raw() as usize)
                         .ok_or(VmError::TypeMismatch {
@@ -422,6 +443,7 @@ impl VirtualMachine {
                     }
 
                     HeapObject::Struct {
+                        module_id,
                         layout_idx,
                         fields: vec![Value::Null; fields.len()],
                     }
@@ -434,10 +456,12 @@ impl VirtualMachine {
                     elements: Vec::new(),
                 },
                 HeapObject::Choice {
+                    module_id,
                     layout_idx,
                     variant_idx,
                     ..
                 } => HeapObject::Choice {
+                    module_id,
                     layout_idx,
                     variant_idx,
                     payload: Value::Null,
@@ -465,9 +489,16 @@ impl VirtualMachine {
             let object = self.get_object(old_ref)?.clone();
 
             match object {
-                HeapObject::Struct { layout_idx, fields } => {
+                HeapObject::Struct {
+                    module_id,
+                    layout_idx,
+                    fields,
+                } => {
                     let layout = self
-                        .image
+                        .graph
+                        .get(module_id)
+                        .unwrap()
+                        .module
                         .struct_layouts
                         .get(layout_idx.raw() as usize)
                         .ok_or(VmError::TypeMismatch {
@@ -596,28 +627,29 @@ impl VirtualMachine {
     /// Returns the default `Value` for element types that can be safely default-initialized.
     fn zero_value_for_type(&self, type_idx: TypeIdx) -> Result<Value, VmError> {
         let ty = self
-            .image
+            .current_image()
+            .unwrap()
             .types
             .get(type_idx.raw() as usize)
             .ok_or(VmError::TypeOutOfBounds { index: type_idx })?;
 
         Ok(match ty {
-            ImageType::Bool => Value::Bool(false),
-            ImageType::Int8 => Value::Int8(0),
-            ImageType::Int16 => Value::Int16(0),
-            ImageType::Int32 => Value::Int32(0),
-            ImageType::Int64 => Value::Int64(0),
-            ImageType::Uint8 => Value::Uint8(0),
-            ImageType::Uint16 => Value::Uint16(0),
-            ImageType::Uint32 => Value::Uint32(0),
-            ImageType::Uint64 => Value::Uint64(0),
-            ImageType::Float32 => Value::Float32(0.0),
-            ImageType::Float64 => Value::Float64(0.0),
-            ImageType::Null => Value::Null,
-            ImageType::Struct(_)
-            | ImageType::Choice(_)
-            | ImageType::Array(_)
-            | ImageType::Tuple(_) => Value::Null,
+            BytecodeType::Bool => Value::Bool(false),
+            BytecodeType::Int8 => Value::Int8(0),
+            BytecodeType::Int16 => Value::Int16(0),
+            BytecodeType::Int32 => Value::Int32(0),
+            BytecodeType::Int64 => Value::Int64(0),
+            BytecodeType::Uint8 => Value::Uint8(0),
+            BytecodeType::Uint16 => Value::Uint16(0),
+            BytecodeType::Uint32 => Value::Uint32(0),
+            BytecodeType::Uint64 => Value::Uint64(0),
+            BytecodeType::Float32 => Value::Float32(0.0),
+            BytecodeType::Float64 => Value::Float64(0.0),
+            BytecodeType::Null => Value::Null,
+            BytecodeType::Struct(_)
+            | BytecodeType::Choice(_)
+            | BytecodeType::Array(_)
+            | BytecodeType::Tuple(_) => Value::Null,
             _ => {
                 return Err(VmError::TypeMismatch {
                     expected: "defaultable array element type".to_string(),

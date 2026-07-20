@@ -1,6 +1,6 @@
 use super::*;
 
-impl VirtualMachine {
+impl<'a> VirtualMachine<'a> {
     pub(super) fn execute_system_instruction(
         &mut self,
         instr: Instruction,

@@ -180,7 +180,7 @@ impl<'a> MirBuilder<'a> {
                 parameters: Vec::new(),
                 id: BlockId::new(0),
                 instructions: Vec::new(),
-                terminator: Terminator::Return(None),
+                terminator: (Terminator::Return(None), None),
             }],
             current_block: BlockId::new(0),
             scopes: vec![Vec::new()],
@@ -219,7 +219,7 @@ impl<'a> MirBuilder<'a> {
 
                         builder_ctx
                             .current_instructions
-                            .push(Instruction::StoreGlobal(name, operand.clone()));
+                            .push((Instruction::StoreGlobal(name, operand.clone()), None));
                     }
                 }
             }

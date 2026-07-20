@@ -1,14 +1,18 @@
 # galfus-runtime
 
-`galfus-runtime` defines the execution environment, module registration, loading boundaries, and concurrency (logical thread) tracking.
+`galfus-runtime` defines entrypoint validation and execution orchestration over
+a borrowed `BytecodeGraph`.
 
 ## Responsibilities
 
-- **ModuleRegistry**: Tracks active loaded modules and their references in the runtime.
-- **RuntimeLoader**: Manages loading of `ModuleImage` formats into the registry.
-- **LogicalThread**: Represents a virtual thread of execution, state, and concurrency tracking.
-- **Runtime Execution Context**: Aggregates registries and the optional host providers supplied for an execution.
+- **Entrypoint Execution**: Validates and invokes exported module entries.
+- **Runtime Context**: Is created from a borrowed `BytecodeGraph` and optional host providers, then passes both to the VM for one execution.
+- **Host Integration**: Receives `Providers` from an embedding host or workspace and routes capability requests to the host platform.
 
-The runtime does not select a target or construct platform adapters. It passes
-the optional providers received from `galfus-workspace` to the VM only when an
-entry is executed.
+The runtime does not copy, rebuild, or deduplicate the `BytecodeGraph`.
+Current VM state includes a global-slot vector and initialization flag for each
+module, plus the heap and call frames.
+
+When available, `ExecutionMetadata` maps a function instruction offset to its
+source span. Panics always retain the module ID, function index, and instruction
+offset; formatting enriches them with the optional source span.

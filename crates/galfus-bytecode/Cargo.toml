@@ -1,11 +1,10 @@
 [package]
-name = "galfus-image"
+name = "galfus-bytecode"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 
 [dependencies]
+galfus-core = { version = "0.0.0", path = "../galfus-core" }
 indexmap.workspace = true
-postcard.workspace = true
-serde.workspace = true
 thiserror.workspace = true

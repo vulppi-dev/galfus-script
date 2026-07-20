@@ -150,7 +150,7 @@ impl ResolutionLayer {
 
     pub fn lookup_symbol<N: AsNameId>(&self, scope: ScopeId, name: N) -> Option<SymbolId> {
         let mut current = Some(scope);
-        let name_id = name.as_name_id();
+        let name_id = name.to_name_id();
 
         while let Some(scope_id) = current {
             let scope = self.scope(scope_id)?;
@@ -181,7 +181,7 @@ impl ResolutionLayer {
         let builtin_scope = self.builtin_scope?;
         let scope = self.scope(builtin_scope)?;
 
-        scope.symbol(name.as_name_id())
+        scope.symbol(name.to_name_id())
     }
 
     pub(crate) fn add_scope(
@@ -217,7 +217,7 @@ impl ResolutionLayer {
         scope: ScopeId,
     ) -> SymbolId {
         let id = SymbolId::new(self.symbols.len() as u32);
-        let name_id = name.as_name_id();
+        let name_id = name.to_name_id();
 
         self.symbols
             .push(Symbol::new(id, kind, name_id, declaration, scope));
@@ -253,32 +253,11 @@ impl ResolutionLayer {
         self.member_scopes.insert(symbol, scope);
     }
 
-    pub(crate) fn add_import(
-        &mut self,
-        kind: ImportKind,
-        source: String,
-        source_node: NodeId,
-        import_node: NodeId,
-        declaration: NodeId,
-        local_name: String,
-        imported_name: Option<String>,
-        local_symbol: SymbolId,
-    ) -> ImportId {
+    pub(crate) fn add_import(&mut self, details: ImportDetails) -> ImportId {
         let id = ImportId::new(self.imports.len() as u32);
 
-        self.imports.push(ImportRecord::new(
-            id,
-            kind,
-            source,
-            source_node,
-            import_node,
-            declaration,
-            local_name,
-            imported_name,
-            local_symbol,
-        ));
-
-        self.symbol_imports.insert(local_symbol, id);
+        self.symbol_imports.insert(details.local_symbol, id);
+        self.imports.push(ImportRecord::new(id, details));
 
         id
     }

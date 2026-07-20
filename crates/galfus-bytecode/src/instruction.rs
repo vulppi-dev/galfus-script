@@ -1,10 +1,8 @@
-use serde::{Deserialize, Serialize};
-
 // =========================================================================
 // Operand Indices (Newtype Wrappers)
 // =========================================================================
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Reg(pub u16);
 
 impl Reg {
@@ -13,7 +11,7 @@ impl Reg {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ConstIdx(pub u16);
 
 impl ConstIdx {
@@ -22,7 +20,7 @@ impl ConstIdx {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TypeIdx(pub u16);
 
 impl TypeIdx {
@@ -31,7 +29,7 @@ impl TypeIdx {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct FuncIdx(pub u16);
 
 impl FuncIdx {
@@ -40,7 +38,7 @@ impl FuncIdx {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct GlobalIdx(pub u16);
 
 impl GlobalIdx {
@@ -49,7 +47,7 @@ impl GlobalIdx {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct FieldIdx(pub u16);
 
 impl FieldIdx {
@@ -58,7 +56,7 @@ impl FieldIdx {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct StructLayoutIdx(pub u16);
 
 impl StructLayoutIdx {
@@ -67,7 +65,7 @@ impl StructLayoutIdx {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ChoiceLayoutIdx(pub u16);
 
 impl ChoiceLayoutIdx {
@@ -80,7 +78,7 @@ impl ChoiceLayoutIdx {
 // Opcode Instruction Set
 // =========================================================================
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Instruction {
     // Category A: Data Movement & Constants
     LoadConst {
@@ -93,9 +91,11 @@ pub enum Instruction {
     },
     LoadGlobal {
         dest: Reg,
+        module_id: galfus_core::ModuleId,
         global_idx: GlobalIdx,
     },
     StoreGlobal {
+        module_id: galfus_core::ModuleId,
         global_idx: GlobalIdx,
         src: Reg,
     },

@@ -1,4 +1,5 @@
 use super::*;
+use galfus_bytecode::BytecodeModule;
 
 #[test]
 fn test_basic_arithmetic() {
@@ -18,9 +19,18 @@ fn test_basic_arithmetic() {
         },
         Instruction::Ret { src: Reg(3) },
     ];
-    let image = create_test_image(instrs, vec![Constant::Int(10), Constant::Int(20)]);
-    let mut vm = VirtualMachine::new(image);
-    let res = vm.run_function(FuncIdx(0), vec![]).unwrap();
+    let image = create_test_module(instrs, vec![Constant::Int64(10), Constant::Int64(20)]);
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
+        id: galfus_core::ModuleId::new(0),
+        path: galfus_core::ModulePath::new("test.gfs").unwrap(),
+        semantic_revision: galfus_core::SemanticRevision::new(0),
+        module: image,
+        metadata: None,
+    });
+    let mut vm = VirtualMachine::new(&graph);
+    let res = vm
+        .run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![])
+        .unwrap();
     assert_eq!(res, Value::Int64(30));
 }
 
@@ -62,9 +72,18 @@ fn test_sub_mul_div_rem_pow() {
         }, // 3^4 = 81
         Instruction::Ret { src: Reg(7) },
     ];
-    let image = create_test_image(instrs, vec![Constant::Int(15), Constant::Int(4)]);
-    let mut vm = VirtualMachine::new(image);
-    let res = vm.run_function(FuncIdx(0), vec![]).unwrap();
+    let image = create_test_module(instrs, vec![Constant::Int64(15), Constant::Int64(4)]);
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
+        id: galfus_core::ModuleId::new(0),
+        path: galfus_core::ModulePath::new("test.gfs").unwrap(),
+        semantic_revision: galfus_core::SemanticRevision::new(0),
+        module: image,
+        metadata: None,
+    });
+    let mut vm = VirtualMachine::new(&graph);
+    let res = vm
+        .run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![])
+        .unwrap();
     assert_eq!(res, Value::Int64(81));
 }
 
@@ -81,9 +100,18 @@ fn test_neg() {
         }, // -5
         Instruction::Ret { src: Reg(2) },
     ];
-    let image = create_test_image(instrs, vec![Constant::Int(5)]);
-    let mut vm = VirtualMachine::new(image);
-    let res = vm.run_function(FuncIdx(0), vec![]).unwrap();
+    let image = create_test_module(instrs, vec![Constant::Int64(5)]);
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
+        id: galfus_core::ModuleId::new(0),
+        path: galfus_core::ModulePath::new("test.gfs").unwrap(),
+        semantic_revision: galfus_core::SemanticRevision::new(0),
+        module: image,
+        metadata: None,
+    });
+    let mut vm = VirtualMachine::new(&graph);
+    let res = vm
+        .run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![])
+        .unwrap();
     assert_eq!(res, Value::Int64(-5));
 }
 
@@ -100,9 +128,18 @@ fn test_not() {
         }, // false
         Instruction::Ret { src: Reg(2) },
     ];
-    let image = create_test_image(instrs, vec![Constant::Bool(true)]);
-    let mut vm = VirtualMachine::new(image);
-    let res = vm.run_function(FuncIdx(0), vec![]).unwrap();
+    let image = create_test_module(instrs, vec![Constant::Bool(true)]);
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
+        id: galfus_core::ModuleId::new(0),
+        path: galfus_core::ModulePath::new("test.gfs").unwrap(),
+        semantic_revision: galfus_core::SemanticRevision::new(0),
+        module: image,
+        metadata: None,
+    });
+    let mut vm = VirtualMachine::new(&graph);
+    let res = vm
+        .run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![])
+        .unwrap();
     assert_eq!(res, Value::Bool(false));
 }
 
@@ -119,9 +156,18 @@ fn test_bitnot() {
         }, // !5
         Instruction::Ret { src: Reg(2) },
     ];
-    let image = create_test_image(instrs, vec![Constant::Int(5)]);
-    let mut vm = VirtualMachine::new(image);
-    let res = vm.run_function(FuncIdx(0), vec![]).unwrap();
+    let image = create_test_module(instrs, vec![Constant::Int64(5)]);
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
+        id: galfus_core::ModuleId::new(0),
+        path: galfus_core::ModulePath::new("test.gfs").unwrap(),
+        semantic_revision: galfus_core::SemanticRevision::new(0),
+        module: image,
+        metadata: None,
+    });
+    let mut vm = VirtualMachine::new(&graph);
+    let res = vm
+        .run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![])
+        .unwrap();
     assert_eq!(res, Value::Int64(!5));
 }
 
@@ -163,9 +209,18 @@ fn test_shl_shr_and_or_xor() {
         }, // 10 ^ 2 = 8
         Instruction::Ret { src: Reg(7) },
     ];
-    let image = create_test_image(instrs, vec![Constant::Int(8), Constant::Int(2)]);
-    let mut vm = VirtualMachine::new(image);
-    let res = vm.run_function(FuncIdx(0), vec![]).unwrap();
+    let image = create_test_module(instrs, vec![Constant::Int64(8), Constant::Int64(2)]);
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
+        id: galfus_core::ModuleId::new(0),
+        path: galfus_core::ModulePath::new("test.gfs").unwrap(),
+        semantic_revision: galfus_core::SemanticRevision::new(0),
+        module: image,
+        metadata: None,
+    });
+    let mut vm = VirtualMachine::new(&graph);
+    let res = vm
+        .run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![])
+        .unwrap();
     assert_eq!(res, Value::Int64(8));
 }
 
@@ -187,9 +242,18 @@ fn test_comparison_lt() {
         }, // true
         Instruction::Ret { src: Reg(3) },
     ];
-    let image = create_test_image(instrs, vec![Constant::Int(100), Constant::Int(200)]);
-    let mut vm = VirtualMachine::new(image);
-    let res = vm.run_function(FuncIdx(0), vec![]).unwrap();
+    let image = create_test_module(instrs, vec![Constant::Int64(100), Constant::Int64(200)]);
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
+        id: galfus_core::ModuleId::new(0),
+        path: galfus_core::ModulePath::new("test.gfs").unwrap(),
+        semantic_revision: galfus_core::SemanticRevision::new(0),
+        module: image,
+        metadata: None,
+    });
+    let mut vm = VirtualMachine::new(&graph);
+    let res = vm
+        .run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![])
+        .unwrap();
     assert_eq!(res, Value::Bool(true));
 }
 
@@ -211,9 +275,18 @@ fn test_comparison_le() {
         }, // false
         Instruction::Ret { src: Reg(3) },
     ];
-    let image = create_test_image(instrs, vec![Constant::Int(100), Constant::Int(200)]);
-    let mut vm = VirtualMachine::new(image);
-    let res = vm.run_function(FuncIdx(0), vec![]).unwrap();
+    let image = create_test_module(instrs, vec![Constant::Int64(100), Constant::Int64(200)]);
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
+        id: galfus_core::ModuleId::new(0),
+        path: galfus_core::ModulePath::new("test.gfs").unwrap(),
+        semantic_revision: galfus_core::SemanticRevision::new(0),
+        module: image,
+        metadata: None,
+    });
+    let mut vm = VirtualMachine::new(&graph);
+    let res = vm
+        .run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![])
+        .unwrap();
     assert_eq!(res, Value::Bool(false));
 }
 
@@ -232,9 +305,18 @@ fn test_fallback() {
         }, // 100
         Instruction::Ret { src: Reg(3) },
     ];
-    let image = create_test_image(instrs, vec![Constant::Int(100)]);
-    let mut vm = VirtualMachine::new(image);
-    let res = vm.run_function(FuncIdx(0), vec![]).unwrap();
+    let image = create_test_module(instrs, vec![Constant::Int64(100)]);
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
+        id: galfus_core::ModuleId::new(0),
+        path: galfus_core::ModulePath::new("test.gfs").unwrap(),
+        semantic_revision: galfus_core::SemanticRevision::new(0),
+        module: image,
+        metadata: None,
+    });
+    let mut vm = VirtualMachine::new(&graph);
+    let res = vm
+        .run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![])
+        .unwrap();
     assert_eq!(res, Value::Int64(100));
 }
 
@@ -261,16 +343,25 @@ fn test_control_flow_jumps() {
         },
         Instruction::Ret { src: Reg(3) },
     ];
-    let image = create_test_image(
+    let image = create_test_module(
         instrs,
         vec![
             Constant::Bool(false),
-            Constant::Int(999),
-            Constant::Int(888),
+            Constant::Int64(999),
+            Constant::Int64(888),
         ],
     );
-    let mut vm = VirtualMachine::new(image);
-    let res = vm.run_function(FuncIdx(0), vec![]).unwrap();
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
+        id: galfus_core::ModuleId::new(0),
+        path: galfus_core::ModulePath::new("test.gfs").unwrap(),
+        semantic_revision: galfus_core::SemanticRevision::new(0),
+        module: image,
+        metadata: None,
+    });
+    let mut vm = VirtualMachine::new(&graph);
+    let res = vm
+        .run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![])
+        .unwrap();
     assert_eq!(res, Value::Int64(888));
 }
 
@@ -313,13 +404,13 @@ fn test_nested_calls_return_to_explicit_destinations() {
         Instruction::Ret { src: Reg(0) },
     ];
 
-    let image = ModuleImage {
+    let image = BytecodeModule {
         name: "test".to_string(),
         constants: ConstantPool {
-            constants: vec![Constant::Int(1), Constant::Int(2)],
+            constants: vec![Constant::Int64(1), Constant::Int64(2)],
         },
         functions: vec![
-            ImageFunction {
+            BytecodeFunction {
                 name: "main".to_string(),
                 param_count: 0,
                 local_count: 4,
@@ -327,7 +418,7 @@ fn test_nested_calls_return_to_explicit_destinations() {
                 return_ty: TypeIdx(0),
                 instructions: main_instrs,
             },
-            ImageFunction {
+            BytecodeFunction {
                 name: "one".to_string(),
                 param_count: 0,
                 local_count: 1,
@@ -335,7 +426,7 @@ fn test_nested_calls_return_to_explicit_destinations() {
                 return_ty: TypeIdx(0),
                 instructions: one_instrs,
             },
-            ImageFunction {
+            BytecodeFunction {
                 name: "two".to_string(),
                 param_count: 0,
                 local_count: 1,
@@ -344,7 +435,7 @@ fn test_nested_calls_return_to_explicit_destinations() {
                 instructions: two_instrs,
             },
         ],
-        types: vec![ImageType::Int64],
+        types: vec![BytecodeType::Int64],
         struct_layouts: vec![],
         choice_layouts: vec![],
         imports: vec![],
@@ -352,21 +443,30 @@ fn test_nested_calls_return_to_explicit_destinations() {
         init_func_idx: None,
     };
 
-    let mut vm = VirtualMachine::new(image);
-    let res = vm.run_function(FuncIdx(0), vec![]).unwrap();
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
+        id: galfus_core::ModuleId::new(0),
+        path: galfus_core::ModulePath::new("test.gfs").unwrap(),
+        semantic_revision: galfus_core::SemanticRevision::new(0),
+        module: image,
+        metadata: None,
+    });
+    let mut vm = VirtualMachine::new(&graph);
+    let res = vm
+        .run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![])
+        .unwrap();
 
     assert_eq!(res, Value::Int64(3));
 }
 
 #[test]
 fn test_dynamic_call_returns_to_destination() {
-    let image = ModuleImage {
+    let image = BytecodeModule {
         name: "test".to_string(),
         constants: ConstantPool {
-            constants: vec![Constant::Function(FuncIdx(1)), Constant::Int(7)],
+            constants: vec![Constant::Function(FuncIdx(1)), Constant::Int64(7)],
         },
         functions: vec![
-            ImageFunction {
+            BytecodeFunction {
                 name: "main".to_string(),
                 param_count: 0,
                 local_count: 2,
@@ -386,7 +486,7 @@ fn test_dynamic_call_returns_to_destination() {
                     Instruction::Ret { src: Reg(1) },
                 ],
             },
-            ImageFunction {
+            BytecodeFunction {
                 name: "callee".to_string(),
                 param_count: 0,
                 local_count: 1,
@@ -401,7 +501,7 @@ fn test_dynamic_call_returns_to_destination() {
                 ],
             },
         ],
-        types: vec![ImageType::Int64],
+        types: vec![BytecodeType::Int64],
         struct_layouts: vec![],
         choice_layouts: vec![],
         imports: vec![],
@@ -409,8 +509,17 @@ fn test_dynamic_call_returns_to_destination() {
         init_func_idx: None,
     };
 
-    let mut vm = VirtualMachine::new(image);
-    let result = vm.run_function(FuncIdx(0), vec![]).unwrap();
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
+        id: galfus_core::ModuleId::new(0),
+        path: galfus_core::ModulePath::new("test.gfs").unwrap(),
+        semantic_revision: galfus_core::SemanticRevision::new(0),
+        module: image,
+        metadata: None,
+    });
+    let mut vm = VirtualMachine::new(&graph);
+    let result = vm
+        .run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![])
+        .unwrap();
 
     assert_eq!(result, Value::Int64(7));
 }

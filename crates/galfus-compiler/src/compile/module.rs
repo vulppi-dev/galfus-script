@@ -1,4 +1,4 @@
-//! Module compilation: produces one `CompiledModuleImage` per `CompiledModule`.
+//! Module compilation: produces one `BytecodeNode` per `CompiledModule`.
 //!
 //! Each compiled module:
 //! - Declares `ExportSlot`s for its public symbols.
@@ -7,26 +7,27 @@
 //!   via a local `FuncIdx` that the runtime resolves at load time.
 
 use anyhow::Result;
-use galfus_image::{
-    ExportSlot, ImageFunction, ImageType, ImportSlot, ModuleImage,
+use galfus_bytecode::{
+    BytecodeFunction, BytecodeGraphTransaction, BytecodeModule, BytecodeType, ExportSlot,
+    ImportEdge, ImportSlot,
     instruction::{FuncIdx, TypeIdx},
 };
 use std::collections::{HashMap, HashSet};
 
-use crate::CompiledModuleImage;
 use crate::compile::{
     context::MyWorkspaceContext,
     globals::{image_local_count, rewrite_global_indices},
 };
 use crate::input::CompiledModule;
+use galfus_bytecode::graph::BytecodeNode;
 
 /// Compile all modules in `modules`, each producing its own
-/// `ModuleImage` with imports and exports declared.
+/// `BytecodeModule` with imports and exports declared.
 ///
 /// Cross-module calls are represented as `Call` instructions that target a
 /// `FuncIdx` in the local import table. The runtime is responsible for
 /// resolving these at load time.
-pub fn compile_modules(modules: &mut [CompiledModule]) -> Result<Vec<CompiledModuleImage>> {
+pub fn compile_modules(modules: &mut [CompiledModule]) -> Result<Vec<BytecodeNode>> {
     let module_ids = modules.iter().map(CompiledModule::id).collect();
     compile_changed_modules(modules, &module_ids)
 }
@@ -35,11 +36,11 @@ pub fn compile_modules(modules: &mut [CompiledModule]) -> Result<Vec<CompiledMod
 ///
 /// All modules remain available as semantic context so imports and generic
 /// specializations can be resolved across module boundaries. Only the selected
-/// modules are lowered into new `CompiledModuleImage`s.
+/// modules are lowered into new `BytecodeNode`s.
 pub fn compile_changed_modules(
     modules: &mut [CompiledModule],
     changed_modules: &HashSet<galfus_core::ModuleId>,
-) -> Result<Vec<CompiledModuleImage>> {
+) -> Result<Vec<BytecodeNode>> {
     if changed_modules.is_empty() {
         return Ok(Vec::new());
     }
@@ -100,23 +101,44 @@ pub fn compile_changed_modules(
         }
         let path = modules[mod_idx].path().clone();
         let semantic_revision = modules[mod_idx].semantic_revision();
-        let image = compile_single_module(modules, &mir_modules, &specialized_targets, mod_idx)?;
-        if let Err(errors) = galfus_image::validation::validate_module_image(&image) {
+        let (image, metadata) =
+            compile_single_module(modules, &mir_modules, &specialized_targets, mod_idx)?;
+        if let Err(errors) = galfus_bytecode::validation::validate_bytecode_module(&image) {
             return Err(anyhow::anyhow!(
-                "ModuleImage validation failed for `{}`: {:?}",
+                "BytecodeModule validation failed for `{}`: {:?}",
                 path.as_str(),
                 errors
             ));
         }
-        outputs.push(CompiledModuleImage {
+        outputs.push(BytecodeNode {
             id: module_id,
             path,
             semantic_revision,
-            image,
+            module: image,
+            metadata: Some(metadata),
         });
     }
 
     Ok(outputs)
+}
+
+/// Compile changed modules and package them into one graph transaction.
+pub fn compile_transaction(
+    modules: &mut [CompiledModule],
+    changed_modules: &HashSet<galfus_core::ModuleId>,
+    base_version: u64,
+    semantic_revision: galfus_core::SemanticRevision,
+    removed_modules: Vec<galfus_core::ModuleId>,
+    edges: Vec<ImportEdge>,
+) -> Result<BytecodeGraphTransaction> {
+    let upserted_modules = compile_changed_modules(modules, changed_modules)?;
+    Ok(BytecodeGraphTransaction {
+        base_version,
+        semantic_revision,
+        upserted_modules,
+        removed_modules,
+        edges,
+    })
 }
 
 fn compile_single_module(
@@ -124,7 +146,7 @@ fn compile_single_module(
     mir_modules: &[Option<galfus_ir::mir::MirModule>],
     specialized_targets: &HashMap<galfus_core::FunctionId, (usize, galfus_core::FunctionId)>,
     mod_idx: usize,
-) -> Result<ModuleImage> {
+) -> Result<(BytecodeModule, galfus_bytecode::graph::ExecutionMetadata)> {
     use crate::compile::resolve::{
         collect_call_targets, resolve_import_target, resolve_local_call_target,
     };
@@ -189,6 +211,7 @@ fn compile_single_module(
                     symbol_name,
                     // Type info not yet resolved — placeholder.
                     ty: TypeIdx(0),
+                    kind: galfus_bytecode::ImportKind::Function,
                 });
 
                 FuncIdx(slot_idx)
@@ -211,9 +234,16 @@ fn compile_single_module(
                 if let Some(&local_idx) = local_func_map.get(&func_id) {
                     export_slots.push(ExportSlot {
                         symbol_name: export.name().to_string(),
-                        func_idx: local_idx,
+                        kind: galfus_bytecode::ExportKind::Function(local_idx),
                     });
                 }
+            } else if export.kind() == SymbolKind::Var || export.kind() == SymbolKind::Const {
+                export_slots.push(ExportSlot {
+                    symbol_name: export.name().to_string(),
+                    kind: galfus_bytecode::ExportKind::Global(
+                        galfus_bytecode::instruction::GlobalIdx(export.symbol().raw() as u16),
+                    ),
+                });
             }
         }
     }
@@ -226,13 +256,13 @@ fn compile_single_module(
         };
         if export_slots
             .iter()
-            .any(|export| export.func_idx == local_idx)
+            .any(|export| matches!(export.kind, galfus_bytecode::ExportKind::Function(idx) if idx == local_idx))
         {
             continue;
         }
         export_slots.push(ExportSlot {
             symbol_name: format!("func_{}", target_func_id.raw()),
-            func_idx: local_idx,
+            kind: galfus_bytecode::ExportKind::Function(local_idx),
         });
     }
 
@@ -257,6 +287,10 @@ fn compile_single_module(
         ctx.function_return_types.insert(func.id, func.return_type);
     }
 
+    let mut execution_metadata = galfus_bytecode::graph::ExecutionMetadata {
+        spans: std::collections::HashMap::new(),
+    };
+
     // Register cross-module calls as import function slots.
     for (&local_id, &(target_mod_idx, target_func_id)) in &cross_module_calls {
         if let Some(&import_idx) = import_func_map.get(&(target_mod_idx, target_func_id)) {
@@ -264,10 +298,8 @@ fn compile_single_module(
         }
     }
 
-    let mut functions: Vec<ImageFunction> = Vec::new();
+    let mut functions: Vec<BytecodeFunction> = Vec::new();
     let mut init_func_idx: Option<FuncIdx> = None;
-    let mut global_var_map = HashMap::new();
-    let mut next_global_idx = 0u16;
 
     for mir_func in &mir_mod.functions {
         let is_init = mir_func.name == "__init_module";
@@ -293,17 +325,14 @@ fn compile_single_module(
             param_count,
             local_count,
         );
-        let mut instructions = emitter.emit();
+        let (mut instructions, function_spans) = emitter.emit();
+        execution_metadata
+            .spans
+            .insert(local_func_idx, function_spans);
 
-        rewrite_global_indices(
-            &mut instructions,
-            modules,
-            mod_idx,
-            &mut global_var_map,
-            &mut next_global_idx,
-        )?;
+        rewrite_global_indices(&mut instructions, modules, mod_idx)?;
 
-        functions.push(ImageFunction {
+        functions.push(BytecodeFunction {
             name: mir_func.name.clone(),
             param_count: param_count.try_into().unwrap(),
             local_count,
@@ -313,17 +342,20 @@ fn compile_single_module(
         });
     }
 
-    let null_type_idx =
-        if let Some(pos) = ctx.types.iter().position(|t| matches!(t, ImageType::Null)) {
-            TypeIdx(pos as u16)
-        } else {
-            let idx = TypeIdx(ctx.types.len() as u16);
-            ctx.types.push(ImageType::Null);
-            idx
-        };
+    let null_type_idx = if let Some(pos) = ctx
+        .types
+        .iter()
+        .position(|t| matches!(t, BytecodeType::Null))
+    {
+        TypeIdx(pos as u16)
+    } else {
+        let idx = TypeIdx(ctx.types.len() as u16);
+        ctx.types.push(BytecodeType::Null);
+        idx
+    };
     let _ = null_type_idx;
 
-    Ok(ModuleImage {
+    let module = BytecodeModule {
         name: module.path().as_str().to_string(),
         constants: ctx.constant_pool,
         functions,
@@ -333,5 +365,6 @@ fn compile_single_module(
         imports: import_slots,
         exports: export_slots,
         init_func_idx,
-    })
+    };
+    Ok((module, execution_metadata))
 }

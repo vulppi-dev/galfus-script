@@ -133,7 +133,7 @@ fn test_mir_lowering_basic() {
     let mir_module = MirBuilder::new(&graph, &type_result, code).build();
     let module_image = lower_module(&mir_module, &type_result, &graph, code);
 
-    // Verify module image metadata
+    // Verify bytecode module metadata
     assert!(!module_image.functions.is_empty());
     let compute_func = module_image
         .functions
@@ -192,7 +192,7 @@ fn test_mir_lowering_defaults_integer_constants_to_int32() {
             .constants
             .constants
             .iter()
-            .any(|constant| matches!(constant, galfus_image::Constant::Int32(42)))
+            .any(|constant| matches!(constant, galfus_bytecode::Constant::Int32(42)))
     );
 }
 

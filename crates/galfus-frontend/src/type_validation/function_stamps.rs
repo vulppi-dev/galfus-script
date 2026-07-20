@@ -78,14 +78,12 @@ impl<'a> DeclarationTypeChecker<'a> {
         };
 
         for child in metadata_list.children() {
-            if let Some(child_node) = self.graph.syntax().node(*child) {
-                if child_node.kind() == SyntaxNodeKind::KeywordMetadataFlag {
-                    if let Some(flag_ident) = self.graph.syntax().child(*child, 0) {
-                        if self.node_text(flag_ident) == "stamp" {
-                            return true;
-                        }
-                    }
-                }
+            if let Some(child_node) = self.graph.syntax().node(*child)
+                && child_node.kind() == SyntaxNodeKind::KeywordMetadataFlag
+                && let Some(flag_ident) = self.graph.syntax().child(*child, 0)
+                && self.node_text(flag_ident) == "stamp"
+            {
+                return true;
             }
         }
         false

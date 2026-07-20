@@ -1,9 +1,11 @@
 use crate::error::{StackFrameInfo, VmError, VmPanic};
-use galfus_host::Providers;
-use galfus_image::instruction::{
+use galfus_bytecode::instruction::{
     ChoiceLayoutIdx, FuncIdx, Instruction, Reg, StructLayoutIdx, TypeIdx,
 };
-use galfus_image::{Constant, ImageType, ModuleImage, OwnershipKind};
+use galfus_bytecode::{BytecodeGraph, BytecodeType, Constant, OwnershipKind};
+use galfus_core::ModuleId;
+use galfus_host::Providers;
+use std::collections::HashMap;
 
 mod casts;
 mod control;
@@ -17,7 +19,7 @@ mod target_io;
 #[cfg(test)]
 mod tests;
 
-pub(super) enum ExecutionStep {
+pub enum ExecutionStep {
     Continue,
     Return(Value),
 }
@@ -57,6 +59,7 @@ const RELEASE_ALLOCATION_THRESHOLD: usize = 64;
 #[derive(Clone, Debug, PartialEq)]
 pub enum HeapObject {
     Struct {
+        module_id: galfus_core::ModuleId,
         layout_idx: StructLayoutIdx,
         fields: Vec<Value>,
     },
@@ -68,6 +71,7 @@ pub enum HeapObject {
         elements: Vec<Value>,
     },
     Choice {
+        module_id: galfus_core::ModuleId,
         layout_idx: ChoiceLayoutIdx,
         variant_idx: u16,
         payload: Value,
@@ -78,6 +82,12 @@ pub struct VmContext {
     providers: Option<Providers>,
 }
 
+#[derive(Default)]
+pub struct RuntimeModuleState {
+    pub globals: Vec<VmValue>,
+    pub initialized: bool,
+}
+
 impl VmContext {
     pub fn new(providers: Option<Providers>) -> Self {
         Self { providers }
@@ -85,6 +95,7 @@ impl VmContext {
 }
 
 pub struct CallFrame {
+    pub module_id: ModuleId,
     pub func_idx: FuncIdx,
     pub pc: usize,
     pub registers: Vec<Value>,
@@ -92,9 +103,9 @@ pub struct CallFrame {
     pub in_transaction: bool,
 }
 
-pub struct VirtualMachine {
-    pub image: ModuleImage,
-    pub globals: Vec<Value>,
+pub struct VirtualMachine<'a> {
+    pub graph: &'a BytecodeGraph,
+    pub module_states: HashMap<ModuleId, RuntimeModuleState>,
     pub heap: Vec<Option<HeapObject>>,
     pub free_slots: Vec<usize>,
     pub call_stack: Vec<CallFrame>,
@@ -102,11 +113,11 @@ pub struct VirtualMachine {
     allocations_since_release: usize,
 }
 
-impl VirtualMachine {
-    pub fn new(image: ModuleImage) -> Self {
+impl<'a> VirtualMachine<'a> {
+    pub fn new(graph: &'a BytecodeGraph) -> Self {
         Self {
-            image,
-            globals: Vec::new(),
+            graph,
+            module_states: HashMap::new(),
             heap: Vec::new(),
             free_slots: Vec::new(),
             call_stack: Vec::new(),
@@ -138,6 +149,24 @@ impl VirtualMachine {
         }
     }
 
+    pub fn module_state(&self, module_id: ModuleId) -> Option<&RuntimeModuleState> {
+        self.module_states.get(&module_id)
+    }
+
+    pub fn is_module_initialized(&self, module_id: ModuleId) -> bool {
+        self.module_state(module_id)
+            .is_some_and(|state| state.initialized)
+    }
+
+    pub fn mark_module_initialized(&mut self, module_id: ModuleId) {
+        self.module_states.entry(module_id).or_default().initialized = true;
+    }
+
+    pub fn current_image(&self) -> Result<&'a galfus_bytecode::BytecodeModule, VmError> {
+        let frame = self.call_stack.last().ok_or(VmError::EmptyCallStack)?;
+        Ok(&self.graph.get(frame.module_id).unwrap().module)
+    }
+
     pub fn read_reg(&self, reg: Reg) -> Result<Value, VmError> {
         let frame = self.call_stack.last().ok_or(VmError::EmptyCallStack)?;
         frame
@@ -157,15 +186,20 @@ impl VirtualMachine {
         }
     }
 
-    pub fn run_function(&mut self, func_idx: FuncIdx, args: Vec<Value>) -> Result<Value, VmPanic> {
-        if (func_idx.raw() as usize) >= self.image.functions.len() {
+    pub fn run_function(
+        &mut self,
+        module_id: galfus_core::ModuleId,
+        func_idx: FuncIdx,
+        args: Vec<Value>,
+    ) -> Result<Value, VmPanic> {
+        if (func_idx.raw() as usize) >= self.graph.get(module_id).unwrap().module.functions.len() {
             return Err(VmPanic {
                 error: VmError::FunctionOutOfBounds { index: func_idx },
                 stack_trace: vec![],
             });
         }
 
-        let func = &self.image.functions[func_idx.raw() as usize];
+        let func = &self.graph.get(module_id).unwrap().module.functions[func_idx.raw() as usize];
         if args.len() != func.param_count as usize {
             return Err(VmPanic {
                 error: VmError::TypeMismatch {
@@ -185,6 +219,7 @@ impl VirtualMachine {
         }
 
         self.call_stack.push(CallFrame {
+            module_id,
             func_idx,
             pc: 0,
             registers,
@@ -197,15 +232,10 @@ impl VirtualMachine {
             Err(err) => {
                 let mut stack_trace = Vec::new();
                 for frame in self.call_stack.iter().rev() {
-                    let f_name = self
-                        .image
-                        .functions
-                        .get(frame.func_idx.raw() as usize)
-                        .map(|f| f.name.clone())
-                        .unwrap_or_else(|| format!("func#{}", frame.func_idx.raw()));
                     stack_trace.push(StackFrameInfo {
-                        function_name: f_name,
-                        pc: frame.pc,
+                        module_id: frame.module_id,
+                        func_idx: frame.func_idx,
+                        instruction_offset: frame.pc.saturating_sub(1),
                     });
                 }
                 Err(VmPanic {
@@ -216,86 +246,95 @@ impl VirtualMachine {
         }
     }
 
+    pub fn step(&mut self) -> Result<ExecutionStep, VmError> {
+        let instr = {
+            let frame = self.call_stack.last_mut().ok_or(VmError::EmptyCallStack)?;
+            let func = &self.graph.get(frame.module_id).unwrap().module.functions
+                [frame.func_idx.raw() as usize];
+            if frame.pc >= func.instructions.len() {
+                return Err(VmError::InstructionPointerOutOfBounds { pc: frame.pc });
+            }
+            let instr = func.instructions[frame.pc];
+            frame.pc += 1;
+            instr
+        };
+
+        let step = match instr {
+            Instruction::LoadConst { .. }
+            | Instruction::Move { .. }
+            | Instruction::LoadGlobal { .. }
+            | Instruction::StoreGlobal { .. }
+            | Instruction::LoadNull { .. } => self.execute_data_instruction(instr)?,
+
+            Instruction::Add { .. }
+            | Instruction::Sub { .. }
+            | Instruction::Mul { .. }
+            | Instruction::Div { .. }
+            | Instruction::Rem { .. }
+            | Instruction::Pow { .. }
+            | Instruction::Neg { .. }
+            | Instruction::Not { .. }
+            | Instruction::BitNot { .. }
+            | Instruction::Shl { .. }
+            | Instruction::Shr { .. }
+            | Instruction::And { .. }
+            | Instruction::Or { .. }
+            | Instruction::Xor { .. }
+            | Instruction::Eq { .. }
+            | Instruction::Ne { .. }
+            | Instruction::Lt { .. }
+            | Instruction::Le { .. }
+            | Instruction::Gt { .. }
+            | Instruction::Ge { .. }
+            | Instruction::Fallback { .. } => self.execute_operator_instruction(instr)?,
+
+            Instruction::Jump { .. }
+            | Instruction::JumpTrue { .. }
+            | Instruction::JumpFalse { .. }
+            | Instruction::JumpNull { .. }
+            | Instruction::Call { .. }
+            | Instruction::CallMethod { .. }
+            | Instruction::CallDynamic { .. }
+            | Instruction::Ret { .. }
+            | Instruction::RetNull
+            | Instruction::Panic { .. } => self.execute_control_instruction(instr)?,
+
+            Instruction::AllocLocal { .. }
+            | Instruction::AllocShared { .. }
+            | Instruction::LoadField { .. }
+            | Instruction::StoreField { .. }
+            | Instruction::NewArray { .. }
+            | Instruction::LoadIndex { .. }
+            | Instruction::StoreIndex { .. }
+            | Instruction::NewTuple { .. }
+            | Instruction::NewChoice { .. }
+            | Instruction::Cast { .. }
+            | Instruction::Copy { .. }
+            | Instruction::Instanceof { .. } => self.execute_object_instruction(instr)?,
+
+            Instruction::Drop { .. }
+            | Instruction::TxStart { .. }
+            | Instruction::TxLoad { .. }
+            | Instruction::TxStore { .. }
+            | Instruction::TxCommit { .. }
+            | Instruction::TxRollback
+            | Instruction::Write { .. }
+            | Instruction::Read { .. }
+            | Instruction::Len { .. }
+            | Instruction::CopyArray { .. } => self.execute_system_instruction(instr)?,
+        };
+
+        if matches!(step, ExecutionStep::Continue) {
+            self.release_unreachable_if_needed(instr);
+        }
+
+        Ok(step)
+    }
+
     fn execute_loop(&mut self) -> Result<Value, VmError> {
         loop {
-            let instr = {
-                let frame = self.call_stack.last_mut().ok_or(VmError::EmptyCallStack)?;
-                let func = &self.image.functions[frame.func_idx.raw() as usize];
-                if frame.pc >= func.instructions.len() {
-                    return Err(VmError::InstructionPointerOutOfBounds { pc: frame.pc });
-                }
-                let instr = func.instructions[frame.pc];
-                frame.pc += 1;
-                instr
-            };
-
-            let step = match instr {
-                Instruction::LoadConst { .. }
-                | Instruction::Move { .. }
-                | Instruction::LoadGlobal { .. }
-                | Instruction::StoreGlobal { .. }
-                | Instruction::LoadNull { .. } => self.execute_data_instruction(instr)?,
-
-                Instruction::Add { .. }
-                | Instruction::Sub { .. }
-                | Instruction::Mul { .. }
-                | Instruction::Div { .. }
-                | Instruction::Rem { .. }
-                | Instruction::Pow { .. }
-                | Instruction::Neg { .. }
-                | Instruction::Not { .. }
-                | Instruction::BitNot { .. }
-                | Instruction::Shl { .. }
-                | Instruction::Shr { .. }
-                | Instruction::And { .. }
-                | Instruction::Or { .. }
-                | Instruction::Xor { .. }
-                | Instruction::Eq { .. }
-                | Instruction::Ne { .. }
-                | Instruction::Lt { .. }
-                | Instruction::Le { .. }
-                | Instruction::Gt { .. }
-                | Instruction::Ge { .. }
-                | Instruction::Fallback { .. } => self.execute_operator_instruction(instr)?,
-
-                Instruction::Jump { .. }
-                | Instruction::JumpTrue { .. }
-                | Instruction::JumpFalse { .. }
-                | Instruction::JumpNull { .. }
-                | Instruction::Call { .. }
-                | Instruction::CallMethod { .. }
-                | Instruction::CallDynamic { .. }
-                | Instruction::Ret { .. }
-                | Instruction::RetNull
-                | Instruction::Panic { .. } => self.execute_control_instruction(instr)?,
-
-                Instruction::AllocLocal { .. }
-                | Instruction::AllocShared { .. }
-                | Instruction::LoadField { .. }
-                | Instruction::StoreField { .. }
-                | Instruction::NewArray { .. }
-                | Instruction::LoadIndex { .. }
-                | Instruction::StoreIndex { .. }
-                | Instruction::NewTuple { .. }
-                | Instruction::NewChoice { .. }
-                | Instruction::Cast { .. }
-                | Instruction::Copy { .. }
-                | Instruction::Instanceof { .. } => self.execute_object_instruction(instr)?,
-
-                Instruction::Drop { .. }
-                | Instruction::TxStart { .. }
-                | Instruction::TxLoad { .. }
-                | Instruction::TxStore { .. }
-                | Instruction::TxCommit { .. }
-                | Instruction::TxRollback
-                | Instruction::Write { .. }
-                | Instruction::Read { .. }
-                | Instruction::Len { .. }
-                | Instruction::CopyArray { .. } => self.execute_system_instruction(instr)?,
-            };
-
-            match step {
-                ExecutionStep::Continue => self.release_unreachable_if_needed(instr),
+            match self.step()? {
+                ExecutionStep::Continue => {}
                 ExecutionStep::Return(value) => return Ok(value),
             }
         }

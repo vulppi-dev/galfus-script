@@ -1,17 +1,9 @@
-mod module_graph;
-
-use galfus_compiler::CompiledModuleImage;
-use galfus_core::ModuleId;
+use galfus_bytecode::BytecodeModule;
 use galfus_host::Providers;
-use galfus_image::ModuleImage;
 use galfus_vm::{HeapObject, VirtualMachine, VmPanic, VmValue};
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
 
 #[cfg(test)]
 mod tests;
-
-pub use module_graph::{LinkedImport, ModuleLink, RuntimeLinkError, RuntimeModuleGraph};
 
 #[derive(Debug, thiserror::Error)]
 pub enum RuntimeError {
@@ -27,12 +19,12 @@ pub enum RuntimeError {
     },
     #[error("entry function `{name}` must return i32")]
     EntryReturnTypeMismatch { name: String },
-    #[error("entry arguments require image type `{0}`")]
+    #[error("entry arguments require bytecode type `{0}`")]
     MissingArgumentType(&'static str),
+    #[error(transparent)]
+    GraphResolution(#[from] galfus_bytecode::GraphResolutionError),
     #[error("{0}")]
     VmPanic(#[from] VmPanic),
-    #[error(transparent)]
-    Link(#[from] RuntimeLinkError),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -65,183 +57,45 @@ impl EntryAbi {
         }
     }
 
-    fn accepts_return_type(self, ty: &galfus_image::ImageType) -> bool {
+    fn accepts_return_type(self, ty: &galfus_bytecode::BytecodeType) -> bool {
         match self.return_type {
-            EntryReturnType::Int32 => ty == &galfus_image::ImageType::Int32,
+            EntryReturnType::Int32 => ty == &galfus_bytecode::BytecodeType::Int32,
         }
     }
 }
 
-pub struct ModuleRegistry {
-    modules: HashMap<String, Arc<ModuleImage>>,
+/// A single execution composed from one executable graph and optional host providers.
+pub struct Runtime<'graph> {
+    graph: &'graph galfus_bytecode::BytecodeGraph,
+    providers: Option<Providers>,
 }
 
-impl Default for ModuleRegistry {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl ModuleRegistry {
-    pub fn new() -> Self {
-        Self {
-            modules: HashMap::new(),
-        }
+impl<'graph> Runtime<'graph> {
+    pub fn new(
+        graph: &'graph galfus_bytecode::BytecodeGraph,
+        providers: Option<Providers>,
+    ) -> Self {
+        Self { graph, providers }
     }
 
-    pub fn register(&mut self, image: ModuleImage) -> Arc<ModuleImage> {
-        let name = image.name.clone();
-        let arc = Arc::new(image);
-        self.modules.insert(name, arc.clone());
-        arc
-    }
-
-    pub fn get(&self, name: &str) -> Option<Arc<ModuleImage>> {
-        self.modules.get(name).cloned()
-    }
-}
-
-pub struct RuntimeLoader {
-    registry: Arc<Mutex<ModuleRegistry>>,
-}
-
-impl RuntimeLoader {
-    pub fn new(registry: Arc<Mutex<ModuleRegistry>>) -> Self {
-        Self { registry }
-    }
-
-    pub fn load(&self, image: ModuleImage) -> Arc<ModuleImage> {
-        self.registry.lock().unwrap().register(image)
-    }
-}
-
-pub struct LogicalThread {
-    id: usize,
-    state: ThreadState,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ThreadState {
-    Running,
-    Suspended,
-    Terminated,
-}
-
-impl LogicalThread {
-    pub fn new(id: usize) -> Self {
-        Self {
-            id,
-            state: ThreadState::Running,
-        }
-    }
-
-    pub fn id(&self) -> usize {
-        self.id
-    }
-
-    pub fn state(&self) -> ThreadState {
-        self.state
-    }
-}
-
-pub struct Runtime {
-    registry: Arc<Mutex<ModuleRegistry>>,
-    modules: RuntimeModuleGraph,
-    threads: Vec<LogicalThread>,
-}
-
-impl Runtime {
-    pub fn new() -> Self {
-        Self {
-            registry: Arc::new(Mutex::new(ModuleRegistry::new())),
-            modules: RuntimeModuleGraph::new(),
-            threads: Vec::new(),
-        }
-    }
-
-    pub fn spawn_thread(&mut self) -> usize {
-        let id = self.threads.len();
-        self.threads.push(LogicalThread::new(id));
-        id
-    }
-
-    pub fn threads(&self) -> &[LogicalThread] {
-        &self.threads
-    }
-
-    pub fn registry(&self) -> Arc<Mutex<ModuleRegistry>> {
-        self.registry.clone()
-    }
-
-    pub fn loader(&self) -> RuntimeLoader {
-        RuntimeLoader::new(self.registry())
-    }
-
-    /// Upsert a compiled module using its stable `ModuleId`.
-    pub fn load(&mut self, image: CompiledModuleImage) -> Option<CompiledModuleImage> {
-        self.modules.load(image)
-    }
-
-    /// Remove a compiled module and its path lookup entry.
-    pub fn unload(&mut self, id: ModuleId) -> Option<CompiledModuleImage> {
-        self.modules.unload(id)
-    }
-
-    pub fn modules(&self) -> &RuntimeModuleGraph {
-        &self.modules
-    }
-
-    /// Resolve a module's import slots against the currently loaded modules.
-    pub fn link_module(&self, id: ModuleId) -> Result<ModuleLink, RuntimeLinkError> {
-        self.modules.link(id)
-    }
-
-    pub fn initialization_order(&self, id: ModuleId) -> Result<Vec<ModuleId>, RuntimeLinkError> {
-        self.modules.initialization_order(id)
-    }
-
-    /// Execute an entry exported by a module loaded through [`Runtime::load`].
+    /// Execute an entry exported by a module loaded in the given BytecodeGraph.
     pub fn run_module_entry(
-        &mut self,
-        id: ModuleId,
+        self,
+        module_id: galfus_core::ModuleId,
         entry_name: &str,
         args: &[Vec<u8>],
-        providers: Option<Providers>,
     ) -> Result<i32, RuntimeError> {
-        let image = self.modules.linked_image(id)?;
-        self.run_image_entry(image, entry_name, args, providers)
-    }
-
-    pub fn run_entry(
-        &mut self,
-        module_name: &str,
-        entry_name: &str,
-        args: &[Vec<u8>],
-        providers: Option<Providers>,
-    ) -> Result<i32, RuntimeError> {
-        let image = self
-            .registry
-            .lock()
-            .unwrap()
-            .get(module_name)
-            .ok_or_else(|| RuntimeError::ModuleNotLoaded(module_name.to_string()))?;
-        let image = (*image).clone();
-        self.run_image_entry(image, entry_name, args, providers)
-    }
-
-    fn run_image_entry(
-        &mut self,
-        image: ModuleImage,
-        entry_name: &str,
-        args: &[Vec<u8>],
-        providers: Option<Providers>,
-    ) -> Result<i32, RuntimeError> {
+        let graph = self.graph;
+        let image = &graph.get(module_id).unwrap().module;
         let abi = EntryAbi::default_app();
         let entry_idx = image
             .exports
             .iter()
             .find(|export| export.symbol_name == entry_name)
-            .map(|export| export.func_idx)
+            .and_then(|export| match export.kind {
+                galfus_bytecode::ExportKind::Function(f) => Some(f),
+                _ => None,
+            })
             .ok_or_else(|| RuntimeError::EntryNotExported(entry_name.to_string()))?;
 
         let entry_func = &image.functions[entry_idx.raw() as usize];
@@ -259,53 +113,71 @@ impl Runtime {
             });
         }
 
-        let mut vm = VirtualMachine::new(image).with_providers(providers);
+        let mut vm = VirtualMachine::new(graph).with_providers(self.providers);
 
         let result = (|| {
-            if let Some(init_idx) = vm.image.init_func_idx {
-                vm.run_function(init_idx, vec![])?;
+            for initialized_module_id in graph.initialization_order(module_id)? {
+                if vm.is_module_initialized(initialized_module_id) {
+                    continue;
+                }
+                if let Some(init_idx) = graph
+                    .get(initialized_module_id)
+                    .expect("initialization order only contains loaded modules")
+                    .module
+                    .init_func_idx
+                {
+                    vm.run_function(initialized_module_id, init_idx, vec![])?;
+                }
+                vm.mark_module_initialized(initialized_module_id);
             }
 
-            let entry_args = build_entry_args(&mut vm, args)?;
-            vm.run_function(entry_idx, vec![entry_args])
+            let entry_args = build_entry_args(&mut vm, module_id, args)?;
+            vm.run_function(module_id, entry_idx, vec![entry_args])
                 .map_err(RuntimeError::VmPanic)
         })();
         let result = result?;
 
         match result {
-            VmValue::Int32(code) => Ok(code),
-            _ => Err(RuntimeError::EntryReturnTypeMismatch {
+            galfus_vm::VmValue::Int32(code) => Ok(code),
+            galfus_vm::VmValue::Null => Ok(0),
+            _other => Err(RuntimeError::EntryReturnTypeMismatch {
                 name: entry_name.to_string(),
             }),
         }
     }
 }
 
-fn build_entry_args(vm: &mut VirtualMachine, args: &[Vec<u8>]) -> Result<VmValue, RuntimeError> {
-    let uint8_ty = find_type(&vm.image, |ty| matches!(ty, galfus_image::ImageType::Uint8))
-        .ok_or(RuntimeError::MissingArgumentType("u8"))?;
+fn build_entry_args(
+    vm: &mut VirtualMachine,
+    module_id: galfus_core::ModuleId,
+    args: &[Vec<u8>],
+) -> Result<VmValue, RuntimeError> {
+    let uint8_ty = find_type(&vm.graph.get(module_id).unwrap().module, |ty| {
+        matches!(ty, galfus_bytecode::BytecodeType::Uint8)
+    })
+    .ok_or(RuntimeError::MissingArgumentType("u8"))?;
     let byte_array_ty = vm
-        .image
+        .graph.get(module_id).unwrap().module
         .types
         .iter()
         .enumerate()
         .find(|(_, ty)| {
-            matches!(ty, galfus_image::ImageType::Array(element)
-                if matches!(vm.image.types.get(element.raw() as usize), Some(galfus_image::ImageType::Uint8)))
+            matches!(ty, galfus_bytecode::BytecodeType::Array(element)
+                if matches!(vm.graph.get(module_id).unwrap().module.types.get(element.raw() as usize), Some(galfus_bytecode::BytecodeType::Uint8)))
         })
-        .map(|(index, _)| galfus_image::instruction::TypeIdx(index as u16))
+        .map(|(index, _)| galfus_bytecode::instruction::TypeIdx(index as u16))
         .ok_or(RuntimeError::MissingArgumentType("[u8]"))?;
     let args_array_ty = vm
-        .image
+        .graph.get(module_id).unwrap().module
         .types
         .iter()
         .enumerate()
         .find(|(_, ty)| {
-            matches!(ty, galfus_image::ImageType::Array(element)
-                if matches!(vm.image.types.get(element.raw() as usize), Some(galfus_image::ImageType::Array(inner))
-                    if matches!(vm.image.types.get(inner.raw() as usize), Some(galfus_image::ImageType::Uint8))))
+            matches!(ty, galfus_bytecode::BytecodeType::Array(element)
+                if matches!(vm.graph.get(module_id).unwrap().module.types.get(element.raw() as usize), Some(galfus_bytecode::BytecodeType::Array(inner))
+                    if matches!(vm.graph.get(module_id).unwrap().module.types.get(inner.raw() as usize), Some(galfus_bytecode::BytecodeType::Uint8))))
         })
-        .map(|(index, _)| galfus_image::instruction::TypeIdx(index as u16))
+        .map(|(index, _)| galfus_bytecode::instruction::TypeIdx(index as u16))
         .ok_or(RuntimeError::MissingArgumentType("[[u8]]"))?;
 
     let mut arg_values = Vec::with_capacity(args.len());
@@ -328,12 +200,64 @@ fn build_entry_args(vm: &mut VirtualMachine, args: &[Vec<u8>]) -> Result<VmValue
 }
 
 fn find_type(
-    image: &ModuleImage,
-    predicate: impl Fn(&galfus_image::ImageType) -> bool,
-) -> Option<galfus_image::instruction::TypeIdx> {
-    image
+    module: &BytecodeModule,
+    predicate: impl Fn(&galfus_bytecode::BytecodeType) -> bool,
+) -> Option<galfus_bytecode::instruction::TypeIdx> {
+    module
         .types
         .iter()
         .position(predicate)
-        .map(|index| galfus_image::instruction::TypeIdx(index as u16))
+        .map(|index| galfus_bytecode::instruction::TypeIdx(index as u16))
+}
+
+pub fn format_panic(graph: &galfus_bytecode::BytecodeGraph, panic: &VmPanic) -> String {
+    use std::fmt::Write;
+    let mut out = String::new();
+    writeln!(&mut out, "Runtime Panic: {}", panic.error).unwrap();
+    writeln!(&mut out, "Stack trace:").unwrap();
+
+    for (i, frame) in panic.stack_trace.iter().enumerate() {
+        if let Some(module) = graph.get(frame.module_id) {
+            let func_name = module
+                .module
+                .functions
+                .get(frame.func_idx.raw() as usize)
+                .map(|f| f.name.as_str())
+                .unwrap_or("<unknown>");
+
+            let location_str = module
+                .metadata
+                .as_ref()
+                .and_then(|metadata| metadata.span_for(frame.func_idx, frame.instruction_offset))
+                .map(|span| {
+                    format!(
+                        "instruction {} at source#{}:{}..{}",
+                        frame.instruction_offset,
+                        span.source_id().raw(),
+                        span.start(),
+                        span.end()
+                    )
+                })
+                .unwrap_or_else(|| format!("instruction {}", frame.instruction_offset));
+
+            writeln!(
+                &mut out,
+                "  #{}: {}::{} (at {})",
+                i,
+                module.path.as_str(),
+                func_name,
+                location_str
+            )
+            .unwrap();
+        } else {
+            writeln!(
+                &mut out,
+                "  #{}: Module {:?} Func {:?} (at instruction {})",
+                i, frame.module_id, frame.func_idx, frame.instruction_offset
+            )
+            .unwrap();
+        }
+    }
+
+    out
 }

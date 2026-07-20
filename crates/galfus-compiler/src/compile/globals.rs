@@ -1,36 +1,33 @@
 use anyhow::Result;
-use galfus_image::instruction::{GlobalIdx, Instruction};
-use std::collections::HashMap;
+use galfus_bytecode::instruction::{GlobalIdx, Instruction};
 
 use crate::input::CompiledModule;
 
 use super::resolve::import_target_index;
 
-fn canonical_global_idx(
+fn canonical_global_ref(
     modules: &[CompiledModule],
     mod_idx: usize,
     local_pos: u16,
-    global_var_map: &mut HashMap<(usize, String), GlobalIdx>,
-    next_global_idx: &mut u16,
-) -> Result<GlobalIdx> {
+) -> Result<(galfus_core::ModuleId, GlobalIdx)> {
     let module = modules
         .get(mod_idx)
         .ok_or_else(|| anyhow::anyhow!("invalid module index `{mod_idx}` during global rewrite"))?;
-
     let resolution = module.graph().resolution().ok_or_else(|| {
         anyhow::anyhow!(
             "missing resolver output for module `{}` during global rewrite",
             module.path().as_str()
         )
     })?;
-
-    let symbols = resolution.symbols();
-    let symbol = symbols.get(local_pos as usize).ok_or_else(|| {
-        anyhow::anyhow!(
-            "missing local/global symbol at position `{local_pos}` in module `{}`",
-            module.path().as_str()
-        )
-    })?;
+    let symbol = resolution
+        .symbols()
+        .get(local_pos as usize)
+        .ok_or_else(|| {
+            anyhow::anyhow!(
+                "missing local/global symbol at position `{local_pos}` in module `{}`",
+                module.path().as_str()
+            )
+        })?;
 
     if let Some(import) = resolution
         .imports()
@@ -44,7 +41,6 @@ fn canonical_global_idx(
                 module.path().as_str()
             )
         })?;
-
         let target_idx =
             import_target_index(modules, mod_idx, import.source()).ok_or_else(|| {
                 anyhow::anyhow!(
@@ -54,56 +50,49 @@ fn canonical_global_idx(
                     imported_name
                 )
             })?;
-
-        let key = (target_idx, imported_name.to_string());
-        let idx = *global_var_map.entry(key).or_insert_with(|| {
-            let idx = GlobalIdx(*next_global_idx);
-            *next_global_idx += 1;
-            idx
-        });
-
-        return Ok(idx);
+        let target = &modules[target_idx];
+        let target_resolution = target.graph().resolution().ok_or_else(|| {
+            anyhow::anyhow!(
+                "missing resolver output for imported module `{}` during global rewrite",
+                target.path().as_str()
+            )
+        })?;
+        let target_global_idx = target_resolution
+            .symbols()
+            .iter()
+            .position(|target_symbol| target_symbol.name() == imported_name)
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "could not locate imported global `{}` in module `{}`",
+                    imported_name,
+                    target.path().as_str()
+                )
+            })?;
+        return Ok((target.id(), GlobalIdx(target_global_idx as u16)));
     }
 
-    let key = (mod_idx, symbol.name().to_string());
-    let idx = *global_var_map.entry(key).or_insert_with(|| {
-        let idx = GlobalIdx(*next_global_idx);
-        *next_global_idx += 1;
-        idx
-    });
-
-    Ok(idx)
+    Ok((module.id(), GlobalIdx(local_pos)))
 }
 
 pub(super) fn rewrite_global_indices(
     instructions: &mut [Instruction],
     modules: &[CompiledModule],
     mod_idx: usize,
-    global_var_map: &mut HashMap<(usize, String), GlobalIdx>,
-    next_global_idx: &mut u16,
 ) -> Result<()> {
-    for instr in instructions {
-        match instr {
+    for instruction in instructions {
+        match instruction {
             Instruction::LoadGlobal {
-                dest: _,
+                module_id,
                 global_idx,
-            } => {
-                *global_idx = canonical_global_idx(
-                    modules,
-                    mod_idx,
-                    global_idx.raw(),
-                    global_var_map,
-                    next_global_idx,
-                )?;
+                ..
             }
-            Instruction::StoreGlobal { global_idx, src: _ } => {
-                *global_idx = canonical_global_idx(
-                    modules,
-                    mod_idx,
-                    global_idx.raw(),
-                    global_var_map,
-                    next_global_idx,
-                )?;
+            | Instruction::StoreGlobal {
+                module_id,
+                global_idx,
+                ..
+            } => {
+                (*module_id, *global_idx) =
+                    canonical_global_ref(modules, mod_idx, global_idx.raw())?;
             }
             _ => {}
         }

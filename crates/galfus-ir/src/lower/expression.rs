@@ -1,9 +1,9 @@
 use super::function::FnEmitter;
 use crate::mir::{Constant as MirConstant, MirBinaryOp, MirUnaryOp, Operand, RValue};
+use galfus_bytecode::Instruction;
+use galfus_bytecode::instruction::{FieldIdx, GlobalIdx, Reg};
 use galfus_core::{SymbolId, TypeId};
 use galfus_frontend::{PrimitiveType, SymbolKind, TypeKind};
-use galfus_image::Instruction;
-use galfus_image::instruction::{FieldIdx, GlobalIdx, Reg};
 
 impl<'a, 'b> FnEmitter<'a, 'b> {
     pub fn emit_rvalue(&mut self, dest: Reg, rvalue: &RValue) {
@@ -13,8 +13,18 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
 
                 if matches!(
                     operand,
-                    Operand::Constant(MirConstant::Int(_))
-                        | Operand::Constant(MirConstant::Float(_))
+                    Operand::Constant(
+                        MirConstant::Int8(_)
+                            | MirConstant::Int16(_)
+                            | MirConstant::Int32(_)
+                            | MirConstant::Int64(_)
+                            | MirConstant::Uint8(_)
+                            | MirConstant::Uint16(_)
+                            | MirConstant::Uint32(_)
+                            | MirConstant::Uint64(_)
+                            | MirConstant::Float32(_)
+                            | MirConstant::Float64(_)
+                    )
                 ) && let Some(local) = self
                     .func
                     .locals
@@ -239,8 +249,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
             }
             RValue::ChoiceVariantIs(operand, variant) => {
                 let src = self.operand_reg(operand);
-                let type_idx =
-                    crate::lower::types::lower_choice_variant_type(&mut self.ctx, *variant);
+                let type_idx = crate::lower::types::lower_choice_variant_type(self.ctx, *variant);
                 self.instructions.push(Instruction::Instanceof {
                     dest,
                     src,
@@ -264,6 +273,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                     .unwrap_or(0);
                 self.instructions.push(Instruction::LoadGlobal {
                     dest,
+                    module_id: galfus_core::ModuleId::new(0),
                     global_idx: GlobalIdx(global_idx),
                 });
             }
@@ -292,8 +302,8 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
             RValue::NewArray(element_type, elements) => {
                 let type_idx = crate::lower::types::lower_type(self.ctx, *element_type);
                 let size_const = crate::lower::constants::get_or_create_constant(
-                    &mut self.ctx,
-                    &MirConstant::Int(elements.len() as i64),
+                    self.ctx,
+                    &MirConstant::Int32(elements.len() as i32),
                 );
                 let size_reg = self.alloc_temp();
                 self.instructions.push(Instruction::LoadConst {
@@ -311,7 +321,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                 for (i, elem_operand) in elements.iter().enumerate() {
                     let idx_const = crate::lower::constants::get_or_create_constant(
                         self.ctx,
-                        &MirConstant::Int(i as i64),
+                        &MirConstant::Int32(i as i32),
                     );
                     let idx_reg = self.alloc_temp();
                     self.instructions.push(Instruction::LoadConst {
@@ -336,15 +346,19 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
 
                 // 1. Calculate total length at runtime
                 let total_len_reg = self.alloc_temp();
-                let const_zero =
-                    crate::lower::constants::get_or_create_constant(self.ctx, &MirConstant::Int(0));
+                let const_zero = crate::lower::constants::get_or_create_constant(
+                    self.ctx,
+                    &MirConstant::Int32(0),
+                );
                 self.instructions.push(Instruction::LoadConst {
                     dest: total_len_reg,
                     const_idx: const_zero,
                 });
 
-                let const_one =
-                    crate::lower::constants::get_or_create_constant(self.ctx, &MirConstant::Int(1));
+                let const_one = crate::lower::constants::get_or_create_constant(
+                    self.ctx,
+                    &MirConstant::Int32(1),
+                );
 
                 for element in elements {
                     match element {
@@ -491,13 +505,13 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                 let variant_idx =
                     if let Some(choice_symbol) = self.struct_symbol_for_type(*choice_type) {
                         let variants =
-                            crate::lower::types::get_choice_variants(&self.ctx, choice_symbol);
+                            crate::lower::types::get_choice_variants(self.ctx, choice_symbol);
                         variants
                             .iter()
                             .position(|(name, _)| name == variant_name)
                             .unwrap_or(0)
                     } else if let Some(choice) =
-                        crate::lower::types::find_imported_choice_for_type(&self.ctx, *choice_type)
+                        crate::lower::types::find_imported_choice_for_type(self.ctx, *choice_type)
                     {
                         choice
                             .variants
@@ -541,14 +555,14 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                 //   len_reg = const(size)
                 //   dest = NewArray(array_type, len_reg)
                 //
-                // `array_type` must lower to ImageType::Array.
-                // The VM extracts the element type from that image type and then
+                // `array_type` must lower to BytecodeType::Array.
+                // The VM extracts the element type from that bytecode type and then
                 // zero-initialises the backing buffer.
                 let type_idx = crate::lower::types::lower_type(self.ctx, *array_type);
 
                 let size_const = crate::lower::constants::get_or_create_constant(
-                    &mut self.ctx,
-                    &MirConstant::Int(*size as i64),
+                    self.ctx,
+                    &MirConstant::Int32(*size as i32),
                 );
 
                 let len_reg = self.alloc_temp();
@@ -695,8 +709,15 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                 let prim = match constant {
                     MirConstant::Null => PrimitiveType::Null,
                     MirConstant::Bool(_) => PrimitiveType::Bool,
-                    MirConstant::Int(_) => PrimitiveType::Int32,
-                    MirConstant::Float(_) => PrimitiveType::Float32,
+                    MirConstant::Int8(_)
+                    | MirConstant::Int16(_)
+                    | MirConstant::Int32(_)
+                    | MirConstant::Int64(_)
+                    | MirConstant::Uint8(_)
+                    | MirConstant::Uint16(_)
+                    | MirConstant::Uint32(_)
+                    | MirConstant::Uint64(_) => PrimitiveType::Int32,
+                    MirConstant::Float32(_) | MirConstant::Float64(_) => PrimitiveType::Float32,
                     MirConstant::Function(_) => PrimitiveType::Null,
                     MirConstant::String(_) => {
                         // Find String type in type table
@@ -721,8 +742,15 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                 let prim = match constant {
                     MirConstant::Null => PrimitiveType::Null,
                     MirConstant::Bool(_) => PrimitiveType::Bool,
-                    MirConstant::Int(_) => PrimitiveType::Int32,
-                    MirConstant::Float(_) => PrimitiveType::Float64,
+                    MirConstant::Int8(_)
+                    | MirConstant::Int16(_)
+                    | MirConstant::Int32(_)
+                    | MirConstant::Int64(_)
+                    | MirConstant::Uint8(_)
+                    | MirConstant::Uint16(_)
+                    | MirConstant::Uint32(_)
+                    | MirConstant::Uint64(_) => PrimitiveType::Int32,
+                    MirConstant::Float32(_) | MirConstant::Float64(_) => PrimitiveType::Float64,
                     MirConstant::Function(_) => PrimitiveType::Null,
                     MirConstant::String(_) => {
                         // Find String type in type table

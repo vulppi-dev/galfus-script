@@ -1,11 +1,12 @@
 use super::*;
+use galfus_bytecode::BytecodeModule;
 
 #[test]
 fn test_ownership_deterministic_release() {
-    let image = ModuleImage {
+    let image = BytecodeModule {
         name: "test".to_string(),
         constants: ConstantPool { constants: vec![] },
-        functions: vec![ImageFunction {
+        functions: vec![BytecodeFunction {
             name: "main".to_string(),
             param_count: 0,
             local_count: 8,
@@ -30,10 +31,10 @@ fn test_ownership_deterministic_release() {
             ],
         }],
         types: vec![
-            ImageType::Int64,                      // TypeIdx(0)
-            ImageType::Null,                       // TypeIdx(1)
-            ImageType::Null,                       // TypeIdx(2)
-            ImageType::Struct(StructLayoutIdx(0)), // TypeIdx(3)
+            BytecodeType::Int64,                      // TypeIdx(0)
+            BytecodeType::Null,                       // TypeIdx(1)
+            BytecodeType::Null,                       // TypeIdx(2)
+            BytecodeType::Struct(StructLayoutIdx(0)), // TypeIdx(3)
         ],
         struct_layouts: vec![StructLayout {
             name: "Node".to_string(),
@@ -59,8 +60,17 @@ fn test_ownership_deterministic_release() {
         init_func_idx: None,
     };
 
-    let mut vm = VirtualMachine::new(image);
-    let res = vm.run_function(FuncIdx(0), vec![]).unwrap();
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
+        id: galfus_core::ModuleId::new(0),
+        path: galfus_core::ModulePath::new("test.gfs").unwrap(),
+        semantic_revision: galfus_core::SemanticRevision::new(0),
+        module: image,
+        metadata: None,
+    });
+    let mut vm = VirtualMachine::new(&graph);
+    let res = vm
+        .run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![])
+        .unwrap();
     let node1_ref = match res {
         Value::Object(r) => r,
         other => panic!("expected object, got {:?}", other),
@@ -85,10 +95,10 @@ fn test_ownership_deterministic_release() {
 
 #[test]
 fn test_ownership_cycle_release() {
-    let image = ModuleImage {
+    let image = BytecodeModule {
         name: "test".to_string(),
         constants: ConstantPool { constants: vec![] },
-        functions: vec![ImageFunction {
+        functions: vec![BytecodeFunction {
             name: "main".to_string(),
             param_count: 0,
             local_count: 8,
@@ -123,11 +133,11 @@ fn test_ownership_cycle_release() {
             ],
         }],
         types: vec![
-            ImageType::Int64,                               // TypeIdx(0)
-            ImageType::Null,                                // TypeIdx(1)
-            ImageType::Null,                                // TypeIdx(2)
-            ImageType::Struct(StructLayoutIdx(0)),          // TypeIdx(3)
-            ImageType::Tuple(vec![TypeIdx(3), TypeIdx(3)]), // TypeIdx(4)
+            BytecodeType::Int64,                               // TypeIdx(0)
+            BytecodeType::Null,                                // TypeIdx(1)
+            BytecodeType::Null,                                // TypeIdx(2)
+            BytecodeType::Struct(StructLayoutIdx(0)),          // TypeIdx(3)
+            BytecodeType::Tuple(vec![TypeIdx(3), TypeIdx(3)]), // TypeIdx(4)
         ],
         struct_layouts: vec![StructLayout {
             name: "Node".to_string(),
@@ -145,8 +155,17 @@ fn test_ownership_cycle_release() {
         init_func_idx: None,
     };
 
-    let mut vm = VirtualMachine::new(image);
-    let res = vm.run_function(FuncIdx(0), vec![]).unwrap();
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
+        id: galfus_core::ModuleId::new(0),
+        path: galfus_core::ModulePath::new("test.gfs").unwrap(),
+        semantic_revision: galfus_core::SemanticRevision::new(0),
+        module: image,
+        metadata: None,
+    });
+    let mut vm = VirtualMachine::new(&graph);
+    let res = vm
+        .run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![])
+        .unwrap();
     let tuple_ref = match res {
         Value::Object(r) => r,
         other => panic!("expected object, got {:?}", other),
@@ -179,10 +198,10 @@ fn test_ownership_cycle_release() {
 
 #[test]
 fn test_ownership_weak_invalidation() {
-    let image = ModuleImage {
+    let image = BytecodeModule {
         name: "test".to_string(),
         constants: ConstantPool { constants: vec![] },
-        functions: vec![ImageFunction {
+        functions: vec![BytecodeFunction {
             name: "main".to_string(),
             param_count: 0,
             local_count: 8,
@@ -212,10 +231,10 @@ fn test_ownership_weak_invalidation() {
             ],
         }],
         types: vec![
-            ImageType::Int64,                      // TypeIdx(0)
-            ImageType::Null,                       // TypeIdx(1)
-            ImageType::Null,                       // TypeIdx(2)
-            ImageType::Struct(StructLayoutIdx(0)), // TypeIdx(3)
+            BytecodeType::Int64,                      // TypeIdx(0)
+            BytecodeType::Null,                       // TypeIdx(1)
+            BytecodeType::Null,                       // TypeIdx(2)
+            BytecodeType::Struct(StructLayoutIdx(0)), // TypeIdx(3)
         ],
         struct_layouts: vec![StructLayout {
             name: "Node".to_string(),
@@ -241,8 +260,17 @@ fn test_ownership_weak_invalidation() {
         init_func_idx: None,
     };
 
-    let mut vm = VirtualMachine::new(image);
-    let res = vm.run_function(FuncIdx(0), vec![]).unwrap();
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
+        id: galfus_core::ModuleId::new(0),
+        path: galfus_core::ModulePath::new("test.gfs").unwrap(),
+        semantic_revision: galfus_core::SemanticRevision::new(0),
+        module: image,
+        metadata: None,
+    });
+    let mut vm = VirtualMachine::new(&graph);
+    let res = vm
+        .run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![])
+        .unwrap();
     let node2_ref = match res {
         Value::Object(r) => r,
         other => panic!("expected object, got {:?}", other),

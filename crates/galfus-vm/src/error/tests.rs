@@ -6,17 +6,19 @@ fn test_vm_panic_display() {
         error: VmError::DivisionByZero,
         stack_trace: vec![
             StackFrameInfo {
-                function_name: "foo".to_string(),
-                pc: 12,
+                module_id: galfus_core::ModuleId::new(0),
+                func_idx: galfus_bytecode::instruction::FuncIdx(0),
+                instruction_offset: 12,
             },
             StackFrameInfo {
-                function_name: "main".to_string(),
-                pc: 4,
+                module_id: galfus_core::ModuleId::new(0),
+                func_idx: galfus_bytecode::instruction::FuncIdx(0),
+                instruction_offset: 4,
             },
         ],
     };
     let display_str = format!("{}", panic);
     assert!(display_str.contains("VM Panic: Division by zero"));
-    assert!(display_str.contains("  #0: foo (at PC 12)"));
-    assert!(display_str.contains("  #1: main (at PC 4)"));
+    assert!(display_str.contains("  #0: Module ModuleId(0) Func FuncIdx(0) (at instruction 12)"));
+    assert!(display_str.contains("  #1: Module ModuleId(0) Func FuncIdx(0) (at instruction 4)"));
 }

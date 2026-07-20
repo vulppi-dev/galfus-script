@@ -410,10 +410,10 @@ impl<'a> DeclarationTypeChecker<'a> {
             return;
         };
 
-        if syntax_node.kind() == SyntaxNodeKind::ExpressionStatement {
-            if let Some(expression) = self.graph.syntax().child(node, 0) {
-                self.infer_expression_type(expression);
-            }
+        if syntax_node.kind() == SyntaxNodeKind::ExpressionStatement
+            && let Some(expression) = self.graph.syntax().child(node, 0)
+        {
+            self.infer_expression_type(expression);
         }
 
         for child in syntax_node.children() {

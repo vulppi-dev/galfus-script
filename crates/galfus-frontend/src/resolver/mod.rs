@@ -333,7 +333,7 @@ impl<'a> Resolver<'a> {
         declaration: NodeId,
         scope: ScopeId,
     ) -> Option<SymbolId> {
-        let name_id = name.as_name_id();
+        let name_id = name.to_name_id();
         if self
             .resolution
             .scope(scope)

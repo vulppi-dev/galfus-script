@@ -6,6 +6,4 @@ license.workspace = true
 
 [dependencies]
 indexmap.workspace = true
-postcard.workspace = true
-serde.workspace = true
 thiserror.workspace = true

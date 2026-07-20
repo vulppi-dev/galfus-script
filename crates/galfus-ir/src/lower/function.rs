@@ -2,8 +2,8 @@ use super::LowerCtx;
 use crate::mir::{
     Constant as MirConstant, Instruction as MirInstruction, MirFunction, Operand, Terminator,
 };
-use galfus_image::Instruction;
-use galfus_image::instruction::{GlobalIdx, Reg};
+use galfus_bytecode::Instruction;
+use galfus_bytecode::instruction::{GlobalIdx, Reg};
 
 #[allow(dead_code)]
 pub enum JumpKind {
@@ -23,6 +23,7 @@ pub struct FnEmitter<'a, 'b> {
     next_label_id: usize,
     label_pcs: std::collections::HashMap<usize, usize>,
     pending_jumps: Vec<(usize, usize, JumpKind)>,
+    pub instruction_spans: std::collections::HashMap<usize, galfus_core::Span>,
 }
 
 impl<'a, 'b> FnEmitter<'a, 'b> {
@@ -43,6 +44,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
             next_label_id: 0,
             label_pcs: std::collections::HashMap::new(),
             pending_jumps: Vec::new(),
+            instruction_spans: std::collections::HashMap::new(),
         }
     }
 
@@ -162,7 +164,12 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
         self.instructions.push(Instruction::RetNull);
     }
 
-    pub fn emit(&mut self) -> Vec<Instruction> {
+    pub fn emit(
+        &mut self,
+    ) -> (
+        Vec<Instruction>,
+        std::collections::HashMap<usize, galfus_core::Span>,
+    ) {
         let mut block_labels = std::collections::HashMap::new();
         for bb in &self.func.blocks {
             block_labels.insert(bb.id, self.new_label());
@@ -172,7 +179,8 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
             let label = block_labels[&bb.id];
             self.emit_label(label);
 
-            for inst in &bb.instructions {
+            for (inst, span_opt) in &bb.instructions {
+                let initial_pc = self.instructions.len();
                 match inst {
                     MirInstruction::Assign(dest, rvalue) => {
                         self.emit_rvalue(Reg(dest.raw() as u16), rvalue);
@@ -186,6 +194,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                         let global_idx = 0;
                         let val_reg = self.operand_reg(op);
                         self.instructions.push(Instruction::StoreGlobal {
+                            module_id: galfus_core::ModuleId::new(0),
                             global_idx: GlobalIdx(global_idx as u16),
                             src: val_reg,
                         });
@@ -253,7 +262,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                             self.instructions.push(Instruction::Write { src: arg_reg });
 
                             let null_idx = crate::lower::constants::get_or_create_constant(
-                                &mut self.ctx,
+                                self.ctx,
                                 &MirConstant::Null,
                             );
                             self.instructions.push(Instruction::LoadConst {
@@ -315,7 +324,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                         }
 
                         let name_const = crate::lower::constants::get_or_create_constant(
-                            &mut self.ctx,
+                            self.ctx,
                             &MirConstant::String(method_name.clone()),
                         );
 
@@ -358,9 +367,15 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                         self.free_temp_if_operand(func);
                     }
                 }
+                if let Some(span) = span_opt {
+                    for pc in initial_pc..self.instructions.len() {
+                        self.instruction_spans.insert(pc, *span);
+                    }
+                }
             }
 
-            match &bb.terminator {
+            let initial_pc = self.instructions.len();
+            match &bb.terminator.0 {
                 Terminator::Return(opt_operand) => {
                     if let Some(op) = opt_operand {
                         let src = self.operand_reg(op);
@@ -373,7 +388,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
 
                 Terminator::Panic(msg) => {
                     let const_idx = crate::lower::constants::get_or_create_constant(
-                        &mut self.ctx,
+                        self.ctx,
                         &MirConstant::String(msg.clone()),
                     );
                     self.instructions.push(Instruction::Panic { const_idx });
@@ -407,6 +422,11 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                     self.free_temp_if_operand(cond);
                 }
             }
+            if let Some(span) = &bb.terminator.1 {
+                for pc in initial_pc..self.instructions.len() {
+                    self.instruction_spans.insert(pc, *span);
+                }
+            }
         }
 
         for (pc, target_label, kind) in &self.pending_jumps {
@@ -426,6 +446,9 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
             self.instructions[*pc] = patched_instr;
         }
 
-        std::mem::take(&mut self.instructions)
+        (
+            std::mem::take(&mut self.instructions),
+            std::mem::take(&mut self.instruction_spans),
+        )
     }
 }

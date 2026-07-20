@@ -64,7 +64,7 @@ impl Scope {
     }
 
     pub fn symbol<N: AsNameId>(&self, name: N) -> Option<SymbolId> {
-        self.symbols.get(&name.as_name_id()).copied()
+        self.symbols.get(&name.to_name_id()).copied()
     }
 
     pub(crate) fn insert_symbol<N: AsNameId>(
@@ -72,6 +72,6 @@ impl Scope {
         name: N,
         symbol: SymbolId,
     ) -> Option<SymbolId> {
-        self.symbols.insert(name.as_name_id(), symbol)
+        self.symbols.insert(name.to_name_id(), symbol)
     }
 }

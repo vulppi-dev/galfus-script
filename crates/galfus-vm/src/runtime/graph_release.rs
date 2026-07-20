@@ -1,6 +1,6 @@
 use super::*;
 
-impl VirtualMachine {
+impl<'a> VirtualMachine<'a> {
     #[allow(clippy::collapsible_if)]
     pub fn release_unreachable(&mut self) {
         use std::collections::{HashSet, VecDeque};
@@ -10,10 +10,12 @@ impl VirtualMachine {
         let mut roots = VecDeque::new();
         let mut reachable = HashSet::new();
 
-        for val in &self.globals {
-            if let Value::Object(obj_ref) = val {
-                if reachable.insert(obj_ref.raw()) {
-                    roots.push_back(*obj_ref);
+        for state in self.module_states.values() {
+            for val in &state.globals {
+                if let Value::Object(obj_ref) = val {
+                    if reachable.insert(obj_ref.raw()) {
+                        roots.push_back(*obj_ref);
+                    }
                 }
             }
         }
@@ -31,9 +33,18 @@ impl VirtualMachine {
         while let Some(obj_ref) = roots.pop_front() {
             if let Some(Some(obj)) = self.heap.get(obj_ref.raw()) {
                 match obj {
-                    HeapObject::Struct { layout_idx, fields } => {
-                        if let Some(layout) =
-                            self.image.struct_layouts.get(layout_idx.raw() as usize)
+                    HeapObject::Struct {
+                        module_id,
+                        layout_idx,
+                        fields,
+                    } => {
+                        if let Some(layout) = self
+                            .graph
+                            .get(*module_id)
+                            .unwrap()
+                            .module
+                            .struct_layouts
+                            .get(layout_idx.raw() as usize)
                         {
                             for (i, field_val) in fields.iter().enumerate() {
                                 if let Value::Object(target_ref) = field_val {
@@ -94,9 +105,21 @@ impl VirtualMachine {
         }
 
         for idx in 0..self.heap.len() {
-            if let Some(Some(HeapObject::Struct { layout_idx, fields })) = self.heap.get_mut(idx) {
+            if let Some(Some(HeapObject::Struct {
+                module_id,
+                layout_idx,
+                fields,
+            })) = self.heap.get_mut(idx)
+            {
                 let layout_idx_val = *layout_idx;
-                if let Some(layout) = self.image.struct_layouts.get(layout_idx_val.raw() as usize) {
+                if let Some(layout) = self
+                    .graph
+                    .get(*module_id)
+                    .unwrap()
+                    .module
+                    .struct_layouts
+                    .get(layout_idx_val.raw() as usize)
+                {
                     for (i, field_val) in fields.iter_mut().enumerate() {
                         if let Value::Object(target_ref) = field_val {
                             if dead_objects.contains(&target_ref.raw()) {

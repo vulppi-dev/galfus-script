@@ -76,12 +76,15 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                     .primitive(galfus_frontend::PrimitiveType::Bool);
 
                 let cond_temp = self.declare_local(None, bool_ty);
-                self.current_instructions.push(Instruction::ConstraintCall {
-                    method_name: "compare".to_string(),
-                    obj: subject.clone(),
-                    args: vec![literal_op],
-                    destination: cond_temp,
-                });
+                self.current_instructions.push((
+                    Instruction::ConstraintCall {
+                        method_name: "compare".to_string(),
+                        obj: subject.clone(),
+                        args: vec![literal_op],
+                        destination: cond_temp,
+                    },
+                    None,
+                ));
                 self.terminate_block(Terminator::Branch {
                     cond: Operand::Local(cond_temp),
                     true_block: success_block,
@@ -111,8 +114,10 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                         let local_id = self.declare_local(Some(symbol), ty);
                         self.symbol_to_local.insert(symbol, local_id);
 
-                        self.current_instructions
-                            .push(Instruction::Assign(local_id, RValue::Use(subject.clone())));
+                        self.current_instructions.push((
+                            Instruction::Assign(local_id, RValue::Use(subject.clone())),
+                            None,
+                        ));
                     }
                 }
                 self.terminate_block(Terminator::Jump {
@@ -138,13 +143,16 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                                 .node_type(pattern_node_id)
                                 .unwrap_or_else(|| TypeId::new(0));
                             let cond_temp = self.declare_local(None, bool_ty);
-                            self.current_instructions.push(Instruction::Assign(
-                                cond_temp,
-                                RValue::BinaryOp(
-                                    MirBinaryOp::Equal,
-                                    subject.clone(),
-                                    Operand::Constant(Constant::Int(val)),
+                            self.current_instructions.push((
+                                Instruction::Assign(
+                                    cond_temp,
+                                    RValue::BinaryOp(
+                                        MirBinaryOp::Equal,
+                                        subject.clone(),
+                                        Operand::Constant(Constant::Int32(val as i32)),
+                                    ),
                                 ),
+                                None,
                             ));
                             self.terminate_block(Terminator::Branch {
                                 cond: Operand::Local(cond_temp),
@@ -164,9 +172,12 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                                 .unwrap_or_else(|| TypeId::new(0));
 
                             let cond_temp = self.declare_local(None, bool_ty);
-                            self.current_instructions.push(Instruction::Assign(
-                                cond_temp,
-                                RValue::ChoiceVariantIs(subject.clone(), variant_symbol),
+                            self.current_instructions.push((
+                                Instruction::Assign(
+                                    cond_temp,
+                                    RValue::ChoiceVariantIs(subject.clone(), variant_symbol),
+                                ),
+                                None,
                             ));
 
                             let payload_extract_block = self.builder.next_block();
@@ -204,9 +215,12 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                                     };
 
                                     let payload_temp = self.declare_local(None, payload_ty);
-                                    self.current_instructions.push(Instruction::Assign(
-                                        payload_temp,
-                                        RValue::MemberAccess(subject.clone(), variant_name),
+                                    self.current_instructions.push((
+                                        Instruction::Assign(
+                                            payload_temp,
+                                            RValue::MemberAccess(subject.clone(), variant_name),
+                                        ),
+                                        None,
                                     ));
 
                                     let payload_op = Operand::Local(payload_temp);
@@ -223,12 +237,15 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                                         {
                                             let element_ty = payload_types[i];
                                             let element_temp = self.declare_local(None, element_ty);
-                                            self.current_instructions.push(Instruction::Assign(
-                                                element_temp,
-                                                RValue::MemberAccess(
-                                                    payload_op.clone(),
-                                                    i.to_string(),
+                                            self.current_instructions.push((
+                                                Instruction::Assign(
+                                                    element_temp,
+                                                    RValue::MemberAccess(
+                                                        payload_op.clone(),
+                                                        i.to_string(),
+                                                    ),
                                                 ),
+                                                None,
                                             ));
 
                                             let next_field_block =
@@ -290,9 +307,12 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                         .primitive(galfus_frontend::PrimitiveType::Bool);
 
                     let cond_temp = self.declare_local(None, bool_ty);
-                    self.current_instructions.push(Instruction::Assign(
-                        cond_temp,
-                        RValue::Instanceof(subject.clone(), variant_ty),
+                    self.current_instructions.push((
+                        Instruction::Assign(
+                            cond_temp,
+                            RValue::Instanceof(subject.clone(), variant_ty),
+                        ),
+                        None,
                     ));
 
                     let payload_extract_block = self.builder.next_block();
@@ -321,9 +341,12 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                             };
 
                             let payload_temp = self.declare_local(None, payload_ty);
-                            self.current_instructions.push(Instruction::Assign(
-                                payload_temp,
-                                RValue::MemberAccess(subject.clone(), variant_name),
+                            self.current_instructions.push((
+                                Instruction::Assign(
+                                    payload_temp,
+                                    RValue::MemberAccess(subject.clone(), variant_name),
+                                ),
+                                None,
                             ));
 
                             let payload_op = Operand::Local(payload_temp);
@@ -338,9 +361,12 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                                 for (i, &child_pattern) in payload_patterns.iter().enumerate() {
                                     let element_ty = payload_types[i];
                                     let element_temp = self.declare_local(None, element_ty);
-                                    self.current_instructions.push(Instruction::Assign(
-                                        element_temp,
-                                        RValue::MemberAccess(payload_op.clone(), i.to_string()),
+                                    self.current_instructions.push((
+                                        Instruction::Assign(
+                                            element_temp,
+                                            RValue::MemberAccess(payload_op.clone(), i.to_string()),
+                                        ),
+                                        None,
                                     ));
 
                                     let next_field_block = if i == payload_patterns.len() - 1 {
@@ -399,9 +425,12 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                     .unwrap_or_else(|| TypeId::new(0));
 
                 let cond_temp = self.declare_local(None, bool_ty);
-                self.current_instructions.push(Instruction::Assign(
-                    cond_temp,
-                    RValue::Instanceof(subject.clone(), pattern_type),
+                self.current_instructions.push((
+                    Instruction::Assign(
+                        cond_temp,
+                        RValue::Instanceof(subject.clone(), pattern_type),
+                    ),
+                    None,
                 ));
 
                 let type_check_success = self.builder.next_block();
@@ -428,8 +457,10 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                         let local_id = self.declare_local(Some(symbol), pattern_type);
                         self.symbol_to_local.insert(symbol, local_id);
 
-                        self.current_instructions
-                            .push(Instruction::Assign(local_id, RValue::Use(subject.clone())));
+                        self.current_instructions.push((
+                            Instruction::Assign(local_id, RValue::Use(subject.clone())),
+                            None,
+                        ));
                     }
                 }
 
@@ -455,9 +486,12 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                     .primitive(galfus_frontend::PrimitiveType::Bool);
 
                 let cond_temp = self.declare_local(None, bool_ty);
-                self.current_instructions.push(Instruction::Assign(
-                    cond_temp,
-                    RValue::Instanceof(subject.clone(), pattern_type),
+                self.current_instructions.push((
+                    Instruction::Assign(
+                        cond_temp,
+                        RValue::Instanceof(subject.clone(), pattern_type),
+                    ),
+                    None,
                 ));
 
                 let struct_check_success = self.builder.next_block();
@@ -496,9 +530,12 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                         .unwrap_or_else(|| TypeId::new(0));
 
                     let field_temp = self.declare_local(None, field_ty);
-                    self.current_instructions.push(Instruction::Assign(
-                        field_temp,
-                        RValue::MemberAccess(subject.clone(), field_name),
+                    self.current_instructions.push((
+                        Instruction::Assign(
+                            field_temp,
+                            RValue::MemberAccess(subject.clone(), field_name),
+                        ),
+                        None,
                     ));
 
                     let field_op = Operand::Local(field_temp);
@@ -525,8 +562,10 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                             if let Some(symbol) = res.declaration_symbol(ident) {
                                 let local_id = self.declare_local(Some(symbol), field_ty);
                                 self.symbol_to_local.insert(symbol, local_id);
-                                self.current_instructions
-                                    .push(Instruction::Assign(local_id, RValue::Use(field_op)));
+                                self.current_instructions.push((
+                                    Instruction::Assign(local_id, RValue::Use(field_op)),
+                                    None,
+                                ));
                             }
                         }
                         self.terminate_block(Terminator::Jump {
@@ -569,7 +608,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                 let ty = self.symbol_type(symbol).unwrap_or_else(|| TypeId::new(0));
                 let local_id = self.declare_local(Some(symbol), ty);
                 self.current_instructions
-                    .push(Instruction::Assign(local_id, RValue::Use(operand)));
+                    .push((Instruction::Assign(local_id, RValue::Use(operand)), None));
             }
             return;
         }
@@ -587,7 +626,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                     let ty = self.symbol_type(symbol).unwrap_or_else(|| TypeId::new(0));
                     let local_id = self.declare_local(Some(symbol), ty);
                     self.current_instructions
-                        .push(Instruction::Assign(local_id, RValue::Use(operand)));
+                        .push((Instruction::Assign(local_id, RValue::Use(operand)), None));
                 }
             }
             SyntaxNodeKind::StructBindingPattern => {
@@ -599,9 +638,12 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
 
                     let temp_ty = TypeId::new(0); // we should lookup proper type
                     let temp_local = self.declare_local(None, temp_ty);
-                    self.current_instructions.push(Instruction::Assign(
-                        temp_local,
-                        RValue::MemberAccess(operand.clone(), field_name),
+                    self.current_instructions.push((
+                        Instruction::Assign(
+                            temp_local,
+                            RValue::MemberAccess(operand.clone(), field_name),
+                        ),
+                        None,
                     ));
                     self.lower_destructuring_binding(value_pattern, Operand::Local(temp_local));
                 }
@@ -614,19 +656,22 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                         let temp_ty = TypeId::new(0);
                         let temp_local = self.declare_local(None, temp_ty);
 
-                        let _idx_operand = Operand::Constant(Constant::Int(i as i64));
+                        let _idx_operand = Operand::Constant(Constant::Int32(i as i32));
                         let len_operand = self.declare_local(None, temp_ty);
-                        self.current_instructions.push(Instruction::Assign(
-                            len_operand,
-                            RValue::Len(operand.clone()),
+                        self.current_instructions.push((
+                            Instruction::Assign(len_operand, RValue::Len(operand.clone())),
+                            None,
                         ));
 
                         // Note: A full slice implementation would need more complex runtime slicing.
                         // Here we just extract it conceptually or emit a specific instruction if we had it.
                         // For now we map it to length (just as a stub for rest pattern).
-                        self.current_instructions.push(Instruction::Assign(
-                            temp_local,
-                            RValue::Use(Operand::Local(len_operand)),
+                        self.current_instructions.push((
+                            Instruction::Assign(
+                                temp_local,
+                                RValue::Use(Operand::Local(len_operand)),
+                            ),
+                            None,
                         ));
                         self.lower_destructuring_binding(rest_target, Operand::Local(temp_local));
                         break;
@@ -634,10 +679,13 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                         let temp_ty = TypeId::new(0);
                         let temp_local = self.declare_local(None, temp_ty);
 
-                        let idx_operand = Operand::Constant(Constant::Int(i as i64));
-                        self.current_instructions.push(Instruction::Assign(
-                            temp_local,
-                            RValue::ArrayIndex(operand.clone(), idx_operand),
+                        let idx_operand = Operand::Constant(Constant::Int32(i as i32));
+                        self.current_instructions.push((
+                            Instruction::Assign(
+                                temp_local,
+                                RValue::ArrayIndex(operand.clone(), idx_operand),
+                            ),
+                            None,
                         ));
                         self.lower_destructuring_binding(*element_id, Operand::Local(temp_local));
                     }

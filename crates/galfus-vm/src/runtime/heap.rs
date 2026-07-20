@@ -1,6 +1,6 @@
 use super::*;
 
-impl VirtualMachine {
+impl<'a> VirtualMachine<'a> {
     pub(super) fn get_object(&self, obj_ref: ObjectRef) -> Result<&HeapObject, VmError> {
         self.heap
             .get(obj_ref.raw())
@@ -123,38 +123,43 @@ impl VirtualMachine {
     }
 
     pub(super) fn check_value_type(&self, val: &Value, expected_ty: TypeIdx) -> bool {
-        let ty = match self.image.types.get(expected_ty.raw() as usize) {
+        let ty = match self
+            .current_image()
+            .unwrap()
+            .types
+            .get(expected_ty.raw() as usize)
+        {
             Some(t) => t,
             None => return false,
         };
         match (val, ty) {
-            (Value::Null, ImageType::Null) => true,
-            (Value::Bool(_), ImageType::Bool) => true,
-            (Value::Int8(_), ImageType::Int8) => true,
-            (Value::Int16(_), ImageType::Int16) => true,
-            (Value::Int32(_), ImageType::Int32) => true,
-            (Value::Int64(_), ImageType::Int64) => true,
-            (Value::Uint8(_), ImageType::Uint8) => true,
-            (Value::Uint16(_), ImageType::Uint16) => true,
-            (Value::Uint32(_), ImageType::Uint32) => true,
-            (Value::Uint64(_), ImageType::Uint64) => true,
-            (Value::Float32(_), ImageType::Float32) => true,
-            (Value::Float64(_), ImageType::Float64) => true,
-            (Value::Object(obj_ref), ImageType::Struct(expected_layout_idx)) => {
+            (Value::Null, BytecodeType::Null) => true,
+            (Value::Bool(_), BytecodeType::Bool) => true,
+            (Value::Int8(_), BytecodeType::Int8) => true,
+            (Value::Int16(_), BytecodeType::Int16) => true,
+            (Value::Int32(_), BytecodeType::Int32) => true,
+            (Value::Int64(_), BytecodeType::Int64) => true,
+            (Value::Uint8(_), BytecodeType::Uint8) => true,
+            (Value::Uint16(_), BytecodeType::Uint16) => true,
+            (Value::Uint32(_), BytecodeType::Uint32) => true,
+            (Value::Uint64(_), BytecodeType::Uint64) => true,
+            (Value::Float32(_), BytecodeType::Float32) => true,
+            (Value::Float64(_), BytecodeType::Float64) => true,
+            (Value::Object(obj_ref), BytecodeType::Struct(expected_layout_idx)) => {
                 if let Ok(HeapObject::Struct { layout_idx, .. }) = self.get_object(*obj_ref) {
                     layout_idx == expected_layout_idx
                 } else {
                     false
                 }
             }
-            (Value::Object(obj_ref), ImageType::Array(expected_el_ty)) => {
+            (Value::Object(obj_ref), BytecodeType::Array(expected_el_ty)) => {
                 if let Ok(HeapObject::Array { element_ty, .. }) = self.get_object(*obj_ref) {
                     self.type_idx_matches(*element_ty, *expected_el_ty)
                 } else {
                     false
                 }
             }
-            (Value::Object(obj_ref), ImageType::Tuple(expected_tys)) => {
+            (Value::Object(obj_ref), BytecodeType::Tuple(expected_tys)) => {
                 if let Ok(HeapObject::Tuple { elements }) = self.get_object(*obj_ref) {
                     if elements.len() == expected_tys.len() {
                         elements
@@ -168,7 +173,7 @@ impl VirtualMachine {
                     false
                 }
             }
-            (Value::Object(obj_ref), ImageType::Choice(expected_layout_idx)) => {
+            (Value::Object(obj_ref), BytecodeType::Choice(expected_layout_idx)) => {
                 if let Ok(HeapObject::Choice { layout_idx, .. }) = self.get_object(*obj_ref) {
                     layout_idx == expected_layout_idx
                 } else {
@@ -177,7 +182,7 @@ impl VirtualMachine {
             }
             (
                 Value::Object(obj_ref),
-                ImageType::ChoiceVariant(expected_choice_idx, expected_variant_idx),
+                BytecodeType::ChoiceVariant(expected_choice_idx, expected_variant_idx),
             ) => {
                 if let Ok(HeapObject::Choice {
                     layout_idx,
@@ -189,13 +194,17 @@ impl VirtualMachine {
                         return true;
                     }
 
-                    let Some(actual_layout) =
-                        self.image.choice_layouts.get(layout_idx.raw() as usize)
+                    let Some(actual_layout) = self
+                        .current_image()
+                        .unwrap()
+                        .choice_layouts
+                        .get(layout_idx.raw() as usize)
                     else {
                         return false;
                     };
                     let Some(expected_layout) = self
-                        .image
+                        .current_image()
+                        .unwrap()
                         .choice_layouts
                         .get(expected_choice_idx.raw() as usize)
                     else {
@@ -215,9 +224,10 @@ impl VirtualMachine {
                     false
                 }
             }
-            (Value::Object(obj_ref), ImageType::Constraint(expected_constraint)) => {
+            (Value::Object(obj_ref), BytecodeType::Constraint(expected_constraint)) => {
                 if let Ok(HeapObject::Struct { layout_idx, .. }) = self.get_object(*obj_ref) {
-                    self.image
+                    self.current_image()
+                        .unwrap()
                         .struct_layouts
                         .get(layout_idx.raw() as usize)
                         .is_some_and(|layout| layout.constraints.contains(expected_constraint))
@@ -246,18 +256,28 @@ impl VirtualMachine {
             return true;
         }
 
-        let Some(actual_ty) = self.image.types.get(actual.raw() as usize) else {
+        let Some(actual_ty) = self
+            .current_image()
+            .unwrap()
+            .types
+            .get(actual.raw() as usize)
+        else {
             return false;
         };
-        let Some(expected_ty) = self.image.types.get(expected.raw() as usize) else {
+        let Some(expected_ty) = self
+            .current_image()
+            .unwrap()
+            .types
+            .get(expected.raw() as usize)
+        else {
             return false;
         };
 
         match (actual_ty, expected_ty) {
-            (ImageType::Array(actual_el), ImageType::Array(expected_el)) => {
+            (BytecodeType::Array(actual_el), BytecodeType::Array(expected_el)) => {
                 self.type_idx_matches_inner(*actual_el, *expected_el, seen)
             }
-            (ImageType::Tuple(actual_elements), ImageType::Tuple(expected_elements)) => {
+            (BytecodeType::Tuple(actual_elements), BytecodeType::Tuple(expected_elements)) => {
                 actual_elements.len() == expected_elements.len()
                     && actual_elements.iter().zip(expected_elements.iter()).all(
                         |(&actual_el, &expected_el)| {

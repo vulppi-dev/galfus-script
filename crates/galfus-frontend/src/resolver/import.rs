@@ -8,6 +8,18 @@ pub enum ImportKind {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ImportDetails {
+    pub(crate) kind: ImportKind,
+    pub(crate) source: String,
+    pub(crate) source_node: NodeId,
+    pub(crate) import_node: NodeId,
+    pub(crate) declaration: NodeId,
+    pub(crate) local_name: String,
+    pub(crate) imported_name: Option<String>,
+    pub(crate) local_symbol: SymbolId,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ImportRecord {
     id: ImportId,
     kind: ImportKind,
@@ -25,27 +37,17 @@ pub struct ImportRecord {
 }
 
 impl ImportRecord {
-    pub fn new(
-        id: ImportId,
-        kind: ImportKind,
-        source: String,
-        source_node: NodeId,
-        import_node: NodeId,
-        declaration: NodeId,
-        local_name: String,
-        imported_name: Option<String>,
-        local_symbol: SymbolId,
-    ) -> Self {
+    pub(crate) fn new(id: ImportId, details: ImportDetails) -> Self {
         Self {
             id,
-            kind,
-            source,
-            source_node,
-            import_node,
-            declaration,
-            local_name,
-            imported_name,
-            local_symbol,
+            kind: details.kind,
+            source: details.source,
+            source_node: details.source_node,
+            import_node: details.import_node,
+            declaration: details.declaration,
+            local_name: details.local_name,
+            imported_name: details.imported_name,
+            local_symbol: details.local_symbol,
         }
     }
 
@@ -165,16 +167,16 @@ impl<'a> Resolver<'a> {
             return;
         };
 
-        self.resolution.add_import(
-            ImportKind::Namespace,
+        self.resolution.add_import(ImportDetails {
+            kind: ImportKind::Namespace,
             source,
             source_node,
-            import_item,
-            name,
+            import_node: import_item,
+            declaration: name,
             local_name,
-            None,
-            symbol,
-        );
+            imported_name: None,
+            local_symbol: symbol,
+        });
     }
 
     pub(super) fn declare_named_import(
@@ -227,16 +229,16 @@ impl<'a> Resolver<'a> {
             return;
         };
 
-        self.resolution.add_import(
-            ImportKind::Named,
+        self.resolution.add_import(ImportDetails {
+            kind: ImportKind::Named,
             source,
             source_node,
-            import_item,
+            import_node: import_item,
             declaration,
             local_name,
-            Some(imported_name),
-            symbol,
-        );
+            imported_name: Some(imported_name),
+            local_symbol: symbol,
+        });
     }
 
     pub(super) fn import_source_of(&self, import_item: NodeId) -> Option<NodeId> {

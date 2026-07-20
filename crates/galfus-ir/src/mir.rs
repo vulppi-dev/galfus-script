@@ -1,8 +1,7 @@
 use galfus_core::{FunctionId, StorageMetadata, SymbolId, TypeId};
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct LocalId(u32);
 
 impl LocalId {
@@ -15,7 +14,7 @@ impl LocalId {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct BlockId(u32);
 
 impl BlockId {
@@ -28,27 +27,26 @@ impl BlockId {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GlobalDecl {
     pub name: String,
     pub ty: TypeId,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct MirModule {
     pub functions: Vec<MirFunction>,
     pub globals: Vec<GlobalDecl>,
-    #[serde(default)]
     pub constant_pool: Vec<Constant>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct LocalDecl {
     pub id: LocalId,
     pub ty: TypeId,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct MirFunction {
     pub id: FunctionId,
     pub name: String,
@@ -56,19 +54,18 @@ pub struct MirFunction {
     pub parameter_types: Vec<TypeId>,
     pub locals: Vec<LocalDecl>,
     pub blocks: Vec<BasicBlock>,
-    #[serde(default)]
     pub type_substitutions: HashMap<SymbolId, TypeId>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct BasicBlock {
     pub id: BlockId,
     pub parameters: Vec<LocalDecl>,
-    pub instructions: Vec<Instruction>,
-    pub terminator: Terminator,
+    pub instructions: Vec<(Instruction, Option<galfus_core::Span>)>,
+    pub terminator: (Terminator, Option<galfus_core::Span>),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub enum Instruction {
     Assign(LocalId, RValue),
     Drop(LocalId),
@@ -115,14 +112,14 @@ pub enum Instruction {
     },
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MirUnaryOp {
     Negate,
     Not,
     BitwiseNot,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MirBinaryOp {
     Add,
     Subtract,
@@ -146,7 +143,7 @@ pub enum MirBinaryOp {
     NullFallback,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub enum RValue {
     Use(Operand),
     UnaryOp(MirUnaryOp, Operand),
@@ -187,13 +184,13 @@ pub enum RValue {
     Len(Operand),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub enum ArrayLiteralElement {
     Single(Operand),
     Spread(Operand),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub enum Terminator {
     Return(Option<Operand>),
     Jump {
@@ -210,19 +207,27 @@ pub enum Terminator {
     Panic(String),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub enum Operand {
     Constant(Constant),
     ConstRef(usize),
     Local(LocalId),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub enum Constant {
     Null,
     Bool(bool),
-    Int(i64),
-    Float(f64),
+    Int8(i8),
+    Int16(i16),
+    Int32(i32),
+    Int64(i64),
+    Uint8(u8),
+    Uint16(u16),
+    Uint32(u32),
+    Uint64(u64),
+    Float32(f32),
+    Float64(f64),
     String(String),
     Function(FunctionId),
 }

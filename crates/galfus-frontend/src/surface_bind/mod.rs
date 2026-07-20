@@ -41,7 +41,7 @@ impl ModuleSurface {
 
     pub fn export<N: AsNameId>(&self, name: N) -> Option<&ModuleSurfaceExport> {
         self.exports_by_name
-            .get(&name.as_name_id())
+            .get(&name.to_name_id())
             .and_then(|index| self.exports.get(*index))
     }
 
@@ -50,7 +50,7 @@ impl ModuleSurface {
         local_symbol: SymbolId,
         name: N,
     ) -> Option<ImportedType> {
-        let name_id = name.as_name_id();
+        let name_id = name.to_name_id();
         let export = self.export(name_id)?;
 
         if export.kind().is_nominal_surface_type() {
@@ -67,7 +67,7 @@ impl ModuleSurface {
         namespace: SymbolId,
         name: N,
     ) -> Option<ImportedType> {
-        let name_id = name.as_name_id();
+        let name_id = name.to_name_id();
         if let Some(export) = self.export(name_id) {
             if export.kind().is_nominal_surface_type() {
                 return Some(ImportedType::SurfacePath {
@@ -106,7 +106,6 @@ impl ModuleSurface {
                 let parameters = member
                     .payload_types()
                     .iter()
-                    .cloned()
                     .map(|ty| ImportedFunctionParameterType::new(ty.relocate(namespace)))
                     .collect();
 
@@ -127,7 +126,7 @@ impl ModuleSurface {
         member_name: N2,
     ) -> Option<ImportedType> {
         let owner = self.export(owner_name)?;
-        let member_name_id = member_name.as_name_id();
+        let member_name_id = member_name.to_name_id();
         let member = owner
             .members()
             .iter()
@@ -150,7 +149,6 @@ impl ModuleSurface {
                 let parameters = member
                     .payload_types()
                     .iter()
-                    .cloned()
                     .map(|ty| ImportedFunctionParameterType::new(ty.relocate(local_symbol)))
                     .collect();
 
@@ -168,7 +166,7 @@ impl ModuleSurface {
         &self,
         name: N,
     ) -> Option<ImportedConstraintSurface> {
-        let name_id = name.as_name_id();
+        let name_id = name.to_name_id();
         let export = self.export(name_id)?;
 
         if export.kind() != SymbolKind::Constraint {
@@ -182,7 +180,7 @@ impl ModuleSurface {
         &self,
         name: N,
     ) -> Option<ImportedChoiceSurface> {
-        let name_id = name.as_name_id();
+        let name_id = name.to_name_id();
         let export = self.export(name_id)?;
 
         if export.kind() != SymbolKind::Choice {
@@ -424,12 +422,10 @@ fn collect_generic_parameters_in_node(
     if let Some(symbol) = graph
         .resolution()
         .and_then(|resolution| resolution.declaration_symbol(node))
+        && let Some(sym) = graph.resolution().and_then(|res| res.symbol(symbol))
+        && sym.kind() == SymbolKind::GenericParameter
     {
-        if let Some(sym) = graph.resolution().and_then(|res| res.symbol(symbol)) {
-            if sym.kind() == SymbolKind::GenericParameter {
-                symbols.push(symbol);
-            }
-        }
+        symbols.push(symbol);
     }
 
     for child in syntax_node.children() {

@@ -1,6 +1,6 @@
 use super::*;
 
-impl VirtualMachine {
+impl<'a> VirtualMachine<'a> {
     pub(super) fn execute_control_instruction(
         &mut self,
         instr: Instruction,
@@ -64,11 +64,38 @@ impl VirtualMachine {
                 args_start,
                 arg_count,
             } => {
-                let callee = self
-                    .image
+                let frame = self.call_stack.last().ok_or(VmError::EmptyCallStack)?;
+                let current_module_id = frame.module_id;
+                let current_image = &self.graph.get(current_module_id).unwrap().module;
+
+                let (target_module_id, target_func_idx) =
+                    if (func_idx.raw() as usize) < current_image.functions.len() {
+                        (current_module_id, func_idx)
+                    } else {
+                        let import_idx = (func_idx.raw() as usize) - current_image.functions.len();
+                        let link = self
+                            .graph
+                            .resolve_imports(current_module_id)
+                            .map_err(|_| VmError::FunctionOutOfBounds { index: func_idx })?;
+                        let import = link
+                            .imports
+                            .get(import_idx)
+                            .ok_or(VmError::FunctionOutOfBounds { index: func_idx })?;
+                        let func = match &import.kind {
+                            galfus_bytecode::graph_resolver::ResolvedImportKind::Function(f) => *f,
+                            _ => return Err(VmError::FunctionOutOfBounds { index: func_idx }),
+                        };
+                        (import.module_id, func)
+                    };
+
+                let target_image = &self.graph.get(target_module_id).unwrap().module;
+                let callee = target_image
                     .functions
-                    .get(func_idx.raw() as usize)
-                    .ok_or(VmError::FunctionOutOfBounds { index: func_idx })?;
+                    .get(target_func_idx.raw() as usize)
+                    .ok_or(VmError::FunctionOutOfBounds {
+                        index: target_func_idx,
+                    })?;
+
                 if arg_count != callee.param_count {
                     return Err(VmError::TypeMismatch {
                         expected: format!("{} arguments", callee.param_count),
@@ -91,7 +118,8 @@ impl VirtualMachine {
 
                 // Save destination register inside call frame to write return value back
                 self.call_stack.push(CallFrame {
-                    func_idx,
+                    module_id: target_module_id,
+                    func_idx: target_func_idx,
                     pc: 0,
                     registers: callee_regs,
                     return_dest: Some(dest),
@@ -107,7 +135,8 @@ impl VirtualMachine {
             } => {
                 // Resolve method name from constant pool.
                 let method_name = match self
-                    .image
+                    .current_image()
+                    .unwrap()
                     .constants
                     .constants
                     .get(name_const.raw() as usize)
@@ -139,86 +168,133 @@ impl VirtualMachine {
                     }
                 }
 
-                let receiver_layout_name = match self.read_reg(obj)? {
+                let receiver_layout = match self.read_reg(obj)? {
                     Value::Object(obj_ref) => match self.get_object(obj_ref)? {
-                        HeapObject::Struct { layout_idx, .. } => self
-                            .image
+                        HeapObject::Struct {
+                            module_id,
+                            layout_idx,
+                            ..
+                        } => self
+                            .graph
+                            .get(*module_id)
+                            .unwrap()
+                            .module
                             .struct_layouts
                             .get(layout_idx.raw() as usize)
-                            .map(|layout| layout.name.clone()),
+                            .map(|layout| (*module_id, layout.name.clone())),
                         _ => None,
                     },
                     _ => None,
                 };
-                let qualified_name = receiver_layout_name
+                let qualified_name = receiver_layout
                     .as_ref()
-                    .map(|layout_name| format!("{layout_name}::{method_name}"));
+                    .map(|(_, layout_name)| format!("{layout_name}::{method_name}"));
 
-                let func_idx = if let Some(qualified_name) = qualified_name {
-                    self.image
-                        .functions
-                        .iter()
-                        .position(|function| {
-                            let clean_name = if let Some(start) = function.name.find('<') {
-                                if let Some(end) = function.name.find(">::") {
-                                    format!(
-                                        "{}::{}",
-                                        &function.name[..start],
-                                        &function.name[end + 3..]
-                                    )
-                                } else {
-                                    function.name.clone()
-                                }
+                let mut resolved_target = None;
+
+                let check_name = |name: &str, target_name: &str, is_qualified: bool| -> bool {
+                    if is_qualified {
+                        let clean_name = if let Some(start) = name.find('<') {
+                            if let Some(end) = name.find(">::") {
+                                format!("{}::{}", &name[..start], &name[end + 3..])
                             } else {
-                                function.name.clone()
-                            };
-
-                            clean_name == qualified_name
-                                || clean_name.starts_with(&format!("{qualified_name}#"))
-                        })
-                        .map(|index| FuncIdx(index as u16))
-                        .ok_or_else(|| {
-                            let available = self
-                                .image
-                                .functions
-                                .iter()
-                                .map(|f| f.name.clone())
-                                .collect::<Vec<_>>()
-                                .join(", ");
-                            VmError::TypeMismatch {
-                                expected: format!(
-                                    "function named '{qualified_name}'. Available: {available}"
-                                ),
-                                found: "no matching function in image".to_string(),
+                                name.to_string()
                             }
-                        })?
-                } else {
-                    self.image
-                        .functions
-                        .iter()
-                        .position(|function| {
-                            function.name == method_name
-                                || function.name.ends_with(&format!("::{method_name}"))
-                        })
-                        .map(|index| FuncIdx(index as u16))
-                        .ok_or_else(|| {
-                            let available = self
-                                .image
-                                .functions
-                                .iter()
-                                .map(|f| f.name.clone())
-                                .collect::<Vec<_>>()
-                                .join(", ");
-                            VmError::TypeMismatch {
-                                expected: format!(
-                                    "function named '{method_name}'. Available: {available}"
-                                ),
-                                found: "no matching function in image".to_string(),
-                            }
-                        })?
+                        } else {
+                            name.to_string()
+                        };
+                        clean_name == target_name
+                            || clean_name.starts_with(&format!("{}#", target_name))
+                    } else {
+                        name == target_name || name.ends_with(&format!("::{}", target_name))
+                    }
                 };
 
-                let callee = &self.image.functions[func_idx.raw() as usize];
+                let current_module_id = self.call_stack.last().unwrap().module_id;
+                let resolution_module_id = receiver_layout
+                    .as_ref()
+                    .map(|(module_id, _)| *module_id)
+                    .unwrap_or(current_module_id);
+                let resolution_image = &self.graph.get(resolution_module_id).unwrap().module;
+
+                // 1. Search in the receiver's module, or the current module for primitives.
+                if let Some(qualified_name) = &qualified_name
+                    && let Some(index) = resolution_image
+                        .functions
+                        .iter()
+                        .position(|f| check_name(&f.name, qualified_name, true))
+                {
+                    resolved_target = Some((resolution_module_id, FuncIdx(index as u16)));
+                }
+                if resolved_target.is_none()
+                    && let Some(index) = resolution_image
+                        .functions
+                        .iter()
+                        .position(|f| check_name(&f.name, &method_name, false))
+                {
+                    resolved_target = Some((resolution_module_id, FuncIdx(index as u16)));
+                }
+
+                // 2. Search in imports
+                if resolved_target.is_none()
+                    && let Ok(link) = self.graph.resolve_imports(resolution_module_id)
+                {
+                    for imp in &link.imports {
+                        let target_func_idx = match &imp.kind {
+                            galfus_bytecode::graph_resolver::ResolvedImportKind::Function(f) => *f,
+                            _ => continue,
+                        };
+                        let target_image = &self.graph.get(imp.module_id).unwrap().module;
+                        let target_func = &target_image.functions[target_func_idx.raw() as usize];
+                        let matched = if let Some(qualified_name) = &qualified_name {
+                            check_name(&target_func.name, qualified_name, true)
+                        } else {
+                            check_name(&target_func.name, &method_name, false)
+                        };
+                        if matched {
+                            resolved_target = Some((imp.module_id, target_func_idx));
+                            break;
+                        }
+                    }
+                }
+
+                let (target_module_id, target_func_idx) = resolved_target.ok_or_else(|| {
+                    let mut available = resolution_image
+                        .functions
+                        .iter()
+                        .map(|f| f.name.clone())
+                        .collect::<Vec<_>>();
+                    if let Ok(link) = self.graph.resolve_imports(resolution_module_id) {
+                        for imp in &link.imports {
+                            let target_func_idx = match &imp.kind {
+                                galfus_bytecode::graph_resolver::ResolvedImportKind::Function(
+                                    f,
+                                ) => *f,
+                                _ => continue,
+                            };
+                            let target_image = &self.graph.get(imp.module_id).unwrap().module;
+                            available.push(
+                                target_image.functions[target_func_idx.raw() as usize]
+                                    .name
+                                    .clone(),
+                            );
+                        }
+                    }
+                    VmError::TypeMismatch {
+                        expected: format!(
+                            "function named '{}'",
+                            qualified_name.as_ref().unwrap_or(&method_name)
+                        ),
+                        found: format!(
+                            "no matching function in module. Available: {}",
+                            available.join(", ")
+                        ),
+                    }
+                })?;
+
+                let target_image = &self.graph.get(target_module_id).unwrap().module;
+                let callee = &target_image.functions[target_func_idx.raw() as usize];
+
                 if arg_count != callee.param_count {
                     return Err(VmError::TypeMismatch {
                         expected: format!("{} arguments", callee.param_count),
@@ -244,7 +320,8 @@ impl VirtualMachine {
                 }
 
                 self.call_stack.push(CallFrame {
-                    func_idx,
+                    module_id: target_module_id,
+                    func_idx: target_func_idx,
                     pc: 0,
                     registers: callee_regs,
                     return_dest: Some(dest),
@@ -266,11 +343,39 @@ impl VirtualMachine {
                         });
                     }
                 };
-                let callee = self
-                    .image
+
+                let frame = self.call_stack.last().ok_or(VmError::EmptyCallStack)?;
+                let current_module_id = frame.module_id;
+                let current_image = &self.graph.get(current_module_id).unwrap().module;
+
+                let (target_module_id, target_func_idx) =
+                    if (func_idx.raw() as usize) < current_image.functions.len() {
+                        (current_module_id, func_idx)
+                    } else {
+                        let import_idx = (func_idx.raw() as usize) - current_image.functions.len();
+                        let link = self
+                            .graph
+                            .resolve_imports(current_module_id)
+                            .map_err(|_| VmError::FunctionOutOfBounds { index: func_idx })?;
+                        let import = link
+                            .imports
+                            .get(import_idx)
+                            .ok_or(VmError::FunctionOutOfBounds { index: func_idx })?;
+                        let func = match &import.kind {
+                            galfus_bytecode::graph_resolver::ResolvedImportKind::Function(f) => *f,
+                            _ => return Err(VmError::FunctionOutOfBounds { index: func_idx }),
+                        };
+                        (import.module_id, func)
+                    };
+
+                let target_image = &self.graph.get(target_module_id).unwrap().module;
+                let callee = target_image
                     .functions
-                    .get(func_idx.raw() as usize)
-                    .ok_or(VmError::FunctionOutOfBounds { index: func_idx })?;
+                    .get(target_func_idx.raw() as usize)
+                    .ok_or(VmError::FunctionOutOfBounds {
+                        index: target_func_idx,
+                    })?;
+
                 if arg_count != callee.param_count {
                     return Err(VmError::TypeMismatch {
                         expected: format!("{} arguments", callee.param_count),
@@ -292,7 +397,8 @@ impl VirtualMachine {
                 }
 
                 self.call_stack.push(CallFrame {
-                    func_idx,
+                    module_id: target_module_id,
+                    func_idx: target_func_idx,
                     pc: 0,
                     registers: callee_regs,
                     return_dest: Some(dest),
@@ -327,7 +433,8 @@ impl VirtualMachine {
             }
             Instruction::Panic { const_idx } => {
                 let constant = self
-                    .image
+                    .current_image()
+                    .unwrap()
                     .constants
                     .constants
                     .get(const_idx.raw() as usize)
@@ -356,8 +463,19 @@ impl VirtualMachine {
         };
 
         let (array_ref, current) = match self.get_object(iterator_ref)? {
-            HeapObject::Struct { layout_idx, fields } => {
-                let Some(layout) = self.image.struct_layouts.get(layout_idx.raw() as usize) else {
+            HeapObject::Struct {
+                module_id,
+                layout_idx,
+                fields,
+            } => {
+                let Some(layout) = self
+                    .graph
+                    .get(*module_id)
+                    .unwrap()
+                    .module
+                    .struct_layouts
+                    .get(layout_idx.raw() as usize)
+                else {
                     return Ok(None);
                 };
                 if layout.name != "ArrayIterator" {

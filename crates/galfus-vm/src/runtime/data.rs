@@ -1,6 +1,6 @@
 use super::*;
 
-impl VirtualMachine {
+impl<'a> VirtualMachine<'a> {
     pub(super) fn execute_data_instruction(
         &mut self,
         instr: Instruction,
@@ -9,17 +9,24 @@ impl VirtualMachine {
             // Category A: Data Movement & Constants
             Instruction::LoadConst { dest, const_idx } => {
                 let constant = self
-                    .image
+                    .current_image()
+                    .unwrap()
                     .constants
                     .constants
                     .get(const_idx.raw() as usize)
                     .ok_or(VmError::ConstantOutOfBounds { index: const_idx })?;
                 let val = match constant {
                     Constant::Bool(b) => Value::Bool(*b),
+                    Constant::Int8(i) => Value::Int8(*i),
+                    Constant::Int16(i) => Value::Int16(*i),
                     Constant::Int32(i) => Value::Int32(*i),
                     Constant::Int64(i) => Value::Int64(*i),
-                    Constant::Int(i) => Value::Int64(*i),
-                    Constant::Float(f) => Value::Float64(*f),
+                    Constant::Uint8(i) => Value::Uint8(*i),
+                    Constant::Uint16(i) => Value::Uint16(*i),
+                    Constant::Uint32(i) => Value::Uint32(*i),
+                    Constant::Uint64(i) => Value::Uint64(*i),
+                    Constant::Float32(f) => Value::Float32(*f),
+                    Constant::Float64(f) => Value::Float64(*f),
                     Constant::String(s) => {
                         let element_ty = self.uint8_type_idx();
                         let obj = HeapObject::Array {
@@ -44,21 +51,31 @@ impl VirtualMachine {
                 let val = self.read_reg(src)?;
                 self.write_reg(dest, val)?;
             }
-            Instruction::LoadGlobal { dest, global_idx } => {
+            Instruction::LoadGlobal {
+                dest,
+                module_id,
+                global_idx,
+            } => {
                 let val = self
-                    .globals
-                    .get(global_idx.raw() as usize)
+                    .module_states
+                    .get(&module_id)
+                    .and_then(|state| state.globals.get(global_idx.raw() as usize))
                     .cloned()
                     .unwrap_or(Value::Null);
                 self.write_reg(dest, val)?;
             }
-            Instruction::StoreGlobal { global_idx, src } => {
+            Instruction::StoreGlobal {
+                module_id,
+                global_idx,
+                src,
+            } => {
                 let val = self.read_reg(src)?;
                 let idx = global_idx.raw() as usize;
-                if idx >= self.globals.len() {
-                    self.globals.resize(idx + 1, Value::Null);
+                let globals = &mut self.module_states.entry(module_id).or_default().globals;
+                if idx >= globals.len() {
+                    globals.resize(idx + 1, Value::Null);
                 }
-                self.globals[idx] = val;
+                globals[idx] = val;
             }
             Instruction::LoadNull { dest } => {
                 self.write_reg(dest, Value::Null)?;
@@ -71,10 +88,11 @@ impl VirtualMachine {
     }
 
     fn uint8_type_idx(&self) -> TypeIdx {
-        self.image
+        self.current_image()
+            .unwrap()
             .types
             .iter()
-            .position(|ty| matches!(ty, ImageType::Uint8))
+            .position(|ty| matches!(ty, BytecodeType::Uint8))
             .map(|idx| TypeIdx(idx as u16))
             .unwrap_or(TypeIdx(7))
     }

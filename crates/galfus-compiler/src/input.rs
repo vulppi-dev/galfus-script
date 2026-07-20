@@ -64,13 +64,3 @@ impl CompiledModule {
         self.type_result.as_mut()
     }
 }
-
-/// The input to the compiler: a set of verified modules with a declared entry point.
-pub struct CompilerInput<'a> {
-    /// All modules to be compiled, in dependency order (dependencies before dependents).
-    pub modules: &'a mut [CompiledModule],
-    /// Index within `modules` of the workspace entry point.
-    pub entry_index: usize,
-    /// The name of the module image to produce (e.g. the workspace name).
-    pub image_name: String,
-}

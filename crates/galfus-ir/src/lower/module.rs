@@ -1,6 +1,6 @@
+use galfus_bytecode::*;
 use galfus_core::SymbolId;
 use galfus_frontend::{ModuleGraph, SyntaxNodeKind, TypeCheckResult};
-use galfus_image::*;
 use std::collections::HashSet;
 
 use super::LowerCtx;
@@ -12,7 +12,7 @@ pub fn lower_module(
     type_result: &TypeCheckResult,
     module_graph: &ModuleGraph,
     source_text: &str,
-) -> ModuleImage {
+) -> (BytecodeModule, galfus_bytecode::graph::ExecutionMetadata) {
     let mut ctx = LowerCtx::new(
         type_result,
         module_graph,
@@ -28,6 +28,9 @@ pub fn lower_module(
 
     let mut functions = Vec::new();
     let mut init_func_idx = None;
+    let mut execution_metadata = galfus_bytecode::graph::ExecutionMetadata {
+        spans: std::collections::HashMap::new(),
+    };
 
     for (i, mir_func) in mir_module.functions.iter().enumerate() {
         ctx.active_substitutions = mir_func.type_substitutions.clone();
@@ -48,9 +51,12 @@ pub fn lower_module(
 
         let mut emitter =
             crate::lower::function::FnEmitter::new(&mut ctx, mir_func, param_count, local_count);
-        let instructions = emitter.emit();
+        let (instructions, function_spans) = emitter.emit();
+        execution_metadata
+            .spans
+            .insert(FuncIdx(i as u16), function_spans);
 
-        functions.push(ImageFunction {
+        functions.push(BytecodeFunction {
             name: mir_func.name.clone(),
             param_count: param_count.try_into().unwrap(),
             local_count,
@@ -71,12 +77,12 @@ pub fn lower_module(
             let func_idx = ctx.function_map[&mir_func.id];
             exports.push(ExportSlot {
                 symbol_name: mir_func.name.clone(),
-                func_idx,
+                kind: ExportKind::Function(func_idx),
             });
         }
     }
 
-    ModuleImage {
+    let module = BytecodeModule {
         name: module_graph.source_id().raw().to_string(),
         constants: ctx.constant_pool,
         functions,
@@ -86,7 +92,9 @@ pub fn lower_module(
         imports: Vec::new(),
         exports,
         init_func_idx,
-    }
+    };
+
+    (module, execution_metadata)
 }
 
 fn collect_exports(graph: &ModuleGraph) -> HashSet<SymbolId> {

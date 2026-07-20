@@ -26,6 +26,12 @@ pub struct SourceStore {
     next_source_id: u32,
 }
 
+impl Default for SourceStore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SourceStore {
     pub fn new() -> Self {
         Self {

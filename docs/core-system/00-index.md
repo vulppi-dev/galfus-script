@@ -50,7 +50,8 @@ Galfus Script MUST preserve these invariants:
 - `for` and function parameters create constant bindings by default.
 - Keyword metadata is not the same thing as decorators.
 - Decorators are typed transformer functions.
-- `ImageModule` serialization is internal to final target bundles only.
+- Bytecode is currently in-memory only; serialization and final bundles are
+  planned, not implemented.
 
 ---
 

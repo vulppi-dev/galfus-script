@@ -120,14 +120,13 @@ impl<'a> DeclarationTypeChecker<'a> {
         }
 
         let target_name = self.loop_target_name(node);
-        if let Some(ref name) = target_name {
-            if self
+        if let Some(ref name) = target_name
+            && self
                 .control_targets
                 .iter()
                 .any(|t| t.name.as_ref() == Some(name))
-            {
-                self.report_duplicate_control_target(node, name);
-            }
+        {
+            self.report_duplicate_control_target(node, name);
         }
 
         self.control_targets.push(ControlTarget {
@@ -168,14 +167,13 @@ impl<'a> DeclarationTypeChecker<'a> {
 
         let Some(element_type) = self.check_for_iterable_type(iterable) else {
             let target_name = self.loop_target_name(node);
-            if let Some(ref name) = target_name {
-                if self
+            if let Some(ref name) = target_name
+                && self
                     .control_targets
                     .iter()
                     .any(|t| t.name.as_ref() == Some(name))
-                {
-                    self.report_duplicate_control_target(node, name);
-                }
+            {
+                self.report_duplicate_control_target(node, name);
             }
             self.control_targets.push(ControlTarget {
                 _node: node,
@@ -189,14 +187,13 @@ impl<'a> DeclarationTypeChecker<'a> {
         self.bind_for_binding_type(binding, element_type);
 
         let target_name = self.loop_target_name(node);
-        if let Some(ref name) = target_name {
-            if self
+        if let Some(ref name) = target_name
+            && self
                 .control_targets
                 .iter()
                 .any(|t| t.name.as_ref() == Some(name))
-            {
-                self.report_duplicate_control_target(node, name);
-            }
+        {
+            self.report_duplicate_control_target(node, name);
         }
         self.control_targets.push(ControlTarget {
             _node: node,
@@ -216,14 +213,12 @@ impl<'a> DeclarationTypeChecker<'a> {
 
         for child in metadata_list.children() {
             let child_node = self.graph.syntax().node(*child)?;
-            if child_node.kind() == SyntaxNodeKind::KeywordMetadataPair {
-                if let Some(key_ident) = child_node.first_child() {
-                    if self.node_text(key_ident) == "name" {
-                        if let Some(val_ident) = self.graph.syntax().child(*child, 1) {
-                            return Some(self.node_text(val_ident).to_string());
-                        }
-                    }
-                }
+            if child_node.kind() == SyntaxNodeKind::KeywordMetadataPair
+                && let Some(key_ident) = child_node.first_child()
+                && self.node_text(key_ident) == "name"
+                && let Some(val_ident) = self.graph.syntax().child(*child, 1)
+            {
+                return Some(self.node_text(val_ident).to_string());
             }
         }
         None

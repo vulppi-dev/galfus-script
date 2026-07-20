@@ -135,10 +135,10 @@ impl<'a> DeclarationTypeChecker<'a> {
         let resolution = self.graph.resolution()?;
 
         let type_ref = resolution.type_reference_symbol(base);
-        if let Some(symbol) = type_ref {
-            if let Some(constraint) = self.imported_symbol_constraints.get(&symbol) {
-                return Some((symbol, constraint));
-            }
+        if let Some(symbol) = type_ref
+            && let Some(constraint) = self.imported_symbol_constraints.get(&symbol)
+        {
+            return Some((symbol, constraint));
         }
 
         if let Some(symbol) = resolution.type_path_reference_symbol(base)
@@ -523,12 +523,10 @@ impl<'a> DeclarationTypeChecker<'a> {
 
         if let Some(TypeKind::GenericParameter { symbol }) =
             self.layer.table().kind(resolved_arg).cloned()
+            && let Some(arg_bound) = self.generic_parameter_bound_type(symbol)
+            && self.is_assignable(bound, arg_bound)
         {
-            if let Some(arg_bound) = self.generic_parameter_bound_type(symbol) {
-                if self.is_assignable(bound, arg_bound) {
-                    return true;
-                }
-            }
+            return true;
         }
 
         match self.layer.table().kind(bound).cloned() {
@@ -639,18 +637,18 @@ impl<'a> DeclarationTypeChecker<'a> {
                 )
             }),
             Some(TypeKind::Named { symbol }) => {
-                if let Some(resolution) = self.graph.resolution() {
-                    if let Some(sym) = resolution.symbol(*symbol) {
-                        return sym.kind() == SymbolKind::Choice;
-                    }
+                if let Some(resolution) = self.graph.resolution()
+                    && let Some(sym) = resolution.symbol(*symbol)
+                {
+                    return sym.kind() == SymbolKind::Choice;
                 }
                 false
             }
             Some(TypeKind::Path { root, .. }) => {
-                if let Some(resolution) = self.graph.resolution() {
-                    if let Some(sym) = resolution.symbol(*root) {
-                        return sym.kind() == SymbolKind::Choice;
-                    }
+                if let Some(resolution) = self.graph.resolution()
+                    && let Some(sym) = resolution.symbol(*root)
+                {
+                    return sym.kind() == SymbolKind::Choice;
                 }
                 false
             }

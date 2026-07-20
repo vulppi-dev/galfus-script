@@ -1,4 +1,4 @@
-use galfus_image::instruction::{ConstIdx, FieldIdx, FuncIdx, Reg, TypeIdx};
+use galfus_bytecode::instruction::{ConstIdx, FieldIdx, FuncIdx, Reg, TypeIdx};
 use thiserror::Error;
 
 #[cfg(test)]
@@ -48,7 +48,7 @@ pub enum VmError {
     #[error("Explicit panic: {message}")]
     Panic { message: String },
 
-    #[error("Invalid module image")]
+    #[error("Invalid bytecode module")]
     InvalidModule,
 
     #[error("Unimplemented instruction: {instruction}")]
@@ -63,8 +63,9 @@ pub enum VmError {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StackFrameInfo {
-    pub function_name: String,
-    pub pc: usize,
+    pub module_id: galfus_core::ModuleId,
+    pub func_idx: FuncIdx,
+    pub instruction_offset: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -78,7 +79,11 @@ impl std::fmt::Display for VmPanic {
         writeln!(f, "VM Panic: {}", self.error)?;
         writeln!(f, "Stack trace:")?;
         for (i, frame) in self.stack_trace.iter().enumerate() {
-            writeln!(f, "  #{}: {} (at PC {})", i, frame.function_name, frame.pc)?;
+            writeln!(
+                f,
+                "  #{}: Module {:?} Func {:?} (at instruction {})",
+                i, frame.module_id, frame.func_idx, frame.instruction_offset
+            )?;
         }
         Ok(())
     }

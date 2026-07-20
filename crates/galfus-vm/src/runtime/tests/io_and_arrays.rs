@@ -1,4 +1,5 @@
 use super::*;
+use galfus_bytecode::BytecodeModule;
 use galfus_host::{IoProvider, IoProviderError, IoRead, Providers};
 
 struct BufferIo {
@@ -34,16 +35,25 @@ fn test_target_write() {
         Instruction::Write { src: Reg(1) },
         Instruction::RetNull,
     ];
-    let image = create_test_image(instrs, vec![Constant::Int(42)]);
+    let image = create_test_module(instrs, vec![Constant::Int64(42)]);
     let buffer = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
     let provider = BufferIo {
         buffer: buffer.clone(),
         input: std::sync::Arc::new(std::sync::Mutex::new(Vec::new())),
         terminator: std::sync::Arc::new(std::sync::Mutex::new(Vec::new())),
     };
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
+        id: galfus_core::ModuleId::new(0),
+        path: galfus_core::ModulePath::new("test.gfs").unwrap(),
+        semantic_revision: galfus_core::SemanticRevision::new(0),
+        module: image,
+        metadata: None,
+    });
     let mut vm =
-        VirtualMachine::new(image).with_providers(Some(Providers::with_io(Box::new(provider))));
-    let res = vm.run_function(FuncIdx(0), vec![]).unwrap();
+        VirtualMachine::new(&graph).with_providers(Some(Providers::with_io(Box::new(provider))));
+    let res = vm
+        .run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![])
+        .unwrap();
     assert_eq!(res, Value::Null);
     let output = buffer.lock().unwrap();
     assert_eq!(std::str::from_utf8(&output).unwrap(), "42");
@@ -62,7 +72,7 @@ fn test_target_read() {
         },
         Instruction::Ret { src: Reg(1) },
     ];
-    let image = create_test_image(instrs, vec![Constant::String("!".to_string())]);
+    let image = create_test_module(instrs, vec![Constant::String("!".to_string())]);
     let input = std::sync::Arc::new(std::sync::Mutex::new(b"abc".to_vec()));
     let terminator = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
     let provider = BufferIo {
@@ -70,9 +80,18 @@ fn test_target_read() {
         input,
         terminator: terminator.clone(),
     };
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
+        id: galfus_core::ModuleId::new(0),
+        path: galfus_core::ModulePath::new("test.gfs").unwrap(),
+        semantic_revision: galfus_core::SemanticRevision::new(0),
+        module: image,
+        metadata: None,
+    });
     let mut vm =
-        VirtualMachine::new(image).with_providers(Some(Providers::with_io(Box::new(provider))));
-    let res = vm.run_function(FuncIdx(0), vec![]).unwrap();
+        VirtualMachine::new(&graph).with_providers(Some(Providers::with_io(Box::new(provider))));
+    let res = vm
+        .run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![])
+        .unwrap();
     let arr_ref = match res {
         Value::Object(r) => r,
         other => panic!("expected object, got {:?}", other),
@@ -103,11 +122,18 @@ fn test_read_requires_an_io_provider_when_executed() {
         },
         Instruction::Ret { src: Reg(1) },
     ];
-    let image = create_test_image(instrs, vec![Constant::String("\n".to_string())]);
-    let mut vm = VirtualMachine::new(image);
+    let image = create_test_module(instrs, vec![Constant::String("\n".to_string())]);
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
+        id: galfus_core::ModuleId::new(0),
+        path: galfus_core::ModulePath::new("test.gfs").unwrap(),
+        semantic_revision: galfus_core::SemanticRevision::new(0),
+        module: image,
+        metadata: None,
+    });
+    let mut vm = VirtualMachine::new(&graph);
 
     let panic = vm
-        .run_function(FuncIdx(0), vec![])
+        .run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![])
         .expect_err("read without I/O provider fails");
 
     assert_eq!(
@@ -197,21 +223,21 @@ fn test_len_and_copy_array() {
         Instruction::Ret { src: Reg(7) },
     ];
 
-    let image = ModuleImage {
+    let image = BytecodeModule {
         name: "test".to_string(),
         constants: ConstantPool {
             constants: vec![
-                Constant::Int(3),  // 0
-                Constant::Int(10), // 1
-                Constant::Int(0),  // 2
-                Constant::Int(20), // 3
-                Constant::Int(1),  // 4
-                Constant::Int(30), // 5
-                Constant::Int(2),  // 6
-                Constant::Int(5),  // 7
+                Constant::Int64(3),  // 0
+                Constant::Int64(10), // 1
+                Constant::Int64(0),  // 2
+                Constant::Int64(20), // 3
+                Constant::Int64(1),  // 4
+                Constant::Int64(30), // 5
+                Constant::Int64(2),  // 6
+                Constant::Int64(5),  // 7
             ],
         },
-        functions: vec![ImageFunction {
+        functions: vec![BytecodeFunction {
             name: "main".to_string(),
             param_count: 0,
             local_count: 10,
@@ -219,7 +245,7 @@ fn test_len_and_copy_array() {
             return_ty: TypeIdx(1),
             instructions: instrs,
         }],
-        types: vec![ImageType::Int64, ImageType::Array(TypeIdx(0))],
+        types: vec![BytecodeType::Int64, BytecodeType::Array(TypeIdx(0))],
         struct_layouts: vec![],
         choice_layouts: vec![],
         imports: vec![],
@@ -227,8 +253,17 @@ fn test_len_and_copy_array() {
         init_func_idx: None,
     };
 
-    let mut vm = VirtualMachine::new(image);
-    let res = vm.run_function(FuncIdx(0), vec![]).unwrap();
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
+        id: galfus_core::ModuleId::new(0),
+        path: galfus_core::ModulePath::new("test.gfs").unwrap(),
+        semantic_revision: galfus_core::SemanticRevision::new(0),
+        module: image,
+        metadata: None,
+    });
+    let mut vm = VirtualMachine::new(&graph);
+    let res = vm
+        .run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![])
+        .unwrap();
     let arr_ref = match res {
         Value::Object(r) => r,
         other => panic!("expected object, got {:?}", other),
@@ -310,22 +345,31 @@ fn test_load_index_accepts_negative_index() {
         Instruction::Ret { src: Reg(5) },
     ];
 
-    let image = create_test_image(
+    let image = create_test_module(
         instrs,
         vec![
-            Constant::Int(3),
-            Constant::Int(10),
-            Constant::Int(0),
-            Constant::Int(20),
-            Constant::Int(1),
-            Constant::Int(30),
-            Constant::Int(2),
-            Constant::Int(-1),
+            Constant::Int64(3),
+            Constant::Int64(10),
+            Constant::Int64(0),
+            Constant::Int64(20),
+            Constant::Int64(1),
+            Constant::Int64(30),
+            Constant::Int64(2),
+            Constant::Int64(-1),
         ],
     );
 
-    let mut vm = VirtualMachine::new(image);
-    let res = vm.run_function(FuncIdx(0), vec![]).unwrap();
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
+        id: galfus_core::ModuleId::new(0),
+        path: galfus_core::ModulePath::new("test.gfs").unwrap(),
+        semantic_revision: galfus_core::SemanticRevision::new(0),
+        module: image,
+        metadata: None,
+    });
+    let mut vm = VirtualMachine::new(&graph);
+    let res = vm
+        .run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![])
+        .unwrap();
 
     assert_eq!(res, Value::Int64(30));
 }
@@ -354,10 +398,19 @@ fn test_load_index_out_of_bounds_returns_null() {
         Instruction::Ret { src: Reg(4) },
     ];
 
-    let image = create_test_image(instrs, vec![Constant::Int(3), Constant::Int(99)]);
+    let image = create_test_module(instrs, vec![Constant::Int64(3), Constant::Int64(99)]);
 
-    let mut vm = VirtualMachine::new(image);
-    let res = vm.run_function(FuncIdx(0), vec![]).unwrap();
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
+        id: galfus_core::ModuleId::new(0),
+        path: galfus_core::ModulePath::new("test.gfs").unwrap(),
+        semantic_revision: galfus_core::SemanticRevision::new(0),
+        module: image,
+        metadata: None,
+    });
+    let mut vm = VirtualMachine::new(&graph);
+    let res = vm
+        .run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![])
+        .unwrap();
 
     assert_eq!(res, Value::Null);
 }
@@ -399,18 +452,27 @@ fn test_store_index_accepts_negative_index() {
         Instruction::Ret { src: Reg(5) },
     ];
 
-    let image = create_test_image(
+    let image = create_test_module(
         instrs,
         vec![
-            Constant::Int(3),
-            Constant::Int(99),
-            Constant::Int(-1),
-            Constant::Int(2),
+            Constant::Int64(3),
+            Constant::Int64(99),
+            Constant::Int64(-1),
+            Constant::Int64(2),
         ],
     );
 
-    let mut vm = VirtualMachine::new(image);
-    let res = vm.run_function(FuncIdx(0), vec![]).unwrap();
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
+        id: galfus_core::ModuleId::new(0),
+        path: galfus_core::ModulePath::new("test.gfs").unwrap(),
+        semantic_revision: galfus_core::SemanticRevision::new(0),
+        module: image,
+        metadata: None,
+    });
+    let mut vm = VirtualMachine::new(&graph);
+    let res = vm
+        .run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![])
+        .unwrap();
 
     assert_eq!(res, Value::Int64(99));
 }
@@ -443,13 +505,22 @@ fn test_store_index_out_of_bounds_returns_error() {
         Instruction::RetNull,
     ];
 
-    let image = create_test_image(
+    let image = create_test_module(
         instrs,
-        vec![Constant::Int(3), Constant::Int(99), Constant::Int(3)],
+        vec![Constant::Int64(3), Constant::Int64(99), Constant::Int64(3)],
     );
 
-    let mut vm = VirtualMachine::new(image);
-    let err = vm.run_function(FuncIdx(0), vec![]).unwrap_err();
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
+        id: galfus_core::ModuleId::new(0),
+        path: galfus_core::ModulePath::new("test.gfs").unwrap(),
+        semantic_revision: galfus_core::SemanticRevision::new(0),
+        module: image,
+        metadata: None,
+    });
+    let mut vm = VirtualMachine::new(&graph);
+    let err = vm
+        .run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![])
+        .unwrap_err();
 
     assert!(matches!(
         err.error,

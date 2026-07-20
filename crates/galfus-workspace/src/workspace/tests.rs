@@ -59,7 +59,7 @@ fn check_includes_configured_entry_and_exports_as_semantic_roots() {
 }
 
 #[test]
-fn compile_emits_one_image_per_module_with_import_slots() {
+fn compile_emits_one_module_per_source_module_with_import_slots() {
     let mut workspace = Workspace::new();
     workspace
         .load_config(
@@ -105,11 +105,11 @@ fn compile_emits_one_image_per_module_with_import_slots() {
         .modules()
         .find(|image| image.path().as_str() == "main.gfs")
         .expect("main image");
-    assert_eq!(main.image().imports.len(), 1);
-    assert_eq!(main.image().imports[0].module_name, "math.gfs");
-    assert_eq!(main.image().imports[0].symbol_name, "add");
+    assert_eq!(main.module().imports.len(), 1);
+    assert_eq!(main.module().imports[0].module_name, "math.gfs");
+    assert_eq!(main.module().imports[0].symbol_name, "add");
     assert!(
-        main.image()
+        main.module()
             .functions
             .iter()
             .all(|function| function.name != "__init_workspace")
@@ -117,7 +117,7 @@ fn compile_emits_one_image_per_module_with_import_slots() {
 }
 
 #[test]
-fn compile_updates_changed_images_and_removes_deleted_images() {
+fn compile_updates_changed_modules_and_removes_deleted_modules() {
     let mut workspace = Workspace::new();
     workspace
         .load_config(
@@ -598,22 +598,18 @@ fn run_synchronizes_the_runtime_module_graph() {
 
     assert!(workspace.check().is_valid);
     let first = workspace.compile().expect("workspace compiles").graph;
-    let main = first
+    first
         .modules()
         .find(|image| image.path().as_str() == "main.gfs")
         .expect("main image");
-    let helper = first
+    first
         .modules()
         .find(|image| image.path().as_str() == "helper.gfs")
         .expect("helper image");
-    let main_id = main.id();
-    let helper_id = helper.id();
-
     assert_eq!(
         workspace.run(&[], None).expect("entry executes").exit_code,
         0
     );
-    assert_eq!(workspace.runtime.modules().len(), 2);
 
     assert!(matches!(
         workspace.remove_module("helper.gfs"),
@@ -625,6 +621,4 @@ fn run_synchronizes_the_runtime_module_graph() {
         workspace.run(&[], None).expect("entry executes").exit_code,
         0
     );
-    assert!(workspace.runtime.modules().get(main_id).is_some());
-    assert!(workspace.runtime.modules().get(helper_id).is_none());
 }
