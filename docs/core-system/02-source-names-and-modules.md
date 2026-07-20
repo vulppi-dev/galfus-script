@@ -216,7 +216,9 @@ The source-level public file types are:
 ```
 
 
-Compiled internal module images are serialized only inside final target bundle blobs.
+Compiled modules are represented in memory as `BytecodeModule` values within a
+`BytecodeGraph`. Serialization and final target bundles are planned, not
+implemented.
 
 ## 2.11 Contract
 

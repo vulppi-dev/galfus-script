@@ -1,6 +1,11 @@
 # Galfus VM Bytecode and Opcode Specification
 
-This document defines the binary instruction set (opcodes) and bytecode format for the Galfus Virtual Machine. It supports the execution requirements of local allocation, deterministic release, type casts, and control flow, and is future-proofed for target-agnostic multithreading and Software Transactional Memory (STM).
+> **Status: Historical design.** The current VM executes the in-memory Rust
+> `Instruction` representation. It has no serialized bytecode format,
+> variable-length binary encoding, multithreading, or STM contract.
+
+This document preserves an earlier binary instruction-set proposal for the
+Galfus Virtual Machine.
 
 ---
 

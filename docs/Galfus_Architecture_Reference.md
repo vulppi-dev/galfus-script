@@ -9,7 +9,7 @@ Galfus Script is a typed, VM-first scripting language with a straightforward pip
     ↓
 Frontend (SemanticGraph)
     ↓
-Compiler (BytecodeGraphTransaction)
+Compiler (BytecodeModule values)
     ↓
 Workspace (BytecodeGraph)
     ↓
@@ -24,8 +24,8 @@ VM (Instruction Execution)
 - Deterministic VM and memory graph
 - Optional Host Providers boundary
 
-**What is NOT part of the current architecture (Historical or Planned):**
-- **GFB (Galfus Bytecode File):** Removed. The graph exists purely in memory.
+**What is NOT part of the current architecture:**
+- **GFB (Galfus Bytecode File):** Removed. The graph exists only in memory.
 - **Bundler:** Not implemented.
 - **Optimizer:** Not implemented.
 - **Multithreading:** Not implemented.
@@ -56,7 +56,9 @@ There is no global shared namespace. A variable without `export` belongs strictl
 It contains multiple `BytecodeModule`s and their dependencies.
 It is the only executable graph. The runtime does not rebuild or duplicate this graph.
 
-Updates are transactional: the compiler produces a `BytecodeGraphTransaction` containing entire replaced modules. If validated, the transaction produces a new snapshot of the `BytecodeGraph`.
+The workspace compiles changed modules, builds a `BytecodeGraphTransaction`, and
+publishes a new graph snapshot. Versioned transactions, graph-wide validation,
+and rollback are planned improvements; they are not current guarantees.
 
 ---
 
@@ -73,8 +75,10 @@ It manages the orchestration of the frontend, compiler, and provides an API for 
 
 ## 6. Runtime and VM
 
-The `Runtime` receives an `Arc<BytecodeGraph>` and optionally a set of `Providers`.
-It maintains execution state (such as module globals, initialization status, and heap) but does not duplicate bytecode.
+The runtime executes a borrowed `BytecodeGraph` with optional `Providers`.
+Execution state currently lives in the VM and the runtime does not duplicate
+bytecode. Per-module global state and dependency-ordered module initialization
+are planned improvements.
 
 The `VM` executes bytecode instructions. It receives frames containing `ModuleId`, `FunctionId`, and `InstructionOffset`. Execution is implemented fundamentally via a `step` function that runs one instruction at a time.
 
@@ -83,12 +87,15 @@ The `VM` executes bytecode instructions. It receives frames containing `ModuleId
 ## 7. Providers
 
 Providers represent the boundary between Galfus and the host platform.
-Capabilities (I/O, File System, Network) are injected via providers when initializing the runtime.
+The implemented provider surface is synchronous I/O. Additional capabilities
+such as file system and network access are planned.
 If a provider is not supplied, related builtin calls will fail deterministically, allowing trivial sandboxing.
 
 ---
 
 ## 8. Execution Metadata
 
-Each `BytecodeModule` may optionally contain `ExecutionMetadata` linking bytecode back to source paths and spans.
-This is used by the VM when producing structured stack traces upon panic, ensuring readable error messages without coupling the VM to the frontend.
+Each `BytecodeNode` may contain optional `ExecutionMetadata` with instruction
+spans. Panic frames always contain module ID, function index, and instruction
+offset; the runtime formats them and uses spans when they are available.
+Function-symbol and source-path mappings are planned metadata extensions.

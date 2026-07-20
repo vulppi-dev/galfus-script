@@ -1,11 +1,14 @@
 # galfus-runtime
 
-`galfus-runtime` defines the execution environment, module state, and execution context mapping over the `BytecodeGraph`.
+`galfus-runtime` defines entrypoint validation and execution orchestration over
+a borrowed `BytecodeGraph`.
 
 ## Responsibilities
 
-- **Runtime Execution State**: Maintains global variables, module initialization status, and the runtime heap.
-- **Runtime Context**: Aggregates the `BytecodeGraph` and the optional host providers supplied for an execution.
+- **Entrypoint Execution**: Validates and invokes exported module entries.
+- **Runtime Context**: Passes the `BytecodeGraph` and optional host providers to the VM for an execution.
 - **Host Integration**: Receives `Providers` from the workspace and routes capability requests to the host platform.
 
-The runtime does not copy, rebuild, or deduplicate the `BytecodeGraph`. It merely maintains the live execution state associated with it.
+The runtime does not copy, rebuild, or deduplicate the `BytecodeGraph`.
+Per-module runtime state is planned; current VM state includes one global-slot
+vector, the heap, and call frames.

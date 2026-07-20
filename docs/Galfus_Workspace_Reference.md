@@ -1,5 +1,11 @@
 # Galfus Workspace Reference
 
+> **Status: Historical design.** This document preserves a broader workspace,
+> bundle, adapter, and distribution proposal. Those facilities are not part of
+> the implemented architecture. For the current contract, see
+> [Galfus Architecture Reference](./Galfus_Architecture_Reference.md) and
+> [Galfus Pipeline Boundaries](./Galfus_Pipeline_Boundaries.md).
+
 This document defines the Galfus workspace and project model.
 
 The workspace model is explicit, deterministic, module-first, and designed to keep final bundles small. It describes how projects are organized on disk, how `galfus.toml` declares module identity and resolution rules, how dependencies are addressed, how artifacts are produced, and how final distribution units are assembled.

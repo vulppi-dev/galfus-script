@@ -4,7 +4,9 @@ Previous: [Decorators and Keyword Metadata](./14-decorators-and-keyword-metadata
 
 # 15. Lowering and Runtime Semantics
 
-This document defines how validated Galfus source semantics lower into runtime representation and final target bundles.
+This document defines how validated Galfus source semantics lower into the
+current in-memory runtime representation. Bundle generation is planned and is
+not part of the implemented pipeline.
 
 ## 15.1 Core Principle
 
@@ -37,8 +39,8 @@ Recommended high-level pipeline:
 9. keyword metadata validation
 10. expression/type checking
 11. ownership validation
-12. lowering to internal ImageModule
-13. final target bundle generation
+12. lowering to `BytecodeModule`
+13. assembly into an in-memory `BytecodeGraph`
 ```
 
 Implementation may split or merge phases, but output must be deterministic.
@@ -52,20 +54,20 @@ Public/source-level file types:
 .gfp -> Galfus proxy/adaptor definition
 ```
 
-`ImageModule` is an internal compiler/runtime representation.
-
-It is serialized only inside a final target bundle blob.
+`BytecodeModule` is the internal compiler/runtime representation. It is held
+in memory as a node of a `BytecodeGraph`; no bytecode serialization or bundle
+format is implemented.
 
 Conceptual pipeline:
 
 ```txt
-.gfs + .gfp
-  -> semantic graph
-  -> internal ImageModule
-  -> target-specific final bundle blob
+.gfs
+  -> SemanticGraph
+  -> BytecodeModule
+  -> BytecodeGraph
 ```
 
-Debug/source information, if needed, belongs to the final target bundle policy.
+Optional execution metadata may map bytecode instructions to source spans.
 
 ## 15.4 Module Lowering
 
@@ -433,7 +435,7 @@ argument gap
 
 ## 15.24 Reproducibility
 
-Same source and same dependencies MUST produce the same bundle behavior.
+Same source and same dependencies MUST produce the same compilation result.
 
 The compiler SHOULD keep deterministic ordering for:
 
@@ -442,8 +444,7 @@ symbol tables
 module traversal
 diagnostics
 exports
-generated ids
-bundle sections
+generated IDs
 ```
 
 ## 15.25 Contract
@@ -451,7 +452,7 @@ bundle sections
 Lowering MUST:
 
 - Preserve validated source semantics.
-- Serialize internal `ImageModule` only inside final target bundle blobs.
+- Produce in-memory `BytecodeModule` values for the `BytecodeGraph`.
 - Apply decorators closest-to-farthest.
 - Reject decorators on stamped functions.
 - Keep keyword metadata separate from decorators.

@@ -24,15 +24,19 @@ than source text or syntax-only output.
 
 ## Compiler boundary
 
-The compiler consumes the `SemanticGraph` delta and produces a `BytecodeGraphTransaction`.
-This transaction contains inserted, replaced, or removed `BytecodeModule` values.
-The transaction is validated and committed atomically to produce a new `BytecodeGraph` snapshot.
+The compiler consumes semantic modules and produces `BytecodeModule` values.
+The workspace assembles changed values, removals, and dependency edges into a
+`BytecodeGraphTransaction`, applies it to a cloned graph, and publishes the
+resulting snapshot. Graph-wide transaction validation, version checks, and
+rollback are planned; they are not current guarantees.
 The `BytecodeGraph` is the single canonical executable graph.
 
 ## Runtime boundary
 
-The runtime consumes an `Arc<BytecodeGraph>` directly.
-It maintains execution state (such as globals and module initialization status) but does not rebuild, copy, or duplicate the graph.
+The runtime executes a borrowed `BytecodeGraph` directly. The VM currently
+holds execution state, including heap and global slots, and does not rebuild,
+copy, or duplicate the graph. Per-module globals and dependency-ordered module
+initialization are planned.
 The runtime never performs parsing, semantic checking, or compilation, and there is no separate runtime module graph.
 
 ## Host-provider boundary

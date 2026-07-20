@@ -1,5 +1,9 @@
 # Galfus Adapters Surface Reference
 
+> **Status: Planned design.** The implemented host boundary is the optional
+> synchronous `IoProvider`. Proxy descriptors, native/WASM adapters, payloads,
+> and bundle reachability described below are not implemented.
+
 This document defines the Galfus adapter surface model.
 
 It records the architectural decisions for exposing external native, WASM, mobile, embedded, and host capabilities to Galfus without exposing raw pointers, arbitrary memory, or unsafe host APIs to normal Galfus source code.
