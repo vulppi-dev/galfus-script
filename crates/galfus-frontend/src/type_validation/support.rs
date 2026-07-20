@@ -209,10 +209,10 @@ impl<'a> DeclarationTypeChecker<'a> {
                     return ty;
                 }
             }
-            if let Some(sym) = resolved_symbol {
-                if let Some(target_ty) = self.layer.symbol_type(sym) {
-                    return self.resolve_alias_type(target_ty);
-                }
+            if let Some(sym) = resolved_symbol
+                && let Some(target_ty) = self.layer.symbol_type(sym)
+            {
+                return self.resolve_alias_type(target_ty);
             }
         }
 

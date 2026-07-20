@@ -126,10 +126,8 @@ pub fn convert_to_ssa(func: &mut MirFunction) {
                 RValue::MemberAccess(op, _) => {
                     self.replace_operand(block, op);
                 }
-                RValue::Choice(_, _, opt_op) => {
-                    if let Some(op) = opt_op {
-                        self.replace_operand(block, op);
-                    }
+                RValue::Choice(_, _, Some(op)) => {
+                    self.replace_operand(block, op);
                 }
                 _ => {}
             }

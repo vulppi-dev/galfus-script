@@ -229,10 +229,8 @@ fn apply_initialization_effects(block: &BasicBlock, initialized: &mut HashSet<Lo
     }
     for instruction in &block.instructions {
         match instruction {
-            Instruction::Assign(_, rvalue) => {
-                if let RValue::Use(Operand::Local(l)) = rvalue {
-                    initialized.remove(l);
-                }
+            Instruction::Assign(_, RValue::Use(Operand::Local(l))) => {
+                initialized.remove(l);
             }
             Instruction::Call { args, .. }
             | Instruction::ConstraintCall { args, .. }

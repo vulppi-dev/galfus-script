@@ -78,22 +78,29 @@ impl BytecodeGraph {
         Self::default()
     }
 
-    /// Insert or replace a compiled module image.
     pub fn upsert(&mut self, image: BytecodeNode) {
+        self.ids_by_path.insert(image.path.clone(), image.id);
         self.modules.insert(image.id, image);
     }
 
     /// Remove a module from the graph.
     pub fn remove(&mut self, id: ModuleId) -> Option<BytecodeNode> {
-        self.modules.remove(&id)
+        let removed = self.modules.remove(&id);
+        if let Some(ref node) = removed {
+            self.ids_by_path.remove(&node.path);
+        }
+        removed
     }
 
     /// Applies a transaction atomically to the graph.
     pub fn apply(&mut self, transaction: BytecodeGraphTransaction) {
         for id in transaction.removed_modules {
-            self.modules.remove(&id);
+            if let Some(node) = self.modules.remove(&id) {
+                self.ids_by_path.remove(&node.path);
+            }
         }
         for image in transaction.upserted_modules {
+            self.ids_by_path.insert(image.path.clone(), image.id);
             self.modules.insert(image.id, image);
         }
         self.edges = transaction.edges;

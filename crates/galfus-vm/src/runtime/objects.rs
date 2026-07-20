@@ -25,7 +25,8 @@ impl<'a> VirtualMachine<'a> {
                         .ok_or(VmError::TypeOutOfBounds { index: type_idx })?;
                     let fields = vec![Value::Null; layout.fields.len()];
                     let obj_ref = self.alloc(HeapObject::Struct {
-                        layout_idx: layout_idx.clone(),
+                        module_id: self.call_stack.last().unwrap().module_id,
+                        layout_idx: *layout_idx,
                         fields,
                     });
                     self.write_reg(dest, Value::Object(obj_ref))?;
@@ -97,7 +98,7 @@ impl<'a> VirtualMachine<'a> {
                     .get(type_idx.raw() as usize)
                     .ok_or(VmError::TypeOutOfBounds { index: type_idx })?;
                 let element_ty = match ty {
-                    ImageType::Array(el_ty) => el_ty.clone(),
+                    ImageType::Array(el_ty) => *el_ty,
                     _ => {
                         return Err(VmError::TypeMismatch {
                             expected: "Array type".to_string(),
@@ -275,7 +276,8 @@ impl<'a> VirtualMachine<'a> {
                 if let ImageType::Choice(layout_idx) = ty {
                     let payload_val = self.read_reg(payload)?;
                     let obj_ref = self.alloc(HeapObject::Choice {
-                        layout_idx: layout_idx.clone(),
+                        module_id: self.call_stack.last().unwrap().module_id,
+                        layout_idx: *layout_idx,
                         variant_idx,
                         payload: payload_val,
                     });
@@ -347,10 +349,16 @@ impl<'a> VirtualMachine<'a> {
             let object = self.get_object(obj_ref)?;
 
             match object {
-                HeapObject::Struct { layout_idx, fields } => {
+                HeapObject::Struct {
+                    module_id,
+                    layout_idx,
+                    fields,
+                } => {
                     let layout = self
-                        .current_image()
+                        .graph
+                        .get(*module_id)
                         .unwrap()
+                        .image
                         .struct_layouts
                         .get(layout_idx.raw() as usize)
                         .ok_or(VmError::TypeMismatch {
@@ -410,10 +418,16 @@ impl<'a> VirtualMachine<'a> {
             let object = self.get_object(old_ref)?.clone();
 
             let placeholder = match object {
-                HeapObject::Struct { layout_idx, fields } => {
+                HeapObject::Struct {
+                    module_id,
+                    layout_idx,
+                    fields,
+                } => {
                     let layout = self
-                        .current_image()
+                        .graph
+                        .get(module_id)
                         .unwrap()
+                        .image
                         .struct_layouts
                         .get(layout_idx.raw() as usize)
                         .ok_or(VmError::TypeMismatch {
@@ -429,6 +443,7 @@ impl<'a> VirtualMachine<'a> {
                     }
 
                     HeapObject::Struct {
+                        module_id,
                         layout_idx,
                         fields: vec![Value::Null; fields.len()],
                     }
@@ -441,10 +456,12 @@ impl<'a> VirtualMachine<'a> {
                     elements: Vec::new(),
                 },
                 HeapObject::Choice {
+                    module_id,
                     layout_idx,
                     variant_idx,
                     ..
                 } => HeapObject::Choice {
+                    module_id,
                     layout_idx,
                     variant_idx,
                     payload: Value::Null,
@@ -472,10 +489,16 @@ impl<'a> VirtualMachine<'a> {
             let object = self.get_object(old_ref)?.clone();
 
             match object {
-                HeapObject::Struct { layout_idx, fields } => {
+                HeapObject::Struct {
+                    module_id,
+                    layout_idx,
+                    fields,
+                } => {
                     let layout = self
-                        .current_image()
+                        .graph
+                        .get(module_id)
                         .unwrap()
+                        .image
                         .struct_layouts
                         .get(layout_idx.raw() as usize)
                         .ok_or(VmError::TypeMismatch {

@@ -89,9 +89,6 @@ impl crate::graph::BytecodeGraph {
         Ok(order)
     }
 
-    /// Link the reachable module subgraph into one VM image for execution.
-    /// Module images remain separately stored; this image is an execution view.
-
     fn collect_initialization_order(
         &self,
         id: ModuleId,

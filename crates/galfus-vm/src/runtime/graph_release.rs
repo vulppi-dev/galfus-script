@@ -31,10 +31,16 @@ impl<'a> VirtualMachine<'a> {
         while let Some(obj_ref) = roots.pop_front() {
             if let Some(Some(obj)) = self.heap.get(obj_ref.raw()) {
                 match obj {
-                    HeapObject::Struct { layout_idx, fields } => {
+                    HeapObject::Struct {
+                        module_id,
+                        layout_idx,
+                        fields,
+                    } => {
                         if let Some(layout) = self
-                            .current_image()
+                            .graph
+                            .get(*module_id)
                             .unwrap()
+                            .image
                             .struct_layouts
                             .get(layout_idx.raw() as usize)
                         {
@@ -96,11 +102,19 @@ impl<'a> VirtualMachine<'a> {
             self.free_slots.push(idx);
         }
 
-        let current_image = self.current_image().unwrap();
         for idx in 0..self.heap.len() {
-            if let Some(Some(HeapObject::Struct { layout_idx, fields })) = self.heap.get_mut(idx) {
+            if let Some(Some(HeapObject::Struct {
+                module_id,
+                layout_idx,
+                fields,
+            })) = self.heap.get_mut(idx)
+            {
                 let layout_idx_val = *layout_idx;
-                if let Some(layout) = current_image
+                if let Some(layout) = self
+                    .graph
+                    .get(*module_id)
+                    .unwrap()
+                    .image
                     .struct_layouts
                     .get(layout_idx_val.raw() as usize)
                 {

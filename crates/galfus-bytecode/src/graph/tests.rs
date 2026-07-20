@@ -17,6 +17,7 @@ fn compiled_image(id: ModuleId, revision: SemanticRevision) -> BytecodeNode {
             exports: Vec::new(),
             init_func_idx: None,
         },
+        metadata: None,
     }
 }
 
@@ -26,12 +27,16 @@ fn graph_keys_images_and_edges_by_stable_module_id() {
     let utilities = ModuleId::new(7);
     let mut graph = BytecodeGraph::new();
 
-    graph.upsert(compiled_image(main, SemanticRevision::new(3)));
-    graph.upsert(compiled_image(utilities, SemanticRevision::new(2)));
-    graph.set_edges(vec![ImportEdge {
-        from: main,
-        to: utilities,
-    }]);
+    let img1 = compiled_image(main, SemanticRevision::new(3));
+    let img2 = compiled_image(utilities, SemanticRevision::new(2));
+    graph.apply(BytecodeGraphTransaction {
+        upserted_modules: vec![img1, img2],
+        removed_modules: vec![],
+        edges: vec![ImportEdge {
+            from: main,
+            to: utilities,
+        }],
+    });
 
     assert_eq!(
         graph.get(main).map(BytecodeNode::semantic_revision),

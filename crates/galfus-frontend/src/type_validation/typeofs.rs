@@ -191,9 +191,7 @@ impl<'a> DeclarationTypeChecker<'a> {
             return Some(remaining_type);
         }
 
-        let Some(pattern_type) = self.layer.node_type(pattern) else {
-            return None;
-        };
+        let pattern_type = self.layer.node_type(pattern)?;
 
         if !self.is_typeof_pattern_compatible(
             subject_type,

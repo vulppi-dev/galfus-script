@@ -1,4 +1,5 @@
 use super::*;
+use galfus_bytecode::BytecodeModule;
 use galfus_bytecode::instruction::{ConstIdx, FieldIdx};
 use galfus_bytecode::{
     ChoiceLayout, ChoiceVariantLayout, ConstantPool, FieldLayout, ImageFunction, OwnershipKind,

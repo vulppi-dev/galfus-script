@@ -2,9 +2,6 @@ use galfus_bytecode::BytecodeModule;
 use galfus_host::Providers;
 use galfus_vm::{HeapObject, VirtualMachine, VmPanic, VmValue};
 
-#[cfg(test)]
-mod tests;
-
 pub use galfus_bytecode::{LinkError, LinkedImport, ModuleLink};
 
 #[derive(Debug, thiserror::Error)]
@@ -217,14 +214,13 @@ pub fn format_panic(graph: &galfus_bytecode::BytecodeGraph, panic: &VmPanic) -> 
             let mut location_str = format!("PC {}", frame.pc);
 
             // Currently ExecutionMetadata is not populated, but we prepare for it
-            if let Some(metadata) = &module.metadata {
-                if let Some(func_spans) = metadata.spans.get(&frame.func_idx) {
-                    if let Some(span) = func_spans.get(&frame.pc) {
-                        // Assuming source file resolution would be passed in,
-                        // for now we just show the raw span info or we can ignore it.
-                        location_str = format!("PC {}, Span {:?}", frame.pc, span);
-                    }
-                }
+            if let Some(metadata) = &module.metadata
+                && let Some(func_spans) = metadata.spans.get(&frame.func_idx)
+                && let Some(span) = func_spans.get(&frame.pc)
+            {
+                // Assuming source file resolution would be passed in,
+                // for now we just show the raw span info or we can ignore it.
+                location_str = format!("PC {}, Span {:?}", frame.pc, span);
             }
 
             writeln!(

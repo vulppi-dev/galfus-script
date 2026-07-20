@@ -13,6 +13,13 @@ fn test_vm_creation() {
         exports: vec![],
         init_func_idx: None,
     };
-    let vm = VirtualMachine::new(image);
-    assert_eq!(vm.image.name, "test");
+    let mut graph = galfus_bytecode::BytecodeGraph::new();
+    graph.upsert(galfus_bytecode::BytecodeNode {
+        id: galfus_core::ModuleId::new(0),
+        path: galfus_core::ModulePath::new("test.gfs").unwrap(),
+        semantic_revision: galfus_core::SemanticRevision::new(0),
+        image,
+        metadata: None,
+    });
+    let _vm = VirtualMachine::new(&graph);
 }

@@ -249,8 +249,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
             }
             RValue::ChoiceVariantIs(operand, variant) => {
                 let src = self.operand_reg(operand);
-                let type_idx =
-                    crate::lower::types::lower_choice_variant_type(&mut self.ctx, *variant);
+                let type_idx = crate::lower::types::lower_choice_variant_type(self.ctx, *variant);
                 self.instructions.push(Instruction::Instanceof {
                     dest,
                     src,
@@ -302,7 +301,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
             RValue::NewArray(element_type, elements) => {
                 let type_idx = crate::lower::types::lower_type(self.ctx, *element_type);
                 let size_const = crate::lower::constants::get_or_create_constant(
-                    &mut self.ctx,
+                    self.ctx,
                     &MirConstant::Int32(elements.len() as i32),
                 );
                 let size_reg = self.alloc_temp();
@@ -505,13 +504,13 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                 let variant_idx =
                     if let Some(choice_symbol) = self.struct_symbol_for_type(*choice_type) {
                         let variants =
-                            crate::lower::types::get_choice_variants(&self.ctx, choice_symbol);
+                            crate::lower::types::get_choice_variants(self.ctx, choice_symbol);
                         variants
                             .iter()
                             .position(|(name, _)| name == variant_name)
                             .unwrap_or(0)
                     } else if let Some(choice) =
-                        crate::lower::types::find_imported_choice_for_type(&self.ctx, *choice_type)
+                        crate::lower::types::find_imported_choice_for_type(self.ctx, *choice_type)
                     {
                         choice
                             .variants
@@ -561,7 +560,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                 let type_idx = crate::lower::types::lower_type(self.ctx, *array_type);
 
                 let size_const = crate::lower::constants::get_or_create_constant(
-                    &mut self.ctx,
+                    self.ctx,
                     &MirConstant::Int32(*size as i32),
                 );
 

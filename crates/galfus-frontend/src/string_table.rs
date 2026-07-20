@@ -31,35 +31,35 @@ impl std::fmt::Display for NameId {
 }
 
 pub trait AsNameId {
-    fn as_name_id(self) -> NameId;
+    fn to_name_id(self) -> NameId;
 }
 
 impl AsNameId for NameId {
-    fn as_name_id(self) -> NameId {
+    fn to_name_id(self) -> NameId {
         self
     }
 }
 
 impl AsNameId for &str {
-    fn as_name_id(self) -> NameId {
+    fn to_name_id(self) -> NameId {
         NameId::intern(self)
     }
 }
 
 impl AsNameId for &&str {
-    fn as_name_id(self) -> NameId {
+    fn to_name_id(self) -> NameId {
         NameId::intern(self)
     }
 }
 
 impl AsNameId for &String {
-    fn as_name_id(self) -> NameId {
+    fn to_name_id(self) -> NameId {
         NameId::intern(self.as_str())
     }
 }
 
 impl AsNameId for String {
-    fn as_name_id(self) -> NameId {
+    fn to_name_id(self) -> NameId {
         NameId::intern(self.as_str())
     }
 }

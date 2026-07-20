@@ -46,10 +46,10 @@ impl Parser {
                 self.bump();
                 self.skip_newlines();
 
-                if !self.at(&TokenKind::RightParen) {
-                    if let Some(length) = self.parse_expression() {
-                        children.push(length);
-                    }
+                if !self.at(&TokenKind::RightParen)
+                    && let Some(length) = self.parse_expression()
+                {
+                    children.push(length);
                 }
 
                 self.skip_newlines();

@@ -382,27 +382,27 @@ impl<'a> WorkspaceContext for MyWorkspaceContext<'a> {
         .with_workspace_module_id(target_module.id());
         builder = builder.with_workspace_ctx(self);
 
-        if let Some(function_item) = builder.function_item_for_symbol(target_symbol) {
-            if let Some(mut function) = builder.build_function_with_substitutions(
+        if let Some(function_item) = builder.function_item_for_symbol(target_symbol)
+            && let Some(mut function) = builder.build_function_with_substitutions(
                 function_item,
                 Some(specialized_id),
                 substitutions,
-            ) {
-                function.name = format!("{}#{}", function.name, specialized_id.raw());
-                let anchored_specializations = builder.anchored_function_specializations_for_type(
-                    function.return_type,
-                    &function.type_substitutions,
-                );
-                self.specialised_functions[target_mod_idx].push(function);
+            )
+        {
+            function.name = format!("{}#{}", function.name, specialized_id.raw());
+            let anchored_specializations = builder.anchored_function_specializations_for_type(
+                function.return_type,
+                &function.type_substitutions,
+            );
+            self.specialised_functions[target_mod_idx].push(function);
 
-                for (method_item, method_types, method_substitutions) in anchored_specializations {
-                    self.specialize_anchored_function(
-                        target_mod_idx,
-                        method_item,
-                        method_types,
-                        method_substitutions,
-                    );
-                }
+            for (method_item, method_types, method_substitutions) in anchored_specializations {
+                self.specialize_anchored_function(
+                    target_mod_idx,
+                    method_item,
+                    method_types,
+                    method_substitutions,
+                );
             }
         }
 

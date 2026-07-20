@@ -253,7 +253,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                             self.instructions.push(Instruction::Write { src: arg_reg });
 
                             let null_idx = crate::lower::constants::get_or_create_constant(
-                                &mut self.ctx,
+                                self.ctx,
                                 &MirConstant::Null,
                             );
                             self.instructions.push(Instruction::LoadConst {
@@ -315,7 +315,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                         }
 
                         let name_const = crate::lower::constants::get_or_create_constant(
-                            &mut self.ctx,
+                            self.ctx,
                             &MirConstant::String(method_name.clone()),
                         );
 
@@ -373,7 +373,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
 
                 Terminator::Panic(msg) => {
                     let const_idx = crate::lower::constants::get_or_create_constant(
-                        &mut self.ctx,
+                        self.ctx,
                         &MirConstant::String(msg.clone()),
                     );
                     self.instructions.push(Instruction::Panic { const_idx });

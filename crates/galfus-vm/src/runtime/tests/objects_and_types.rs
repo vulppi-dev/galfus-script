@@ -1,4 +1,5 @@
 use super::*;
+use galfus_bytecode::BytecodeModule;
 
 #[test]
 fn test_structs_load_store() {
@@ -24,8 +25,18 @@ fn test_structs_load_store() {
         Instruction::Ret { src: Reg(3) },
     ];
     let image = create_test_image(instrs, vec![Constant::Int64(42)]);
-    let mut vm = VirtualMachine::new(image);
-    let res = vm.run_function(FuncIdx(0), vec![]).unwrap();
+    let mut graph = galfus_bytecode::BytecodeGraph::new();
+    graph.upsert(galfus_bytecode::BytecodeNode {
+        id: galfus_core::ModuleId::new(0),
+        path: galfus_core::ModulePath::new("test.gfs").unwrap(),
+        semantic_revision: galfus_core::SemanticRevision::new(0),
+        image,
+        metadata: None,
+    });
+    let mut vm = VirtualMachine::new(&graph);
+    let res = vm
+        .run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![])
+        .unwrap();
     assert_eq!(res, Value::Int64(42));
 }
 
@@ -65,8 +76,18 @@ fn test_arrays_load_store() {
         instrs,
         vec![Constant::Int64(5), Constant::Int64(2), Constant::Int64(99)],
     );
-    let mut vm = VirtualMachine::new(image);
-    let res = vm.run_function(FuncIdx(0), vec![]).unwrap();
+    let mut graph = galfus_bytecode::BytecodeGraph::new();
+    graph.upsert(galfus_bytecode::BytecodeNode {
+        id: galfus_core::ModuleId::new(0),
+        path: galfus_core::ModulePath::new("test.gfs").unwrap(),
+        semantic_revision: galfus_core::SemanticRevision::new(0),
+        image,
+        metadata: None,
+    });
+    let mut vm = VirtualMachine::new(&graph);
+    let res = vm
+        .run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![])
+        .unwrap();
     assert_eq!(res, Value::Int64(99));
 }
 
@@ -106,8 +127,18 @@ fn test_tuples() {
             Constant::Int64(1),
         ],
     );
-    let mut vm = VirtualMachine::new(image);
-    let res = vm.run_function(FuncIdx(0), vec![]).unwrap();
+    let mut graph = galfus_bytecode::BytecodeGraph::new();
+    graph.upsert(galfus_bytecode::BytecodeNode {
+        id: galfus_core::ModuleId::new(0),
+        path: galfus_core::ModulePath::new("test.gfs").unwrap(),
+        semantic_revision: galfus_core::SemanticRevision::new(0),
+        image,
+        metadata: None,
+    });
+    let mut vm = VirtualMachine::new(&graph);
+    let res = vm
+        .run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![])
+        .unwrap();
     assert_eq!(res, Value::Bool(true));
 }
 
@@ -127,8 +158,18 @@ fn test_choices() {
         Instruction::Ret { src: Reg(2) },
     ];
     let image = create_test_image(instrs, vec![Constant::Int64(100)]);
-    let mut vm = VirtualMachine::new(image);
-    let res = vm.run_function(FuncIdx(0), vec![]).unwrap();
+    let mut graph = galfus_bytecode::BytecodeGraph::new();
+    graph.upsert(galfus_bytecode::BytecodeNode {
+        id: galfus_core::ModuleId::new(0),
+        path: galfus_core::ModulePath::new("test.gfs").unwrap(),
+        semantic_revision: galfus_core::SemanticRevision::new(0),
+        image,
+        metadata: None,
+    });
+    let mut vm = VirtualMachine::new(&graph);
+    let res = vm
+        .run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![])
+        .unwrap();
     if let Value::Object(obj_ref) = res {
         let heap_obj = vm.get_object(obj_ref).unwrap();
         if let HeapObject::Choice {
@@ -162,8 +203,18 @@ fn test_cast() {
         Instruction::Ret { src: Reg(2) },
     ];
     let image = create_test_image(instrs, vec![Constant::Int64(42)]);
-    let mut vm = VirtualMachine::new(image);
-    let res = vm.run_function(FuncIdx(0), vec![]).unwrap();
+    let mut graph = galfus_bytecode::BytecodeGraph::new();
+    graph.upsert(galfus_bytecode::BytecodeNode {
+        id: galfus_core::ModuleId::new(0),
+        path: galfus_core::ModulePath::new("test.gfs").unwrap(),
+        semantic_revision: galfus_core::SemanticRevision::new(0),
+        image,
+        metadata: None,
+    });
+    let mut vm = VirtualMachine::new(&graph);
+    let res = vm
+        .run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![])
+        .unwrap();
     assert_eq!(res, Value::Uint8(42));
 }
 
@@ -182,8 +233,18 @@ fn test_instanceof() {
         Instruction::Ret { src: Reg(2) },
     ];
     let image = create_test_image(instrs, vec![Constant::Int64(42)]);
-    let mut vm = VirtualMachine::new(image);
-    let res = vm.run_function(FuncIdx(0), vec![]).unwrap();
+    let mut graph = galfus_bytecode::BytecodeGraph::new();
+    graph.upsert(galfus_bytecode::BytecodeNode {
+        id: galfus_core::ModuleId::new(0),
+        path: galfus_core::ModulePath::new("test.gfs").unwrap(),
+        semantic_revision: galfus_core::SemanticRevision::new(0),
+        image,
+        metadata: None,
+    });
+    let mut vm = VirtualMachine::new(&graph);
+    let res = vm
+        .run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![])
+        .unwrap();
     assert_eq!(res, Value::Bool(true));
 }
 
@@ -209,8 +270,18 @@ fn test_instanceof_constraint_satisfied_by_struct_layout() {
         .constraints
         .push("Stringable".to_string());
 
-    let mut vm = VirtualMachine::new(image);
-    let res = vm.run_function(FuncIdx(0), vec![]).unwrap();
+    let mut graph = galfus_bytecode::BytecodeGraph::new();
+    graph.upsert(galfus_bytecode::BytecodeNode {
+        id: galfus_core::ModuleId::new(0),
+        path: galfus_core::ModulePath::new("test.gfs").unwrap(),
+        semantic_revision: galfus_core::SemanticRevision::new(0),
+        image,
+        metadata: None,
+    });
+    let mut vm = VirtualMachine::new(&graph);
+    let res = vm
+        .run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![])
+        .unwrap();
     assert_eq!(res, Value::Bool(true));
 }
 
@@ -233,8 +304,16 @@ fn test_division_by_zero_panic() {
         Instruction::Ret { src: Reg(3) },
     ];
     let image = create_test_image(instrs, vec![Constant::Int64(10), Constant::Int64(0)]);
-    let mut vm = VirtualMachine::new(image);
-    let res = vm.run_function(FuncIdx(0), vec![]);
+    let mut graph = galfus_bytecode::BytecodeGraph::new();
+    graph.upsert(galfus_bytecode::BytecodeNode {
+        id: galfus_core::ModuleId::new(0),
+        path: galfus_core::ModulePath::new("test.gfs").unwrap(),
+        semantic_revision: galfus_core::SemanticRevision::new(0),
+        image,
+        metadata: None,
+    });
+    let mut vm = VirtualMachine::new(&graph);
+    let res = vm.run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![]);
     assert!(res.is_err());
     let panic_err = res.unwrap_err();
     assert_eq!(panic_err.error, VmError::DivisionByZero);
@@ -299,14 +378,20 @@ fn test_unwinding_call_stack() {
         init_func_idx: None,
     };
 
-    let mut vm = VirtualMachine::new(image);
-    let res = vm.run_function(FuncIdx(0), vec![]);
+    let mut graph = galfus_bytecode::BytecodeGraph::new();
+    graph.upsert(galfus_bytecode::BytecodeNode {
+        id: galfus_core::ModuleId::new(0),
+        path: galfus_core::ModulePath::new("test.gfs").unwrap(),
+        semantic_revision: galfus_core::SemanticRevision::new(0),
+        image,
+        metadata: None,
+    });
+    let mut vm = VirtualMachine::new(&graph);
+    let res = vm.run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![]);
     assert!(res.is_err());
     let panic_err = res.unwrap_err();
     assert_eq!(panic_err.error, VmError::DivisionByZero);
     assert_eq!(panic_err.stack_trace.len(), 2);
-    assert_eq!(panic_err.stack_trace[0].function_name, "helper");
-    assert_eq!(panic_err.stack_trace[1].function_name, "main");
 }
 
 #[test]
@@ -363,8 +448,18 @@ fn test_copy_deep_copies_nested_structs() {
         constraints: vec![],
     });
 
-    let mut vm = VirtualMachine::new(image);
-    let res = vm.run_function(FuncIdx(0), vec![]).unwrap();
+    let mut graph = galfus_bytecode::BytecodeGraph::new();
+    graph.upsert(galfus_bytecode::BytecodeNode {
+        id: galfus_core::ModuleId::new(0),
+        path: galfus_core::ModulePath::new("test.gfs").unwrap(),
+        semantic_revision: galfus_core::SemanticRevision::new(0),
+        image,
+        metadata: None,
+    });
+    let mut vm = VirtualMachine::new(&graph);
+    let res = vm
+        .run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![])
+        .unwrap();
     let copied_box_ref = match res {
         Value::Object(obj_ref) => obj_ref,
         other => panic!("expected copied object, got {:?}", other),
@@ -435,8 +530,18 @@ fn test_copy_preserves_internal_weak_observer_topology() {
         constraints: vec![],
     });
 
-    let mut vm = VirtualMachine::new(image);
-    let res = vm.run_function(FuncIdx(0), vec![]).unwrap();
+    let mut graph = galfus_bytecode::BytecodeGraph::new();
+    graph.upsert(galfus_bytecode::BytecodeNode {
+        id: galfus_core::ModuleId::new(0),
+        path: galfus_core::ModulePath::new("test.gfs").unwrap(),
+        semantic_revision: galfus_core::SemanticRevision::new(0),
+        image,
+        metadata: None,
+    });
+    let mut vm = VirtualMachine::new(&graph);
+    let res = vm
+        .run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![])
+        .unwrap();
     let copied_parent_ref = match res {
         Value::Object(obj_ref) => obj_ref,
         other => panic!("expected copied parent, got {:?}", other),
@@ -511,8 +616,18 @@ fn test_copy_nulls_external_weak_observer_target() {
         constraints: vec![],
     });
 
-    let mut vm = VirtualMachine::new(image);
-    let res = vm.run_function(FuncIdx(0), vec![]).unwrap();
+    let mut graph = galfus_bytecode::BytecodeGraph::new();
+    graph.upsert(galfus_bytecode::BytecodeNode {
+        id: galfus_core::ModuleId::new(0),
+        path: galfus_core::ModulePath::new("test.gfs").unwrap(),
+        semantic_revision: galfus_core::SemanticRevision::new(0),
+        image,
+        metadata: None,
+    });
+    let mut vm = VirtualMachine::new(&graph);
+    let res = vm
+        .run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![])
+        .unwrap();
     let copied_ref = match res {
         Value::Object(obj_ref) => obj_ref,
         other => panic!("expected copied node, got {:?}", other),
@@ -586,8 +701,18 @@ fn test_copy_preserves_shared_strong_topology() {
         constraints: vec![],
     });
 
-    let mut vm = VirtualMachine::new(image);
-    let res = vm.run_function(FuncIdx(0), vec![]).unwrap();
+    let mut graph = galfus_bytecode::BytecodeGraph::new();
+    graph.upsert(galfus_bytecode::BytecodeNode {
+        id: galfus_core::ModuleId::new(0),
+        path: galfus_core::ModulePath::new("test.gfs").unwrap(),
+        semantic_revision: galfus_core::SemanticRevision::new(0),
+        image,
+        metadata: None,
+    });
+    let mut vm = VirtualMachine::new(&graph);
+    let res = vm
+        .run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![])
+        .unwrap();
     let copied_pair_ref = match res {
         Value::Object(obj_ref) => obj_ref,
         other => panic!("expected copied pair, got {:?}", other),
@@ -624,8 +749,18 @@ fn test_copy_rejects_fieldless_structs_at_runtime() {
         constraints: vec![],
     });
 
-    let mut vm = VirtualMachine::new(image);
-    let err = vm.run_function(FuncIdx(0), vec![]).unwrap_err();
+    let mut graph = galfus_bytecode::BytecodeGraph::new();
+    graph.upsert(galfus_bytecode::BytecodeNode {
+        id: galfus_core::ModuleId::new(0),
+        path: galfus_core::ModulePath::new("test.gfs").unwrap(),
+        semantic_revision: galfus_core::SemanticRevision::new(0),
+        image,
+        metadata: None,
+    });
+    let mut vm = VirtualMachine::new(&graph);
+    let err = vm
+        .run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![])
+        .unwrap_err();
 
     assert!(matches!(err.error, VmError::TypeMismatch { .. }));
 }

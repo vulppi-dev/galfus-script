@@ -68,6 +68,12 @@ pub struct SourceState {
     pub removed_modules: Vec<ModuleId>,
 }
 
+impl Default for SourceState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SourceState {
     pub fn new() -> Self {
         Self {
@@ -83,6 +89,12 @@ pub struct SemanticState {
     pub check_state: CheckState,
 }
 
+impl Default for SemanticState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SemanticState {
     pub fn new() -> Self {
         Self {
@@ -96,6 +108,12 @@ impl SemanticState {
 
 pub struct BytecodeState {
     pub compile_state: CompileState,
+}
+
+impl Default for BytecodeState {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl BytecodeState {

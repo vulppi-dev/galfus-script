@@ -52,6 +52,12 @@ pub struct RunReport {
     pub exit_code: i32,
 }
 
+impl Default for Workspace {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Workspace {
     pub fn new() -> Self {
         Self {
@@ -266,14 +272,14 @@ impl Workspace {
         };
 
         let mut roots = Vec::new();
-        if let Some(entry) = config.entry() {
-            if let Some(source) = self.source_state.store.get(entry) {
-                roots.push(SemanticRoot::new(
-                    SemanticRootKind::Entry,
-                    source.module_id,
-                    entry.clone(),
-                ));
-            }
+        if let Some(entry) = config.entry()
+            && let Some(source) = self.source_state.store.get(entry)
+        {
+            roots.push(SemanticRoot::new(
+                SemanticRootKind::Entry,
+                source.module_id,
+                entry.clone(),
+            ));
         }
         for export in config.exports() {
             if let Some(source) = self.source_state.store.get(export.path()) {
@@ -331,12 +337,11 @@ impl Workspace {
             semantic_revision: compiled_rev,
             graph,
         } = &self.bytecode_state.compile_state
+            && *compiled_rev == semantic_revision
         {
-            if *compiled_rev == semantic_revision {
-                return Ok(CompileReport {
-                    graph: Arc::clone(graph),
-                });
-            }
+            return Ok(CompileReport {
+                graph: Arc::clone(graph),
+            });
         }
 
         let cached_graph = match &self.bytecode_state.compile_state {

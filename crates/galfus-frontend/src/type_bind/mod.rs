@@ -1,6 +1,6 @@
-mod type_bind;
+mod bind;
 
 #[cfg(test)]
 mod tests;
 
-pub use type_bind::{TypeBindResult, TypeLoweringResult, bind_types, lower_types};
+pub use bind::{TypeBindResult, TypeLoweringResult, bind_types, lower_types};

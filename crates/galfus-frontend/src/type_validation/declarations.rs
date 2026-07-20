@@ -182,14 +182,14 @@ impl<'a> DeclarationTypeChecker<'a> {
                 continue;
             }
 
-            if self.is_self_parameter(parameter) {
-                if let Some(param_type) = function.parameters().get(param_idx) {
-                    let ty = param_type.ty();
-                    if let Some(self_symbol) =
-                        self.direct_identifier_symbol_any(parameter, &[SymbolKind::Parameter])
-                    {
-                        self.layer.bind_symbol_type(self_symbol, ty);
-                    }
+            if self.is_self_parameter(parameter)
+                && let Some(param_type) = function.parameters().get(param_idx)
+            {
+                let ty = param_type.ty();
+                if let Some(self_symbol) =
+                    self.direct_identifier_symbol_any(parameter, &[SymbolKind::Parameter])
+                {
+                    self.layer.bind_symbol_type(self_symbol, ty);
                 }
             }
 

@@ -79,13 +79,12 @@ pub fn compile_to_image(input: &mut CompilerInput<'_>) -> Result<BytecodeModule>
                 } else {
                     resolve_import_target(modules, mod_idx, func_id)
                 };
-                if let Some((target_mod_idx, target_func_id)) = resolved {
-                    if let Some(&global_idx) =
+                if let Some((target_mod_idx, target_func_id)) = resolved
+                    && let Some(&global_idx) =
                         global_func_map.get(&(target_mod_idx, target_func_id))
-                    {
-                        global_func_map.insert((mod_idx, func_id), global_idx);
-                        continue;
-                    }
+                {
+                    global_func_map.insert((mod_idx, func_id), global_idx);
+                    continue;
                 }
 
                 if let Some(local_func_id) =

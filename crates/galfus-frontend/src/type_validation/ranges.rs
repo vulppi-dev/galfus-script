@@ -274,18 +274,16 @@ impl<'a> DeclarationTypeChecker<'a> {
 
     fn range_literal_matches_type(&self, literal: Option<RangeLiteralValue>, ty: TypeId) -> bool {
         let ty = self.resolve_alias_type(ty);
-        match (literal, self.layer.table().kind(ty)) {
+        matches!(
+            (literal, self.layer.table().kind(ty)),
             (
                 Some(RangeLiteralValue::Integer(_)),
                 Some(TypeKind::Primitive(PrimitiveType::Int32)),
-            ) => true,
-            (
+            ) | (
                 Some(RangeLiteralValue::Float(_)),
                 Some(TypeKind::Primitive(PrimitiveType::Float32)),
-            ) => true,
-            (None, Some(TypeKind::Error)) => true,
-            _ => false,
-        }
+            ) | (None, Some(TypeKind::Error))
+        )
     }
 
     fn parse_integer_literal_value(&self, node: NodeId) -> Option<i64> {

@@ -26,31 +26,30 @@ pub(super) fn resolve_import_target(
     let symbol_id = SymbolId::new(func_id.raw());
     let node_id = path_call_target_node(func_id).unwrap_or_else(|| NodeId::new(func_id.raw()));
 
-    if let Some(syntax_node) = module.graph().syntax().node(node_id) {
-        if syntax_node.kind() == SyntaxNodeKind::PathExpression
-            && let Some(root_node) = syntax_node.first_child()
-        {
-            let root_sym = resolution.reference_symbol(root_node);
-            if let Some(root_symbol) = root_sym {
-                let import_found = resolution
-                    .imports()
-                    .iter()
-                    .find(|imp| imp.local_symbol() == root_symbol);
-                if let Some(import) = import_found
-                    && let Some(member_node) = syntax_node.child(1)
-                {
-                    let syntax = module.graph().syntax();
-                    let member_node_data = syntax.node(member_node)?;
-                    let member_span = member_node_data.span();
-                    let member_name = module.source().slice(member_span)?;
-                    let target_idx = import_target_index(modules, mod_idx, import.source());
-                    if let Some(target_idx) = target_idx {
-                        let target_mod = &modules[target_idx];
-                        let target_resolution = target_mod.graph().resolution()?;
-                        for export in target_resolution.exports() {
-                            if export.name() == member_name {
-                                return Some((target_idx, FunctionId::new(export.symbol().raw())));
-                            }
+    if let Some(syntax_node) = module.graph().syntax().node(node_id)
+        && syntax_node.kind() == SyntaxNodeKind::PathExpression
+        && let Some(root_node) = syntax_node.first_child()
+    {
+        let root_sym = resolution.reference_symbol(root_node);
+        if let Some(root_symbol) = root_sym {
+            let import_found = resolution
+                .imports()
+                .iter()
+                .find(|imp| imp.local_symbol() == root_symbol);
+            if let Some(import) = import_found
+                && let Some(member_node) = syntax_node.child(1)
+            {
+                let syntax = module.graph().syntax();
+                let member_node_data = syntax.node(member_node)?;
+                let member_span = member_node_data.span();
+                let member_name = module.source().slice(member_span)?;
+                let target_idx = import_target_index(modules, mod_idx, import.source());
+                if let Some(target_idx) = target_idx {
+                    let target_mod = &modules[target_idx];
+                    let target_resolution = target_mod.graph().resolution()?;
+                    for export in target_resolution.exports() {
+                        if export.name() == member_name {
+                            return Some((target_idx, FunctionId::new(export.symbol().raw())));
                         }
                     }
                 }
@@ -175,10 +174,10 @@ pub(super) fn import_target_index(
 ) -> Option<usize> {
     let direct_path = galfus_core::ModulePath::new(source)
         .or_else(|| galfus_core::ModulePath::new(format!("{source}.gfs").as_str()));
-    if let Some(target) = direct_path {
-        if let Some(index) = modules.iter().position(|module| module.path() == &target) {
-            return Some(index);
-        }
+    if let Some(target) = direct_path
+        && let Some(index) = modules.iter().position(|module| module.path() == &target)
+    {
+        return Some(index);
     }
 
     let target = galfus_frontend::modules::resolution::resolve_relative_import(
@@ -188,7 +187,7 @@ pub(super) fn import_target_index(
     modules.iter().position(|m| m.path() == &target)
 }
 
-fn import_source_for_expression<'a>(module: &'a CompiledModule, expr: NodeId) -> Option<&'a str> {
+fn import_source_for_expression(module: &CompiledModule, expr: NodeId) -> Option<&str> {
     let syntax = module.graph().syntax();
     let resolution = module.graph().resolution()?;
     let node = syntax.node(expr)?;

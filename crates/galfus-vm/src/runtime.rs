@@ -58,6 +58,7 @@ const RELEASE_ALLOCATION_THRESHOLD: usize = 64;
 #[derive(Clone, Debug, PartialEq)]
 pub enum HeapObject {
     Struct {
+        module_id: galfus_core::ModuleId,
         layout_idx: StructLayoutIdx,
         fields: Vec<Value>,
     },
@@ -69,6 +70,7 @@ pub enum HeapObject {
         elements: Vec<Value>,
     },
     Choice {
+        module_id: galfus_core::ModuleId,
         layout_idx: ChoiceLayoutIdx,
         variant_idx: u16,
         payload: Value,

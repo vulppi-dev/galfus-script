@@ -51,10 +51,9 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                     let resolved = self.builder.resolve_alias_type(ty);
                     if let Some(TypeKind::Primitive(p)) =
                         self.builder.type_result.layer().table().kind(resolved)
+                        && p == &galfus_frontend::PrimitiveType::Float64
                     {
-                        if p == &galfus_frontend::PrimitiveType::Float64 {
-                            constant = Constant::Float64(val);
-                        }
+                        constant = Constant::Float64(val);
                     }
                 }
                 Operand::Constant(constant)
@@ -437,8 +436,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                 if let Some(ref params) = expected_params {
                     let provided = args.len() - parameter_offset;
                     if provided < params.len() {
-                        for parameter_index in provided..params.len() {
-                            let &(expected_ty, is_rest) = &params[parameter_index];
+                        for &(expected_ty, is_rest) in params.iter().skip(provided) {
                             if !is_rest {
                                 args.push(Operand::Constant(Constant::Null));
                                 arg_types.push(expected_ty);

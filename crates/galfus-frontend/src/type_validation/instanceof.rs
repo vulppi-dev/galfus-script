@@ -4,6 +4,15 @@ use crate::{PrimitiveType, SymbolKind, SyntaxNodeKind, TypeKind};
 
 use super::DeclarationTypeChecker;
 
+struct InstanceofArmContext<'a> {
+    subject_type: TypeId,
+    remaining_members: &'a mut Vec<TypeId>,
+    subject_symbol: Option<galfus_core::SymbolId>,
+    subject_text: &'a str,
+    subject_generic: Option<galfus_core::SymbolId>,
+    expected: Option<TypeId>,
+}
+
 impl<'a> DeclarationTypeChecker<'a> {
     pub(super) fn infer_instanceof_expression_type(
         &mut self,
@@ -40,15 +49,15 @@ impl<'a> DeclarationTypeChecker<'a> {
         let mut remaining_members = self.instanceof_possible_members(subject_type);
 
         for arm in arm_nodes {
-            let Some(arm_type) = self.check_instanceof_arm_type(
-                arm,
+            let context = InstanceofArmContext {
                 subject_type,
-                &mut remaining_members,
+                remaining_members: &mut remaining_members,
                 subject_symbol,
-                subject_text.as_str(),
+                subject_text: subject_text.as_str(),
                 subject_generic,
                 expected,
-            ) else {
+            };
+            let Some(arm_type) = self.check_instanceof_arm_type(arm, context) else {
                 continue;
             };
 
@@ -206,31 +215,30 @@ impl<'a> DeclarationTypeChecker<'a> {
     fn check_instanceof_arm_type(
         &mut self,
         arm: NodeId,
-        subject_type: TypeId,
-        remaining_members: &mut Vec<TypeId>,
-        subject_symbol: Option<galfus_core::SymbolId>,
-        subject_text: &str,
-        subject_generic: Option<galfus_core::SymbolId>,
-        expected: Option<TypeId>,
+        context: InstanceofArmContext<'_>,
     ) -> Option<TypeId> {
         let pattern = self.graph.syntax().child(arm, 0)?;
         let body = self.graph.syntax().child(arm, 1)?;
 
-        let narrowed_type =
-            self.check_instanceof_pattern_type(pattern, subject_type, remaining_members);
-        let arm_expected = expected
+        let narrowed_type = self.check_instanceof_pattern_type(
+            pattern,
+            context.subject_type,
+            context.remaining_members,
+        );
+        let arm_expected = context
+            .expected
             .zip(narrowed_type)
             .map(|(expected, pattern_type)| {
-                self.branch_expected_type(expected, subject_generic, pattern_type)
+                self.branch_expected_type(expected, context.subject_generic, pattern_type)
             })
-            .or(expected);
+            .or(context.expected);
 
         self.infer_instanceof_arm_body_type_with_narrowing(
             body,
-            subject_symbol,
-            subject_text,
+            context.subject_symbol,
+            context.subject_text,
             narrowed_type,
-            subject_generic,
+            context.subject_generic,
             arm_expected,
         )
     }
@@ -255,9 +263,7 @@ impl<'a> DeclarationTypeChecker<'a> {
         subject_type: TypeId,
         remaining_members: &mut Vec<TypeId>,
     ) -> Option<TypeId> {
-        let Some(pattern_node) = self.graph.syntax().node(pattern) else {
-            return None;
-        };
+        let pattern_node = self.graph.syntax().node(pattern)?;
 
         match pattern_node.kind() {
             SyntaxNodeKind::TypePattern => {
@@ -288,13 +294,8 @@ impl<'a> DeclarationTypeChecker<'a> {
         subject_type: TypeId,
         remaining_members: &mut Vec<TypeId>,
     ) -> Option<TypeId> {
-        let Some(type_node) = self.first_type_child(pattern) else {
-            return None;
-        };
-
-        let Some(pattern_type) = self.layer.node_type(type_node) else {
-            return None;
-        };
+        let type_node = self.first_type_child(pattern)?;
+        let pattern_type = self.layer.node_type(type_node)?;
 
         if !self.is_instanceof_pattern_compatible(pattern_type, remaining_members) {
             self.report_invalid_instanceof_pattern_type(pattern, subject_type, pattern_type);
