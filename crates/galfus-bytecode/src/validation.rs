@@ -187,10 +187,13 @@ pub fn validate_bytecode_module(
                 Instruction::LoadGlobal {
                     dest,
                     global_idx: _,
+                    ..
                 } => {
                     check_reg(dest, &mut errors);
                 }
-                Instruction::StoreGlobal { global_idx: _, src } => {
+                Instruction::StoreGlobal {
+                    global_idx: _, src, ..
+                } => {
                     check_reg(src, &mut errors);
                 }
                 Instruction::LoadNull { dest } => {

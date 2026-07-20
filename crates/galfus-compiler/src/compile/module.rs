@@ -287,8 +287,6 @@ fn compile_single_module(
 
     let mut functions: Vec<BytecodeFunction> = Vec::new();
     let mut init_func_idx: Option<FuncIdx> = None;
-    let mut global_var_map = HashMap::new();
-    let mut next_global_idx = 0u16;
 
     for mir_func in &mir_mod.functions {
         let is_init = mir_func.name == "__init_module";
@@ -316,13 +314,7 @@ fn compile_single_module(
         );
         let mut instructions = emitter.emit();
 
-        rewrite_global_indices(
-            &mut instructions,
-            modules,
-            mod_idx,
-            &mut global_var_map,
-            &mut next_global_idx,
-        )?;
+        rewrite_global_indices(&mut instructions, modules, mod_idx)?;
 
         functions.push(BytecodeFunction {
             name: mir_func.name.clone(),

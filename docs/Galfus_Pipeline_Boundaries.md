@@ -34,9 +34,9 @@ The `BytecodeGraph` is the single canonical executable graph.
 ## Runtime boundary
 
 The runtime executes a borrowed `BytecodeGraph` directly. The VM currently
-holds execution state, including heap and global slots, and does not rebuild,
-copy, or duplicate the graph. Per-module globals and dependency-ordered module
-initialization are planned.
+holds execution state, including heap and module-scoped globals, and does not
+rebuild, copy, or duplicate the graph. Dependencies initialize before the
+entry module.
 The runtime never performs parsing, semantic checking, or compilation, and there is no separate runtime module graph.
 
 ## Host-provider boundary

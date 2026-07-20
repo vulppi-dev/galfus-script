@@ -186,6 +186,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                         let global_idx = 0;
                         let val_reg = self.operand_reg(op);
                         self.instructions.push(Instruction::StoreGlobal {
+                            module_id: galfus_core::ModuleId::new(0),
                             global_idx: GlobalIdx(global_idx as u16),
                             src: val_reg,
                         });

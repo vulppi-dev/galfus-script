@@ -1,5 +1,7 @@
 pub use error::{StackFrameInfo, VmError, VmPanic};
-pub use runtime::{CallFrame, HeapObject, VirtualMachine, VmContext, VmObjectRef, VmValue};
+pub use runtime::{
+    CallFrame, HeapObject, RuntimeModuleState, VirtualMachine, VmContext, VmObjectRef, VmValue,
+};
 
 #[cfg(test)]
 mod tests;

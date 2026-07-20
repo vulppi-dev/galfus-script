@@ -10,10 +10,12 @@ impl<'a> VirtualMachine<'a> {
         let mut roots = VecDeque::new();
         let mut reachable = HashSet::new();
 
-        for val in &self.globals {
-            if let Value::Object(obj_ref) = val {
-                if reachable.insert(obj_ref.raw()) {
-                    roots.push_back(*obj_ref);
+        for state in self.module_states.values() {
+            for val in &state.globals {
+                if let Value::Object(obj_ref) = val {
+                    if reachable.insert(obj_ref.raw()) {
+                        roots.push_back(*obj_ref);
+                    }
                 }
             }
         }

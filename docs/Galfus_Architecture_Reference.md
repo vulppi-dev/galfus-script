@@ -77,9 +77,9 @@ It manages the orchestration of the frontend, compiler, and provides an API for 
 ## 6. Runtime and VM
 
 The runtime executes a borrowed `BytecodeGraph` with optional `Providers`.
-Execution state currently lives in the VM and the runtime does not duplicate
-bytecode. Per-module global state and dependency-ordered module initialization
-are planned improvements.
+Execution state lives in the VM and is partitioned by `ModuleId`, including
+globals and initialization status. Dependencies initialize before the entry
+module, and the runtime does not duplicate bytecode.
 
 The `VM` executes bytecode instructions. It receives frames containing `ModuleId`, `FunctionId`, and `InstructionOffset`. Execution is implemented fundamentally via a `step` function that runs one instruction at a time.
 

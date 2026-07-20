@@ -7,7 +7,14 @@ use galfus_bytecode::{
 };
 
 fn graph_with_node(node: BytecodeNode) -> BytecodeGraph {
-    BytecodeGraph::from_modules(node.semantic_revision, vec![node], Vec::new())
+    graph_with_nodes(node.semantic_revision, vec![node])
+}
+
+fn graph_with_nodes(
+    semantic_revision: galfus_core::SemanticRevision,
+    nodes: Vec<BytecodeNode>,
+) -> BytecodeGraph {
+    BytecodeGraph::from_modules(semantic_revision, nodes, Vec::new())
         .expect("test module must form a valid bytecode graph")
 }
 
@@ -72,5 +79,6 @@ fn create_test_module(instructions: Vec<Instruction>, constants: Vec<Constant>) 
 
 mod arithmetic_and_control;
 mod io_and_arrays;
+mod module_state;
 mod objects_and_types;
 mod ownership;

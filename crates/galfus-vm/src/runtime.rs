@@ -5,6 +5,7 @@ use galfus_bytecode::instruction::{
 use galfus_bytecode::{BytecodeGraph, BytecodeType, Constant, OwnershipKind};
 use galfus_core::ModuleId;
 use galfus_host::Providers;
+use std::collections::HashMap;
 
 mod casts;
 mod control;
@@ -81,6 +82,12 @@ pub struct VmContext {
     providers: Option<Providers>,
 }
 
+#[derive(Default)]
+pub struct RuntimeModuleState {
+    pub globals: Vec<VmValue>,
+    pub initialized: bool,
+}
+
 impl VmContext {
     pub fn new(providers: Option<Providers>) -> Self {
         Self { providers }
@@ -98,7 +105,7 @@ pub struct CallFrame {
 
 pub struct VirtualMachine<'a> {
     pub graph: &'a BytecodeGraph,
-    pub globals: Vec<Value>,
+    pub module_states: HashMap<ModuleId, RuntimeModuleState>,
     pub heap: Vec<Option<HeapObject>>,
     pub free_slots: Vec<usize>,
     pub call_stack: Vec<CallFrame>,
@@ -110,7 +117,7 @@ impl<'a> VirtualMachine<'a> {
     pub fn new(graph: &'a BytecodeGraph) -> Self {
         Self {
             graph,
-            globals: Vec::new(),
+            module_states: HashMap::new(),
             heap: Vec::new(),
             free_slots: Vec::new(),
             call_stack: Vec::new(),
@@ -140,6 +147,19 @@ impl<'a> VirtualMachine<'a> {
             self.heap.push(Some(obj));
             VmObjectRef(idx)
         }
+    }
+
+    pub fn module_state(&self, module_id: ModuleId) -> Option<&RuntimeModuleState> {
+        self.module_states.get(&module_id)
+    }
+
+    pub fn is_module_initialized(&self, module_id: ModuleId) -> bool {
+        self.module_state(module_id)
+            .is_some_and(|state| state.initialized)
+    }
+
+    pub fn mark_module_initialized(&mut self, module_id: ModuleId) {
+        self.module_states.entry(module_id).or_default().initialized = true;
     }
 
     pub fn current_image(&self) -> Result<&'a galfus_bytecode::BytecodeModule, VmError> {

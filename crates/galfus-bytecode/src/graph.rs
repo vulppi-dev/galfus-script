@@ -71,6 +71,8 @@ pub enum BytecodeGraphValidationError {
     },
     #[error("dependency edge {from:?} -> {to:?} references a module not in the graph")]
     MissingDependencyModule { from: ModuleId, to: ModuleId },
+    #[error("module {importer:?} accesses globals owned by missing module {owner:?}")]
+    MissingGlobalModule { importer: ModuleId, owner: ModuleId },
     #[error("module {importer:?} imports an invalid module path `{module_path}`")]
     InvalidImportPath {
         importer: ModuleId,
@@ -150,6 +152,25 @@ impl BytecodeGraph {
                     module_id: *id,
                     errors,
                 });
+            }
+            for function in &node.module.functions {
+                for instruction in &function.instructions {
+                    let owner = match instruction {
+                        crate::instruction::Instruction::LoadGlobal { module_id, .. }
+                        | crate::instruction::Instruction::StoreGlobal { module_id, .. } => {
+                            Some(*module_id)
+                        }
+                        _ => None,
+                    };
+                    if let Some(owner) = owner
+                        && !self.modules.contains_key(&owner)
+                    {
+                        return Err(BytecodeGraphValidationError::MissingGlobalModule {
+                            importer: *id,
+                            owner,
+                        });
+                    }
+                }
             }
         }
 

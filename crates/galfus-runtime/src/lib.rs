@@ -2,6 +2,9 @@ use galfus_bytecode::BytecodeModule;
 use galfus_host::Providers;
 use galfus_vm::{HeapObject, VirtualMachine, VmPanic, VmValue};
 
+#[cfg(test)]
+mod tests;
+
 #[derive(Debug, thiserror::Error)]
 pub enum RuntimeError {
     #[error("module `{0}` is not loaded")]
@@ -18,6 +21,8 @@ pub enum RuntimeError {
     EntryReturnTypeMismatch { name: String },
     #[error("entry arguments require bytecode type `{0}`")]
     MissingArgumentType(&'static str),
+    #[error(transparent)]
+    GraphResolution(#[from] galfus_bytecode::GraphResolutionError),
     #[error("{0}")]
     VmPanic(#[from] VmPanic),
 }
@@ -108,8 +113,19 @@ impl Runtime {
         let mut vm = VirtualMachine::new(graph).with_providers(providers);
 
         let result = (|| {
-            if let Some(init_idx) = image.init_func_idx {
-                vm.run_function(module_id, init_idx, vec![])?;
+            for initialized_module_id in graph.initialization_order(module_id)? {
+                if vm.is_module_initialized(initialized_module_id) {
+                    continue;
+                }
+                if let Some(init_idx) = graph
+                    .get(initialized_module_id)
+                    .expect("initialization order only contains loaded modules")
+                    .module
+                    .init_func_idx
+                {
+                    vm.run_function(initialized_module_id, init_idx, vec![])?;
+                }
+                vm.mark_module_initialized(initialized_module_id);
             }
 
             let entry_args = build_entry_args(&mut vm, module_id, args)?;

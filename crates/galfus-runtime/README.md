@@ -10,5 +10,5 @@ a borrowed `BytecodeGraph`.
 - **Host Integration**: Receives `Providers` from the workspace and routes capability requests to the host platform.
 
 The runtime does not copy, rebuild, or deduplicate the `BytecodeGraph`.
-Per-module runtime state is planned; current VM state includes one global-slot
-vector, the heap, and call frames.
+Current VM state includes a global-slot vector and initialization flag for each
+module, plus the heap and call frames.

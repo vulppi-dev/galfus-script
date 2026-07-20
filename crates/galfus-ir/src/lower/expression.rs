@@ -273,6 +273,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                     .unwrap_or(0);
                 self.instructions.push(Instruction::LoadGlobal {
                     dest,
+                    module_id: galfus_core::ModuleId::new(0),
                     global_idx: GlobalIdx(global_idx),
                 });
             }

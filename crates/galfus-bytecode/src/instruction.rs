@@ -91,9 +91,11 @@ pub enum Instruction {
     },
     LoadGlobal {
         dest: Reg,
+        module_id: galfus_core::ModuleId,
         global_idx: GlobalIdx,
     },
     StoreGlobal {
+        module_id: galfus_core::ModuleId,
         global_idx: GlobalIdx,
         src: Reg,
     },
