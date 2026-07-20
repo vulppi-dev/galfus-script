@@ -18,7 +18,7 @@ mod target_io;
 #[cfg(test)]
 mod tests;
 
-pub(super) enum ExecutionStep {
+pub enum ExecutionStep {
     Continue,
     Return(Value),
 }
@@ -224,87 +224,95 @@ impl<'a> VirtualMachine<'a> {
         }
     }
 
+    pub fn step(&mut self) -> Result<ExecutionStep, VmError> {
+        let instr = {
+            let frame = self.call_stack.last_mut().ok_or(VmError::EmptyCallStack)?;
+            let func = &self.graph.get(frame.module_id).unwrap().image.functions
+                [frame.func_idx.raw() as usize];
+            if frame.pc >= func.instructions.len() {
+                return Err(VmError::InstructionPointerOutOfBounds { pc: frame.pc });
+            }
+            let instr = func.instructions[frame.pc];
+            frame.pc += 1;
+            instr
+        };
+
+        let step = match instr {
+            Instruction::LoadConst { .. }
+            | Instruction::Move { .. }
+            | Instruction::LoadGlobal { .. }
+            | Instruction::StoreGlobal { .. }
+            | Instruction::LoadNull { .. } => self.execute_data_instruction(instr)?,
+
+            Instruction::Add { .. }
+            | Instruction::Sub { .. }
+            | Instruction::Mul { .. }
+            | Instruction::Div { .. }
+            | Instruction::Rem { .. }
+            | Instruction::Pow { .. }
+            | Instruction::Neg { .. }
+            | Instruction::Not { .. }
+            | Instruction::BitNot { .. }
+            | Instruction::Shl { .. }
+            | Instruction::Shr { .. }
+            | Instruction::And { .. }
+            | Instruction::Or { .. }
+            | Instruction::Xor { .. }
+            | Instruction::Eq { .. }
+            | Instruction::Ne { .. }
+            | Instruction::Lt { .. }
+            | Instruction::Le { .. }
+            | Instruction::Gt { .. }
+            | Instruction::Ge { .. }
+            | Instruction::Fallback { .. } => self.execute_operator_instruction(instr)?,
+
+            Instruction::Jump { .. }
+            | Instruction::JumpTrue { .. }
+            | Instruction::JumpFalse { .. }
+            | Instruction::JumpNull { .. }
+            | Instruction::Call { .. }
+            | Instruction::CallMethod { .. }
+            | Instruction::CallDynamic { .. }
+            | Instruction::Ret { .. }
+            | Instruction::RetNull
+            | Instruction::Panic { .. } => self.execute_control_instruction(instr)?,
+
+            Instruction::AllocLocal { .. }
+            | Instruction::AllocShared { .. }
+            | Instruction::LoadField { .. }
+            | Instruction::StoreField { .. }
+            | Instruction::NewArray { .. }
+            | Instruction::LoadIndex { .. }
+            | Instruction::StoreIndex { .. }
+            | Instruction::NewTuple { .. }
+            | Instruction::NewChoice { .. }
+            | Instruction::Cast { .. }
+            | Instruction::Copy { .. }
+            | Instruction::Instanceof { .. } => self.execute_object_instruction(instr)?,
+
+            Instruction::Drop { .. }
+            | Instruction::TxStart { .. }
+            | Instruction::TxLoad { .. }
+            | Instruction::TxStore { .. }
+            | Instruction::TxCommit { .. }
+            | Instruction::TxRollback
+            | Instruction::Write { .. }
+            | Instruction::Read { .. }
+            | Instruction::Len { .. }
+            | Instruction::CopyArray { .. } => self.execute_system_instruction(instr)?,
+        };
+
+        if matches!(step, ExecutionStep::Continue) {
+            self.release_unreachable_if_needed(instr);
+        }
+
+        Ok(step)
+    }
+
     fn execute_loop(&mut self) -> Result<Value, VmError> {
         loop {
-            let instr = {
-                let frame = self.call_stack.last_mut().ok_or(VmError::EmptyCallStack)?;
-                let func = &self.graph.get(frame.module_id).unwrap().image.functions
-                    [frame.func_idx.raw() as usize];
-                if frame.pc >= func.instructions.len() {
-                    return Err(VmError::InstructionPointerOutOfBounds { pc: frame.pc });
-                }
-                let instr = func.instructions[frame.pc];
-                frame.pc += 1;
-                instr
-            };
-
-            let step = match instr {
-                Instruction::LoadConst { .. }
-                | Instruction::Move { .. }
-                | Instruction::LoadGlobal { .. }
-                | Instruction::StoreGlobal { .. }
-                | Instruction::LoadNull { .. } => self.execute_data_instruction(instr)?,
-
-                Instruction::Add { .. }
-                | Instruction::Sub { .. }
-                | Instruction::Mul { .. }
-                | Instruction::Div { .. }
-                | Instruction::Rem { .. }
-                | Instruction::Pow { .. }
-                | Instruction::Neg { .. }
-                | Instruction::Not { .. }
-                | Instruction::BitNot { .. }
-                | Instruction::Shl { .. }
-                | Instruction::Shr { .. }
-                | Instruction::And { .. }
-                | Instruction::Or { .. }
-                | Instruction::Xor { .. }
-                | Instruction::Eq { .. }
-                | Instruction::Ne { .. }
-                | Instruction::Lt { .. }
-                | Instruction::Le { .. }
-                | Instruction::Gt { .. }
-                | Instruction::Ge { .. }
-                | Instruction::Fallback { .. } => self.execute_operator_instruction(instr)?,
-
-                Instruction::Jump { .. }
-                | Instruction::JumpTrue { .. }
-                | Instruction::JumpFalse { .. }
-                | Instruction::JumpNull { .. }
-                | Instruction::Call { .. }
-                | Instruction::CallMethod { .. }
-                | Instruction::CallDynamic { .. }
-                | Instruction::Ret { .. }
-                | Instruction::RetNull
-                | Instruction::Panic { .. } => self.execute_control_instruction(instr)?,
-
-                Instruction::AllocLocal { .. }
-                | Instruction::AllocShared { .. }
-                | Instruction::LoadField { .. }
-                | Instruction::StoreField { .. }
-                | Instruction::NewArray { .. }
-                | Instruction::LoadIndex { .. }
-                | Instruction::StoreIndex { .. }
-                | Instruction::NewTuple { .. }
-                | Instruction::NewChoice { .. }
-                | Instruction::Cast { .. }
-                | Instruction::Copy { .. }
-                | Instruction::Instanceof { .. } => self.execute_object_instruction(instr)?,
-
-                Instruction::Drop { .. }
-                | Instruction::TxStart { .. }
-                | Instruction::TxLoad { .. }
-                | Instruction::TxStore { .. }
-                | Instruction::TxCommit { .. }
-                | Instruction::TxRollback
-                | Instruction::Write { .. }
-                | Instruction::Read { .. }
-                | Instruction::Len { .. }
-                | Instruction::CopyArray { .. } => self.execute_system_instruction(instr)?,
-            };
-
-            match step {
-                ExecutionStep::Continue => self.release_unreachable_if_needed(instr),
+            match self.step()? {
+                ExecutionStep::Continue => {}
                 ExecutionStep::Return(value) => return Ok(value),
             }
         }
