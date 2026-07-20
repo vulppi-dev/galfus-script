@@ -13,8 +13,18 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
 
                 if matches!(
                     operand,
-                    Operand::Constant(MirConstant::Int(_))
-                        | Operand::Constant(MirConstant::Float(_))
+                    Operand::Constant(
+                        MirConstant::Int8(_)
+                            | MirConstant::Int16(_)
+                            | MirConstant::Int32(_)
+                            | MirConstant::Int64(_)
+                            | MirConstant::Uint8(_)
+                            | MirConstant::Uint16(_)
+                            | MirConstant::Uint32(_)
+                            | MirConstant::Uint64(_)
+                            | MirConstant::Float32(_)
+                            | MirConstant::Float64(_)
+                    )
                 ) && let Some(local) = self
                     .func
                     .locals
@@ -293,7 +303,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                 let type_idx = crate::lower::types::lower_type(self.ctx, *element_type);
                 let size_const = crate::lower::constants::get_or_create_constant(
                     &mut self.ctx,
-                    &MirConstant::Int(elements.len() as i64),
+                    &MirConstant::Int32(elements.len() as i32),
                 );
                 let size_reg = self.alloc_temp();
                 self.instructions.push(Instruction::LoadConst {
@@ -311,7 +321,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                 for (i, elem_operand) in elements.iter().enumerate() {
                     let idx_const = crate::lower::constants::get_or_create_constant(
                         self.ctx,
-                        &MirConstant::Int(i as i64),
+                        &MirConstant::Int32(i as i32),
                     );
                     let idx_reg = self.alloc_temp();
                     self.instructions.push(Instruction::LoadConst {
@@ -336,15 +346,19 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
 
                 // 1. Calculate total length at runtime
                 let total_len_reg = self.alloc_temp();
-                let const_zero =
-                    crate::lower::constants::get_or_create_constant(self.ctx, &MirConstant::Int(0));
+                let const_zero = crate::lower::constants::get_or_create_constant(
+                    self.ctx,
+                    &MirConstant::Int32(0),
+                );
                 self.instructions.push(Instruction::LoadConst {
                     dest: total_len_reg,
                     const_idx: const_zero,
                 });
 
-                let const_one =
-                    crate::lower::constants::get_or_create_constant(self.ctx, &MirConstant::Int(1));
+                let const_one = crate::lower::constants::get_or_create_constant(
+                    self.ctx,
+                    &MirConstant::Int32(1),
+                );
 
                 for element in elements {
                     match element {
@@ -548,7 +562,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
 
                 let size_const = crate::lower::constants::get_or_create_constant(
                     &mut self.ctx,
-                    &MirConstant::Int(*size as i64),
+                    &MirConstant::Int32(*size as i32),
                 );
 
                 let len_reg = self.alloc_temp();
@@ -695,8 +709,15 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                 let prim = match constant {
                     MirConstant::Null => PrimitiveType::Null,
                     MirConstant::Bool(_) => PrimitiveType::Bool,
-                    MirConstant::Int(_) => PrimitiveType::Int32,
-                    MirConstant::Float(_) => PrimitiveType::Float32,
+                    MirConstant::Int8(_)
+                    | MirConstant::Int16(_)
+                    | MirConstant::Int32(_)
+                    | MirConstant::Int64(_)
+                    | MirConstant::Uint8(_)
+                    | MirConstant::Uint16(_)
+                    | MirConstant::Uint32(_)
+                    | MirConstant::Uint64(_) => PrimitiveType::Int32,
+                    MirConstant::Float32(_) | MirConstant::Float64(_) => PrimitiveType::Float32,
                     MirConstant::Function(_) => PrimitiveType::Null,
                     MirConstant::String(_) => {
                         // Find String type in type table
@@ -721,8 +742,15 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                 let prim = match constant {
                     MirConstant::Null => PrimitiveType::Null,
                     MirConstant::Bool(_) => PrimitiveType::Bool,
-                    MirConstant::Int(_) => PrimitiveType::Int32,
-                    MirConstant::Float(_) => PrimitiveType::Float64,
+                    MirConstant::Int8(_)
+                    | MirConstant::Int16(_)
+                    | MirConstant::Int32(_)
+                    | MirConstant::Int64(_)
+                    | MirConstant::Uint8(_)
+                    | MirConstant::Uint16(_)
+                    | MirConstant::Uint32(_)
+                    | MirConstant::Uint64(_) => PrimitiveType::Int32,
+                    MirConstant::Float32(_) | MirConstant::Float64(_) => PrimitiveType::Float64,
                     MirConstant::Function(_) => PrimitiveType::Null,
                     MirConstant::String(_) => {
                         // Find String type in type table

@@ -18,14 +18,46 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
         match node.kind() {
             SyntaxNodeKind::IntegerLiteral => {
                 let text = self.builder.node_text(expr_id);
-                let val = parse_int(text).unwrap_or(0);
-                Operand::Constant(Constant::Int(val))
+                let val = parse_int(text).unwrap_or(0) as i128;
+
+                let mut constant = Constant::Int32(val as i32);
+                if let Some(ty) = self.node_type(expr_id) {
+                    let resolved = self.builder.resolve_alias_type(ty);
+                    if let Some(TypeKind::Primitive(p)) =
+                        self.builder.type_result.layer().table().kind(resolved)
+                    {
+                        constant = match p {
+                            galfus_frontend::PrimitiveType::Int8 => Constant::Int8(val as i8),
+                            galfus_frontend::PrimitiveType::Int16 => Constant::Int16(val as i16),
+                            galfus_frontend::PrimitiveType::Int32 => Constant::Int32(val as i32),
+                            galfus_frontend::PrimitiveType::Int64 => Constant::Int64(val as i64),
+                            galfus_frontend::PrimitiveType::Uint8 => Constant::Uint8(val as u8),
+                            galfus_frontend::PrimitiveType::Uint16 => Constant::Uint16(val as u16),
+                            galfus_frontend::PrimitiveType::Uint32 => Constant::Uint32(val as u32),
+                            galfus_frontend::PrimitiveType::Uint64 => Constant::Uint64(val as u64),
+                            _ => constant,
+                        };
+                    }
+                }
+                Operand::Constant(constant)
             }
 
             SyntaxNodeKind::FloatLiteral => {
                 let text = self.builder.node_text(expr_id);
                 let val = text.parse::<f64>().unwrap_or(0.0);
-                Operand::Constant(Constant::Float(val))
+
+                let mut constant = Constant::Float32(val as f32);
+                if let Some(ty) = self.node_type(expr_id) {
+                    let resolved = self.builder.resolve_alias_type(ty);
+                    if let Some(TypeKind::Primitive(p)) =
+                        self.builder.type_result.layer().table().kind(resolved)
+                    {
+                        if p == &galfus_frontend::PrimitiveType::Float64 {
+                            constant = Constant::Float64(val);
+                        }
+                    }
+                }
+                Operand::Constant(constant)
             }
 
             SyntaxNodeKind::StringLiteral => {
@@ -74,7 +106,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                             .child(expr_id, 3)
                             .and_then(|step| syntax.first_child(step))
                             .map(|step| self.lower_expression(step))
-                            .unwrap_or(Operand::Constant(Constant::Int(1)));
+                            .unwrap_or(Operand::Constant(Constant::Int32(1)));
                         (
                             "rangeSteps",
                             vec![start_operand, end_or_count_operand, step],
@@ -646,7 +678,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                                 resolution.and_then(|res| res.path_reference_symbol(expr_id))
                             {
                                 let val = self.get_enum_variant_value(variant_symbol);
-                                return Operand::Constant(Constant::Int(val));
+                                return Operand::Constant(Constant::Int32(val as i32));
                             }
                         }
                         PathReferenceKind::ChoiceVariant => {
@@ -748,7 +780,14 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
 
                 if is_tuple {
                     let index_str = match index_operand {
-                        Operand::Constant(Constant::Int(val)) => val.to_string(),
+                        Operand::Constant(Constant::Int8(val)) => val.to_string(),
+                        Operand::Constant(Constant::Int16(val)) => val.to_string(),
+                        Operand::Constant(Constant::Int32(val)) => val.to_string(),
+                        Operand::Constant(Constant::Int64(val)) => val.to_string(),
+                        Operand::Constant(Constant::Uint8(val)) => val.to_string(),
+                        Operand::Constant(Constant::Uint16(val)) => val.to_string(),
+                        Operand::Constant(Constant::Uint32(val)) => val.to_string(),
+                        Operand::Constant(Constant::Uint64(val)) => val.to_string(),
                         _ => "0".to_string(),
                     };
                     self.current_instructions.push(Instruction::Assign(

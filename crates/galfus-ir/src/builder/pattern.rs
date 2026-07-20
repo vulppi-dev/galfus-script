@@ -143,7 +143,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                                 RValue::BinaryOp(
                                     MirBinaryOp::Equal,
                                     subject.clone(),
-                                    Operand::Constant(Constant::Int(val)),
+                                    Operand::Constant(Constant::Int32(val as i32)),
                                 ),
                             ));
                             self.terminate_block(Terminator::Branch {
@@ -614,7 +614,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                         let temp_ty = TypeId::new(0);
                         let temp_local = self.declare_local(None, temp_ty);
 
-                        let _idx_operand = Operand::Constant(Constant::Int(i as i64));
+                        let _idx_operand = Operand::Constant(Constant::Int32(i as i32));
                         let len_operand = self.declare_local(None, temp_ty);
                         self.current_instructions.push(Instruction::Assign(
                             len_operand,
@@ -634,7 +634,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                         let temp_ty = TypeId::new(0);
                         let temp_local = self.declare_local(None, temp_ty);
 
-                        let idx_operand = Operand::Constant(Constant::Int(i as i64));
+                        let idx_operand = Operand::Constant(Constant::Int32(i as i32));
                         self.current_instructions.push(Instruction::Assign(
                             temp_local,
                             RValue::ArrayIndex(operand.clone(), idx_operand),

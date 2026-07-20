@@ -16,10 +16,16 @@ impl VirtualMachine {
                     .ok_or(VmError::ConstantOutOfBounds { index: const_idx })?;
                 let val = match constant {
                     Constant::Bool(b) => Value::Bool(*b),
+                    Constant::Int8(i) => Value::Int8(*i),
+                    Constant::Int16(i) => Value::Int16(*i),
                     Constant::Int32(i) => Value::Int32(*i),
                     Constant::Int64(i) => Value::Int64(*i),
-
-                    Constant::Float(f) => Value::Float64(*f),
+                    Constant::Uint8(i) => Value::Uint8(*i),
+                    Constant::Uint16(i) => Value::Uint16(*i),
+                    Constant::Uint32(i) => Value::Uint32(*i),
+                    Constant::Uint64(i) => Value::Uint64(*i),
+                    Constant::Float32(f) => Value::Float32(*f),
+                    Constant::Float64(f) => Value::Float64(*f),
                     Constant::String(s) => {
                         let element_ty = self.uint8_type_idx();
                         let obj = HeapObject::Array {
