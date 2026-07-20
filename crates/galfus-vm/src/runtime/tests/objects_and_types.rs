@@ -25,8 +25,7 @@ fn test_structs_load_store() {
         Instruction::Ret { src: Reg(3) },
     ];
     let image = create_test_module(instrs, vec![Constant::Int64(42)]);
-    let mut graph = galfus_bytecode::BytecodeGraph::new();
-    graph.upsert(galfus_bytecode::BytecodeNode {
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
         id: galfus_core::ModuleId::new(0),
         path: galfus_core::ModulePath::new("test.gfs").unwrap(),
         semantic_revision: galfus_core::SemanticRevision::new(0),
@@ -76,8 +75,7 @@ fn test_arrays_load_store() {
         instrs,
         vec![Constant::Int64(5), Constant::Int64(2), Constant::Int64(99)],
     );
-    let mut graph = galfus_bytecode::BytecodeGraph::new();
-    graph.upsert(galfus_bytecode::BytecodeNode {
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
         id: galfus_core::ModuleId::new(0),
         path: galfus_core::ModulePath::new("test.gfs").unwrap(),
         semantic_revision: galfus_core::SemanticRevision::new(0),
@@ -127,8 +125,7 @@ fn test_tuples() {
             Constant::Int64(1),
         ],
     );
-    let mut graph = galfus_bytecode::BytecodeGraph::new();
-    graph.upsert(galfus_bytecode::BytecodeNode {
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
         id: galfus_core::ModuleId::new(0),
         path: galfus_core::ModulePath::new("test.gfs").unwrap(),
         semantic_revision: galfus_core::SemanticRevision::new(0),
@@ -158,8 +155,7 @@ fn test_choices() {
         Instruction::Ret { src: Reg(2) },
     ];
     let image = create_test_module(instrs, vec![Constant::Int64(100)]);
-    let mut graph = galfus_bytecode::BytecodeGraph::new();
-    graph.upsert(galfus_bytecode::BytecodeNode {
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
         id: galfus_core::ModuleId::new(0),
         path: galfus_core::ModulePath::new("test.gfs").unwrap(),
         semantic_revision: galfus_core::SemanticRevision::new(0),
@@ -203,8 +199,7 @@ fn test_cast() {
         Instruction::Ret { src: Reg(2) },
     ];
     let image = create_test_module(instrs, vec![Constant::Int64(42)]);
-    let mut graph = galfus_bytecode::BytecodeGraph::new();
-    graph.upsert(galfus_bytecode::BytecodeNode {
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
         id: galfus_core::ModuleId::new(0),
         path: galfus_core::ModulePath::new("test.gfs").unwrap(),
         semantic_revision: galfus_core::SemanticRevision::new(0),
@@ -233,8 +228,7 @@ fn test_instanceof() {
         Instruction::Ret { src: Reg(2) },
     ];
     let image = create_test_module(instrs, vec![Constant::Int64(42)]);
-    let mut graph = galfus_bytecode::BytecodeGraph::new();
-    graph.upsert(galfus_bytecode::BytecodeNode {
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
         id: galfus_core::ModuleId::new(0),
         path: galfus_core::ModulePath::new("test.gfs").unwrap(),
         semantic_revision: galfus_core::SemanticRevision::new(0),
@@ -270,8 +264,7 @@ fn test_instanceof_constraint_satisfied_by_struct_layout() {
         .constraints
         .push("Stringable".to_string());
 
-    let mut graph = galfus_bytecode::BytecodeGraph::new();
-    graph.upsert(galfus_bytecode::BytecodeNode {
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
         id: galfus_core::ModuleId::new(0),
         path: galfus_core::ModulePath::new("test.gfs").unwrap(),
         semantic_revision: galfus_core::SemanticRevision::new(0),
@@ -304,8 +297,7 @@ fn test_division_by_zero_panic() {
         Instruction::Ret { src: Reg(3) },
     ];
     let image = create_test_module(instrs, vec![Constant::Int64(10), Constant::Int64(0)]);
-    let mut graph = galfus_bytecode::BytecodeGraph::new();
-    graph.upsert(galfus_bytecode::BytecodeNode {
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
         id: galfus_core::ModuleId::new(0),
         path: galfus_core::ModulePath::new("test.gfs").unwrap(),
         semantic_revision: galfus_core::SemanticRevision::new(0),
@@ -378,8 +370,7 @@ fn test_unwinding_call_stack() {
         init_func_idx: None,
     };
 
-    let mut graph = galfus_bytecode::BytecodeGraph::new();
-    graph.upsert(galfus_bytecode::BytecodeNode {
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
         id: galfus_core::ModuleId::new(0),
         path: galfus_core::ModulePath::new("test.gfs").unwrap(),
         semantic_revision: galfus_core::SemanticRevision::new(0),
@@ -448,8 +439,7 @@ fn test_copy_deep_copies_nested_structs() {
         constraints: vec![],
     });
 
-    let mut graph = galfus_bytecode::BytecodeGraph::new();
-    graph.upsert(galfus_bytecode::BytecodeNode {
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
         id: galfus_core::ModuleId::new(0),
         path: galfus_core::ModulePath::new("test.gfs").unwrap(),
         semantic_revision: galfus_core::SemanticRevision::new(0),
@@ -530,8 +520,7 @@ fn test_copy_preserves_internal_weak_observer_topology() {
         constraints: vec![],
     });
 
-    let mut graph = galfus_bytecode::BytecodeGraph::new();
-    graph.upsert(galfus_bytecode::BytecodeNode {
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
         id: galfus_core::ModuleId::new(0),
         path: galfus_core::ModulePath::new("test.gfs").unwrap(),
         semantic_revision: galfus_core::SemanticRevision::new(0),
@@ -616,8 +605,7 @@ fn test_copy_nulls_external_weak_observer_target() {
         constraints: vec![],
     });
 
-    let mut graph = galfus_bytecode::BytecodeGraph::new();
-    graph.upsert(galfus_bytecode::BytecodeNode {
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
         id: galfus_core::ModuleId::new(0),
         path: galfus_core::ModulePath::new("test.gfs").unwrap(),
         semantic_revision: galfus_core::SemanticRevision::new(0),
@@ -701,8 +689,7 @@ fn test_copy_preserves_shared_strong_topology() {
         constraints: vec![],
     });
 
-    let mut graph = galfus_bytecode::BytecodeGraph::new();
-    graph.upsert(galfus_bytecode::BytecodeNode {
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
         id: galfus_core::ModuleId::new(0),
         path: galfus_core::ModulePath::new("test.gfs").unwrap(),
         semantic_revision: galfus_core::SemanticRevision::new(0),
@@ -749,8 +736,7 @@ fn test_copy_rejects_fieldless_structs_at_runtime() {
         constraints: vec![],
     });
 
-    let mut graph = galfus_bytecode::BytecodeGraph::new();
-    graph.upsert(galfus_bytecode::BytecodeNode {
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
         id: galfus_core::ModuleId::new(0),
         path: galfus_core::ModulePath::new("test.gfs").unwrap(),
         semantic_revision: galfus_core::SemanticRevision::new(0),

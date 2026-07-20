@@ -348,6 +348,10 @@ impl Workspace {
             CompileState::Stale { graph, .. } => Some(graph),
             _ => None,
         };
+        let empty_graph = BytecodeGraph::new();
+        let base_graph = cached_graph
+            .map(|graph| graph.as_ref())
+            .unwrap_or(&empty_graph);
 
         // The first compilation has no graph to upsert into, so it must emit
         // every semantic module even if the last frontend delta was narrower.
@@ -387,11 +391,6 @@ impl Workspace {
             })
             .collect();
 
-        // Compile each module individually — one BytecodeModule per module.
-        let outputs =
-            galfus_compiler::compile_changed_modules(&mut compiled_modules, &compilation_targets)
-                .map_err(|e| CompileBlocked::CompilerError(e.to_string()))?;
-
         // Build import edges from the SemanticModuleGraph.
         let semantic_graph = self.frontend.semantic_graph();
         let edges: Vec<ImportEdge> = semantic_graph
@@ -417,21 +416,21 @@ impl Workspace {
             .copied()
             .collect();
 
-        let transaction = galfus_bytecode::BytecodeGraphTransaction {
-            upserted_modules: outputs,
+        let transaction = galfus_compiler::compile_transaction(
+            &mut compiled_modules,
+            &compilation_targets,
+            base_graph.version(),
+            semantic_revision,
             removed_modules,
             edges,
-        };
+        )
+        .map_err(|error| CompileBlocked::CompilerError(error.to_string()))?;
 
-        // Apply transaction to a clone of the old graph or a new graph.
-        // If validation fails in the future, we can simply drop the clone.
-        let mut module_graph = cached_graph
-            .map(|graph| (**graph).clone())
-            .unwrap_or_else(BytecodeGraph::new);
-
-        module_graph.apply(transaction);
-
-        let graph = Arc::new(module_graph);
+        let graph = Arc::new(
+            base_graph
+                .apply(transaction)
+                .map_err(|error| CompileBlocked::CompilerError(error.to_string()))?,
+        );
         self.bytecode_state.compile_state = CompileState::Ready {
             semantic_revision,
             graph: Arc::clone(&graph),

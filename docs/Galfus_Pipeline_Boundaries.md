@@ -24,11 +24,11 @@ than source text or syntax-only output.
 
 ## Compiler boundary
 
-The compiler consumes semantic modules and produces `BytecodeModule` values.
-The workspace assembles changed values, removals, and dependency edges into a
-`BytecodeGraphTransaction`, applies it to a cloned graph, and publishes the
-resulting snapshot. Graph-wide transaction validation, version checks, and
-rollback are planned; they are not current guarantees.
+The compiler consumes semantic modules and produces a versioned
+`BytecodeGraphTransaction` containing changed modules, removals, and dependency
+edges. The workspace applies it only when its base version matches, validates
+the complete resulting graph, and publishes the next snapshot atomically.
+Failed or stale transactions retain the prior snapshot.
 The `BytecodeGraph` is the single canonical executable graph.
 
 ## Runtime boundary

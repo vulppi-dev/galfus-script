@@ -8,7 +8,8 @@
 
 use anyhow::Result;
 use galfus_bytecode::{
-    BytecodeFunction, BytecodeModule, BytecodeType, ExportSlot, ImportSlot,
+    BytecodeFunction, BytecodeGraphTransaction, BytecodeModule, BytecodeType, ExportSlot,
+    ImportEdge, ImportSlot,
     instruction::{FuncIdx, TypeIdx},
 };
 use std::collections::{HashMap, HashSet};
@@ -118,6 +119,25 @@ pub fn compile_changed_modules(
     }
 
     Ok(outputs)
+}
+
+/// Compile changed modules and package them into one graph transaction.
+pub fn compile_transaction(
+    modules: &mut [CompiledModule],
+    changed_modules: &HashSet<galfus_core::ModuleId>,
+    base_version: u64,
+    semantic_revision: galfus_core::SemanticRevision,
+    removed_modules: Vec<galfus_core::ModuleId>,
+    edges: Vec<ImportEdge>,
+) -> Result<BytecodeGraphTransaction> {
+    let upserted_modules = compile_changed_modules(modules, changed_modules)?;
+    Ok(BytecodeGraphTransaction {
+        base_version,
+        semantic_revision,
+        upserted_modules,
+        removed_modules,
+        edges,
+    })
 }
 
 fn compile_single_module(

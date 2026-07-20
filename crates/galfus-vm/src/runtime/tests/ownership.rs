@@ -60,8 +60,7 @@ fn test_ownership_deterministic_release() {
         init_func_idx: None,
     };
 
-    let mut graph = galfus_bytecode::BytecodeGraph::new();
-    graph.upsert(galfus_bytecode::BytecodeNode {
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
         id: galfus_core::ModuleId::new(0),
         path: galfus_core::ModulePath::new("test.gfs").unwrap(),
         semantic_revision: galfus_core::SemanticRevision::new(0),
@@ -156,8 +155,7 @@ fn test_ownership_cycle_release() {
         init_func_idx: None,
     };
 
-    let mut graph = galfus_bytecode::BytecodeGraph::new();
-    graph.upsert(galfus_bytecode::BytecodeNode {
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
         id: galfus_core::ModuleId::new(0),
         path: galfus_core::ModulePath::new("test.gfs").unwrap(),
         semantic_revision: galfus_core::SemanticRevision::new(0),
@@ -262,8 +260,7 @@ fn test_ownership_weak_invalidation() {
         init_func_idx: None,
     };
 
-    let mut graph = galfus_bytecode::BytecodeGraph::new();
-    graph.upsert(galfus_bytecode::BytecodeNode {
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
         id: galfus_core::ModuleId::new(0),
         path: galfus_core::ModulePath::new("test.gfs").unwrap(),
         semantic_revision: galfus_core::SemanticRevision::new(0),

@@ -20,8 +20,7 @@ fn test_basic_arithmetic() {
         Instruction::Ret { src: Reg(3) },
     ];
     let image = create_test_module(instrs, vec![Constant::Int64(10), Constant::Int64(20)]);
-    let mut graph = galfus_bytecode::BytecodeGraph::new();
-    graph.upsert(galfus_bytecode::BytecodeNode {
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
         id: galfus_core::ModuleId::new(0),
         path: galfus_core::ModulePath::new("test.gfs").unwrap(),
         semantic_revision: galfus_core::SemanticRevision::new(0),
@@ -74,8 +73,7 @@ fn test_sub_mul_div_rem_pow() {
         Instruction::Ret { src: Reg(7) },
     ];
     let image = create_test_module(instrs, vec![Constant::Int64(15), Constant::Int64(4)]);
-    let mut graph = galfus_bytecode::BytecodeGraph::new();
-    graph.upsert(galfus_bytecode::BytecodeNode {
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
         id: galfus_core::ModuleId::new(0),
         path: galfus_core::ModulePath::new("test.gfs").unwrap(),
         semantic_revision: galfus_core::SemanticRevision::new(0),
@@ -103,8 +101,7 @@ fn test_neg() {
         Instruction::Ret { src: Reg(2) },
     ];
     let image = create_test_module(instrs, vec![Constant::Int64(5)]);
-    let mut graph = galfus_bytecode::BytecodeGraph::new();
-    graph.upsert(galfus_bytecode::BytecodeNode {
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
         id: galfus_core::ModuleId::new(0),
         path: galfus_core::ModulePath::new("test.gfs").unwrap(),
         semantic_revision: galfus_core::SemanticRevision::new(0),
@@ -132,8 +129,7 @@ fn test_not() {
         Instruction::Ret { src: Reg(2) },
     ];
     let image = create_test_module(instrs, vec![Constant::Bool(true)]);
-    let mut graph = galfus_bytecode::BytecodeGraph::new();
-    graph.upsert(galfus_bytecode::BytecodeNode {
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
         id: galfus_core::ModuleId::new(0),
         path: galfus_core::ModulePath::new("test.gfs").unwrap(),
         semantic_revision: galfus_core::SemanticRevision::new(0),
@@ -161,8 +157,7 @@ fn test_bitnot() {
         Instruction::Ret { src: Reg(2) },
     ];
     let image = create_test_module(instrs, vec![Constant::Int64(5)]);
-    let mut graph = galfus_bytecode::BytecodeGraph::new();
-    graph.upsert(galfus_bytecode::BytecodeNode {
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
         id: galfus_core::ModuleId::new(0),
         path: galfus_core::ModulePath::new("test.gfs").unwrap(),
         semantic_revision: galfus_core::SemanticRevision::new(0),
@@ -215,8 +210,7 @@ fn test_shl_shr_and_or_xor() {
         Instruction::Ret { src: Reg(7) },
     ];
     let image = create_test_module(instrs, vec![Constant::Int64(8), Constant::Int64(2)]);
-    let mut graph = galfus_bytecode::BytecodeGraph::new();
-    graph.upsert(galfus_bytecode::BytecodeNode {
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
         id: galfus_core::ModuleId::new(0),
         path: galfus_core::ModulePath::new("test.gfs").unwrap(),
         semantic_revision: galfus_core::SemanticRevision::new(0),
@@ -249,8 +243,7 @@ fn test_comparison_lt() {
         Instruction::Ret { src: Reg(3) },
     ];
     let image = create_test_module(instrs, vec![Constant::Int64(100), Constant::Int64(200)]);
-    let mut graph = galfus_bytecode::BytecodeGraph::new();
-    graph.upsert(galfus_bytecode::BytecodeNode {
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
         id: galfus_core::ModuleId::new(0),
         path: galfus_core::ModulePath::new("test.gfs").unwrap(),
         semantic_revision: galfus_core::SemanticRevision::new(0),
@@ -283,8 +276,7 @@ fn test_comparison_le() {
         Instruction::Ret { src: Reg(3) },
     ];
     let image = create_test_module(instrs, vec![Constant::Int64(100), Constant::Int64(200)]);
-    let mut graph = galfus_bytecode::BytecodeGraph::new();
-    graph.upsert(galfus_bytecode::BytecodeNode {
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
         id: galfus_core::ModuleId::new(0),
         path: galfus_core::ModulePath::new("test.gfs").unwrap(),
         semantic_revision: galfus_core::SemanticRevision::new(0),
@@ -314,8 +306,7 @@ fn test_fallback() {
         Instruction::Ret { src: Reg(3) },
     ];
     let image = create_test_module(instrs, vec![Constant::Int64(100)]);
-    let mut graph = galfus_bytecode::BytecodeGraph::new();
-    graph.upsert(galfus_bytecode::BytecodeNode {
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
         id: galfus_core::ModuleId::new(0),
         path: galfus_core::ModulePath::new("test.gfs").unwrap(),
         semantic_revision: galfus_core::SemanticRevision::new(0),
@@ -360,8 +351,7 @@ fn test_control_flow_jumps() {
             Constant::Int64(888),
         ],
     );
-    let mut graph = galfus_bytecode::BytecodeGraph::new();
-    graph.upsert(galfus_bytecode::BytecodeNode {
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
         id: galfus_core::ModuleId::new(0),
         path: galfus_core::ModulePath::new("test.gfs").unwrap(),
         semantic_revision: galfus_core::SemanticRevision::new(0),
@@ -453,8 +443,7 @@ fn test_nested_calls_return_to_explicit_destinations() {
         init_func_idx: None,
     };
 
-    let mut graph = galfus_bytecode::BytecodeGraph::new();
-    graph.upsert(galfus_bytecode::BytecodeNode {
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
         id: galfus_core::ModuleId::new(0),
         path: galfus_core::ModulePath::new("test.gfs").unwrap(),
         semantic_revision: galfus_core::SemanticRevision::new(0),
@@ -520,8 +509,7 @@ fn test_dynamic_call_returns_to_destination() {
         init_func_idx: None,
     };
 
-    let mut graph = galfus_bytecode::BytecodeGraph::new();
-    graph.upsert(galfus_bytecode::BytecodeNode {
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
         id: galfus_core::ModuleId::new(0),
         path: galfus_core::ModulePath::new("test.gfs").unwrap(),
         semantic_revision: galfus_core::SemanticRevision::new(0),

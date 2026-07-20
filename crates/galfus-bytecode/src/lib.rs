@@ -6,7 +6,10 @@ pub mod graph_resolver;
 pub mod instruction;
 pub mod validation;
 
-pub use graph::{BytecodeGraph, BytecodeGraphTransaction, BytecodeNode, ImportEdge};
+pub use graph::{
+    BytecodeGraph, BytecodeGraphTransaction, BytecodeGraphTransactionError,
+    BytecodeGraphValidationError, BytecodeNode, ImportEdge,
+};
 pub use graph_resolver::{GraphResolutionError, ModuleImports, ResolvedImport};
 
 // =========================================================================

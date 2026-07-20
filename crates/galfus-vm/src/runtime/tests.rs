@@ -2,9 +2,14 @@ use super::*;
 use galfus_bytecode::BytecodeModule;
 use galfus_bytecode::instruction::{ConstIdx, FieldIdx};
 use galfus_bytecode::{
-    BytecodeFunction, ChoiceLayout, ChoiceVariantLayout, ConstantPool, FieldLayout, OwnershipKind,
-    StructLayout,
+    BytecodeFunction, BytecodeGraph, BytecodeNode, ChoiceLayout, ChoiceVariantLayout, ConstantPool,
+    FieldLayout, OwnershipKind, StructLayout,
 };
+
+fn graph_with_node(node: BytecodeNode) -> BytecodeGraph {
+    BytecodeGraph::from_modules(node.semantic_revision, vec![node], Vec::new())
+        .expect("test module must form a valid bytecode graph")
+}
 
 fn create_test_module(instructions: Vec<Instruction>, constants: Vec<Constant>) -> BytecodeModule {
     BytecodeModule {
