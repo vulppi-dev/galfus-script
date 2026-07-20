@@ -1,4 +1,4 @@
-//! Module compilation: produces one `CompiledBytecodeModule` per `CompiledModule`.
+//! Module compilation: produces one `BytecodeNode` per `CompiledModule`.
 //!
 //! Each compiled module:
 //! - Declares `ExportSlot`s for its public symbols.
@@ -18,7 +18,7 @@ use crate::compile::{
     globals::{image_local_count, rewrite_global_indices},
 };
 use crate::input::CompiledModule;
-use galfus_bytecode::graph::CompiledBytecodeModule;
+use galfus_bytecode::graph::BytecodeNode;
 
 /// Compile all modules in `modules`, each producing its own
 /// `BytecodeModule` with imports and exports declared.
@@ -26,7 +26,7 @@ use galfus_bytecode::graph::CompiledBytecodeModule;
 /// Cross-module calls are represented as `Call` instructions that target a
 /// `FuncIdx` in the local import table. The runtime is responsible for
 /// resolving these at load time.
-pub fn compile_modules(modules: &mut [CompiledModule]) -> Result<Vec<CompiledBytecodeModule>> {
+pub fn compile_modules(modules: &mut [CompiledModule]) -> Result<Vec<BytecodeNode>> {
     let module_ids = modules.iter().map(CompiledModule::id).collect();
     compile_changed_modules(modules, &module_ids)
 }
@@ -35,11 +35,11 @@ pub fn compile_modules(modules: &mut [CompiledModule]) -> Result<Vec<CompiledByt
 ///
 /// All modules remain available as semantic context so imports and generic
 /// specializations can be resolved across module boundaries. Only the selected
-/// modules are lowered into new `CompiledBytecodeModule`s.
+/// modules are lowered into new `BytecodeNode`s.
 pub fn compile_changed_modules(
     modules: &mut [CompiledModule],
     changed_modules: &HashSet<galfus_core::ModuleId>,
-) -> Result<Vec<CompiledBytecodeModule>> {
+) -> Result<Vec<BytecodeNode>> {
     if changed_modules.is_empty() {
         return Ok(Vec::new());
     }
@@ -108,11 +108,12 @@ pub fn compile_changed_modules(
                 errors
             ));
         }
-        outputs.push(CompiledBytecodeModule {
+        outputs.push(BytecodeNode {
             id: module_id,
             path,
             semantic_revision,
             image,
+            metadata: None,
         });
     }
 

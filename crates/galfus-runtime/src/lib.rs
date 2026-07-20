@@ -1,8 +1,6 @@
 use galfus_bytecode::BytecodeModule;
 use galfus_host::Providers;
 use galfus_vm::{HeapObject, VirtualMachine, VmPanic, VmValue};
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
 
 #[cfg(test)]
 mod tests;
@@ -68,112 +66,22 @@ impl EntryAbi {
     }
 }
 
-pub struct ModuleRegistry {
-    modules: HashMap<String, Arc<BytecodeModule>>,
-}
+pub struct Runtime;
 
-impl Default for ModuleRegistry {
+impl Default for Runtime {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl ModuleRegistry {
-    pub fn new() -> Self {
-        Self {
-            modules: HashMap::new(),
-        }
-    }
-
-    pub fn register(&mut self, image: BytecodeModule) -> Arc<BytecodeModule> {
-        let name = image.name.clone();
-        let arc = Arc::new(image);
-        self.modules.insert(name, arc.clone());
-        arc
-    }
-
-    pub fn get(&self, name: &str) -> Option<Arc<BytecodeModule>> {
-        self.modules.get(name).cloned()
-    }
-}
-
-pub struct RuntimeLoader {
-    registry: Arc<Mutex<ModuleRegistry>>,
-}
-
-impl RuntimeLoader {
-    pub fn new(registry: Arc<Mutex<ModuleRegistry>>) -> Self {
-        Self { registry }
-    }
-
-    pub fn load(&self, image: BytecodeModule) -> Arc<BytecodeModule> {
-        self.registry.lock().unwrap().register(image)
-    }
-}
-
-pub struct LogicalThread {
-    id: usize,
-    state: ThreadState,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ThreadState {
-    Running,
-    Suspended,
-    Terminated,
-}
-
-impl LogicalThread {
-    pub fn new(id: usize) -> Self {
-        Self {
-            id,
-            state: ThreadState::Running,
-        }
-    }
-
-    pub fn id(&self) -> usize {
-        self.id
-    }
-
-    pub fn state(&self) -> ThreadState {
-        self.state
-    }
-}
-
-pub struct Runtime {
-    registry: Arc<Mutex<ModuleRegistry>>,
-    threads: Vec<LogicalThread>,
-}
-
 impl Runtime {
     pub fn new() -> Self {
-        Self {
-            registry: Arc::new(Mutex::new(ModuleRegistry::new())),
-            threads: Vec::new(),
-        }
-    }
-
-    pub fn spawn_thread(&mut self) -> usize {
-        let id = self.threads.len();
-        self.threads.push(LogicalThread::new(id));
-        id
-    }
-
-    pub fn threads(&self) -> &[LogicalThread] {
-        &self.threads
-    }
-
-    pub fn registry(&self) -> Arc<Mutex<ModuleRegistry>> {
-        self.registry.clone()
-    }
-
-    pub fn loader(&self) -> RuntimeLoader {
-        RuntimeLoader::new(self.registry())
+        Self
     }
 
     /// Execute an entry exported by a module loaded in the given BytecodeGraph.
     pub fn run_module_entry(
-        &mut self,
+        &self,
         graph: &galfus_bytecode::BytecodeGraph,
         module_id: galfus_core::ModuleId,
         entry_name: &str,
@@ -288,4 +196,55 @@ fn find_type(
         .iter()
         .position(predicate)
         .map(|index| galfus_bytecode::instruction::TypeIdx(index as u16))
+}
+
+pub fn format_panic(graph: &galfus_bytecode::BytecodeGraph, panic: &VmPanic) -> String {
+    use std::fmt::Write;
+    let mut out = String::new();
+    writeln!(&mut out, "Runtime Panic: {}", panic.error).unwrap();
+    writeln!(&mut out, "Stack trace:").unwrap();
+
+    for (i, frame) in panic.stack_trace.iter().enumerate() {
+        if let Some(module) = graph.get(frame.module_id) {
+            let func_name = module
+                .image
+                .functions
+                .get(frame.func_idx.raw() as usize)
+                .map(|f| f.name.as_str())
+                .unwrap_or("<unknown>");
+
+            // Check metadata if available
+            let mut location_str = format!("PC {}", frame.pc);
+
+            // Currently ExecutionMetadata is not populated, but we prepare for it
+            if let Some(metadata) = &module.metadata {
+                if let Some(func_spans) = metadata.spans.get(&frame.func_idx) {
+                    if let Some(span) = func_spans.get(&frame.pc) {
+                        // Assuming source file resolution would be passed in,
+                        // for now we just show the raw span info or we can ignore it.
+                        location_str = format!("PC {}, Span {:?}", frame.pc, span);
+                    }
+                }
+            }
+
+            writeln!(
+                &mut out,
+                "  #{}: {}::{} (at {})",
+                i,
+                module.path.as_str(),
+                func_name,
+                location_str
+            )
+            .unwrap();
+        } else {
+            writeln!(
+                &mut out,
+                "  #{}: Module {:?} Func {:?} (at PC {})",
+                i, frame.module_id, frame.func_idx, frame.pc
+            )
+            .unwrap();
+        }
+    }
+
+    out
 }

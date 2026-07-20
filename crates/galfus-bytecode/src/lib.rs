@@ -6,9 +6,7 @@ pub mod instruction;
 pub mod linker;
 pub mod validation;
 
-pub use graph::{
-    BytecodeGraph, BytecodeGraphTransaction, CompiledBytecodeModule, CompiledImportEdge,
-};
+pub use graph::{BytecodeGraph, BytecodeGraphTransaction, BytecodeNode, ImportEdge};
 pub use linker::{LinkError, LinkedImport, ModuleLink};
 
 // =========================================================================

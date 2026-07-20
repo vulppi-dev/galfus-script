@@ -210,17 +210,9 @@ impl<'a> VirtualMachine<'a> {
             Err(err) => {
                 let mut stack_trace = Vec::new();
                 for frame in self.call_stack.iter().rev() {
-                    let f_name = self
-                        .graph
-                        .get(frame.module_id)
-                        .unwrap()
-                        .image
-                        .functions
-                        .get(frame.func_idx.raw() as usize)
-                        .map(|f| f.name.clone())
-                        .unwrap_or_else(|| format!("func#{}", frame.func_idx.raw()));
                     stack_trace.push(StackFrameInfo {
-                        function_name: f_name,
+                        module_id: frame.module_id,
+                        func_idx: frame.func_idx,
                         pc: frame.pc,
                     });
                 }

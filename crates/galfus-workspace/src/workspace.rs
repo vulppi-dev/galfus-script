@@ -4,7 +4,7 @@ use crate::state::{
     BytecodeState, CheckState, CompileBlocked, CompileState, RunBlocked, SemanticState,
     SourceState, WorkspaceError,
 };
-use galfus_bytecode::{BytecodeGraph, CompiledImportEdge};
+use galfus_bytecode::{BytecodeGraph, ImportEdge};
 use galfus_compiler::CompiledModule;
 use galfus_core::{DiagnosticBag, ModulePath, SourceFile};
 use galfus_frontend::modules::{
@@ -25,7 +25,6 @@ pub struct Workspace {
     pub semantic_state: SemanticState,
     pub bytecode_state: BytecodeState,
     pub frontend: FrontendSession,
-    pub runtime: Runtime,
 }
 
 pub enum LoadResult {
@@ -61,7 +60,6 @@ impl Workspace {
             semantic_state: SemanticState::new(),
             bytecode_state: BytecodeState::new(),
             frontend: FrontendSession::new(),
-            runtime: Runtime::new(),
         }
     }
 
@@ -391,12 +389,12 @@ impl Workspace {
 
         // Build import edges from the SemanticModuleGraph.
         let semantic_graph = self.frontend.semantic_graph();
-        let edges: Vec<CompiledImportEdge> = semantic_graph
+        let edges: Vec<ImportEdge> = semantic_graph
             .import_edges()
             .iter()
             .filter_map(|edge| {
                 let to = edge.to()?;
-                Some(CompiledImportEdge {
+                Some(ImportEdge {
                     from: edge.from(),
                     to,
                 })
@@ -465,10 +463,15 @@ impl Workspace {
             .clone();
 
         let _start_time = Instant::now();
-        let exit_code = self
-            .runtime
+        let exit_code = Runtime::new()
             .run_module_entry(&graph, entry_id, entry_name.as_str(), args, providers)
-            .map_err(|error| RunBlocked::RuntimeError(error.to_string()))?;
+            .map_err(|error| {
+                if let galfus_runtime::RuntimeError::VmPanic(panic) = &error {
+                    RunBlocked::RuntimeError(galfus_runtime::format_panic(&graph, panic))
+                } else {
+                    RunBlocked::RuntimeError(error.to_string())
+                }
+            })?;
         Ok(RunReport { exit_code })
     }
 }

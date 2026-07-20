@@ -1,6 +1,6 @@
 use super::*;
 use galfus_bytecode::{BytecodeModule, ConstantPool, ExportSlot, ImportSlot, instruction::TypeIdx};
-use galfus_compiler::CompiledBytecodeModule;
+use galfus_compiler::BytecodeNode;
 use galfus_core::{ModuleId, ModulePath, SemanticRevision};
 
 #[test]
@@ -42,7 +42,7 @@ fn test_module_loading() {
 
 #[test]
 fn runtime_modules_upsert_unload_and_link_import_slots() {
-    let dependency = CompiledBytecodeModule {
+    let dependency = BytecodeNode {
         id: ModuleId::new(7),
         path: ModulePath::new("math.gfs").expect("valid path"),
         semantic_revision: SemanticRevision::new(1),
@@ -55,7 +55,7 @@ fn runtime_modules_upsert_unload_and_link_import_slots() {
             }],
         ),
     };
-    let main = CompiledBytecodeModule {
+    let main = BytecodeNode {
         id: ModuleId::new(11),
         path: ModulePath::new("main.gfs").expect("valid path"),
         semantic_revision: SemanticRevision::new(1),
@@ -69,7 +69,7 @@ fn runtime_modules_upsert_unload_and_link_import_slots() {
             vec![],
         ),
     };
-    let replacement = CompiledBytecodeModule {
+    let replacement = BytecodeNode {
         semantic_revision: SemanticRevision::new(2),
         ..main.clone()
     };

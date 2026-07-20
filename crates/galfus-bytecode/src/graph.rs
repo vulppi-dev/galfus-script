@@ -7,11 +7,16 @@ mod tests;
 
 /// The compiled artifact for a single module.
 ///
-/// Each `CompiledBytecodeModule` records which `SemanticRevision` it was produced
+/// Each `BytecodeNode` records which `SemanticRevision` it was produced
 /// from. The workspace can use this to skip recompilation when a module's
 /// semantic result has not changed since the last compile cycle.
+#[derive(Debug, Clone, Default)]
+pub struct ExecutionMetadata {
+    pub spans: HashMap<crate::instruction::FuncIdx, HashMap<usize, galfus_core::Span>>,
+}
+
 #[derive(Debug, Clone)]
-pub struct CompiledBytecodeModule {
+pub struct BytecodeNode {
     pub id: ModuleId,
     /// Logical path — stable identifier used for cross-module linking.
     pub path: ModulePath,
@@ -19,9 +24,10 @@ pub struct CompiledBytecodeModule {
     pub semantic_revision: SemanticRevision,
     /// The compiled bytecode image.
     pub image: BytecodeModule,
+    pub metadata: Option<ExecutionMetadata>,
 }
 
-impl CompiledBytecodeModule {
+impl BytecodeNode {
     pub fn id(&self) -> ModuleId {
         self.id
     }
@@ -43,16 +49,16 @@ impl CompiledBytecodeModule {
 ///
 /// `from` imports something from `to`.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CompiledImportEdge {
+pub struct ImportEdge {
     pub from: ModuleId,
     pub to: ModuleId,
 }
 
 #[derive(Debug, Clone)]
 pub struct BytecodeGraphTransaction {
-    pub upserted_modules: Vec<CompiledBytecodeModule>,
+    pub upserted_modules: Vec<BytecodeNode>,
     pub removed_modules: Vec<ModuleId>,
-    pub edges: Vec<CompiledImportEdge>,
+    pub edges: Vec<ImportEdge>,
 }
 
 /// The full compiled representation of a workspace.
@@ -62,9 +68,9 @@ pub struct BytecodeGraphTransaction {
 /// subset of modules changed (incremental compilation — Phase 10).
 #[derive(Debug, Clone, Default)]
 pub struct BytecodeGraph {
-    pub(crate) modules: HashMap<ModuleId, CompiledBytecodeModule>,
+    pub(crate) modules: HashMap<ModuleId, BytecodeNode>,
     pub(crate) ids_by_path: HashMap<ModulePath, ModuleId>,
-    pub(crate) edges: Vec<CompiledImportEdge>,
+    pub(crate) edges: Vec<ImportEdge>,
 }
 
 impl BytecodeGraph {
@@ -73,12 +79,12 @@ impl BytecodeGraph {
     }
 
     /// Insert or replace a compiled module image.
-    pub fn upsert(&mut self, image: CompiledBytecodeModule) {
+    pub fn upsert(&mut self, image: BytecodeNode) {
         self.modules.insert(image.id, image);
     }
 
     /// Remove a module from the graph.
-    pub fn remove(&mut self, id: ModuleId) -> Option<CompiledBytecodeModule> {
+    pub fn remove(&mut self, id: ModuleId) -> Option<BytecodeNode> {
         self.modules.remove(&id)
     }
 
@@ -93,15 +99,15 @@ impl BytecodeGraph {
         self.edges = transaction.edges;
     }
 
-    pub fn get(&self, id: ModuleId) -> Option<&CompiledBytecodeModule> {
+    pub fn get(&self, id: ModuleId) -> Option<&BytecodeNode> {
         self.modules.get(&id)
     }
 
-    pub fn modules(&self) -> impl Iterator<Item = &CompiledBytecodeModule> {
+    pub fn modules(&self) -> impl Iterator<Item = &BytecodeNode> {
         self.modules.values()
     }
 
-    pub fn edges(&self) -> &[CompiledImportEdge] {
+    pub fn edges(&self) -> &[ImportEdge] {
         self.edges.as_slice()
     }
 
