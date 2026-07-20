@@ -65,36 +65,6 @@ fn test_mir_builder_basic() {
 }
 
 #[test]
-fn test_mir_serialization() {
-    let source_id = SourceId::new(0);
-    let code = r#"
-        fn add(a: i32, b: i32): i32 {
-            return a + b
-        }
-    "#;
-    let source = SourceFile::new(source_id, "test.gfs".to_string(), code.to_string());
-
-    let parse_result = parse(&source);
-    let resolve_result = resolve(&source, parse_result.into_graph());
-    let graph = resolve_result.into_graph();
-    let type_result = check_declaration_types(&source, &graph);
-
-    let builder = builder::MirBuilder::new(&graph, &type_result, code);
-    let mir_module = builder.build();
-
-    // Serialize using postcard
-    let serialized = postcard::to_allocvec(&mir_module).expect("Serialization failed");
-
-    // Deserialize using postcard
-    let deserialized: MirModule =
-        postcard::from_bytes(&serialized).expect("Deserialization failed");
-
-    assert_eq!(deserialized.functions.len(), 1);
-    assert_eq!(deserialized.functions[0].name, "add");
-    assert_eq!(deserialized.functions[0].parameter_types.len(), 2);
-}
-
-#[test]
 fn test_mir_builder_lowers_copy_expression() {
     let source_id = SourceId::new(0);
     let code = r#"

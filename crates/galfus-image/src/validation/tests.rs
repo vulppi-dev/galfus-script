@@ -4,7 +4,7 @@ fn create_dummy_image(instructions: Vec<Instruction>) -> ModuleImage {
     ModuleImage {
         name: "test".to_string(),
         constants: ConstantPool {
-            constants: vec![Constant::Int(42)],
+            constants: vec![Constant::Int64(42)],
         },
         functions: vec![ImageFunction {
             name: "main".to_string(),

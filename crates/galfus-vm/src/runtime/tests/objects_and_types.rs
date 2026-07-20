@@ -23,7 +23,7 @@ fn test_structs_load_store() {
         },
         Instruction::Ret { src: Reg(3) },
     ];
-    let image = create_test_image(instrs, vec![Constant::Int(42)]);
+    let image = create_test_image(instrs, vec![Constant::Int64(42)]);
     let mut vm = VirtualMachine::new(image);
     let res = vm.run_function(FuncIdx(0), vec![]).unwrap();
     assert_eq!(res, Value::Int64(42));
@@ -63,7 +63,7 @@ fn test_arrays_load_store() {
     ];
     let image = create_test_image(
         instrs,
-        vec![Constant::Int(5), Constant::Int(2), Constant::Int(99)],
+        vec![Constant::Int64(5), Constant::Int64(2), Constant::Int64(99)],
     );
     let mut vm = VirtualMachine::new(image);
     let res = vm.run_function(FuncIdx(0), vec![]).unwrap();
@@ -100,7 +100,11 @@ fn test_tuples() {
     ];
     let image = create_test_image(
         instrs,
-        vec![Constant::Int(10), Constant::Bool(true), Constant::Int(1)],
+        vec![
+            Constant::Int64(10),
+            Constant::Bool(true),
+            Constant::Int64(1),
+        ],
     );
     let mut vm = VirtualMachine::new(image);
     let res = vm.run_function(FuncIdx(0), vec![]).unwrap();
@@ -122,7 +126,7 @@ fn test_choices() {
         },
         Instruction::Ret { src: Reg(2) },
     ];
-    let image = create_test_image(instrs, vec![Constant::Int(100)]);
+    let image = create_test_image(instrs, vec![Constant::Int64(100)]);
     let mut vm = VirtualMachine::new(image);
     let res = vm.run_function(FuncIdx(0), vec![]).unwrap();
     if let Value::Object(obj_ref) = res {
@@ -157,7 +161,7 @@ fn test_cast() {
         }, // cast 42 (Int64) to 42 (Uint8)
         Instruction::Ret { src: Reg(2) },
     ];
-    let image = create_test_image(instrs, vec![Constant::Int(42)]);
+    let image = create_test_image(instrs, vec![Constant::Int64(42)]);
     let mut vm = VirtualMachine::new(image);
     let res = vm.run_function(FuncIdx(0), vec![]).unwrap();
     assert_eq!(res, Value::Uint8(42));
@@ -177,7 +181,7 @@ fn test_instanceof() {
         }, // true
         Instruction::Ret { src: Reg(2) },
     ];
-    let image = create_test_image(instrs, vec![Constant::Int(42)]);
+    let image = create_test_image(instrs, vec![Constant::Int64(42)]);
     let mut vm = VirtualMachine::new(image);
     let res = vm.run_function(FuncIdx(0), vec![]).unwrap();
     assert_eq!(res, Value::Bool(true));
@@ -228,7 +232,7 @@ fn test_division_by_zero_panic() {
         },
         Instruction::Ret { src: Reg(3) },
     ];
-    let image = create_test_image(instrs, vec![Constant::Int(10), Constant::Int(0)]);
+    let image = create_test_image(instrs, vec![Constant::Int64(10), Constant::Int64(0)]);
     let mut vm = VirtualMachine::new(image);
     let res = vm.run_function(FuncIdx(0), vec![]);
     assert!(res.is_err());
@@ -267,7 +271,7 @@ fn test_unwinding_call_stack() {
     let image = ModuleImage {
         name: "test".to_string(),
         constants: ConstantPool {
-            constants: vec![Constant::Int(5), Constant::Int(0)],
+            constants: vec![Constant::Int64(5), Constant::Int64(0)],
         },
         functions: vec![
             ImageFunction {
@@ -346,7 +350,7 @@ fn test_copy_deep_copies_nested_structs() {
         Instruction::Ret { src: Reg(4) },
     ];
 
-    let mut image = create_test_image(instrs, vec![Constant::Int(7), Constant::Int(9)]);
+    let mut image = create_test_image(instrs, vec![Constant::Int64(7), Constant::Int64(9)]);
     image.types.push(ImageType::Struct(StructLayoutIdx(1)));
     image.struct_layouts.push(StructLayout {
         name: "Box".to_string(),

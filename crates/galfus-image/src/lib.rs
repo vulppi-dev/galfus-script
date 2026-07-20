@@ -1,10 +1,6 @@
-use serde::{Deserialize, Serialize};
-
-pub use gfb::*;
 pub use instruction::*;
 pub use validation::*;
 
-pub mod gfb;
 pub mod instruction;
 pub mod validation;
 
@@ -12,7 +8,7 @@ pub mod validation;
 // Image Value Model
 // =========================================================================
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ImageObjectRef(pub usize);
 
 impl ImageObjectRef {
@@ -21,7 +17,7 @@ impl ImageObjectRef {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum ImageValue {
     Null,
     Bool(bool),
@@ -43,20 +39,19 @@ pub enum ImageValue {
 // Constant Pool
 // =========================================================================
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Constant {
     Bool(bool),
     Int32(i32),
     Int64(i64),
-    /// Legacy integer constant kept for older in-memory tests and GFB payloads.
-    Int(i64),
+
     Float(f64),
     String(String),
     Bytes(Vec<u8>),
     Function(FuncIdx),
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct ConstantPool {
     pub constants: Vec<Constant>,
 }
@@ -65,7 +60,7 @@ pub struct ConstantPool {
 // Types & Layout Table
 // =========================================================================
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum ImageType {
     Null,
     Bool,
@@ -88,14 +83,14 @@ pub enum ImageType {
     ChoiceVariant(ChoiceLayoutIdx, u16),
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum OwnershipKind {
     Strong,
     Weak,
     Value,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FieldLayout {
     pub name: String,
     pub ty: TypeIdx,
@@ -103,20 +98,20 @@ pub struct FieldLayout {
     pub ownership: OwnershipKind,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct StructLayout {
     pub name: String,
     pub fields: Vec<FieldLayout>,
     pub constraints: Vec<String>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ChoiceVariantLayout {
     pub name: String,
     pub payload_ty: Option<TypeIdx>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ChoiceLayout {
     pub name: String,
     pub variants: Vec<ChoiceVariantLayout>,
@@ -126,14 +121,14 @@ pub struct ChoiceLayout {
 // Imports & Exports
 // =========================================================================
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ImportSlot {
     pub module_name: String,
     pub symbol_name: String,
     pub ty: TypeIdx,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ExportSlot {
     pub symbol_name: String,
     pub func_idx: FuncIdx,
@@ -143,7 +138,7 @@ pub struct ExportSlot {
 // Image Function & Module Image Container
 // =========================================================================
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ImageFunction {
     pub name: String,
     pub param_count: u8,
@@ -153,7 +148,7 @@ pub struct ImageFunction {
     pub instructions: Vec<Instruction>,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ModuleImage {
     pub name: String,
     pub constants: ConstantPool,

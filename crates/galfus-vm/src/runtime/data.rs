@@ -18,7 +18,7 @@ impl VirtualMachine {
                     Constant::Bool(b) => Value::Bool(*b),
                     Constant::Int32(i) => Value::Int32(*i),
                     Constant::Int64(i) => Value::Int64(*i),
-                    Constant::Int(i) => Value::Int64(*i),
+
                     Constant::Float(f) => Value::Float64(*f),
                     Constant::String(s) => {
                         let element_ty = self.uint8_type_idx();

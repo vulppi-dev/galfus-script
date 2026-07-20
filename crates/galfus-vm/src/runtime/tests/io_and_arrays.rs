@@ -34,7 +34,7 @@ fn test_target_write() {
         Instruction::Write { src: Reg(1) },
         Instruction::RetNull,
     ];
-    let image = create_test_image(instrs, vec![Constant::Int(42)]);
+    let image = create_test_image(instrs, vec![Constant::Int64(42)]);
     let buffer = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
     let provider = BufferIo {
         buffer: buffer.clone(),
@@ -201,14 +201,14 @@ fn test_len_and_copy_array() {
         name: "test".to_string(),
         constants: ConstantPool {
             constants: vec![
-                Constant::Int(3),  // 0
-                Constant::Int(10), // 1
-                Constant::Int(0),  // 2
-                Constant::Int(20), // 3
-                Constant::Int(1),  // 4
-                Constant::Int(30), // 5
-                Constant::Int(2),  // 6
-                Constant::Int(5),  // 7
+                Constant::Int64(3),  // 0
+                Constant::Int64(10), // 1
+                Constant::Int64(0),  // 2
+                Constant::Int64(20), // 3
+                Constant::Int64(1),  // 4
+                Constant::Int64(30), // 5
+                Constant::Int64(2),  // 6
+                Constant::Int64(5),  // 7
             ],
         },
         functions: vec![ImageFunction {
@@ -313,14 +313,14 @@ fn test_load_index_accepts_negative_index() {
     let image = create_test_image(
         instrs,
         vec![
-            Constant::Int(3),
-            Constant::Int(10),
-            Constant::Int(0),
-            Constant::Int(20),
-            Constant::Int(1),
-            Constant::Int(30),
-            Constant::Int(2),
-            Constant::Int(-1),
+            Constant::Int64(3),
+            Constant::Int64(10),
+            Constant::Int64(0),
+            Constant::Int64(20),
+            Constant::Int64(1),
+            Constant::Int64(30),
+            Constant::Int64(2),
+            Constant::Int64(-1),
         ],
     );
 
@@ -354,7 +354,7 @@ fn test_load_index_out_of_bounds_returns_null() {
         Instruction::Ret { src: Reg(4) },
     ];
 
-    let image = create_test_image(instrs, vec![Constant::Int(3), Constant::Int(99)]);
+    let image = create_test_image(instrs, vec![Constant::Int64(3), Constant::Int64(99)]);
 
     let mut vm = VirtualMachine::new(image);
     let res = vm.run_function(FuncIdx(0), vec![]).unwrap();
@@ -402,10 +402,10 @@ fn test_store_index_accepts_negative_index() {
     let image = create_test_image(
         instrs,
         vec![
-            Constant::Int(3),
-            Constant::Int(99),
-            Constant::Int(-1),
-            Constant::Int(2),
+            Constant::Int64(3),
+            Constant::Int64(99),
+            Constant::Int64(-1),
+            Constant::Int64(2),
         ],
     );
 
@@ -445,7 +445,7 @@ fn test_store_index_out_of_bounds_returns_error() {
 
     let image = create_test_image(
         instrs,
-        vec![Constant::Int(3), Constant::Int(99), Constant::Int(3)],
+        vec![Constant::Int64(3), Constant::Int64(99), Constant::Int64(3)],
     );
 
     let mut vm = VirtualMachine::new(image);
