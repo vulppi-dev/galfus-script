@@ -1,6 +1,6 @@
 use super::*;
 
-impl VirtualMachine {
+impl<'a> VirtualMachine<'a> {
     pub(super) fn value_to_bytes(&self, val: Value) -> Result<Vec<u8>, VmError> {
         let mut bytes = Vec::new();
         match val {
@@ -49,7 +49,8 @@ impl VirtualMachine {
 
     pub(super) fn bytes_to_uint8_array(&mut self, bytes: Vec<u8>) -> Value {
         let element_ty = self
-            .image
+            .current_image()
+            .unwrap()
             .types
             .iter()
             .position(|ty| matches!(ty, ImageType::Uint8))

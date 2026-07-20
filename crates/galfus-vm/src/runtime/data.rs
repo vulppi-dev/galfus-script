@@ -1,6 +1,6 @@
 use super::*;
 
-impl VirtualMachine {
+impl<'a> VirtualMachine<'a> {
     pub(super) fn execute_data_instruction(
         &mut self,
         instr: Instruction,
@@ -9,23 +9,24 @@ impl VirtualMachine {
             // Category A: Data Movement & Constants
             Instruction::LoadConst { dest, const_idx } => {
                 let constant = self
-                    .image
+                    .current_image()
+                    .unwrap()
                     .constants
                     .constants
                     .get(const_idx.raw() as usize)
                     .ok_or(VmError::ConstantOutOfBounds { index: const_idx })?;
                 let val = match constant {
-                    Constant::Bool(b) => Value::Bool(*b),
-                    Constant::Int8(i) => Value::Int8(*i),
-                    Constant::Int16(i) => Value::Int16(*i),
-                    Constant::Int32(i) => Value::Int32(*i),
-                    Constant::Int64(i) => Value::Int64(*i),
-                    Constant::Uint8(i) => Value::Uint8(*i),
-                    Constant::Uint16(i) => Value::Uint16(*i),
-                    Constant::Uint32(i) => Value::Uint32(*i),
-                    Constant::Uint64(i) => Value::Uint64(*i),
-                    Constant::Float32(f) => Value::Float32(*f),
-                    Constant::Float64(f) => Value::Float64(*f),
+                    Constant::Bool(b) => Value::Bool(b.clone()),
+                    Constant::Int8(i) => Value::Int8(i.clone()),
+                    Constant::Int16(i) => Value::Int16(i.clone()),
+                    Constant::Int32(i) => Value::Int32(i.clone()),
+                    Constant::Int64(i) => Value::Int64(i.clone()),
+                    Constant::Uint8(i) => Value::Uint8(i.clone()),
+                    Constant::Uint16(i) => Value::Uint16(i.clone()),
+                    Constant::Uint32(i) => Value::Uint32(i.clone()),
+                    Constant::Uint64(i) => Value::Uint64(i.clone()),
+                    Constant::Float32(f) => Value::Float32(f.clone()),
+                    Constant::Float64(f) => Value::Float64(f.clone()),
                     Constant::String(s) => {
                         let element_ty = self.uint8_type_idx();
                         let obj = HeapObject::Array {
@@ -42,7 +43,7 @@ impl VirtualMachine {
                         };
                         Value::Object(self.alloc(obj))
                     }
-                    Constant::Function(idx) => Value::Function(*idx),
+                    Constant::Function(idx) => Value::Function(idx.clone()),
                 };
                 self.write_reg(dest, val)?;
             }
@@ -77,7 +78,8 @@ impl VirtualMachine {
     }
 
     fn uint8_type_idx(&self) -> TypeIdx {
-        self.image
+        self.current_image()
+            .unwrap()
             .types
             .iter()
             .position(|ty| matches!(ty, ImageType::Uint8))

@@ -1,6 +1,6 @@
 use super::*;
 
-impl VirtualMachine {
+impl<'a> VirtualMachine<'a> {
     pub(super) fn get_object(&self, obj_ref: ObjectRef) -> Result<&HeapObject, VmError> {
         self.heap
             .get(obj_ref.raw())
@@ -123,7 +123,12 @@ impl VirtualMachine {
     }
 
     pub(super) fn check_value_type(&self, val: &Value, expected_ty: TypeIdx) -> bool {
-        let ty = match self.image.types.get(expected_ty.raw() as usize) {
+        let ty = match self
+            .current_image()
+            .unwrap()
+            .types
+            .get(expected_ty.raw() as usize)
+        {
             Some(t) => t,
             None => return false,
         };
@@ -189,13 +194,17 @@ impl VirtualMachine {
                         return true;
                     }
 
-                    let Some(actual_layout) =
-                        self.image.choice_layouts.get(layout_idx.raw() as usize)
+                    let Some(actual_layout) = self
+                        .current_image()
+                        .unwrap()
+                        .choice_layouts
+                        .get(layout_idx.raw() as usize)
                     else {
                         return false;
                     };
                     let Some(expected_layout) = self
-                        .image
+                        .current_image()
+                        .unwrap()
                         .choice_layouts
                         .get(expected_choice_idx.raw() as usize)
                     else {
@@ -217,7 +226,8 @@ impl VirtualMachine {
             }
             (Value::Object(obj_ref), ImageType::Constraint(expected_constraint)) => {
                 if let Ok(HeapObject::Struct { layout_idx, .. }) = self.get_object(*obj_ref) {
-                    self.image
+                    self.current_image()
+                        .unwrap()
                         .struct_layouts
                         .get(layout_idx.raw() as usize)
                         .is_some_and(|layout| layout.constraints.contains(expected_constraint))
@@ -246,10 +256,20 @@ impl VirtualMachine {
             return true;
         }
 
-        let Some(actual_ty) = self.image.types.get(actual.raw() as usize) else {
+        let Some(actual_ty) = self
+            .current_image()
+            .unwrap()
+            .types
+            .get(actual.raw() as usize)
+        else {
             return false;
         };
-        let Some(expected_ty) = self.image.types.get(expected.raw() as usize) else {
+        let Some(expected_ty) = self
+            .current_image()
+            .unwrap()
+            .types
+            .get(expected.raw() as usize)
+        else {
             return false;
         };
 

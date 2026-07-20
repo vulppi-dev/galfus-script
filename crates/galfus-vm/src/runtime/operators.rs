@@ -95,7 +95,7 @@ macro_rules! impl_bitwise_op {
     }};
 }
 
-impl VirtualMachine {
+impl<'a> VirtualMachine<'a> {
     pub(super) fn execute_operator_instruction(
         &mut self,
         instr: Instruction,

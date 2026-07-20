@@ -1,5 +1,4 @@
 pub use instruction::*;
-pub use linker::*;
 pub use validation::*;
 
 pub mod graph;

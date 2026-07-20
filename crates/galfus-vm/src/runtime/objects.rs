@@ -1,7 +1,7 @@
 use super::*;
 use std::collections::{HashMap, HashSet, VecDeque};
 
-impl VirtualMachine {
+impl<'a> VirtualMachine<'a> {
     pub(super) fn execute_object_instruction(
         &mut self,
         instr: Instruction,
@@ -11,19 +11,21 @@ impl VirtualMachine {
             Instruction::AllocLocal { dest, type_idx }
             | Instruction::AllocShared { dest, type_idx } => {
                 let ty = self
-                    .image
+                    .current_image()
+                    .unwrap()
                     .types
                     .get(type_idx.raw() as usize)
                     .ok_or(VmError::TypeOutOfBounds { index: type_idx })?;
                 if let ImageType::Struct(layout_idx) = ty {
                     let layout = self
-                        .image
+                        .current_image()
+                        .unwrap()
                         .struct_layouts
                         .get(layout_idx.raw() as usize)
                         .ok_or(VmError::TypeOutOfBounds { index: type_idx })?;
                     let fields = vec![Value::Null; layout.fields.len()];
                     let obj_ref = self.alloc(HeapObject::Struct {
-                        layout_idx: *layout_idx,
+                        layout_idx: layout_idx.clone(),
                         fields,
                     });
                     self.write_reg(dest, Value::Object(obj_ref))?;
@@ -89,12 +91,13 @@ impl VirtualMachine {
                 len_reg,
             } => {
                 let ty = self
-                    .image
+                    .current_image()
+                    .unwrap()
                     .types
                     .get(type_idx.raw() as usize)
                     .ok_or(VmError::TypeOutOfBounds { index: type_idx })?;
                 let element_ty = match ty {
-                    ImageType::Array(el_ty) => *el_ty,
+                    ImageType::Array(el_ty) => el_ty.clone(),
                     _ => {
                         return Err(VmError::TypeMismatch {
                             expected: "Array type".to_string(),
@@ -231,7 +234,8 @@ impl VirtualMachine {
                 count,
             } => {
                 let ty = self
-                    .image
+                    .current_image()
+                    .unwrap()
                     .types
                     .get(type_idx.raw() as usize)
                     .ok_or(VmError::TypeOutOfBounds { index: type_idx })?;
@@ -263,14 +267,15 @@ impl VirtualMachine {
                 payload,
             } => {
                 let ty = self
-                    .image
+                    .current_image()
+                    .unwrap()
                     .types
                     .get(type_idx.raw() as usize)
                     .ok_or(VmError::TypeOutOfBounds { index: type_idx })?;
                 if let ImageType::Choice(layout_idx) = ty {
                     let payload_val = self.read_reg(payload)?;
                     let obj_ref = self.alloc(HeapObject::Choice {
-                        layout_idx: *layout_idx,
+                        layout_idx: layout_idx.clone(),
                         variant_idx,
                         payload: payload_val,
                     });
@@ -344,7 +349,8 @@ impl VirtualMachine {
             match object {
                 HeapObject::Struct { layout_idx, fields } => {
                     let layout = self
-                        .image
+                        .current_image()
+                        .unwrap()
                         .struct_layouts
                         .get(layout_idx.raw() as usize)
                         .ok_or(VmError::TypeMismatch {
@@ -406,7 +412,8 @@ impl VirtualMachine {
             let placeholder = match object {
                 HeapObject::Struct { layout_idx, fields } => {
                     let layout = self
-                        .image
+                        .current_image()
+                        .unwrap()
                         .struct_layouts
                         .get(layout_idx.raw() as usize)
                         .ok_or(VmError::TypeMismatch {
@@ -467,7 +474,8 @@ impl VirtualMachine {
             match object {
                 HeapObject::Struct { layout_idx, fields } => {
                     let layout = self
-                        .image
+                        .current_image()
+                        .unwrap()
                         .struct_layouts
                         .get(layout_idx.raw() as usize)
                         .ok_or(VmError::TypeMismatch {
@@ -596,7 +604,8 @@ impl VirtualMachine {
     /// Returns the default `Value` for element types that can be safely default-initialized.
     fn zero_value_for_type(&self, type_idx: TypeIdx) -> Result<Value, VmError> {
         let ty = self
-            .image
+            .current_image()
+            .unwrap()
             .types
             .get(type_idx.raw() as usize)
             .ok_or(VmError::TypeOutOfBounds { index: type_idx })?;

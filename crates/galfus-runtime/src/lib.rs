@@ -1,6 +1,4 @@
 use galfus_bytecode::BytecodeModule;
-use galfus_bytecode::graph::CompiledBytecodeModule;
-use galfus_core::ModuleId;
 use galfus_host::Providers;
 use galfus_vm::{HeapObject, VirtualMachine, VmPanic, VmValue};
 use std::collections::HashMap;
@@ -177,39 +175,12 @@ impl Runtime {
     pub fn run_module_entry(
         &mut self,
         graph: &galfus_bytecode::BytecodeGraph,
-        id: ModuleId,
+        module_id: galfus_core::ModuleId,
         entry_name: &str,
         args: &[Vec<u8>],
         providers: Option<Providers>,
     ) -> Result<i32, RuntimeError> {
-        let image = graph.linked_image(id)?;
-        self.run_image_entry(image, entry_name, args, providers)
-    }
-
-    pub fn run_entry(
-        &mut self,
-        module_name: &str,
-        entry_name: &str,
-        args: &[Vec<u8>],
-        providers: Option<Providers>,
-    ) -> Result<i32, RuntimeError> {
-        let image = self
-            .registry
-            .lock()
-            .unwrap()
-            .get(module_name)
-            .ok_or_else(|| RuntimeError::ModuleNotLoaded(module_name.to_string()))?;
-        let image = (*image).clone();
-        self.run_image_entry(image, entry_name, args, providers)
-    }
-
-    fn run_image_entry(
-        &mut self,
-        image: BytecodeModule,
-        entry_name: &str,
-        args: &[Vec<u8>],
-        providers: Option<Providers>,
-    ) -> Result<i32, RuntimeError> {
+        let image = &graph.get(module_id).unwrap().image;
         let abi = EntryAbi::default_app();
         let entry_idx = image
             .exports
@@ -233,53 +204,58 @@ impl Runtime {
             });
         }
 
-        let mut vm = VirtualMachine::new(image).with_providers(providers);
+        let mut vm = VirtualMachine::new(graph).with_providers(providers);
 
         let result = (|| {
-            if let Some(init_idx) = vm.image.init_func_idx {
-                vm.run_function(init_idx, vec![])?;
+            if let Some(init_idx) = image.init_func_idx {
+                vm.run_function(module_id, init_idx, vec![])?;
             }
 
-            let entry_args = build_entry_args(&mut vm, args)?;
-            vm.run_function(entry_idx, vec![entry_args])
+            let entry_args = build_entry_args(&mut vm, module_id, args)?;
+            vm.run_function(module_id, entry_idx, vec![entry_args])
                 .map_err(RuntimeError::VmPanic)
         })();
         let result = result?;
 
         match result {
-            VmValue::Int32(code) => Ok(code),
-            _ => Err(RuntimeError::EntryReturnTypeMismatch {
+            galfus_vm::VmValue::Int32(code) => Ok(code),
+            galfus_vm::VmValue::Null => Ok(0),
+            _other => Err(RuntimeError::EntryReturnTypeMismatch {
                 name: entry_name.to_string(),
             }),
         }
     }
 }
 
-fn build_entry_args(vm: &mut VirtualMachine, args: &[Vec<u8>]) -> Result<VmValue, RuntimeError> {
-    let uint8_ty = find_type(&vm.image, |ty| {
+fn build_entry_args(
+    vm: &mut VirtualMachine,
+    module_id: galfus_core::ModuleId,
+    args: &[Vec<u8>],
+) -> Result<VmValue, RuntimeError> {
+    let uint8_ty = find_type(&vm.graph.get(module_id).unwrap().image, |ty| {
         matches!(ty, galfus_bytecode::ImageType::Uint8)
     })
     .ok_or(RuntimeError::MissingArgumentType("u8"))?;
     let byte_array_ty = vm
-        .image
+        .graph.get(module_id).unwrap().image
         .types
         .iter()
         .enumerate()
         .find(|(_, ty)| {
             matches!(ty, galfus_bytecode::ImageType::Array(element)
-                if matches!(vm.image.types.get(element.raw() as usize), Some(galfus_bytecode::ImageType::Uint8)))
+                if matches!(vm.graph.get(module_id).unwrap().image.types.get(element.raw() as usize), Some(galfus_bytecode::ImageType::Uint8)))
         })
         .map(|(index, _)| galfus_bytecode::instruction::TypeIdx(index as u16))
         .ok_or(RuntimeError::MissingArgumentType("[u8]"))?;
     let args_array_ty = vm
-        .image
+        .graph.get(module_id).unwrap().image
         .types
         .iter()
         .enumerate()
         .find(|(_, ty)| {
             matches!(ty, galfus_bytecode::ImageType::Array(element)
-                if matches!(vm.image.types.get(element.raw() as usize), Some(galfus_bytecode::ImageType::Array(inner))
-                    if matches!(vm.image.types.get(inner.raw() as usize), Some(galfus_bytecode::ImageType::Uint8))))
+                if matches!(vm.graph.get(module_id).unwrap().image.types.get(element.raw() as usize), Some(galfus_bytecode::ImageType::Array(inner))
+                    if matches!(vm.graph.get(module_id).unwrap().image.types.get(inner.raw() as usize), Some(galfus_bytecode::ImageType::Uint8))))
         })
         .map(|(index, _)| galfus_bytecode::instruction::TypeIdx(index as u16))
         .ok_or(RuntimeError::MissingArgumentType("[[u8]]"))?;

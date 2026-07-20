@@ -12,7 +12,7 @@ use galfus_frontend::modules::{
 };
 use galfus_host::Providers;
 use galfus_runtime::Runtime;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -464,7 +464,7 @@ impl Workspace {
             .run_entry
             .clone();
 
-        let start_time = Instant::now();
+        let _start_time = Instant::now();
         let exit_code = self
             .runtime
             .run_module_entry(&graph, entry_id, entry_name.as_str(), args, providers)

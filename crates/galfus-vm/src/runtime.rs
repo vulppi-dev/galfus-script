@@ -2,7 +2,8 @@ use crate::error::{StackFrameInfo, VmError, VmPanic};
 use galfus_bytecode::instruction::{
     ChoiceLayoutIdx, FuncIdx, Instruction, Reg, StructLayoutIdx, TypeIdx,
 };
-use galfus_bytecode::{BytecodeModule, Constant, ImageType, OwnershipKind};
+use galfus_bytecode::{BytecodeGraph, Constant, ImageType, OwnershipKind};
+use galfus_core::ModuleId;
 use galfus_host::Providers;
 
 mod casts;
@@ -85,6 +86,7 @@ impl VmContext {
 }
 
 pub struct CallFrame {
+    pub module_id: ModuleId,
     pub func_idx: FuncIdx,
     pub pc: usize,
     pub registers: Vec<Value>,
@@ -92,8 +94,8 @@ pub struct CallFrame {
     pub in_transaction: bool,
 }
 
-pub struct VirtualMachine {
-    pub image: BytecodeModule,
+pub struct VirtualMachine<'a> {
+    pub graph: &'a BytecodeGraph,
     pub globals: Vec<Value>,
     pub heap: Vec<Option<HeapObject>>,
     pub free_slots: Vec<usize>,
@@ -102,10 +104,10 @@ pub struct VirtualMachine {
     allocations_since_release: usize,
 }
 
-impl VirtualMachine {
-    pub fn new(image: BytecodeModule) -> Self {
+impl<'a> VirtualMachine<'a> {
+    pub fn new(graph: &'a BytecodeGraph) -> Self {
         Self {
-            image,
+            graph,
             globals: Vec::new(),
             heap: Vec::new(),
             free_slots: Vec::new(),
@@ -138,6 +140,11 @@ impl VirtualMachine {
         }
     }
 
+    pub fn current_image(&self) -> Result<&'a galfus_bytecode::BytecodeModule, VmError> {
+        let frame = self.call_stack.last().ok_or(VmError::EmptyCallStack)?;
+        Ok(&self.graph.get(frame.module_id).unwrap().image)
+    }
+
     pub fn read_reg(&self, reg: Reg) -> Result<Value, VmError> {
         let frame = self.call_stack.last().ok_or(VmError::EmptyCallStack)?;
         frame
@@ -157,15 +164,20 @@ impl VirtualMachine {
         }
     }
 
-    pub fn run_function(&mut self, func_idx: FuncIdx, args: Vec<Value>) -> Result<Value, VmPanic> {
-        if (func_idx.raw() as usize) >= self.image.functions.len() {
+    pub fn run_function(
+        &mut self,
+        module_id: galfus_core::ModuleId,
+        func_idx: FuncIdx,
+        args: Vec<Value>,
+    ) -> Result<Value, VmPanic> {
+        if (func_idx.raw() as usize) >= self.graph.get(module_id).unwrap().image.functions.len() {
             return Err(VmPanic {
                 error: VmError::FunctionOutOfBounds { index: func_idx },
                 stack_trace: vec![],
             });
         }
 
-        let func = &self.image.functions[func_idx.raw() as usize];
+        let func = &self.graph.get(module_id).unwrap().image.functions[func_idx.raw() as usize];
         if args.len() != func.param_count as usize {
             return Err(VmPanic {
                 error: VmError::TypeMismatch {
@@ -185,6 +197,7 @@ impl VirtualMachine {
         }
 
         self.call_stack.push(CallFrame {
+            module_id,
             func_idx,
             pc: 0,
             registers,
@@ -198,6 +211,9 @@ impl VirtualMachine {
                 let mut stack_trace = Vec::new();
                 for frame in self.call_stack.iter().rev() {
                     let f_name = self
+                        .graph
+                        .get(frame.module_id)
+                        .unwrap()
                         .image
                         .functions
                         .get(frame.func_idx.raw() as usize)
@@ -220,7 +236,8 @@ impl VirtualMachine {
         loop {
             let instr = {
                 let frame = self.call_stack.last_mut().ok_or(VmError::EmptyCallStack)?;
-                let func = &self.image.functions[frame.func_idx.raw() as usize];
+                let func = &self.graph.get(frame.module_id).unwrap().image.functions
+                    [frame.func_idx.raw() as usize];
                 if frame.pc >= func.instructions.len() {
                     return Err(VmError::InstructionPointerOutOfBounds { pc: frame.pc });
                 }
