@@ -20,10 +20,10 @@ pub struct BytecodeNode {
     pub id: ModuleId,
     /// Logical path — stable identifier used for cross-module linking.
     pub path: ModulePath,
-    /// The semantic revision of the frontend output this image was compiled from.
+    /// The semantic revision of the frontend output this module was compiled from.
     pub semantic_revision: SemanticRevision,
-    /// The compiled bytecode image.
-    pub image: BytecodeModule,
+    /// The compiled bytecode module.
+    pub module: BytecodeModule,
     pub metadata: Option<ExecutionMetadata>,
 }
 
@@ -40,8 +40,8 @@ impl BytecodeNode {
         self.semantic_revision
     }
 
-    pub fn image(&self) -> &BytecodeModule {
-        &self.image
+    pub fn module(&self) -> &BytecodeModule {
+        &self.module
     }
 }
 
@@ -78,9 +78,9 @@ impl BytecodeGraph {
         Self::default()
     }
 
-    pub fn upsert(&mut self, image: BytecodeNode) {
-        self.ids_by_path.insert(image.path.clone(), image.id);
-        self.modules.insert(image.id, image);
+    pub fn upsert(&mut self, module: BytecodeNode) {
+        self.ids_by_path.insert(module.path.clone(), module.id);
+        self.modules.insert(module.id, module);
     }
 
     /// Remove a module from the graph.

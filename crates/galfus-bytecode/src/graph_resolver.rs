@@ -4,7 +4,7 @@ use std::collections::HashSet;
 
 /// A resolved runtime target for one import slot.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct LinkedImport {
+pub struct ResolvedImport {
     pub slot: usize,
     pub module_id: ModuleId,
     pub function: FuncIdx,
@@ -12,13 +12,13 @@ pub struct LinkedImport {
 
 /// The dynamic linking result for one loaded module.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ModuleLink {
+pub struct ModuleImports {
     pub module_id: ModuleId,
-    pub imports: Vec<LinkedImport>,
+    pub imports: Vec<ResolvedImport>,
 }
 
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
-pub enum LinkError {
+pub enum GraphResolutionError {
     #[error("module {0:?} is not loaded")]
     ModuleNotLoaded(ModuleId),
     #[error("module {importer:?} imports unloaded module `{module_path}`")]
@@ -38,17 +38,17 @@ pub enum LinkError {
 
 impl crate::graph::BytecodeGraph {
     /// Resolve each import slot to an exported function in another loaded module.
-    pub fn link(&self, id: ModuleId) -> Result<ModuleLink, LinkError> {
+    pub fn resolve_imports(&self, id: ModuleId) -> Result<ModuleImports, GraphResolutionError> {
         let image = self
             .modules
             .get(&id)
-            .ok_or(LinkError::ModuleNotLoaded(id))?;
-        let mut imports = Vec::with_capacity(image.image.imports.len());
+            .ok_or(GraphResolutionError::ModuleNotLoaded(id))?;
+        let mut imports = Vec::with_capacity(image.module.imports.len());
 
-        for (slot, import) in image.image.imports.iter().enumerate() {
+        for (slot, import) in image.module.imports.iter().enumerate() {
             let module_id = ModulePath::new(import.module_name.as_str())
                 .and_then(|path| self.ids_by_path.get(&path).copied())
-                .ok_or_else(|| LinkError::ImportModuleNotLoaded {
+                .ok_or_else(|| GraphResolutionError::ImportModuleNotLoaded {
                     importer: id,
                     module_path: import.module_name.clone(),
                 })?;
@@ -57,31 +57,34 @@ impl crate::graph::BytecodeGraph {
                 .get(&module_id)
                 .expect("path index refers to loaded module");
             let function = target
-                .image
+                .module
                 .exports
                 .iter()
                 .find(|export| export.symbol_name == import.symbol_name)
                 .map(|export| export.func_idx)
-                .ok_or_else(|| LinkError::ImportSymbolNotExported {
+                .ok_or_else(|| GraphResolutionError::ImportSymbolNotExported {
                     importer: id,
                     module_path: import.module_name.clone(),
                     symbol_name: import.symbol_name.clone(),
                 })?;
-            imports.push(LinkedImport {
+            imports.push(ResolvedImport {
                 slot,
                 module_id,
                 function,
             });
         }
 
-        Ok(ModuleLink {
+        Ok(ModuleImports {
             module_id: id,
             imports,
         })
     }
 
     /// Return modules in dependency-first initialization order for `id`.
-    pub fn initialization_order(&self, id: ModuleId) -> Result<Vec<ModuleId>, LinkError> {
+    pub fn initialization_order(
+        &self,
+        id: ModuleId,
+    ) -> Result<Vec<ModuleId>, GraphResolutionError> {
         let mut order = Vec::new();
         let mut visited = HashSet::new();
         let mut visiting = HashSet::new();
@@ -95,15 +98,15 @@ impl crate::graph::BytecodeGraph {
         order: &mut Vec<ModuleId>,
         visited: &mut HashSet<ModuleId>,
         visiting: &mut HashSet<ModuleId>,
-    ) -> Result<(), LinkError> {
+    ) -> Result<(), GraphResolutionError> {
         if visited.contains(&id) {
             return Ok(());
         }
         if !visiting.insert(id) {
-            return Err(LinkError::InitializationCycle(id));
+            return Err(GraphResolutionError::InitializationCycle(id));
         }
 
-        for import in self.link(id)?.imports {
+        for import in self.resolve_imports(id)?.imports {
             self.collect_initialization_order(import.module_id, order, visited, visiting)?;
         }
 

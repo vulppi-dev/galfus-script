@@ -1,7 +1,7 @@
 use super::LowerCtx;
 use galfus_bytecode::instruction::TypeIdx;
 use galfus_bytecode::{
-    ChoiceLayout, ChoiceLayoutIdx, ChoiceVariantLayout, FieldLayout, ImageType, OwnershipKind,
+    BytecodeType, ChoiceLayout, ChoiceLayoutIdx, ChoiceVariantLayout, FieldLayout, OwnershipKind,
     StructLayout, StructLayoutIdx,
 };
 use galfus_core::{SymbolId, TypeId};
@@ -39,7 +39,7 @@ pub fn lower_type(ctx: &mut LowerCtx, ty: TypeId) -> TypeIdx {
 
     let next_idx = TypeIdx(ctx.types.len() as u16);
     ctx.type_map.insert(ty, next_idx);
-    ctx.types.push(ImageType::Null);
+    ctx.types.push(BytecodeType::Null);
 
     let table = ctx.type_result.layer().table();
     let image_type = match table.kind(ty) {
@@ -50,11 +50,11 @@ pub fn lower_type(ctx: &mut LowerCtx, ty: TypeId) -> TypeIdx {
             match sym_kind {
                 Some(SymbolKind::Struct) => {
                     let layout_idx = get_or_create_struct_layout(ctx, *symbol);
-                    ImageType::Struct(layout_idx)
+                    BytecodeType::Struct(layout_idx)
                 }
                 Some(SymbolKind::Choice) => {
                     let layout_idx = crate::lower::types::get_or_create_choice_layout(ctx, *symbol);
-                    ImageType::Choice(layout_idx)
+                    BytecodeType::Choice(layout_idx)
                 }
                 Some(SymbolKind::ChoiceVariant) => {
                     if let Some((choice_symbol, variant_idx)) =
@@ -62,27 +62,27 @@ pub fn lower_type(ctx: &mut LowerCtx, ty: TypeId) -> TypeIdx {
                     {
                         let layout_idx =
                             crate::lower::types::get_or_create_choice_layout(ctx, choice_symbol);
-                        ImageType::ChoiceVariant(layout_idx, variant_idx as u16)
+                        BytecodeType::ChoiceVariant(layout_idx, variant_idx as u16)
                     } else {
-                        ImageType::Null
+                        BytecodeType::Null
                     }
                 }
-                Some(SymbolKind::Constraint) => ImageType::Constraint(
+                Some(SymbolKind::Constraint) => BytecodeType::Constraint(
                     resolution
                         .symbol(*symbol)
                         .map(|symbol| symbol.name().to_string())
                         .unwrap_or_default(),
                 ),
-                _ => ImageType::Null,
+                _ => BytecodeType::Null,
             }
         }
         Some(TypeKind::Path { root, segments }) => {
             if segments.len() == 1 {
                 if let Some(choice) = find_imported_choice_for_type(ctx, ty) {
                     let layout_idx = get_or_create_imported_choice_layout(ctx, &choice);
-                    ImageType::Choice(layout_idx)
+                    BytecodeType::Choice(layout_idx)
                 } else {
-                    ImageType::Null
+                    BytecodeType::Null
                 }
             } else if segments.len() == 2 {
                 let choice_name = &segments[0];
@@ -104,30 +104,30 @@ pub fn lower_type(ctx: &mut LowerCtx, ty: TypeId) -> TypeIdx {
                         .iter()
                         .position(|v| v.name == *variant_name)
                         .unwrap_or(0);
-                    ImageType::ChoiceVariant(layout_idx, variant_idx as u16)
+                    BytecodeType::ChoiceVariant(layout_idx, variant_idx as u16)
                 } else {
-                    ImageType::Null
+                    BytecodeType::Null
                 }
             } else {
-                ImageType::Null
+                BytecodeType::Null
             }
         }
         Some(TypeKind::Array { element }) => {
             let elem_idx = crate::lower::types::lower_type(ctx, *element);
-            ImageType::Array(elem_idx)
+            BytecodeType::Array(elem_idx)
         }
         Some(TypeKind::Tuple { elements }) => {
             let elem_idxs = elements
                 .iter()
                 .map(|&e| crate::lower::types::lower_type(ctx, e))
                 .collect();
-            ImageType::Tuple(elem_idxs)
+            BytecodeType::Tuple(elem_idxs)
         }
         Some(TypeKind::GenericInstance { base, .. }) => {
             let base_idx = crate::lower::types::lower_type(ctx, *base);
             ctx.types[base_idx.raw() as usize].clone()
         }
-        _ => ImageType::Null,
+        _ => BytecodeType::Null,
     };
 
     ctx.types[next_idx.raw() as usize] = image_type.clone();
@@ -147,7 +147,7 @@ pub(super) fn lower_choice_variant_type(ctx: &mut LowerCtx, variant_symbol: Symb
     if let Some(index) = ctx.types.iter().position(|ty| {
         matches!(
             ty,
-            ImageType::ChoiceVariant(existing_layout, existing_variant)
+            BytecodeType::ChoiceVariant(existing_layout, existing_variant)
                 if *existing_layout == layout_idx && *existing_variant == variant_index
         )
     }) {
@@ -156,25 +156,25 @@ pub(super) fn lower_choice_variant_type(ctx: &mut LowerCtx, variant_symbol: Symb
 
     let type_idx = TypeIdx(ctx.types.len() as u16);
     ctx.types
-        .push(ImageType::ChoiceVariant(layout_idx, variant_index));
+        .push(BytecodeType::ChoiceVariant(layout_idx, variant_index));
     type_idx
 }
 
-fn lower_primitive(_ctx: &LowerCtx, prim: PrimitiveType) -> ImageType {
+fn lower_primitive(_ctx: &LowerCtx, prim: PrimitiveType) -> BytecodeType {
     match prim {
-        PrimitiveType::Null => ImageType::Null,
-        PrimitiveType::Bool => ImageType::Bool,
-        PrimitiveType::Int8 => ImageType::Int8,
-        PrimitiveType::Int16 => ImageType::Int16,
-        PrimitiveType::Int32 => ImageType::Int32,
-        PrimitiveType::Int64 => ImageType::Int64,
-        PrimitiveType::Uint8 => ImageType::Uint8,
-        PrimitiveType::Uint16 => ImageType::Uint16,
-        PrimitiveType::Uint32 => ImageType::Uint32,
-        PrimitiveType::Uint64 => ImageType::Uint64,
-        PrimitiveType::Float16 => ImageType::Float32,
-        PrimitiveType::Float32 => ImageType::Float32,
-        PrimitiveType::Float64 => ImageType::Float64,
+        PrimitiveType::Null => BytecodeType::Null,
+        PrimitiveType::Bool => BytecodeType::Bool,
+        PrimitiveType::Int8 => BytecodeType::Int8,
+        PrimitiveType::Int16 => BytecodeType::Int16,
+        PrimitiveType::Int32 => BytecodeType::Int32,
+        PrimitiveType::Int64 => BytecodeType::Int64,
+        PrimitiveType::Uint8 => BytecodeType::Uint8,
+        PrimitiveType::Uint16 => BytecodeType::Uint16,
+        PrimitiveType::Uint32 => BytecodeType::Uint32,
+        PrimitiveType::Uint64 => BytecodeType::Uint64,
+        PrimitiveType::Float16 => BytecodeType::Float32,
+        PrimitiveType::Float32 => BytecodeType::Float32,
+        PrimitiveType::Float64 => BytecodeType::Float64,
     }
 }
 

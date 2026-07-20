@@ -1,12 +1,12 @@
 use super::*;
 
-fn create_dummy_image(instructions: Vec<Instruction>) -> BytecodeModule {
+fn create_dummy_module(instructions: Vec<Instruction>) -> BytecodeModule {
     BytecodeModule {
         name: "test".to_string(),
         constants: ConstantPool {
             constants: vec![Constant::Int64(42)],
         },
-        functions: vec![ImageFunction {
+        functions: vec![BytecodeFunction {
             name: "main".to_string(),
             param_count: 1,
             local_count: 2,
@@ -15,10 +15,10 @@ fn create_dummy_image(instructions: Vec<Instruction>) -> BytecodeModule {
             instructions,
         }],
         types: vec![
-            ImageType::Int64,
-            ImageType::Struct(StructLayoutIdx(0)),
-            ImageType::Tuple(vec![TypeIdx(0), TypeIdx(0)]),
-            ImageType::Choice(ChoiceLayoutIdx(0)),
+            BytecodeType::Int64,
+            BytecodeType::Struct(StructLayoutIdx(0)),
+            BytecodeType::Tuple(vec![TypeIdx(0), TypeIdx(0)]),
+            BytecodeType::Choice(ChoiceLayoutIdx(0)),
         ],
         struct_layouts: vec![StructLayout {
             name: "Point".to_string(),
@@ -50,44 +50,44 @@ fn create_dummy_image(instructions: Vec<Instruction>) -> BytecodeModule {
 }
 
 #[test]
-fn test_valid_image() {
-    let image = create_dummy_image(vec![
+fn test_valid_module() {
+    let image = create_dummy_module(vec![
         Instruction::Move {
             dest: Reg(1),
             src: Reg(0),
         },
         Instruction::Ret { src: Reg(1) },
     ]);
-    assert!(validate_module_image(&image).is_ok());
+    assert!(validate_bytecode_module(&image).is_ok());
 }
 
 #[test]
 fn test_invalid_register() {
-    let image = create_dummy_image(vec![Instruction::Move {
+    let image = create_dummy_module(vec![Instruction::Move {
         dest: Reg(10),
         src: Reg(0),
     }]);
-    let res = validate_module_image(&image);
+    let res = validate_bytecode_module(&image);
     assert!(res.is_err());
     let errs = res.unwrap_err();
     assert!(matches!(
         errs[0],
-        ImageValidationError::InvalidRegister { ref reg, .. } if reg.raw() == 10
+        BytecodeValidationError::InvalidRegister { ref reg, .. } if reg.raw() == 10
     ));
 }
 
 #[test]
 fn test_invalid_constant_index() {
-    let image = create_dummy_image(vec![Instruction::LoadConst {
+    let image = create_dummy_module(vec![Instruction::LoadConst {
         dest: Reg(1),
         const_idx: ConstIdx(5),
     }]);
-    let res = validate_module_image(&image);
+    let res = validate_bytecode_module(&image);
     assert!(res.is_err());
     let errs = res.unwrap_err();
     assert!(matches!(
         errs[0],
-        ImageValidationError::InvalidConstantIndex {
+        BytecodeValidationError::InvalidConstantIndex {
             index: ConstIdx(5),
             ..
         }
@@ -96,29 +96,29 @@ fn test_invalid_constant_index() {
 
 #[test]
 fn test_invalid_jump_offset() {
-    let image = create_dummy_image(vec![Instruction::Jump { offset: 10 }]);
-    let res = validate_module_image(&image);
+    let image = create_dummy_module(vec![Instruction::Jump { offset: 10 }]);
+    let res = validate_bytecode_module(&image);
     assert!(res.is_err());
     let errs = res.unwrap_err();
     assert!(matches!(
         errs[0],
-        ImageValidationError::InvalidJumpOffset { target_idx: 11, .. }
+        BytecodeValidationError::InvalidJumpOffset { target_idx: 11, .. }
     ));
 }
 
 #[test]
 fn test_type_mismatch_alloc() {
     // TypeIdx(0) is Int64, not Struct
-    let image = create_dummy_image(vec![Instruction::AllocLocal {
+    let image = create_dummy_module(vec![Instruction::AllocLocal {
         dest: Reg(1),
         type_idx: TypeIdx(0),
     }]);
-    let res = validate_module_image(&image);
+    let res = validate_bytecode_module(&image);
     assert!(res.is_err());
     let errs = res.unwrap_err();
     assert!(matches!(
         errs[0],
-        ImageValidationError::TypeMismatchAlloc {
+        BytecodeValidationError::TypeMismatchAlloc {
             found: TypeIdx(0),
             expected: "Struct",
             ..
@@ -129,18 +129,18 @@ fn test_type_mismatch_alloc() {
 #[test]
 fn test_tuple_count_mismatch() {
     // TypeIdx(2) is Tuple with 2 elements, but count: 3 is requested
-    let image = create_dummy_image(vec![Instruction::NewTuple {
+    let image = create_dummy_module(vec![Instruction::NewTuple {
         dest: Reg(1),
         type_idx: TypeIdx(2),
         start: Reg(0),
         count: 3,
     }]);
-    let res = validate_module_image(&image);
+    let res = validate_bytecode_module(&image);
     assert!(res.is_err());
     let errs = res.unwrap_err();
     assert!(matches!(
         errs[0],
-        ImageValidationError::TupleCountMismatch {
+        BytecodeValidationError::TupleCountMismatch {
             expected_count: 2,
             found_count: 3,
             ..
@@ -150,18 +150,18 @@ fn test_tuple_count_mismatch() {
 
 #[test]
 fn test_invalid_function_index() {
-    let image = create_dummy_image(vec![Instruction::Call {
+    let image = create_dummy_module(vec![Instruction::Call {
         dest: Reg(1),
         func: FuncIdx(10),
         args_start: Reg(0),
         arg_count: 0,
     }]);
-    let res = validate_module_image(&image);
+    let res = validate_bytecode_module(&image);
     assert!(res.is_err());
     let errs = res.unwrap_err();
     assert!(matches!(
         errs[0],
-        ImageValidationError::InvalidFunctionIndex {
+        BytecodeValidationError::InvalidFunctionIndex {
             index: FuncIdx(10),
             ..
         }
@@ -171,18 +171,18 @@ fn test_invalid_function_index() {
 #[test]
 fn test_choice_variant_out_of_bounds() {
     // TypeIdx(3) is Choice Option, which only has variants 0 and 1
-    let image = create_dummy_image(vec![Instruction::NewChoice {
+    let image = create_dummy_module(vec![Instruction::NewChoice {
         dest: Reg(1),
         type_idx: TypeIdx(3),
         variant_idx: 5,
         payload: Reg(0),
     }]);
-    let res = validate_module_image(&image);
+    let res = validate_bytecode_module(&image);
     assert!(res.is_err());
     let errs = res.unwrap_err();
     assert!(matches!(
         errs[0],
-        ImageValidationError::ChoiceVariantOutOfBounds {
+        BytecodeValidationError::ChoiceVariantOutOfBounds {
             variant_idx: 5,
             variant_count: 2,
             ..
@@ -193,17 +193,17 @@ fn test_choice_variant_out_of_bounds() {
 #[test]
 fn test_field_out_of_bounds() {
     // Point struct layout only has field 0
-    let image = create_dummy_image(vec![Instruction::LoadField {
+    let image = create_dummy_module(vec![Instruction::LoadField {
         dest: Reg(1),
         obj: Reg(0),
         field: FieldIdx(2),
     }]);
-    let res = validate_module_image(&image);
+    let res = validate_bytecode_module(&image);
     assert!(res.is_err());
     let errs = res.unwrap_err();
     assert!(matches!(
         errs[0],
-        ImageValidationError::FieldOutOfBounds {
+        BytecodeValidationError::FieldOutOfBounds {
             field_idx: FieldIdx(2),
             ..
         }
@@ -212,17 +212,17 @@ fn test_field_out_of_bounds() {
 
 #[test]
 fn test_export_function_out_of_bounds() {
-    let mut image = create_dummy_image(vec![Instruction::Ret { src: Reg(0) }]);
+    let mut image = create_dummy_module(vec![Instruction::Ret { src: Reg(0) }]);
     image.exports.push(ExportSlot {
         symbol_name: "compute".to_string(),
         func_idx: FuncIdx(10),
     });
-    let res = validate_module_image(&image);
+    let res = validate_bytecode_module(&image);
     assert!(res.is_err());
     let errs = res.unwrap_err();
     assert!(matches!(
         errs[0],
-        ImageValidationError::ExportFunctionOutOfBounds {
+        BytecodeValidationError::ExportFunctionOutOfBounds {
             func_idx: FuncIdx(10),
             ..
         }
@@ -231,14 +231,14 @@ fn test_export_function_out_of_bounds() {
 
 #[test]
 fn test_init_function_out_of_bounds() {
-    let mut image = create_dummy_image(vec![Instruction::Ret { src: Reg(0) }]);
+    let mut image = create_dummy_module(vec![Instruction::Ret { src: Reg(0) }]);
     image.init_func_idx = Some(FuncIdx(10));
-    let res = validate_module_image(&image);
+    let res = validate_bytecode_module(&image);
     assert!(res.is_err());
     let errs = res.unwrap_err();
     assert!(matches!(
         errs[0],
-        ImageValidationError::InitFunctionOutOfBounds {
+        BytecodeValidationError::InitFunctionOutOfBounds {
             func_idx: FuncIdx(10),
             ..
         }

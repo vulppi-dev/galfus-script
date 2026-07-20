@@ -5,7 +5,7 @@ use crate::*;
 mod tests;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum ImageValidationError {
+pub enum BytecodeValidationError {
     InvalidConstantIndex {
         func_name: String,
         instr_idx: usize,
@@ -71,20 +71,22 @@ pub enum ImageValidationError {
     },
 }
 
-pub fn validate_module_image(image: &BytecodeModule) -> Result<(), Vec<ImageValidationError>> {
+pub fn validate_bytecode_module(
+    module: &BytecodeModule,
+) -> Result<(), Vec<BytecodeValidationError>> {
     let mut errors = Vec::new();
 
     // 1. Validate init function
-    if let Some(init_idx) = image.init_func_idx
-        && init_idx.raw() as usize >= image.functions.len()
+    if let Some(init_idx) = module.init_func_idx
+        && init_idx.raw() as usize >= module.functions.len()
     {
-        errors.push(ImageValidationError::InitFunctionOutOfBounds { func_idx: init_idx });
+        errors.push(BytecodeValidationError::InitFunctionOutOfBounds { func_idx: init_idx });
     }
 
     // 2. Validate exports
-    for export in &image.exports {
-        if export.func_idx.raw() as usize >= image.functions.len() {
-            errors.push(ImageValidationError::ExportFunctionOutOfBounds {
+    for export in &module.exports {
+        if export.func_idx.raw() as usize >= module.functions.len() {
+            errors.push(BytecodeValidationError::ExportFunctionOutOfBounds {
                 symbol_name: export.symbol_name.clone(),
                 func_idx: export.func_idx,
             });
@@ -92,13 +94,13 @@ pub fn validate_module_image(image: &BytecodeModule) -> Result<(), Vec<ImageVali
     }
 
     // 3. Helper to determine max fields in any struct or choice variant
-    let max_struct_fields = image
+    let max_struct_fields = module
         .struct_layouts
         .iter()
         .map(|l| l.fields.len())
         .max()
         .unwrap_or(0);
-    let max_choice_payloads = image
+    let max_choice_payloads = module
         .choice_layouts
         .iter()
         .map(|l| {
@@ -113,14 +115,14 @@ pub fn validate_module_image(image: &BytecodeModule) -> Result<(), Vec<ImageVali
     let max_fields = max_struct_fields.max(max_choice_payloads);
 
     // 4. Validate instructions of each function
-    for func in &image.functions {
+    for func in &module.functions {
         let max_regs = func.param_count as u16 + func.local_count + func.temp_count;
         let func_name = &func.name;
 
         for (instr_idx, &instr) in func.instructions.iter().enumerate() {
-            let check_reg = |reg: Reg, errors: &mut Vec<ImageValidationError>| {
+            let check_reg = |reg: Reg, errors: &mut Vec<BytecodeValidationError>| {
                 if reg.raw() >= max_regs {
-                    errors.push(ImageValidationError::InvalidRegister {
+                    errors.push(BytecodeValidationError::InvalidRegister {
                         func_name: func_name.clone(),
                         instr_idx,
                         reg,
@@ -129,9 +131,9 @@ pub fn validate_module_image(image: &BytecodeModule) -> Result<(), Vec<ImageVali
                 }
             };
 
-            let check_const = |idx: ConstIdx, errors: &mut Vec<ImageValidationError>| {
-                if idx.raw() as usize >= image.constants.constants.len() {
-                    errors.push(ImageValidationError::InvalidConstantIndex {
+            let check_const = |idx: ConstIdx, errors: &mut Vec<BytecodeValidationError>| {
+                if idx.raw() as usize >= module.constants.constants.len() {
+                    errors.push(BytecodeValidationError::InvalidConstantIndex {
                         func_name: func_name.clone(),
                         instr_idx,
                         index: idx,
@@ -139,9 +141,9 @@ pub fn validate_module_image(image: &BytecodeModule) -> Result<(), Vec<ImageVali
                 }
             };
 
-            let check_type = |idx: TypeIdx, errors: &mut Vec<ImageValidationError>| {
-                if idx.raw() as usize >= image.types.len() {
-                    errors.push(ImageValidationError::InvalidTypeIndex {
+            let check_type = |idx: TypeIdx, errors: &mut Vec<BytecodeValidationError>| {
+                if idx.raw() as usize >= module.types.len() {
+                    errors.push(BytecodeValidationError::InvalidTypeIndex {
                         func_name: func_name.clone(),
                         instr_idx,
                         index: idx,
@@ -149,10 +151,10 @@ pub fn validate_module_image(image: &BytecodeModule) -> Result<(), Vec<ImageVali
                 }
             };
 
-            let check_func = |idx: FuncIdx, errors: &mut Vec<ImageValidationError>| {
-                let limit = image.functions.len() + image.imports.len();
+            let check_func = |idx: FuncIdx, errors: &mut Vec<BytecodeValidationError>| {
+                let limit = module.functions.len() + module.imports.len();
                 if idx.raw() as usize >= limit {
-                    errors.push(ImageValidationError::InvalidFunctionIndex {
+                    errors.push(BytecodeValidationError::InvalidFunctionIndex {
                         func_name: func_name.clone(),
                         instr_idx,
                         index: idx,
@@ -160,10 +162,10 @@ pub fn validate_module_image(image: &BytecodeModule) -> Result<(), Vec<ImageVali
                 }
             };
 
-            let check_jump = |offset: i32, errors: &mut Vec<ImageValidationError>| {
+            let check_jump = |offset: i32, errors: &mut Vec<BytecodeValidationError>| {
                 let target = instr_idx as i32 + 1 + offset;
                 if target < 0 || target >= func.instructions.len() as i32 {
-                    errors.push(ImageValidationError::InvalidJumpOffset {
+                    errors.push(BytecodeValidationError::InvalidJumpOffset {
                         func_name: func_name.clone(),
                         instr_idx,
                         target_idx: target,
@@ -258,7 +260,7 @@ pub fn validate_module_image(image: &BytecodeModule) -> Result<(), Vec<ImageVali
                         check_reg(args_start, &mut errors);
                         let end_reg = args_start.raw() as u32 + arg_count as u32 - 1;
                         if end_reg >= max_regs as u32 {
-                            errors.push(ImageValidationError::InvalidRegister {
+                            errors.push(BytecodeValidationError::InvalidRegister {
                                 func_name: func_name.clone(),
                                 instr_idx,
                                 reg: Reg(end_reg as u16),
@@ -293,7 +295,7 @@ pub fn validate_module_image(image: &BytecodeModule) -> Result<(), Vec<ImageVali
                         check_reg(args_start, &mut errors);
                         let end_reg = args_start.raw() as u32 + arg_count as u32 - 1;
                         if end_reg >= max_regs as u32 {
-                            errors.push(ImageValidationError::InvalidRegister {
+                            errors.push(BytecodeValidationError::InvalidRegister {
                                 func_name: func_name.clone(),
                                 instr_idx,
                                 reg: Reg(end_reg as u16),
@@ -315,11 +317,11 @@ pub fn validate_module_image(image: &BytecodeModule) -> Result<(), Vec<ImageVali
                 | Instruction::AllocShared { dest, type_idx } => {
                     check_reg(dest, &mut errors);
                     check_type(type_idx, &mut errors);
-                    if (type_idx.raw() as usize) < image.types.len() {
-                        match &image.types[type_idx.raw() as usize] {
-                            ImageType::Struct(layout_idx) => {
-                                if layout_idx.raw() as usize >= image.struct_layouts.len() {
-                                    errors.push(ImageValidationError::LayoutOutOfBounds {
+                    if (type_idx.raw() as usize) < module.types.len() {
+                        match &module.types[type_idx.raw() as usize] {
+                            BytecodeType::Struct(layout_idx) => {
+                                if layout_idx.raw() as usize >= module.struct_layouts.len() {
+                                    errors.push(BytecodeValidationError::LayoutOutOfBounds {
                                         func_name: func_name.clone(),
                                         instr_idx,
                                         expected: "StructLayout",
@@ -328,7 +330,7 @@ pub fn validate_module_image(image: &BytecodeModule) -> Result<(), Vec<ImageVali
                                 }
                             }
                             _ => {
-                                errors.push(ImageValidationError::TypeMismatchAlloc {
+                                errors.push(BytecodeValidationError::TypeMismatchAlloc {
                                     func_name: func_name.clone(),
                                     instr_idx,
                                     expected: "Struct",
@@ -342,7 +344,7 @@ pub fn validate_module_image(image: &BytecodeModule) -> Result<(), Vec<ImageVali
                     check_reg(dest, &mut errors);
                     check_reg(obj, &mut errors);
                     if field.raw() as usize >= max_fields {
-                        errors.push(ImageValidationError::FieldOutOfBounds {
+                        errors.push(BytecodeValidationError::FieldOutOfBounds {
                             func_name: func_name.clone(),
                             instr_idx,
                             field_idx: field,
@@ -353,7 +355,7 @@ pub fn validate_module_image(image: &BytecodeModule) -> Result<(), Vec<ImageVali
                     check_reg(obj, &mut errors);
                     check_reg(val, &mut errors);
                     if field.raw() as usize >= max_fields {
-                        errors.push(ImageValidationError::FieldOutOfBounds {
+                        errors.push(BytecodeValidationError::FieldOutOfBounds {
                             func_name: func_name.clone(),
                             instr_idx,
                             field_idx: field,
@@ -391,7 +393,7 @@ pub fn validate_module_image(image: &BytecodeModule) -> Result<(), Vec<ImageVali
                         check_reg(start, &mut errors);
                         let end_reg = start.raw() as u32 + count as u32 - 1;
                         if end_reg >= max_regs as u32 {
-                            errors.push(ImageValidationError::InvalidRegister {
+                            errors.push(BytecodeValidationError::InvalidRegister {
                                 func_name: func_name.clone(),
                                 instr_idx,
                                 reg: Reg(end_reg as u16),
@@ -399,11 +401,11 @@ pub fn validate_module_image(image: &BytecodeModule) -> Result<(), Vec<ImageVali
                             });
                         }
                     }
-                    if (type_idx.raw() as usize) < image.types.len() {
-                        match &image.types[type_idx.raw() as usize] {
-                            ImageType::Tuple(elements) => {
+                    if (type_idx.raw() as usize) < module.types.len() {
+                        match &module.types[type_idx.raw() as usize] {
+                            BytecodeType::Tuple(elements) => {
                                 if elements.len() != count as usize {
-                                    errors.push(ImageValidationError::TupleCountMismatch {
+                                    errors.push(BytecodeValidationError::TupleCountMismatch {
                                         func_name: func_name.clone(),
                                         instr_idx,
                                         expected_count: elements.len(),
@@ -412,7 +414,7 @@ pub fn validate_module_image(image: &BytecodeModule) -> Result<(), Vec<ImageVali
                                 }
                             }
                             _ => {
-                                errors.push(ImageValidationError::TypeMismatchAlloc {
+                                errors.push(BytecodeValidationError::TypeMismatchAlloc {
                                     func_name: func_name.clone(),
                                     instr_idx,
                                     expected: "Tuple",
@@ -431,21 +433,21 @@ pub fn validate_module_image(image: &BytecodeModule) -> Result<(), Vec<ImageVali
                     check_reg(dest, &mut errors);
                     check_type(type_idx, &mut errors);
                     check_reg(payload, &mut errors);
-                    if (type_idx.raw() as usize) < image.types.len() {
-                        match &image.types[type_idx.raw() as usize] {
-                            ImageType::Choice(layout_idx) => {
-                                if layout_idx.raw() as usize >= image.choice_layouts.len() {
-                                    errors.push(ImageValidationError::LayoutOutOfBounds {
+                    if (type_idx.raw() as usize) < module.types.len() {
+                        match &module.types[type_idx.raw() as usize] {
+                            BytecodeType::Choice(layout_idx) => {
+                                if layout_idx.raw() as usize >= module.choice_layouts.len() {
+                                    errors.push(BytecodeValidationError::LayoutOutOfBounds {
                                         func_name: func_name.clone(),
                                         instr_idx,
                                         expected: "ChoiceLayout",
                                         layout_idx: layout_idx.raw(),
                                     });
                                 } else {
-                                    let layout = &image.choice_layouts[layout_idx.raw() as usize];
+                                    let layout = &module.choice_layouts[layout_idx.raw() as usize];
                                     if variant_idx as usize >= layout.variants.len() {
                                         errors.push(
-                                            ImageValidationError::ChoiceVariantOutOfBounds {
+                                            BytecodeValidationError::ChoiceVariantOutOfBounds {
                                                 func_name: func_name.clone(),
                                                 instr_idx,
                                                 variant_idx,
@@ -456,7 +458,7 @@ pub fn validate_module_image(image: &BytecodeModule) -> Result<(), Vec<ImageVali
                                 }
                             }
                             _ => {
-                                errors.push(ImageValidationError::TypeMismatchAlloc {
+                                errors.push(BytecodeValidationError::TypeMismatchAlloc {
                                     func_name: func_name.clone(),
                                     instr_idx,
                                     expected: "Choice",
@@ -502,7 +504,7 @@ pub fn validate_module_image(image: &BytecodeModule) -> Result<(), Vec<ImageVali
                     check_reg(dest, &mut errors);
                     check_reg(obj, &mut errors);
                     if field.raw() as usize >= max_fields {
-                        errors.push(ImageValidationError::FieldOutOfBounds {
+                        errors.push(BytecodeValidationError::FieldOutOfBounds {
                             func_name: func_name.clone(),
                             instr_idx,
                             field_idx: field,
@@ -513,7 +515,7 @@ pub fn validate_module_image(image: &BytecodeModule) -> Result<(), Vec<ImageVali
                     check_reg(obj, &mut errors);
                     check_reg(val, &mut errors);
                     if field.raw() as usize >= max_fields {
-                        errors.push(ImageValidationError::FieldOutOfBounds {
+                        errors.push(BytecodeValidationError::FieldOutOfBounds {
                             func_name: func_name.clone(),
                             instr_idx,
                             field_idx: field,

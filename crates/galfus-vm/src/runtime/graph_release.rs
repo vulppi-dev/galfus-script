@@ -40,7 +40,7 @@ impl<'a> VirtualMachine<'a> {
                             .graph
                             .get(*module_id)
                             .unwrap()
-                            .image
+                            .module
                             .struct_layouts
                             .get(layout_idx.raw() as usize)
                         {
@@ -114,7 +114,7 @@ impl<'a> VirtualMachine<'a> {
                     .graph
                     .get(*module_id)
                     .unwrap()
-                    .image
+                    .module
                     .struct_layouts
                     .get(layout_idx_val.raw() as usize)
                 {

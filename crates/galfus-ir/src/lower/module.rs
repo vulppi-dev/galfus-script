@@ -50,7 +50,7 @@ pub fn lower_module(
             crate::lower::function::FnEmitter::new(&mut ctx, mir_func, param_count, local_count);
         let instructions = emitter.emit();
 
-        functions.push(ImageFunction {
+        functions.push(BytecodeFunction {
             name: mir_func.name.clone(),
             param_count: param_count.try_into().unwrap(),
             local_count,

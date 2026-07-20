@@ -35,7 +35,7 @@ fn test_target_write() {
         Instruction::Write { src: Reg(1) },
         Instruction::RetNull,
     ];
-    let image = create_test_image(instrs, vec![Constant::Int64(42)]);
+    let image = create_test_module(instrs, vec![Constant::Int64(42)]);
     let buffer = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
     let provider = BufferIo {
         buffer: buffer.clone(),
@@ -47,7 +47,7 @@ fn test_target_write() {
         id: galfus_core::ModuleId::new(0),
         path: galfus_core::ModulePath::new("test.gfs").unwrap(),
         semantic_revision: galfus_core::SemanticRevision::new(0),
-        image,
+        module: image,
         metadata: None,
     });
     let mut vm =
@@ -73,7 +73,7 @@ fn test_target_read() {
         },
         Instruction::Ret { src: Reg(1) },
     ];
-    let image = create_test_image(instrs, vec![Constant::String("!".to_string())]);
+    let image = create_test_module(instrs, vec![Constant::String("!".to_string())]);
     let input = std::sync::Arc::new(std::sync::Mutex::new(b"abc".to_vec()));
     let terminator = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
     let provider = BufferIo {
@@ -86,7 +86,7 @@ fn test_target_read() {
         id: galfus_core::ModuleId::new(0),
         path: galfus_core::ModulePath::new("test.gfs").unwrap(),
         semantic_revision: galfus_core::SemanticRevision::new(0),
-        image,
+        module: image,
         metadata: None,
     });
     let mut vm =
@@ -124,13 +124,13 @@ fn test_read_requires_an_io_provider_when_executed() {
         },
         Instruction::Ret { src: Reg(1) },
     ];
-    let image = create_test_image(instrs, vec![Constant::String("\n".to_string())]);
+    let image = create_test_module(instrs, vec![Constant::String("\n".to_string())]);
     let mut graph = galfus_bytecode::BytecodeGraph::new();
     graph.upsert(galfus_bytecode::BytecodeNode {
         id: galfus_core::ModuleId::new(0),
         path: galfus_core::ModulePath::new("test.gfs").unwrap(),
         semantic_revision: galfus_core::SemanticRevision::new(0),
-        image,
+        module: image,
         metadata: None,
     });
     let mut vm = VirtualMachine::new(&graph);
@@ -240,7 +240,7 @@ fn test_len_and_copy_array() {
                 Constant::Int64(5),  // 7
             ],
         },
-        functions: vec![ImageFunction {
+        functions: vec![BytecodeFunction {
             name: "main".to_string(),
             param_count: 0,
             local_count: 10,
@@ -248,7 +248,7 @@ fn test_len_and_copy_array() {
             return_ty: TypeIdx(1),
             instructions: instrs,
         }],
-        types: vec![ImageType::Int64, ImageType::Array(TypeIdx(0))],
+        types: vec![BytecodeType::Int64, BytecodeType::Array(TypeIdx(0))],
         struct_layouts: vec![],
         choice_layouts: vec![],
         imports: vec![],
@@ -261,7 +261,7 @@ fn test_len_and_copy_array() {
         id: galfus_core::ModuleId::new(0),
         path: galfus_core::ModulePath::new("test.gfs").unwrap(),
         semantic_revision: galfus_core::SemanticRevision::new(0),
-        image,
+        module: image,
         metadata: None,
     });
     let mut vm = VirtualMachine::new(&graph);
@@ -349,7 +349,7 @@ fn test_load_index_accepts_negative_index() {
         Instruction::Ret { src: Reg(5) },
     ];
 
-    let image = create_test_image(
+    let image = create_test_module(
         instrs,
         vec![
             Constant::Int64(3),
@@ -368,7 +368,7 @@ fn test_load_index_accepts_negative_index() {
         id: galfus_core::ModuleId::new(0),
         path: galfus_core::ModulePath::new("test.gfs").unwrap(),
         semantic_revision: galfus_core::SemanticRevision::new(0),
-        image,
+        module: image,
         metadata: None,
     });
     let mut vm = VirtualMachine::new(&graph);
@@ -403,14 +403,14 @@ fn test_load_index_out_of_bounds_returns_null() {
         Instruction::Ret { src: Reg(4) },
     ];
 
-    let image = create_test_image(instrs, vec![Constant::Int64(3), Constant::Int64(99)]);
+    let image = create_test_module(instrs, vec![Constant::Int64(3), Constant::Int64(99)]);
 
     let mut graph = galfus_bytecode::BytecodeGraph::new();
     graph.upsert(galfus_bytecode::BytecodeNode {
         id: galfus_core::ModuleId::new(0),
         path: galfus_core::ModulePath::new("test.gfs").unwrap(),
         semantic_revision: galfus_core::SemanticRevision::new(0),
-        image,
+        module: image,
         metadata: None,
     });
     let mut vm = VirtualMachine::new(&graph);
@@ -458,7 +458,7 @@ fn test_store_index_accepts_negative_index() {
         Instruction::Ret { src: Reg(5) },
     ];
 
-    let image = create_test_image(
+    let image = create_test_module(
         instrs,
         vec![
             Constant::Int64(3),
@@ -473,7 +473,7 @@ fn test_store_index_accepts_negative_index() {
         id: galfus_core::ModuleId::new(0),
         path: galfus_core::ModulePath::new("test.gfs").unwrap(),
         semantic_revision: galfus_core::SemanticRevision::new(0),
-        image,
+        module: image,
         metadata: None,
     });
     let mut vm = VirtualMachine::new(&graph);
@@ -512,7 +512,7 @@ fn test_store_index_out_of_bounds_returns_error() {
         Instruction::RetNull,
     ];
 
-    let image = create_test_image(
+    let image = create_test_module(
         instrs,
         vec![Constant::Int64(3), Constant::Int64(99), Constant::Int64(3)],
     );
@@ -522,7 +522,7 @@ fn test_store_index_out_of_bounds_returns_error() {
         id: galfus_core::ModuleId::new(0),
         path: galfus_core::ModulePath::new("test.gfs").unwrap(),
         semantic_revision: galfus_core::SemanticRevision::new(0),
-        image,
+        module: image,
         metadata: None,
     });
     let mut vm = VirtualMachine::new(&graph);

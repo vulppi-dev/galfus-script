@@ -2,7 +2,7 @@ use crate::error::{StackFrameInfo, VmError, VmPanic};
 use galfus_bytecode::instruction::{
     ChoiceLayoutIdx, FuncIdx, Instruction, Reg, StructLayoutIdx, TypeIdx,
 };
-use galfus_bytecode::{BytecodeGraph, Constant, ImageType, OwnershipKind};
+use galfus_bytecode::{BytecodeGraph, BytecodeType, Constant, OwnershipKind};
 use galfus_core::ModuleId;
 use galfus_host::Providers;
 
@@ -144,7 +144,7 @@ impl<'a> VirtualMachine<'a> {
 
     pub fn current_image(&self) -> Result<&'a galfus_bytecode::BytecodeModule, VmError> {
         let frame = self.call_stack.last().ok_or(VmError::EmptyCallStack)?;
-        Ok(&self.graph.get(frame.module_id).unwrap().image)
+        Ok(&self.graph.get(frame.module_id).unwrap().module)
     }
 
     pub fn read_reg(&self, reg: Reg) -> Result<Value, VmError> {
@@ -172,14 +172,14 @@ impl<'a> VirtualMachine<'a> {
         func_idx: FuncIdx,
         args: Vec<Value>,
     ) -> Result<Value, VmPanic> {
-        if (func_idx.raw() as usize) >= self.graph.get(module_id).unwrap().image.functions.len() {
+        if (func_idx.raw() as usize) >= self.graph.get(module_id).unwrap().module.functions.len() {
             return Err(VmPanic {
                 error: VmError::FunctionOutOfBounds { index: func_idx },
                 stack_trace: vec![],
             });
         }
 
-        let func = &self.graph.get(module_id).unwrap().image.functions[func_idx.raw() as usize];
+        let func = &self.graph.get(module_id).unwrap().module.functions[func_idx.raw() as usize];
         if args.len() != func.param_count as usize {
             return Err(VmPanic {
                 error: VmError::TypeMismatch {
@@ -229,7 +229,7 @@ impl<'a> VirtualMachine<'a> {
     pub fn step(&mut self) -> Result<ExecutionStep, VmError> {
         let instr = {
             let frame = self.call_stack.last_mut().ok_or(VmError::EmptyCallStack)?;
-            let func = &self.graph.get(frame.module_id).unwrap().image.functions
+            let func = &self.graph.get(frame.module_id).unwrap().module.functions
                 [frame.func_idx.raw() as usize];
             if frame.pc >= func.instructions.len() {
                 return Err(VmError::InstructionPointerOutOfBounds { pc: frame.pc });

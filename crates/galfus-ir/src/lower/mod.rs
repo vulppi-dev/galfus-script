@@ -19,7 +19,7 @@ pub struct LowerCtx<'a> {
     pub type_result: &'a TypeCheckResult,
     pub graph: &'a ModuleGraph,
     pub source_text: &'a str,
-    pub types: Vec<ImageType>,
+    pub types: Vec<BytecodeType>,
     pub struct_layouts: Vec<StructLayout>,
     pub choice_layouts: Vec<ChoiceLayout>,
     pub type_map: HashMap<TypeId, TypeIdx>,

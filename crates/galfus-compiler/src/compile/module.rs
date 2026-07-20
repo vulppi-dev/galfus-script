@@ -8,7 +8,7 @@
 
 use anyhow::Result;
 use galfus_bytecode::{
-    BytecodeModule, ExportSlot, ImageFunction, ImageType, ImportSlot,
+    BytecodeFunction, BytecodeModule, BytecodeType, ExportSlot, ImportSlot,
     instruction::{FuncIdx, TypeIdx},
 };
 use std::collections::{HashMap, HashSet};
@@ -101,7 +101,7 @@ pub fn compile_changed_modules(
         let path = modules[mod_idx].path().clone();
         let semantic_revision = modules[mod_idx].semantic_revision();
         let image = compile_single_module(modules, &mir_modules, &specialized_targets, mod_idx)?;
-        if let Err(errors) = galfus_bytecode::validation::validate_module_image(&image) {
+        if let Err(errors) = galfus_bytecode::validation::validate_bytecode_module(&image) {
             return Err(anyhow::anyhow!(
                 "BytecodeModule validation failed for `{}`: {:?}",
                 path.as_str(),
@@ -112,7 +112,7 @@ pub fn compile_changed_modules(
             id: module_id,
             path,
             semantic_revision,
-            image,
+            module: image,
             metadata: None,
         });
     }
@@ -265,7 +265,7 @@ fn compile_single_module(
         }
     }
 
-    let mut functions: Vec<ImageFunction> = Vec::new();
+    let mut functions: Vec<BytecodeFunction> = Vec::new();
     let mut init_func_idx: Option<FuncIdx> = None;
     let mut global_var_map = HashMap::new();
     let mut next_global_idx = 0u16;
@@ -304,7 +304,7 @@ fn compile_single_module(
             &mut next_global_idx,
         )?;
 
-        functions.push(ImageFunction {
+        functions.push(BytecodeFunction {
             name: mir_func.name.clone(),
             param_count: param_count.try_into().unwrap(),
             local_count,
@@ -314,14 +314,17 @@ fn compile_single_module(
         });
     }
 
-    let null_type_idx =
-        if let Some(pos) = ctx.types.iter().position(|t| matches!(t, ImageType::Null)) {
-            TypeIdx(pos as u16)
-        } else {
-            let idx = TypeIdx(ctx.types.len() as u16);
-            ctx.types.push(ImageType::Null);
-            idx
-        };
+    let null_type_idx = if let Some(pos) = ctx
+        .types
+        .iter()
+        .position(|t| matches!(t, BytecodeType::Null))
+    {
+        TypeIdx(pos as u16)
+    } else {
+        let idx = TypeIdx(ctx.types.len() as u16);
+        ctx.types.push(BytecodeType::Null);
+        idx
+    };
     let _ = null_type_idx;
 
     Ok(BytecodeModule {

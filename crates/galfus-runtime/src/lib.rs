@@ -2,8 +2,6 @@ use galfus_bytecode::BytecodeModule;
 use galfus_host::Providers;
 use galfus_vm::{HeapObject, VirtualMachine, VmPanic, VmValue};
 
-pub use galfus_bytecode::{LinkError, LinkedImport, ModuleLink};
-
 #[derive(Debug, thiserror::Error)]
 pub enum RuntimeError {
     #[error("module `{0}` is not loaded")]
@@ -18,12 +16,10 @@ pub enum RuntimeError {
     },
     #[error("entry function `{name}` must return i32")]
     EntryReturnTypeMismatch { name: String },
-    #[error("entry arguments require image type `{0}`")]
+    #[error("entry arguments require bytecode type `{0}`")]
     MissingArgumentType(&'static str),
     #[error("{0}")]
     VmPanic(#[from] VmPanic),
-    #[error(transparent)]
-    Link(#[from] LinkError),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -56,9 +52,9 @@ impl EntryAbi {
         }
     }
 
-    fn accepts_return_type(self, ty: &galfus_bytecode::ImageType) -> bool {
+    fn accepts_return_type(self, ty: &galfus_bytecode::BytecodeType) -> bool {
         match self.return_type {
-            EntryReturnType::Int32 => ty == &galfus_bytecode::ImageType::Int32,
+            EntryReturnType::Int32 => ty == &galfus_bytecode::BytecodeType::Int32,
         }
     }
 }
@@ -85,7 +81,7 @@ impl Runtime {
         args: &[Vec<u8>],
         providers: Option<Providers>,
     ) -> Result<i32, RuntimeError> {
-        let image = &graph.get(module_id).unwrap().image;
+        let image = &graph.get(module_id).unwrap().module;
         let abi = EntryAbi::default_app();
         let entry_idx = image
             .exports
@@ -137,30 +133,30 @@ fn build_entry_args(
     module_id: galfus_core::ModuleId,
     args: &[Vec<u8>],
 ) -> Result<VmValue, RuntimeError> {
-    let uint8_ty = find_type(&vm.graph.get(module_id).unwrap().image, |ty| {
-        matches!(ty, galfus_bytecode::ImageType::Uint8)
+    let uint8_ty = find_type(&vm.graph.get(module_id).unwrap().module, |ty| {
+        matches!(ty, galfus_bytecode::BytecodeType::Uint8)
     })
     .ok_or(RuntimeError::MissingArgumentType("u8"))?;
     let byte_array_ty = vm
-        .graph.get(module_id).unwrap().image
+        .graph.get(module_id).unwrap().module
         .types
         .iter()
         .enumerate()
         .find(|(_, ty)| {
-            matches!(ty, galfus_bytecode::ImageType::Array(element)
-                if matches!(vm.graph.get(module_id).unwrap().image.types.get(element.raw() as usize), Some(galfus_bytecode::ImageType::Uint8)))
+            matches!(ty, galfus_bytecode::BytecodeType::Array(element)
+                if matches!(vm.graph.get(module_id).unwrap().module.types.get(element.raw() as usize), Some(galfus_bytecode::BytecodeType::Uint8)))
         })
         .map(|(index, _)| galfus_bytecode::instruction::TypeIdx(index as u16))
         .ok_or(RuntimeError::MissingArgumentType("[u8]"))?;
     let args_array_ty = vm
-        .graph.get(module_id).unwrap().image
+        .graph.get(module_id).unwrap().module
         .types
         .iter()
         .enumerate()
         .find(|(_, ty)| {
-            matches!(ty, galfus_bytecode::ImageType::Array(element)
-                if matches!(vm.graph.get(module_id).unwrap().image.types.get(element.raw() as usize), Some(galfus_bytecode::ImageType::Array(inner))
-                    if matches!(vm.graph.get(module_id).unwrap().image.types.get(inner.raw() as usize), Some(galfus_bytecode::ImageType::Uint8))))
+            matches!(ty, galfus_bytecode::BytecodeType::Array(element)
+                if matches!(vm.graph.get(module_id).unwrap().module.types.get(element.raw() as usize), Some(galfus_bytecode::BytecodeType::Array(inner))
+                    if matches!(vm.graph.get(module_id).unwrap().module.types.get(inner.raw() as usize), Some(galfus_bytecode::BytecodeType::Uint8))))
         })
         .map(|(index, _)| galfus_bytecode::instruction::TypeIdx(index as u16))
         .ok_or(RuntimeError::MissingArgumentType("[[u8]]"))?;
@@ -185,10 +181,10 @@ fn build_entry_args(
 }
 
 fn find_type(
-    image: &BytecodeModule,
-    predicate: impl Fn(&galfus_bytecode::ImageType) -> bool,
+    module: &BytecodeModule,
+    predicate: impl Fn(&galfus_bytecode::BytecodeType) -> bool,
 ) -> Option<galfus_bytecode::instruction::TypeIdx> {
-    image
+    module
         .types
         .iter()
         .position(predicate)
@@ -204,7 +200,7 @@ pub fn format_panic(graph: &galfus_bytecode::BytecodeGraph, panic: &VmPanic) -> 
     for (i, frame) in panic.stack_trace.iter().enumerate() {
         if let Some(module) = graph.get(frame.module_id) {
             let func_name = module
-                .image
+                .module
                 .functions
                 .get(frame.func_idx.raw() as usize)
                 .map(|f| f.name.as_str())

@@ -2,15 +2,15 @@ use super::*;
 use galfus_bytecode::BytecodeModule;
 use galfus_bytecode::instruction::{ConstIdx, FieldIdx};
 use galfus_bytecode::{
-    ChoiceLayout, ChoiceVariantLayout, ConstantPool, FieldLayout, ImageFunction, OwnershipKind,
+    BytecodeFunction, ChoiceLayout, ChoiceVariantLayout, ConstantPool, FieldLayout, OwnershipKind,
     StructLayout,
 };
 
-fn create_test_image(instructions: Vec<Instruction>, constants: Vec<Constant>) -> BytecodeModule {
+fn create_test_module(instructions: Vec<Instruction>, constants: Vec<Constant>) -> BytecodeModule {
     BytecodeModule {
         name: "test".to_string(),
         constants: ConstantPool { constants },
-        functions: vec![ImageFunction {
+        functions: vec![BytecodeFunction {
             name: "main".to_string(),
             param_count: 0,
             local_count: 8,
@@ -19,14 +19,14 @@ fn create_test_image(instructions: Vec<Instruction>, constants: Vec<Constant>) -
             instructions,
         }],
         types: vec![
-            ImageType::Int64,                               // TypeIdx(0)
-            ImageType::Bool,                                // TypeIdx(1)
-            ImageType::Null,                                // TypeIdx(2)
-            ImageType::Struct(StructLayoutIdx(0)),          // TypeIdx(3)
-            ImageType::Array(TypeIdx(0)),                   // TypeIdx(4)
-            ImageType::Tuple(vec![TypeIdx(0), TypeIdx(1)]), // TypeIdx(5)
-            ImageType::Choice(ChoiceLayoutIdx(0)),          // TypeIdx(6)
-            ImageType::Uint8,                               // TypeIdx(7)
+            BytecodeType::Int64,                               // TypeIdx(0)
+            BytecodeType::Bool,                                // TypeIdx(1)
+            BytecodeType::Null,                                // TypeIdx(2)
+            BytecodeType::Struct(StructLayoutIdx(0)),          // TypeIdx(3)
+            BytecodeType::Array(TypeIdx(0)),                   // TypeIdx(4)
+            BytecodeType::Tuple(vec![TypeIdx(0), TypeIdx(1)]), // TypeIdx(5)
+            BytecodeType::Choice(ChoiceLayoutIdx(0)),          // TypeIdx(6)
+            BytecodeType::Uint8,                               // TypeIdx(7)
         ],
         struct_layouts: vec![StructLayout {
             name: "Point".to_string(),

@@ -2,43 +2,12 @@ pub use instruction::*;
 pub use validation::*;
 
 pub mod graph;
+pub mod graph_resolver;
 pub mod instruction;
-pub mod linker;
 pub mod validation;
 
 pub use graph::{BytecodeGraph, BytecodeGraphTransaction, BytecodeNode, ImportEdge};
-pub use linker::{LinkError, LinkedImport, ModuleLink};
-
-// =========================================================================
-// Image Value Model
-// =========================================================================
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct ImageObjectRef(pub usize);
-
-impl ImageObjectRef {
-    pub const fn raw(&self) -> usize {
-        self.0
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum ImageValue {
-    Null,
-    Bool(bool),
-    Int8(i8),
-    Int16(i16),
-    Int32(i32),
-    Int64(i64),
-    Uint8(u8),
-    Uint16(u16),
-    Uint32(u32),
-    Uint64(u64),
-    Float32(f32),
-    Float64(f64),
-    Object(ImageObjectRef),
-    Function(FuncIdx),
-}
+pub use graph_resolver::{GraphResolutionError, ModuleImports, ResolvedImport};
 
 // =========================================================================
 // Constant Pool
@@ -72,7 +41,7 @@ pub struct ConstantPool {
 // =========================================================================
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub enum ImageType {
+pub enum BytecodeType {
     Null,
     Bool,
     Int8,
@@ -146,11 +115,11 @@ pub struct ExportSlot {
 }
 
 // =========================================================================
-// Image Function & Module Image Container
+// Bytecode Function & Module Container
 // =========================================================================
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct ImageFunction {
+pub struct BytecodeFunction {
     pub name: String,
     pub param_count: u8,
     pub local_count: u16,
@@ -163,8 +132,8 @@ pub struct ImageFunction {
 pub struct BytecodeModule {
     pub name: String,
     pub constants: ConstantPool,
-    pub functions: Vec<ImageFunction>,
-    pub types: Vec<ImageType>,
+    pub functions: Vec<BytecodeFunction>,
+    pub types: Vec<BytecodeType>,
     pub struct_layouts: Vec<StructLayout>,
     pub choice_layouts: Vec<ChoiceLayout>,
     pub imports: Vec<ImportSlot>,

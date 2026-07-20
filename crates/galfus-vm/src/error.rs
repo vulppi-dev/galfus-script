@@ -48,7 +48,7 @@ pub enum VmError {
     #[error("Explicit panic: {message}")]
     Panic { message: String },
 
-    #[error("Invalid module image")]
+    #[error("Invalid bytecode module")]
     InvalidModule,
 
     #[error("Unimplemented instruction: {instruction}")]

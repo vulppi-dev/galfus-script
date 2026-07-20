@@ -6,7 +6,7 @@ fn compiled_image(id: ModuleId, revision: SemanticRevision) -> BytecodeNode {
         id,
         path: ModulePath::new(format!("src/{}.gfs", id.raw()).as_str()).expect("valid path"),
         semantic_revision: revision,
-        image: BytecodeModule {
+        module: BytecodeModule {
             name: id.raw().to_string(),
             constants: ConstantPool::default(),
             functions: Vec::new(),
@@ -22,7 +22,7 @@ fn compiled_image(id: ModuleId, revision: SemanticRevision) -> BytecodeNode {
 }
 
 #[test]
-fn graph_keys_images_and_edges_by_stable_module_id() {
+fn graph_keys_modules_and_edges_by_stable_module_id() {
     let main = ModuleId::new(41);
     let utilities = ModuleId::new(7);
     let mut graph = BytecodeGraph::new();

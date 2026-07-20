@@ -24,13 +24,13 @@ fn test_structs_load_store() {
         },
         Instruction::Ret { src: Reg(3) },
     ];
-    let image = create_test_image(instrs, vec![Constant::Int64(42)]);
+    let image = create_test_module(instrs, vec![Constant::Int64(42)]);
     let mut graph = galfus_bytecode::BytecodeGraph::new();
     graph.upsert(galfus_bytecode::BytecodeNode {
         id: galfus_core::ModuleId::new(0),
         path: galfus_core::ModulePath::new("test.gfs").unwrap(),
         semantic_revision: galfus_core::SemanticRevision::new(0),
-        image,
+        module: image,
         metadata: None,
     });
     let mut vm = VirtualMachine::new(&graph);
@@ -72,7 +72,7 @@ fn test_arrays_load_store() {
         },
         Instruction::Ret { src: Reg(5) },
     ];
-    let image = create_test_image(
+    let image = create_test_module(
         instrs,
         vec![Constant::Int64(5), Constant::Int64(2), Constant::Int64(99)],
     );
@@ -81,7 +81,7 @@ fn test_arrays_load_store() {
         id: galfus_core::ModuleId::new(0),
         path: galfus_core::ModulePath::new("test.gfs").unwrap(),
         semantic_revision: galfus_core::SemanticRevision::new(0),
-        image,
+        module: image,
         metadata: None,
     });
     let mut vm = VirtualMachine::new(&graph);
@@ -119,7 +119,7 @@ fn test_tuples() {
         },
         Instruction::Ret { src: Reg(5) },
     ];
-    let image = create_test_image(
+    let image = create_test_module(
         instrs,
         vec![
             Constant::Int64(10),
@@ -132,7 +132,7 @@ fn test_tuples() {
         id: galfus_core::ModuleId::new(0),
         path: galfus_core::ModulePath::new("test.gfs").unwrap(),
         semantic_revision: galfus_core::SemanticRevision::new(0),
-        image,
+        module: image,
         metadata: None,
     });
     let mut vm = VirtualMachine::new(&graph);
@@ -157,13 +157,13 @@ fn test_choices() {
         },
         Instruction::Ret { src: Reg(2) },
     ];
-    let image = create_test_image(instrs, vec![Constant::Int64(100)]);
+    let image = create_test_module(instrs, vec![Constant::Int64(100)]);
     let mut graph = galfus_bytecode::BytecodeGraph::new();
     graph.upsert(galfus_bytecode::BytecodeNode {
         id: galfus_core::ModuleId::new(0),
         path: galfus_core::ModulePath::new("test.gfs").unwrap(),
         semantic_revision: galfus_core::SemanticRevision::new(0),
-        image,
+        module: image,
         metadata: None,
     });
     let mut vm = VirtualMachine::new(&graph);
@@ -202,13 +202,13 @@ fn test_cast() {
         }, // cast 42 (Int64) to 42 (Uint8)
         Instruction::Ret { src: Reg(2) },
     ];
-    let image = create_test_image(instrs, vec![Constant::Int64(42)]);
+    let image = create_test_module(instrs, vec![Constant::Int64(42)]);
     let mut graph = galfus_bytecode::BytecodeGraph::new();
     graph.upsert(galfus_bytecode::BytecodeNode {
         id: galfus_core::ModuleId::new(0),
         path: galfus_core::ModulePath::new("test.gfs").unwrap(),
         semantic_revision: galfus_core::SemanticRevision::new(0),
-        image,
+        module: image,
         metadata: None,
     });
     let mut vm = VirtualMachine::new(&graph);
@@ -232,13 +232,13 @@ fn test_instanceof() {
         }, // true
         Instruction::Ret { src: Reg(2) },
     ];
-    let image = create_test_image(instrs, vec![Constant::Int64(42)]);
+    let image = create_test_module(instrs, vec![Constant::Int64(42)]);
     let mut graph = galfus_bytecode::BytecodeGraph::new();
     graph.upsert(galfus_bytecode::BytecodeNode {
         id: galfus_core::ModuleId::new(0),
         path: galfus_core::ModulePath::new("test.gfs").unwrap(),
         semantic_revision: galfus_core::SemanticRevision::new(0),
-        image,
+        module: image,
         metadata: None,
     });
     let mut vm = VirtualMachine::new(&graph);
@@ -262,10 +262,10 @@ fn test_instanceof_constraint_satisfied_by_struct_layout() {
         },
         Instruction::Ret { src: Reg(2) },
     ];
-    let mut image = create_test_image(instrs, vec![]);
+    let mut image = create_test_module(instrs, vec![]);
     image
         .types
-        .push(ImageType::Constraint("Stringable".to_string()));
+        .push(BytecodeType::Constraint("Stringable".to_string()));
     image.struct_layouts[0]
         .constraints
         .push("Stringable".to_string());
@@ -275,7 +275,7 @@ fn test_instanceof_constraint_satisfied_by_struct_layout() {
         id: galfus_core::ModuleId::new(0),
         path: galfus_core::ModulePath::new("test.gfs").unwrap(),
         semantic_revision: galfus_core::SemanticRevision::new(0),
-        image,
+        module: image,
         metadata: None,
     });
     let mut vm = VirtualMachine::new(&graph);
@@ -303,13 +303,13 @@ fn test_division_by_zero_panic() {
         },
         Instruction::Ret { src: Reg(3) },
     ];
-    let image = create_test_image(instrs, vec![Constant::Int64(10), Constant::Int64(0)]);
+    let image = create_test_module(instrs, vec![Constant::Int64(10), Constant::Int64(0)]);
     let mut graph = galfus_bytecode::BytecodeGraph::new();
     graph.upsert(galfus_bytecode::BytecodeNode {
         id: galfus_core::ModuleId::new(0),
         path: galfus_core::ModulePath::new("test.gfs").unwrap(),
         semantic_revision: galfus_core::SemanticRevision::new(0),
-        image,
+        module: image,
         metadata: None,
     });
     let mut vm = VirtualMachine::new(&graph);
@@ -353,7 +353,7 @@ fn test_unwinding_call_stack() {
             constants: vec![Constant::Int64(5), Constant::Int64(0)],
         },
         functions: vec![
-            ImageFunction {
+            BytecodeFunction {
                 name: "main".to_string(),
                 param_count: 0,
                 local_count: 4,
@@ -361,7 +361,7 @@ fn test_unwinding_call_stack() {
                 return_ty: TypeIdx(0),
                 instructions: instrs_main,
             },
-            ImageFunction {
+            BytecodeFunction {
                 name: "helper".to_string(),
                 param_count: 1,
                 local_count: 4,
@@ -370,7 +370,7 @@ fn test_unwinding_call_stack() {
                 instructions: instrs_helper,
             },
         ],
-        types: vec![ImageType::Int64],
+        types: vec![BytecodeType::Int64],
         struct_layouts: vec![],
         choice_layouts: vec![],
         imports: vec![],
@@ -383,7 +383,7 @@ fn test_unwinding_call_stack() {
         id: galfus_core::ModuleId::new(0),
         path: galfus_core::ModulePath::new("test.gfs").unwrap(),
         semantic_revision: galfus_core::SemanticRevision::new(0),
-        image,
+        module: image,
         metadata: None,
     });
     let mut vm = VirtualMachine::new(&graph);
@@ -435,8 +435,8 @@ fn test_copy_deep_copies_nested_structs() {
         Instruction::Ret { src: Reg(4) },
     ];
 
-    let mut image = create_test_image(instrs, vec![Constant::Int64(7), Constant::Int64(9)]);
-    image.types.push(ImageType::Struct(StructLayoutIdx(1)));
+    let mut image = create_test_module(instrs, vec![Constant::Int64(7), Constant::Int64(9)]);
+    image.types.push(BytecodeType::Struct(StructLayoutIdx(1)));
     image.struct_layouts.push(StructLayout {
         name: "Box".to_string(),
         fields: vec![FieldLayout {
@@ -453,7 +453,7 @@ fn test_copy_deep_copies_nested_structs() {
         id: galfus_core::ModuleId::new(0),
         path: galfus_core::ModulePath::new("test.gfs").unwrap(),
         semantic_revision: galfus_core::SemanticRevision::new(0),
-        image,
+        module: image,
         metadata: None,
     });
     let mut vm = VirtualMachine::new(&graph);
@@ -509,8 +509,8 @@ fn test_copy_preserves_internal_weak_observer_topology() {
         Instruction::Ret { src: Reg(3) },
     ];
 
-    let mut image = create_test_image(instrs, vec![]);
-    image.types.push(ImageType::Struct(StructLayoutIdx(1)));
+    let mut image = create_test_module(instrs, vec![]);
+    image.types.push(BytecodeType::Struct(StructLayoutIdx(1)));
     image.struct_layouts.push(StructLayout {
         name: "Node".to_string(),
         fields: vec![
@@ -535,7 +535,7 @@ fn test_copy_preserves_internal_weak_observer_topology() {
         id: galfus_core::ModuleId::new(0),
         path: galfus_core::ModulePath::new("test.gfs").unwrap(),
         semantic_revision: galfus_core::SemanticRevision::new(0),
-        image,
+        module: image,
         metadata: None,
     });
     let mut vm = VirtualMachine::new(&graph);
@@ -595,8 +595,8 @@ fn test_copy_nulls_external_weak_observer_target() {
         Instruction::Ret { src: Reg(4) },
     ];
 
-    let mut image = create_test_image(instrs, vec![]);
-    image.types.push(ImageType::Struct(StructLayoutIdx(1)));
+    let mut image = create_test_module(instrs, vec![]);
+    image.types.push(BytecodeType::Struct(StructLayoutIdx(1)));
     image.struct_layouts.push(StructLayout {
         name: "Node".to_string(),
         fields: vec![
@@ -621,7 +621,7 @@ fn test_copy_nulls_external_weak_observer_target() {
         id: galfus_core::ModuleId::new(0),
         path: galfus_core::ModulePath::new("test.gfs").unwrap(),
         semantic_revision: galfus_core::SemanticRevision::new(0),
-        image,
+        module: image,
         metadata: None,
     });
     let mut vm = VirtualMachine::new(&graph);
@@ -669,9 +669,9 @@ fn test_copy_preserves_shared_strong_topology() {
         Instruction::Ret { src: Reg(3) },
     ];
 
-    let mut image = create_test_image(instrs, vec![]);
-    image.types.push(ImageType::Struct(StructLayoutIdx(1)));
-    image.types.push(ImageType::Struct(StructLayoutIdx(2)));
+    let mut image = create_test_module(instrs, vec![]);
+    image.types.push(BytecodeType::Struct(StructLayoutIdx(1)));
+    image.types.push(BytecodeType::Struct(StructLayoutIdx(2)));
     image.struct_layouts.push(StructLayout {
         name: "Node".to_string(),
         fields: vec![FieldLayout {
@@ -706,7 +706,7 @@ fn test_copy_preserves_shared_strong_topology() {
         id: galfus_core::ModuleId::new(0),
         path: galfus_core::ModulePath::new("test.gfs").unwrap(),
         semantic_revision: galfus_core::SemanticRevision::new(0),
-        image,
+        module: image,
         metadata: None,
     });
     let mut vm = VirtualMachine::new(&graph);
@@ -741,8 +741,8 @@ fn test_copy_rejects_fieldless_structs_at_runtime() {
         Instruction::Ret { src: Reg(2) },
     ];
 
-    let mut image = create_test_image(instrs, vec![]);
-    image.types.push(ImageType::Struct(StructLayoutIdx(1)));
+    let mut image = create_test_module(instrs, vec![]);
+    image.types.push(BytecodeType::Struct(StructLayoutIdx(1)));
     image.struct_layouts.push(StructLayout {
         name: "Token".to_string(),
         fields: vec![],
@@ -754,7 +754,7 @@ fn test_copy_rejects_fieldless_structs_at_runtime() {
         id: galfus_core::ModuleId::new(0),
         path: galfus_core::ModulePath::new("test.gfs").unwrap(),
         semantic_revision: galfus_core::SemanticRevision::new(0),
-        image,
+        module: image,
         metadata: None,
     });
     let mut vm = VirtualMachine::new(&graph);

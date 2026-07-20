@@ -53,7 +53,7 @@ impl<'a> VirtualMachine<'a> {
             .unwrap()
             .types
             .iter()
-            .position(|ty| matches!(ty, ImageType::Uint8))
+            .position(|ty| matches!(ty, BytecodeType::Uint8))
             .map(|idx| TypeIdx(idx as u16))
             .unwrap_or(TypeIdx(7));
         let obj = HeapObject::Array {

@@ -66,7 +66,7 @@ impl<'a> VirtualMachine<'a> {
             } => {
                 let frame = self.call_stack.last().ok_or(VmError::EmptyCallStack)?;
                 let current_module_id = frame.module_id;
-                let current_image = &self.graph.get(current_module_id).unwrap().image;
+                let current_image = &self.graph.get(current_module_id).unwrap().module;
 
                 let (target_module_id, target_func_idx) =
                     if (func_idx.raw() as usize) < current_image.functions.len() {
@@ -75,7 +75,7 @@ impl<'a> VirtualMachine<'a> {
                         let import_idx = (func_idx.raw() as usize) - current_image.functions.len();
                         let link = self
                             .graph
-                            .link(current_module_id)
+                            .resolve_imports(current_module_id)
                             .map_err(|_| VmError::FunctionOutOfBounds { index: func_idx })?;
                         let import = link
                             .imports
@@ -84,7 +84,7 @@ impl<'a> VirtualMachine<'a> {
                         (import.module_id, import.function)
                     };
 
-                let target_image = &self.graph.get(target_module_id).unwrap().image;
+                let target_image = &self.graph.get(target_module_id).unwrap().module;
                 let callee = target_image
                     .functions
                     .get(target_func_idx.raw() as usize)
@@ -174,7 +174,7 @@ impl<'a> VirtualMachine<'a> {
                             .graph
                             .get(*module_id)
                             .unwrap()
-                            .image
+                            .module
                             .struct_layouts
                             .get(layout_idx.raw() as usize)
                             .map(|layout| (*module_id, layout.name.clone())),
@@ -211,7 +211,7 @@ impl<'a> VirtualMachine<'a> {
                     .as_ref()
                     .map(|(module_id, _)| *module_id)
                     .unwrap_or(current_module_id);
-                let resolution_image = &self.graph.get(resolution_module_id).unwrap().image;
+                let resolution_image = &self.graph.get(resolution_module_id).unwrap().module;
 
                 // 1. Search in the receiver's module, or the current module for primitives.
                 if let Some(qualified_name) = &qualified_name
@@ -233,10 +233,10 @@ impl<'a> VirtualMachine<'a> {
 
                 // 2. Search in imports
                 if resolved_target.is_none()
-                    && let Ok(link) = self.graph.link(resolution_module_id)
+                    && let Ok(link) = self.graph.resolve_imports(resolution_module_id)
                 {
                     for imp in &link.imports {
-                        let target_image = &self.graph.get(imp.module_id).unwrap().image;
+                        let target_image = &self.graph.get(imp.module_id).unwrap().module;
                         let target_func = &target_image.functions[imp.function.raw() as usize];
                         let matched = if let Some(qualified_name) = &qualified_name {
                             check_name(&target_func.name, qualified_name, true)
@@ -256,9 +256,9 @@ impl<'a> VirtualMachine<'a> {
                         .iter()
                         .map(|f| f.name.clone())
                         .collect::<Vec<_>>();
-                    if let Ok(link) = self.graph.link(resolution_module_id) {
+                    if let Ok(link) = self.graph.resolve_imports(resolution_module_id) {
                         for imp in &link.imports {
-                            let target_image = &self.graph.get(imp.module_id).unwrap().image;
+                            let target_image = &self.graph.get(imp.module_id).unwrap().module;
                             available.push(
                                 target_image.functions[imp.function.raw() as usize]
                                     .name
@@ -272,13 +272,13 @@ impl<'a> VirtualMachine<'a> {
                             qualified_name.as_ref().unwrap_or(&method_name)
                         ),
                         found: format!(
-                            "no matching function in image. Available: {}",
+                            "no matching function in module. Available: {}",
                             available.join(", ")
                         ),
                     }
                 })?;
 
-                let target_image = &self.graph.get(target_module_id).unwrap().image;
+                let target_image = &self.graph.get(target_module_id).unwrap().module;
                 let callee = &target_image.functions[target_func_idx.raw() as usize];
 
                 if arg_count != callee.param_count {
@@ -332,7 +332,7 @@ impl<'a> VirtualMachine<'a> {
 
                 let frame = self.call_stack.last().ok_or(VmError::EmptyCallStack)?;
                 let current_module_id = frame.module_id;
-                let current_image = &self.graph.get(current_module_id).unwrap().image;
+                let current_image = &self.graph.get(current_module_id).unwrap().module;
 
                 let (target_module_id, target_func_idx) =
                     if (func_idx.raw() as usize) < current_image.functions.len() {
@@ -341,7 +341,7 @@ impl<'a> VirtualMachine<'a> {
                         let import_idx = (func_idx.raw() as usize) - current_image.functions.len();
                         let link = self
                             .graph
-                            .link(current_module_id)
+                            .resolve_imports(current_module_id)
                             .map_err(|_| VmError::FunctionOutOfBounds { index: func_idx })?;
                         let import = link
                             .imports
@@ -350,7 +350,7 @@ impl<'a> VirtualMachine<'a> {
                         (import.module_id, import.function)
                     };
 
-                let target_image = &self.graph.get(target_module_id).unwrap().image;
+                let target_image = &self.graph.get(target_module_id).unwrap().module;
                 let callee = target_image
                     .functions
                     .get(target_func_idx.raw() as usize)
@@ -454,7 +454,7 @@ impl<'a> VirtualMachine<'a> {
                     .graph
                     .get(*module_id)
                     .unwrap()
-                    .image
+                    .module
                     .struct_layouts
                     .get(layout_idx.raw() as usize)
                 else {
