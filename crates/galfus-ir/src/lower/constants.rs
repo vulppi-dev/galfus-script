@@ -1,7 +1,7 @@
 use super::LowerCtx;
 use crate::mir::Constant as MirConstant;
-use galfus_image::Constant;
-use galfus_image::instruction::ConstIdx;
+use galfus_bytecode::Constant;
+use galfus_bytecode::instruction::ConstIdx;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum HashableConstant {

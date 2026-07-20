@@ -1,4 +1,4 @@
-use galfus_image::instruction::FuncIdx;
+use galfus_bytecode::instruction::FuncIdx;
 use std::collections::HashMap;
 
 use crate::input::CompiledModule;

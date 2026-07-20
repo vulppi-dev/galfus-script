@@ -1,12 +1,12 @@
 use super::*;
-use galfus_image::ConstantPool;
+use galfus_bytecode::ConstantPool;
 
-fn compiled_image(id: ModuleId, revision: SemanticRevision) -> CompiledModuleImage {
-    CompiledModuleImage {
+fn compiled_image(id: ModuleId, revision: SemanticRevision) -> CompiledBytecodeModule {
+    CompiledBytecodeModule {
         id,
         path: ModulePath::new(format!("src/{}.gfs", id.raw()).as_str()).expect("valid path"),
         semantic_revision: revision,
-        image: ModuleImage {
+        image: BytecodeModule {
             name: id.raw().to_string(),
             constants: ConstantPool::default(),
             functions: Vec::new(),
@@ -34,7 +34,9 @@ fn graph_keys_images_and_edges_by_stable_module_id() {
     }]);
 
     assert_eq!(
-        graph.get(main).map(CompiledModuleImage::semantic_revision),
+        graph
+            .get(main)
+            .map(CompiledBytecodeModule::semantic_revision),
         Some(SemanticRevision::new(3))
     );
     assert_eq!(graph.deps_of(main).collect::<Vec<_>>(), vec![utilities]);

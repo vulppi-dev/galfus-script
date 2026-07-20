@@ -386,7 +386,7 @@ impl Workspace {
             })
             .collect();
 
-        // Compile each module individually — one ModuleImage per module.
+        // Compile each module individually — one BytecodeModule per module.
         let outputs =
             galfus_compiler::compile_changed_modules(&mut compiled_modules, &compilation_targets)
                 .map_err(|e| CompileBlocked::CompilerError(e.to_string()))?;

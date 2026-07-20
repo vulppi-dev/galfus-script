@@ -1,4 +1,4 @@
-# galfus-bytecode (formerly galfus-image)
+# galfus-bytecode
 
 `galfus-bytecode` defines the static bytecode representation, instruction format, and layout tables for the in-memory executable graph.
 

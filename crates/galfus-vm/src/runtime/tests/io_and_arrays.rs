@@ -197,7 +197,7 @@ fn test_len_and_copy_array() {
         Instruction::Ret { src: Reg(7) },
     ];
 
-    let image = ModuleImage {
+    let image = BytecodeModule {
         name: "test".to_string(),
         constants: ConstantPool {
             constants: vec![

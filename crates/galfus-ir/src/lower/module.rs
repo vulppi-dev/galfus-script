@@ -1,6 +1,6 @@
+use galfus_bytecode::*;
 use galfus_core::SymbolId;
 use galfus_frontend::{ModuleGraph, SyntaxNodeKind, TypeCheckResult};
-use galfus_image::*;
 use std::collections::HashSet;
 
 use super::LowerCtx;
@@ -12,7 +12,7 @@ pub fn lower_module(
     type_result: &TypeCheckResult,
     module_graph: &ModuleGraph,
     source_text: &str,
-) -> ModuleImage {
+) -> BytecodeModule {
     let mut ctx = LowerCtx::new(
         type_result,
         module_graph,
@@ -76,7 +76,7 @@ pub fn lower_module(
         }
     }
 
-    ModuleImage {
+    BytecodeModule {
         name: module_graph.source_id().raw().to_string(),
         constants: ctx.constant_pool,
         functions,

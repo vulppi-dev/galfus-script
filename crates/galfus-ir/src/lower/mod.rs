@@ -1,9 +1,9 @@
 use crate::lower::constants::HashableConstant;
 use crate::mir::Constant as MirConstant;
+use galfus_bytecode::instruction::{ConstIdx, FuncIdx, TypeIdx};
+use galfus_bytecode::*;
 use galfus_core::{FunctionId, SymbolId, TypeId};
 use galfus_frontend::{ModuleGraph, TypeCheckResult};
-use galfus_image::instruction::{ConstIdx, FuncIdx, TypeIdx};
-use galfus_image::*;
 pub use module::*;
 use std::collections::HashMap;
 

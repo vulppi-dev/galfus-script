@@ -1,12 +1,12 @@
 use super::*;
-use galfus_image::instruction::{ConstIdx, FieldIdx};
-use galfus_image::{
+use galfus_bytecode::instruction::{ConstIdx, FieldIdx};
+use galfus_bytecode::{
     ChoiceLayout, ChoiceVariantLayout, ConstantPool, FieldLayout, ImageFunction, OwnershipKind,
     StructLayout,
 };
 
-fn create_test_image(instructions: Vec<Instruction>, constants: Vec<Constant>) -> ModuleImage {
-    ModuleImage {
+fn create_test_image(instructions: Vec<Instruction>, constants: Vec<Constant>) -> BytecodeModule {
+    BytecodeModule {
         name: "test".to_string(),
         constants: ConstantPool { constants },
         functions: vec![ImageFunction {

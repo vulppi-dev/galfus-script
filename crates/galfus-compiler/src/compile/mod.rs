@@ -8,8 +8,8 @@ mod resolve;
 use anyhow::Result;
 use context::MyWorkspaceContext;
 use exports::collect_entry_exports;
-use galfus_image::{
-    ConstantPool, ImageFunction, ImageType, ModuleImage,
+use galfus_bytecode::{
+    BytecodeModule, ConstantPool, ImageFunction, ImageType,
     instruction::{FuncIdx, Instruction, Reg, TypeIdx},
 };
 use globals::{image_local_count, rewrite_global_indices};
@@ -19,8 +19,8 @@ use std::collections::HashMap;
 
 use crate::input::CompilerInput;
 
-/// Compile the verified modules in `input` into a single `ModuleImage`.
-pub fn compile_to_image(input: &mut CompilerInput<'_>) -> Result<ModuleImage> {
+/// Compile the verified modules in `input` into a single `BytecodeModule`.
+pub fn compile_to_image(input: &mut CompilerInput<'_>) -> Result<BytecodeModule> {
     let modules = &mut *input.modules;
     let mut ws_ctx = MyWorkspaceContext::new(modules);
 
@@ -275,7 +275,7 @@ pub fn compile_to_image(input: &mut CompilerInput<'_>) -> Result<ModuleImage> {
     let exports =
         collect_entry_exports(&modules[entry_idx], entry_mir, &global_func_map, entry_idx);
 
-    let module_image = ModuleImage {
+    let module_image = BytecodeModule {
         name: input.image_name.clone(),
         constants: constant_pool,
         functions,
@@ -287,9 +287,9 @@ pub fn compile_to_image(input: &mut CompilerInput<'_>) -> Result<ModuleImage> {
         init_func_idx,
     };
 
-    if let Err(errors) = galfus_image::validation::validate_module_image(&module_image) {
+    if let Err(errors) = galfus_bytecode::validation::validate_module_image(&module_image) {
         return Err(anyhow::anyhow!(
-            "ModuleImage validation failed: {:?}",
+            "BytecodeModule validation failed: {:?}",
             errors
         ));
     }

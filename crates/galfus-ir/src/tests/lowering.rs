@@ -192,7 +192,7 @@ fn test_mir_lowering_defaults_integer_constants_to_int32() {
             .constants
             .constants
             .iter()
-            .any(|constant| matches!(constant, galfus_image::Constant::Int32(42)))
+            .any(|constant| matches!(constant, galfus_bytecode::Constant::Int32(42)))
     );
 }
 

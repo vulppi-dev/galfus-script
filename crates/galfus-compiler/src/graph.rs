@@ -1,5 +1,5 @@
+use galfus_bytecode::BytecodeModule;
 use galfus_core::{ModuleId, ModulePath, SemanticRevision};
-use galfus_image::ModuleImage;
 use std::collections::HashMap;
 
 #[cfg(test)]
@@ -7,21 +7,21 @@ mod tests;
 
 /// The compiled artifact for a single module.
 ///
-/// Each `CompiledModuleImage` records which `SemanticRevision` it was produced
+/// Each `CompiledBytecodeModule` records which `SemanticRevision` it was produced
 /// from. The workspace can use this to skip recompilation when a module's
 /// semantic result has not changed since the last compile cycle.
 #[derive(Debug, Clone)]
-pub struct CompiledModuleImage {
+pub struct CompiledBytecodeModule {
     pub id: ModuleId,
     /// Logical path — stable identifier used for cross-module linking.
     pub path: ModulePath,
     /// The semantic revision of the frontend output this image was compiled from.
     pub semantic_revision: SemanticRevision,
     /// The compiled bytecode image.
-    pub image: ModuleImage,
+    pub image: BytecodeModule,
 }
 
-impl CompiledModuleImage {
+impl CompiledBytecodeModule {
     pub fn id(&self) -> ModuleId {
         self.id
     }
@@ -34,7 +34,7 @@ impl CompiledModuleImage {
         self.semantic_revision
     }
 
-    pub fn image(&self) -> &ModuleImage {
+    pub fn image(&self) -> &BytecodeModule {
         &self.image
     }
 }
@@ -55,7 +55,7 @@ pub struct CompiledImportEdge {
 /// subset of modules changed (incremental compilation — Phase 10).
 #[derive(Debug, Clone, Default)]
 pub struct CompiledModuleGraph {
-    modules: HashMap<ModuleId, CompiledModuleImage>,
+    modules: HashMap<ModuleId, CompiledBytecodeModule>,
     edges: Vec<CompiledImportEdge>,
 }
 
@@ -65,12 +65,12 @@ impl CompiledModuleGraph {
     }
 
     /// Insert or replace a compiled module image.
-    pub fn upsert(&mut self, image: CompiledModuleImage) {
+    pub fn upsert(&mut self, image: CompiledBytecodeModule) {
         self.modules.insert(image.id, image);
     }
 
     /// Remove a module from the graph.
-    pub fn remove(&mut self, id: ModuleId) -> Option<CompiledModuleImage> {
+    pub fn remove(&mut self, id: ModuleId) -> Option<CompiledBytecodeModule> {
         self.modules.remove(&id)
     }
 
@@ -79,11 +79,11 @@ impl CompiledModuleGraph {
         self.edges = edges;
     }
 
-    pub fn get(&self, id: ModuleId) -> Option<&CompiledModuleImage> {
+    pub fn get(&self, id: ModuleId) -> Option<&CompiledBytecodeModule> {
         self.modules.get(&id)
     }
 
-    pub fn modules(&self) -> impl Iterator<Item = &CompiledModuleImage> {
+    pub fn modules(&self) -> impl Iterator<Item = &CompiledBytecodeModule> {
         self.modules.values()
     }
 

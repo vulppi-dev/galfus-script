@@ -1,7 +1,7 @@
 use super::*;
 
-fn create_dummy_image(instructions: Vec<Instruction>) -> ModuleImage {
-    ModuleImage {
+fn create_dummy_image(instructions: Vec<Instruction>) -> BytecodeModule {
+    BytecodeModule {
         name: "test".to_string(),
         constants: ConstantPool {
             constants: vec![Constant::Int64(42)],

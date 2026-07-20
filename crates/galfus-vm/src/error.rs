@@ -1,4 +1,4 @@
-use galfus_image::instruction::{ConstIdx, FieldIdx, FuncIdx, Reg, TypeIdx};
+use galfus_bytecode::instruction::{ConstIdx, FieldIdx, FuncIdx, Reg, TypeIdx};
 use thiserror::Error;
 
 #[cfg(test)]

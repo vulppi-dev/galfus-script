@@ -8,7 +8,7 @@ license.workspace = true
 galfus-core = { path = "../galfus-core" }
 galfus-compiler = { path = "../galfus-compiler" }
 galfus-host = { path = "../galfus-host" }
-galfus-image = { path = "../galfus-image" }
+galfus-bytecode = { path = "../galfus-bytecode" }
 galfus-vm = { path = "../galfus-vm" }
 
 smallvec.workspace = true

@@ -155,7 +155,7 @@ pub struct ImageFunction {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct ModuleImage {
+pub struct BytecodeModule {
     pub name: String,
     pub constants: ConstantPool,
     pub functions: Vec<ImageFunction>,

@@ -71,7 +71,7 @@ pub enum ImageValidationError {
     },
 }
 
-pub fn validate_module_image(image: &ModuleImage) -> Result<(), Vec<ImageValidationError>> {
+pub fn validate_module_image(image: &BytecodeModule) -> Result<(), Vec<ImageValidationError>> {
     let mut errors = Vec::new();
 
     // 1. Validate init function

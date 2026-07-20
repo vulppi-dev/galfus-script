@@ -1,11 +1,11 @@
 use super::LowerCtx;
-use galfus_core::{SymbolId, TypeId};
-use galfus_frontend::{PrimitiveType, SymbolKind, SyntaxNodeKind, TypeKind};
-use galfus_image::instruction::TypeIdx;
-use galfus_image::{
+use galfus_bytecode::instruction::TypeIdx;
+use galfus_bytecode::{
     ChoiceLayout, ChoiceLayoutIdx, ChoiceVariantLayout, FieldLayout, ImageType, OwnershipKind,
     StructLayout, StructLayoutIdx,
 };
+use galfus_core::{SymbolId, TypeId};
+use galfus_frontend::{PrimitiveType, SymbolKind, SyntaxNodeKind, TypeKind};
 use std::collections::HashSet;
 
 pub fn resolve_type_with_substitutions(ctx: &LowerCtx, ty: TypeId) -> TypeId {

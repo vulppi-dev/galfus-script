@@ -268,7 +268,7 @@ fn test_unwinding_call_stack() {
         Instruction::Ret { src: Reg(2) },
     ];
 
-    let image = ModuleImage {
+    let image = BytecodeModule {
         name: "test".to_string(),
         constants: ConstantPool {
             constants: vec![Constant::Int64(5), Constant::Int64(0)],

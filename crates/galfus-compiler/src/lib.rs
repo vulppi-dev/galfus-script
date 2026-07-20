@@ -4,5 +4,5 @@ pub mod input;
 
 pub use compile::compile_to_image;
 pub use compile::module::{compile_changed_modules, compile_modules};
-pub use graph::{CompiledImportEdge, CompiledModuleGraph, CompiledModuleImage};
+pub use graph::{CompiledBytecodeModule, CompiledImportEdge, CompiledModuleGraph};
 pub use input::{CompiledModule, CompilerInput};

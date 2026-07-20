@@ -2,7 +2,7 @@ use super::*;
 
 #[test]
 fn test_ownership_deterministic_release() {
-    let image = ModuleImage {
+    let image = BytecodeModule {
         name: "test".to_string(),
         constants: ConstantPool { constants: vec![] },
         functions: vec![ImageFunction {
@@ -85,7 +85,7 @@ fn test_ownership_deterministic_release() {
 
 #[test]
 fn test_ownership_cycle_release() {
-    let image = ModuleImage {
+    let image = BytecodeModule {
         name: "test".to_string(),
         constants: ConstantPool { constants: vec![] },
         functions: vec![ImageFunction {
@@ -179,7 +179,7 @@ fn test_ownership_cycle_release() {
 
 #[test]
 fn test_ownership_weak_invalidation() {
-    let image = ModuleImage {
+    let image = BytecodeModule {
         name: "test".to_string(),
         constants: ConstantPool { constants: vec![] },
         functions: vec![ImageFunction {

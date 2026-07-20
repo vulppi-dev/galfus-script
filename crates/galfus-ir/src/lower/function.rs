@@ -2,8 +2,8 @@ use super::LowerCtx;
 use crate::mir::{
     Constant as MirConstant, Instruction as MirInstruction, MirFunction, Operand, Terminator,
 };
-use galfus_image::Instruction;
-use galfus_image::instruction::{GlobalIdx, Reg};
+use galfus_bytecode::Instruction;
+use galfus_bytecode::instruction::{GlobalIdx, Reg};
 
 #[allow(dead_code)]
 pub enum JumpKind {

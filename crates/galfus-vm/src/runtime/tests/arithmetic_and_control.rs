@@ -313,7 +313,7 @@ fn test_nested_calls_return_to_explicit_destinations() {
         Instruction::Ret { src: Reg(0) },
     ];
 
-    let image = ModuleImage {
+    let image = BytecodeModule {
         name: "test".to_string(),
         constants: ConstantPool {
             constants: vec![Constant::Int64(1), Constant::Int64(2)],
@@ -360,7 +360,7 @@ fn test_nested_calls_return_to_explicit_destinations() {
 
 #[test]
 fn test_dynamic_call_returns_to_destination() {
-    let image = ModuleImage {
+    let image = BytecodeModule {
         name: "test".to_string(),
         constants: ConstantPool {
             constants: vec![Constant::Function(FuncIdx(1)), Constant::Int64(7)],

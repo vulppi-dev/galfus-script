@@ -2,9 +2,9 @@ use super::*;
 
 #[test]
 fn test_vm_creation() {
-    let image = galfus_image::ModuleImage {
+    let image = galfus_bytecode::BytecodeModule {
         name: "test".to_string(),
-        constants: galfus_image::ConstantPool::default(),
+        constants: galfus_bytecode::ConstantPool::default(),
         functions: vec![],
         types: vec![],
         struct_layouts: vec![],

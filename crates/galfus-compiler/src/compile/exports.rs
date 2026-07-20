@@ -1,5 +1,5 @@
+use galfus_bytecode::instruction::FuncIdx;
 use galfus_core::{FunctionId, SymbolId};
-use galfus_image::instruction::FuncIdx;
 use std::collections::{HashMap, HashSet};
 
 use crate::input::CompiledModule;
@@ -9,7 +9,7 @@ pub(super) fn collect_entry_exports(
     entry_mir: &galfus_ir::mir::MirModule,
     global_func_map: &HashMap<(usize, FunctionId), FuncIdx>,
     entry_idx: usize,
-) -> Vec<galfus_image::ExportSlot> {
+) -> Vec<galfus_bytecode::ExportSlot> {
     let mut exports = Vec::new();
     let resolution = match entry_module.graph().resolution() {
         Some(res) => res,
@@ -27,7 +27,7 @@ pub(super) fn collect_entry_exports(
         if export_symbols.contains(&sym)
             && let Some(&func_idx) = global_func_map.get(&(entry_idx, func.id))
         {
-            exports.push(galfus_image::ExportSlot {
+            exports.push(galfus_bytecode::ExportSlot {
                 symbol_name: func.name.clone(),
                 func_idx,
             });

@@ -1,5 +1,5 @@
 use anyhow::Result;
-use galfus_image::instruction::{GlobalIdx, Instruction};
+use galfus_bytecode::instruction::{GlobalIdx, Instruction};
 use std::collections::HashMap;
 
 use crate::input::CompiledModule;

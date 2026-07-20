@@ -1,4 +1,4 @@
-//! Module compilation: produces one `CompiledModuleImage` per `CompiledModule`.
+//! Module compilation: produces one `CompiledBytecodeModule` per `CompiledModule`.
 //!
 //! Each compiled module:
 //! - Declares `ExportSlot`s for its public symbols.
@@ -7,13 +7,13 @@
 //!   via a local `FuncIdx` that the runtime resolves at load time.
 
 use anyhow::Result;
-use galfus_image::{
-    ExportSlot, ImageFunction, ImageType, ImportSlot, ModuleImage,
+use galfus_bytecode::{
+    BytecodeModule, ExportSlot, ImageFunction, ImageType, ImportSlot,
     instruction::{FuncIdx, TypeIdx},
 };
 use std::collections::{HashMap, HashSet};
 
-use crate::CompiledModuleImage;
+use crate::CompiledBytecodeModule;
 use crate::compile::{
     context::MyWorkspaceContext,
     globals::{image_local_count, rewrite_global_indices},
@@ -21,12 +21,12 @@ use crate::compile::{
 use crate::input::CompiledModule;
 
 /// Compile all modules in `modules`, each producing its own
-/// `ModuleImage` with imports and exports declared.
+/// `BytecodeModule` with imports and exports declared.
 ///
 /// Cross-module calls are represented as `Call` instructions that target a
 /// `FuncIdx` in the local import table. The runtime is responsible for
 /// resolving these at load time.
-pub fn compile_modules(modules: &mut [CompiledModule]) -> Result<Vec<CompiledModuleImage>> {
+pub fn compile_modules(modules: &mut [CompiledModule]) -> Result<Vec<CompiledBytecodeModule>> {
     let module_ids = modules.iter().map(CompiledModule::id).collect();
     compile_changed_modules(modules, &module_ids)
 }
@@ -35,11 +35,11 @@ pub fn compile_modules(modules: &mut [CompiledModule]) -> Result<Vec<CompiledMod
 ///
 /// All modules remain available as semantic context so imports and generic
 /// specializations can be resolved across module boundaries. Only the selected
-/// modules are lowered into new `CompiledModuleImage`s.
+/// modules are lowered into new `CompiledBytecodeModule`s.
 pub fn compile_changed_modules(
     modules: &mut [CompiledModule],
     changed_modules: &HashSet<galfus_core::ModuleId>,
-) -> Result<Vec<CompiledModuleImage>> {
+) -> Result<Vec<CompiledBytecodeModule>> {
     if changed_modules.is_empty() {
         return Ok(Vec::new());
     }
@@ -101,14 +101,14 @@ pub fn compile_changed_modules(
         let path = modules[mod_idx].path().clone();
         let semantic_revision = modules[mod_idx].semantic_revision();
         let image = compile_single_module(modules, &mir_modules, &specialized_targets, mod_idx)?;
-        if let Err(errors) = galfus_image::validation::validate_module_image(&image) {
+        if let Err(errors) = galfus_bytecode::validation::validate_module_image(&image) {
             return Err(anyhow::anyhow!(
-                "ModuleImage validation failed for `{}`: {:?}",
+                "BytecodeModule validation failed for `{}`: {:?}",
                 path.as_str(),
                 errors
             ));
         }
-        outputs.push(CompiledModuleImage {
+        outputs.push(CompiledBytecodeModule {
             id: module_id,
             path,
             semantic_revision,
@@ -124,7 +124,7 @@ fn compile_single_module(
     mir_modules: &[Option<galfus_ir::mir::MirModule>],
     specialized_targets: &HashMap<galfus_core::FunctionId, (usize, galfus_core::FunctionId)>,
     mod_idx: usize,
-) -> Result<ModuleImage> {
+) -> Result<BytecodeModule> {
     use crate::compile::resolve::{
         collect_call_targets, resolve_import_target, resolve_local_call_target,
     };
@@ -323,7 +323,7 @@ fn compile_single_module(
         };
     let _ = null_type_idx;
 
-    Ok(ModuleImage {
+    Ok(BytecodeModule {
         name: module.path().as_str().to_string(),
         constants: ctx.constant_pool,
         functions,

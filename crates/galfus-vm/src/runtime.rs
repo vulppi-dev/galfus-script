@@ -1,9 +1,9 @@
 use crate::error::{StackFrameInfo, VmError, VmPanic};
-use galfus_host::Providers;
-use galfus_image::instruction::{
+use galfus_bytecode::instruction::{
     ChoiceLayoutIdx, FuncIdx, Instruction, Reg, StructLayoutIdx, TypeIdx,
 };
-use galfus_image::{Constant, ImageType, ModuleImage, OwnershipKind};
+use galfus_bytecode::{BytecodeModule, Constant, ImageType, OwnershipKind};
+use galfus_host::Providers;
 
 mod casts;
 mod control;
@@ -93,7 +93,7 @@ pub struct CallFrame {
 }
 
 pub struct VirtualMachine {
-    pub image: ModuleImage,
+    pub image: BytecodeModule,
     pub globals: Vec<Value>,
     pub heap: Vec<Option<HeapObject>>,
     pub free_slots: Vec<usize>,
@@ -103,7 +103,7 @@ pub struct VirtualMachine {
 }
 
 impl VirtualMachine {
-    pub fn new(image: ModuleImage) -> Self {
+    pub fn new(image: BytecodeModule) -> Self {
         Self {
             image,
             globals: Vec::new(),

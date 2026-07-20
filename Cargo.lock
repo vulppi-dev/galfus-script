@@ -157,6 +157,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "galfus-bytecode"
+version = "0.0.0"
+dependencies = [
+ "indexmap",
+ "thiserror",
+]
+
+[[package]]
 name = "galfus-cli"
 version = "0.0.0"
 dependencies = [
@@ -172,9 +180,9 @@ name = "galfus-compiler"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "galfus-bytecode",
  "galfus-core",
  "galfus-frontend",
- "galfus-image",
  "galfus-ir",
 ]
 
@@ -202,20 +210,12 @@ name = "galfus-host"
 version = "0.0.0"
 
 [[package]]
-name = "galfus-image"
-version = "0.0.0"
-dependencies = [
- "indexmap",
- "thiserror",
-]
-
-[[package]]
 name = "galfus-ir"
 version = "0.0.0"
 dependencies = [
+ "galfus-bytecode",
  "galfus-core",
  "galfus-frontend",
- "galfus-image",
  "thiserror",
 ]
 
@@ -254,10 +254,10 @@ dependencies = [
 name = "galfus-runtime"
 version = "0.0.0"
 dependencies = [
+ "galfus-bytecode",
  "galfus-compiler",
  "galfus-core",
  "galfus-host",
- "galfus-image",
  "galfus-vm",
  "smallvec",
  "thiserror",
@@ -267,9 +267,9 @@ dependencies = [
 name = "galfus-vm"
 version = "0.0.0"
 dependencies = [
+ "galfus-bytecode",
  "galfus-core",
  "galfus-host",
- "galfus-image",
  "thiserror",
  "tracing",
 ]

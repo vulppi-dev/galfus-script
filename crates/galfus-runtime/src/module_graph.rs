@@ -1,9 +1,9 @@
-use galfus_compiler::CompiledModuleImage;
-use galfus_core::{ModuleId, ModulePath};
-use galfus_image::{
-    Constant, ConstantPool, ExportSlot, ImageFunction, ImageType, ModuleImage,
+use galfus_bytecode::{
+    BytecodeModule, Constant, ConstantPool, ExportSlot, ImageFunction, ImageType,
     instruction::{ChoiceLayoutIdx, ConstIdx, FuncIdx, Instruction, Reg, StructLayoutIdx, TypeIdx},
 };
+use galfus_compiler::CompiledBytecodeModule;
+use galfus_core::{ModuleId, ModulePath};
 use std::collections::{HashMap, HashSet};
 
 /// A resolved runtime target for one import slot.
@@ -43,7 +43,7 @@ pub enum RuntimeLinkError {
 /// Loaded compiled modules, indexed by their stable IDs.
 #[derive(Debug, Default)]
 pub struct RuntimeModuleGraph {
-    modules: HashMap<ModuleId, CompiledModuleImage>,
+    modules: HashMap<ModuleId, CompiledBytecodeModule>,
     ids_by_path: HashMap<ModulePath, ModuleId>,
 }
 
@@ -53,7 +53,7 @@ impl RuntimeModuleGraph {
     }
 
     /// Insert or replace a module. Existing import links are resolved lazily.
-    pub fn load(&mut self, image: CompiledModuleImage) -> Option<CompiledModuleImage> {
+    pub fn load(&mut self, image: CompiledBytecodeModule) -> Option<CompiledBytecodeModule> {
         if let Some(previous) = self.modules.get(&image.id)
             && previous.path != image.path
         {
@@ -63,13 +63,13 @@ impl RuntimeModuleGraph {
         self.modules.insert(image.id, image)
     }
 
-    pub fn unload(&mut self, id: ModuleId) -> Option<CompiledModuleImage> {
+    pub fn unload(&mut self, id: ModuleId) -> Option<CompiledBytecodeModule> {
         let image = self.modules.remove(&id)?;
         self.ids_by_path.remove(&image.path);
         Some(image)
     }
 
-    pub fn get(&self, id: ModuleId) -> Option<&CompiledModuleImage> {
+    pub fn get(&self, id: ModuleId) -> Option<&CompiledBytecodeModule> {
         self.modules.get(&id)
     }
 
@@ -140,7 +140,7 @@ impl RuntimeModuleGraph {
 
     /// Link the reachable module subgraph into one VM image for execution.
     /// Module images remain separately stored; this image is an execution view.
-    pub fn linked_image(&self, entry: ModuleId) -> Result<ModuleImage, RuntimeLinkError> {
+    pub fn linked_image(&self, entry: ModuleId) -> Result<BytecodeModule, RuntimeLinkError> {
         let order = self.initialization_order(entry)?;
         let mut function_bases = HashMap::new();
         let mut constant_bases = HashMap::new();
@@ -282,7 +282,7 @@ impl RuntimeModuleGraph {
             Some(index)
         };
 
-        Ok(ModuleImage {
+        Ok(BytecodeModule {
             name: entry_image.name.clone(),
             constants: ConstantPool { constants },
             functions,

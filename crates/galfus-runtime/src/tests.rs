@@ -1,7 +1,7 @@
 use super::*;
-use galfus_compiler::CompiledModuleImage;
+use galfus_bytecode::{BytecodeModule, ConstantPool, ExportSlot, ImportSlot, instruction::TypeIdx};
+use galfus_compiler::CompiledBytecodeModule;
 use galfus_core::{ModuleId, ModulePath, SemanticRevision};
-use galfus_image::{ConstantPool, ExportSlot, ImportSlot, ModuleImage, instruction::TypeIdx};
 
 #[test]
 fn test_runtime_thread_spawn() {
@@ -20,7 +20,7 @@ fn test_module_loading() {
     let registry = Arc::new(Mutex::new(ModuleRegistry::new()));
     let loader = RuntimeLoader::new(registry.clone());
 
-    let image = ModuleImage {
+    let image = BytecodeModule {
         name: "test_mod".to_string(),
         constants: ConstantPool::default(),
         functions: vec![],
@@ -42,7 +42,7 @@ fn test_module_loading() {
 
 #[test]
 fn runtime_modules_upsert_unload_and_link_import_slots() {
-    let dependency = CompiledModuleImage {
+    let dependency = CompiledBytecodeModule {
         id: ModuleId::new(7),
         path: ModulePath::new("math.gfs").expect("valid path"),
         semantic_revision: SemanticRevision::new(1),
@@ -51,11 +51,11 @@ fn runtime_modules_upsert_unload_and_link_import_slots() {
             vec![],
             vec![ExportSlot {
                 symbol_name: "add".to_string(),
-                func_idx: galfus_image::instruction::FuncIdx(3),
+                func_idx: galfus_bytecode::instruction::FuncIdx(3),
             }],
         ),
     };
-    let main = CompiledModuleImage {
+    let main = CompiledBytecodeModule {
         id: ModuleId::new(11),
         path: ModulePath::new("main.gfs").expect("valid path"),
         semantic_revision: SemanticRevision::new(1),
@@ -69,7 +69,7 @@ fn runtime_modules_upsert_unload_and_link_import_slots() {
             vec![],
         ),
     };
-    let replacement = CompiledModuleImage {
+    let replacement = CompiledBytecodeModule {
         semantic_revision: SemanticRevision::new(2),
         ..main.clone()
     };
@@ -112,8 +112,8 @@ fn runtime_modules_upsert_unload_and_link_import_slots() {
     ));
 }
 
-fn module_image(name: &str, imports: Vec<ImportSlot>, exports: Vec<ExportSlot>) -> ModuleImage {
-    ModuleImage {
+fn module_image(name: &str, imports: Vec<ImportSlot>, exports: Vec<ExportSlot>) -> BytecodeModule {
+    BytecodeModule {
         name: name.to_string(),
         constants: ConstantPool::default(),
         functions: vec![],

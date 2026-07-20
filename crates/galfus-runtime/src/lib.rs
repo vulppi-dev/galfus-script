@@ -1,9 +1,9 @@
 mod module_graph;
 
-use galfus_compiler::CompiledModuleImage;
+use galfus_bytecode::BytecodeModule;
+use galfus_compiler::CompiledBytecodeModule;
 use galfus_core::ModuleId;
 use galfus_host::Providers;
-use galfus_image::ModuleImage;
 use galfus_vm::{HeapObject, VirtualMachine, VmPanic, VmValue};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -65,15 +65,15 @@ impl EntryAbi {
         }
     }
 
-    fn accepts_return_type(self, ty: &galfus_image::ImageType) -> bool {
+    fn accepts_return_type(self, ty: &galfus_bytecode::ImageType) -> bool {
         match self.return_type {
-            EntryReturnType::Int32 => ty == &galfus_image::ImageType::Int32,
+            EntryReturnType::Int32 => ty == &galfus_bytecode::ImageType::Int32,
         }
     }
 }
 
 pub struct ModuleRegistry {
-    modules: HashMap<String, Arc<ModuleImage>>,
+    modules: HashMap<String, Arc<BytecodeModule>>,
 }
 
 impl Default for ModuleRegistry {
@@ -89,14 +89,14 @@ impl ModuleRegistry {
         }
     }
 
-    pub fn register(&mut self, image: ModuleImage) -> Arc<ModuleImage> {
+    pub fn register(&mut self, image: BytecodeModule) -> Arc<BytecodeModule> {
         let name = image.name.clone();
         let arc = Arc::new(image);
         self.modules.insert(name, arc.clone());
         arc
     }
 
-    pub fn get(&self, name: &str) -> Option<Arc<ModuleImage>> {
+    pub fn get(&self, name: &str) -> Option<Arc<BytecodeModule>> {
         self.modules.get(name).cloned()
     }
 }
@@ -110,7 +110,7 @@ impl RuntimeLoader {
         Self { registry }
     }
 
-    pub fn load(&self, image: ModuleImage) -> Arc<ModuleImage> {
+    pub fn load(&self, image: BytecodeModule) -> Arc<BytecodeModule> {
         self.registry.lock().unwrap().register(image)
     }
 }
@@ -178,12 +178,12 @@ impl Runtime {
     }
 
     /// Upsert a compiled module using its stable `ModuleId`.
-    pub fn load(&mut self, image: CompiledModuleImage) -> Option<CompiledModuleImage> {
+    pub fn load(&mut self, image: CompiledBytecodeModule) -> Option<CompiledBytecodeModule> {
         self.modules.load(image)
     }
 
     /// Remove a compiled module and its path lookup entry.
-    pub fn unload(&mut self, id: ModuleId) -> Option<CompiledModuleImage> {
+    pub fn unload(&mut self, id: ModuleId) -> Option<CompiledBytecodeModule> {
         self.modules.unload(id)
     }
 
@@ -231,7 +231,7 @@ impl Runtime {
 
     fn run_image_entry(
         &mut self,
-        image: ModuleImage,
+        image: BytecodeModule,
         entry_name: &str,
         args: &[Vec<u8>],
         providers: Option<Providers>,
@@ -282,18 +282,20 @@ impl Runtime {
 }
 
 fn build_entry_args(vm: &mut VirtualMachine, args: &[Vec<u8>]) -> Result<VmValue, RuntimeError> {
-    let uint8_ty = find_type(&vm.image, |ty| matches!(ty, galfus_image::ImageType::Uint8))
-        .ok_or(RuntimeError::MissingArgumentType("u8"))?;
+    let uint8_ty = find_type(&vm.image, |ty| {
+        matches!(ty, galfus_bytecode::ImageType::Uint8)
+    })
+    .ok_or(RuntimeError::MissingArgumentType("u8"))?;
     let byte_array_ty = vm
         .image
         .types
         .iter()
         .enumerate()
         .find(|(_, ty)| {
-            matches!(ty, galfus_image::ImageType::Array(element)
-                if matches!(vm.image.types.get(element.raw() as usize), Some(galfus_image::ImageType::Uint8)))
+            matches!(ty, galfus_bytecode::ImageType::Array(element)
+                if matches!(vm.image.types.get(element.raw() as usize), Some(galfus_bytecode::ImageType::Uint8)))
         })
-        .map(|(index, _)| galfus_image::instruction::TypeIdx(index as u16))
+        .map(|(index, _)| galfus_bytecode::instruction::TypeIdx(index as u16))
         .ok_or(RuntimeError::MissingArgumentType("[u8]"))?;
     let args_array_ty = vm
         .image
@@ -301,11 +303,11 @@ fn build_entry_args(vm: &mut VirtualMachine, args: &[Vec<u8>]) -> Result<VmValue
         .iter()
         .enumerate()
         .find(|(_, ty)| {
-            matches!(ty, galfus_image::ImageType::Array(element)
-                if matches!(vm.image.types.get(element.raw() as usize), Some(galfus_image::ImageType::Array(inner))
-                    if matches!(vm.image.types.get(inner.raw() as usize), Some(galfus_image::ImageType::Uint8))))
+            matches!(ty, galfus_bytecode::ImageType::Array(element)
+                if matches!(vm.image.types.get(element.raw() as usize), Some(galfus_bytecode::ImageType::Array(inner))
+                    if matches!(vm.image.types.get(inner.raw() as usize), Some(galfus_bytecode::ImageType::Uint8))))
         })
-        .map(|(index, _)| galfus_image::instruction::TypeIdx(index as u16))
+        .map(|(index, _)| galfus_bytecode::instruction::TypeIdx(index as u16))
         .ok_or(RuntimeError::MissingArgumentType("[[u8]]"))?;
 
     let mut arg_values = Vec::with_capacity(args.len());
@@ -328,12 +330,12 @@ fn build_entry_args(vm: &mut VirtualMachine, args: &[Vec<u8>]) -> Result<VmValue
 }
 
 fn find_type(
-    image: &ModuleImage,
-    predicate: impl Fn(&galfus_image::ImageType) -> bool,
-) -> Option<galfus_image::instruction::TypeIdx> {
+    image: &BytecodeModule,
+    predicate: impl Fn(&galfus_bytecode::ImageType) -> bool,
+) -> Option<galfus_bytecode::instruction::TypeIdx> {
     image
         .types
         .iter()
         .position(predicate)
-        .map(|index| galfus_image::instruction::TypeIdx(index as u16))
+        .map(|index| galfus_bytecode::instruction::TypeIdx(index as u16))
 }
