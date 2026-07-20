@@ -9,7 +9,7 @@ pub(super) fn collect_call_targets(
 ) {
     for bb in blocks {
         for inst in &bb.instructions {
-            if let galfus_ir::mir::Instruction::Call { func, .. } = inst {
+            if let (galfus_ir::mir::Instruction::Call { func, .. }, _) = inst {
                 targets.push(*func);
             }
         }

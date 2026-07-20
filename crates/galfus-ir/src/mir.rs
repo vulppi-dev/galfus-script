@@ -61,8 +61,8 @@ pub struct MirFunction {
 pub struct BasicBlock {
     pub id: BlockId,
     pub parameters: Vec<LocalDecl>,
-    pub instructions: Vec<Instruction>,
-    pub terminator: Terminator,
+    pub instructions: Vec<(Instruction, Option<galfus_core::Span>)>,
+    pub terminator: (Terminator, Option<galfus_core::Span>),
 }
 
 #[derive(Debug, Clone)]

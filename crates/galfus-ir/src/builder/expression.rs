@@ -130,11 +130,14 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                     return Operand::Constant(Constant::Null);
                 };
                 let destination = self.declare_local(None, range_type);
-                self.current_instructions.push(Instruction::Call {
-                    func: function,
-                    args: arguments,
-                    destination,
-                });
+                self.current_instructions.push((
+                    Instruction::Call {
+                        func: function,
+                        args: arguments,
+                        destination,
+                    },
+                    None,
+                ));
                 Operand::Local(destination)
             }
 
@@ -217,8 +220,10 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                                     .symbol_type(sym)
                                     .unwrap_or_else(|| TypeId::new(0));
                                 let temp_id = self.declare_local(None, ty);
-                                self.current_instructions
-                                    .push(Instruction::Assign(temp_id, RValue::LoadGlobal(name)));
+                                self.current_instructions.push((
+                                    Instruction::Assign(temp_id, RValue::LoadGlobal(name)),
+                                    None,
+                                ));
                                 return Operand::Local(temp_id);
                             }
                         }
@@ -252,9 +257,9 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                 let ty = self.node_type(expr_id).unwrap_or_else(|| TypeId::new(0));
 
                 let temp_id = self.declare_local(None, ty);
-                self.current_instructions.push(Instruction::Assign(
-                    temp_id,
-                    RValue::BinaryOp(op, left_operand, right_operand),
+                self.current_instructions.push((
+                    Instruction::Assign(temp_id, RValue::BinaryOp(op, left_operand, right_operand)),
+                    None,
                 ));
                 Operand::Local(temp_id)
             }
@@ -269,8 +274,10 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                 let ty = self.node_type(expr_id).unwrap_or_else(|| TypeId::new(0));
 
                 let temp_id = self.declare_local(None, ty);
-                self.current_instructions
-                    .push(Instruction::Assign(temp_id, RValue::UnaryOp(op, operand)));
+                self.current_instructions.push((
+                    Instruction::Assign(temp_id, RValue::UnaryOp(op, operand)),
+                    None,
+                ));
                 Operand::Local(temp_id)
             }
 
@@ -285,8 +292,10 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                     .unwrap_or_else(|| TypeId::new(0));
 
                 let temp_id = self.declare_local(None, ty);
-                self.current_instructions
-                    .push(Instruction::Assign(temp_id, RValue::Cast(operand, ty)));
+                self.current_instructions.push((
+                    Instruction::Assign(temp_id, RValue::Cast(operand, ty)),
+                    None,
+                ));
                 Operand::Local(temp_id)
             }
 
@@ -296,7 +305,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                 let ty = self.node_type(expr_id).unwrap_or_else(|| TypeId::new(0));
                 let temp_id = self.declare_local(None, ty);
                 self.current_instructions
-                    .push(Instruction::Assign(temp_id, RValue::Copy(operand)));
+                    .push((Instruction::Assign(temp_id, RValue::Copy(operand)), None));
                 Operand::Local(temp_id)
             }
 
@@ -460,17 +469,20 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                         // Multiple arguments => build a tuple
                         let tuple_type = self.builder.find_tuple_type(&arg_types);
                         let tuple_temp = self.declare_local(None, tuple_type);
-                        self.current_instructions.push(Instruction::Assign(
-                            tuple_temp,
-                            RValue::NewTuple(tuple_type, args),
+                        self.current_instructions.push((
+                            Instruction::Assign(tuple_temp, RValue::NewTuple(tuple_type, args)),
+                            None,
                         ));
                         Some(Operand::Local(tuple_temp))
                     };
 
                     let choice_temp = self.declare_local(None, owner_type);
-                    self.current_instructions.push(Instruction::Assign(
-                        choice_temp,
-                        RValue::Choice(owner_type, variant_name, payload_op),
+                    self.current_instructions.push((
+                        Instruction::Assign(
+                            choice_temp,
+                            RValue::Choice(owner_type, variant_name, payload_op),
+                        ),
+                        None,
                     ));
                     return Operand::Local(choice_temp);
                 }
@@ -581,12 +593,15 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                     let ty = self.node_type(expr_id).unwrap_or_else(|| TypeId::new(0));
                     let temp_id = self.declare_local(None, ty);
 
-                    self.current_instructions.push(Instruction::ConstraintCall {
-                        method_name,
-                        obj,
-                        args: extra_args,
-                        destination: temp_id,
-                    });
+                    self.current_instructions.push((
+                        Instruction::ConstraintCall {
+                            method_name,
+                            obj,
+                            args: extra_args,
+                            destination: temp_id,
+                        },
+                        None,
+                    ));
 
                     return Operand::Local(temp_id);
                 }
@@ -618,11 +633,14 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
 
                 if is_indirect {
                     let func_op = self.lower_expression(target_node);
-                    self.current_instructions.push(Instruction::IndirectCall {
-                        func: func_op,
-                        args,
-                        destination: temp_id,
-                    });
+                    self.current_instructions.push((
+                        Instruction::IndirectCall {
+                            func: func_op,
+                            args,
+                            destination: temp_id,
+                        },
+                        None,
+                    ));
                 } else {
                     let mut func_id = if is_namespace_call {
                         path_call_function_id(real_target)
@@ -658,11 +676,14 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                         func_id = specialized;
                     }
 
-                    self.current_instructions.push(Instruction::Call {
-                        func: func_id,
-                        args,
-                        destination: temp_id,
-                    });
+                    self.current_instructions.push((
+                        Instruction::Call {
+                            func: func_id,
+                            args,
+                            destination: temp_id,
+                        },
+                        None,
+                    ));
                 }
 
                 Operand::Local(temp_id)
@@ -684,9 +705,12 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                                 self.get_choice_variant_payload(expr_id)
                             {
                                 let choice_temp = self.declare_local(None, owner_type);
-                                self.current_instructions.push(Instruction::Assign(
-                                    choice_temp,
-                                    RValue::Choice(owner_type, variant_name, None),
+                                self.current_instructions.push((
+                                    Instruction::Assign(
+                                        choice_temp,
+                                        RValue::Choice(owner_type, variant_name, None),
+                                    ),
+                                    None,
                                 ));
                                 return Operand::Local(choice_temp);
                             }
@@ -746,7 +770,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                 };
 
                 self.current_instructions
-                    .push(Instruction::Assign(temp_id, rval));
+                    .push((Instruction::Assign(temp_id, rval), None));
                 Operand::Local(temp_id)
             }
 
@@ -788,14 +812,20 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                         Operand::Constant(Constant::Uint64(val)) => val.to_string(),
                         _ => "0".to_string(),
                     };
-                    self.current_instructions.push(Instruction::Assign(
-                        temp_id,
-                        RValue::MemberAccess(target_operand, index_str),
+                    self.current_instructions.push((
+                        Instruction::Assign(
+                            temp_id,
+                            RValue::MemberAccess(target_operand, index_str),
+                        ),
+                        None,
                     ));
                 } else {
-                    self.current_instructions.push(Instruction::Assign(
-                        temp_id,
-                        RValue::ArrayIndex(target_operand, index_operand),
+                    self.current_instructions.push((
+                        Instruction::Assign(
+                            temp_id,
+                            RValue::ArrayIndex(target_operand, index_operand),
+                        ),
+                        None,
                     ));
                 }
                 Operand::Local(temp_id)
@@ -814,8 +844,10 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                 let subject_op = self.lower_expression(subject_node);
 
                 let subject_temp = self.declare_local(None, subject_type);
-                self.current_instructions
-                    .push(Instruction::Assign(subject_temp, RValue::Use(subject_op)));
+                self.current_instructions.push((
+                    Instruction::Assign(subject_temp, RValue::Use(subject_op)),
+                    None,
+                ));
                 let subject_local_op = Operand::Local(subject_temp);
 
                 let match_result = self.declare_local(None, match_type);
@@ -841,8 +873,10 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                     self.blocks.last_mut().unwrap().id = arm_body_block;
                     self.current_block = arm_body_block;
                     let body_op = self.lower_expression(body_node);
-                    self.current_instructions
-                        .push(Instruction::Assign(match_result, RValue::Use(body_op)));
+                    self.current_instructions.push((
+                        Instruction::Assign(match_result, RValue::Use(body_op)),
+                        None,
+                    ));
 
                     if !self.is_terminated() {
                         self.terminate_block(Terminator::Jump {

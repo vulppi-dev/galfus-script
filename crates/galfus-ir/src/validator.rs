@@ -49,7 +49,7 @@ fn validate_function(func: &MirFunction) -> Result<(), Vec<ValidationError>> {
     }
 
     for block in &func.blocks {
-        for (target, _) in successor_blocks(&block.terminator) {
+        for (target, _) in successor_blocks(&block.terminator.0) {
             if !blocks.contains_key(&target) {
                 errors.push(ValidationError {
                     message: format!(
@@ -78,18 +78,18 @@ fn validate_function(func: &MirFunction) -> Result<(), Vec<ValidationError>> {
             }
         }
         for inst in &block.instructions {
-            match inst {
-                Instruction::Assign(dest, _)
-                | Instruction::Call {
+            match &inst.0 {
+                crate::mir::Instruction::Assign(dest, _)
+                | crate::mir::Instruction::Call {
                     destination: dest, ..
                 }
-                | Instruction::IndirectCall {
+                | crate::mir::Instruction::IndirectCall {
                     destination: dest, ..
                 }
-                | Instruction::ConstraintCall {
+                | crate::mir::Instruction::ConstraintCall {
                     destination: dest, ..
                 }
-                | Instruction::TransactionCommit { destination: dest } => {
+                | crate::mir::Instruction::TransactionCommit { destination: dest } => {
                     if !assigned_locals.insert(*dest) {
                         errors.push(ValidationError {
                             message: format!(
@@ -103,8 +103,8 @@ fn validate_function(func: &MirFunction) -> Result<(), Vec<ValidationError>> {
             }
         }
 
-        match &block.terminator {
-            Terminator::Jump { target, args } => {
+        match &block.terminator.0 {
+            crate::mir::Terminator::Jump { target, args } => {
                 if let Some(target_block) = blocks.get(target)
                     && args.len() != target_block.parameters.len()
                 {
@@ -113,7 +113,7 @@ fn validate_function(func: &MirFunction) -> Result<(), Vec<ValidationError>> {
                     });
                 }
             }
-            Terminator::Branch {
+            crate::mir::Terminator::Branch {
                 true_block,
                 true_args,
                 false_block,
@@ -186,7 +186,7 @@ fn initialized_at_block_entries(
         let mut outgoing = initialized[&block_id].clone();
         apply_initialization_effects(block, &mut outgoing);
 
-        for (successor, args) in successor_blocks(&block.terminator) {
+        for (successor, args) in successor_blocks(&block.terminator.0) {
             if !blocks.contains_key(&successor) {
                 continue;
             }
@@ -228,57 +228,57 @@ fn apply_initialization_effects(block: &BasicBlock, initialized: &mut HashSet<Lo
         initialized.insert(param.id);
     }
     for instruction in &block.instructions {
-        match instruction {
-            Instruction::Assign(_, RValue::Use(Operand::Local(l))) => {
+        match &instruction.0 {
+            crate::mir::Instruction::Assign(_, RValue::Use(Operand::Local(l))) => {
                 initialized.remove(l);
             }
-            Instruction::Call { args, .. }
-            | Instruction::ConstraintCall { args, .. }
-            | Instruction::IndirectCall { args, .. } => {
+            crate::mir::Instruction::Call { args, .. }
+            | crate::mir::Instruction::ConstraintCall { args, .. }
+            | crate::mir::Instruction::IndirectCall { args, .. } => {
                 for arg in args {
                     if let Operand::Local(l) = arg {
                         initialized.remove(l);
                     }
                 }
             }
-            Instruction::StoreGlobal(_, Operand::Local(l)) => {
+            crate::mir::Instruction::StoreGlobal(_, Operand::Local(l)) => {
                 initialized.remove(l);
             }
-            Instruction::StoreIndex {
+            crate::mir::Instruction::StoreIndex {
                 val: Operand::Local(l),
                 ..
             } => {
                 initialized.remove(l);
             }
-            Instruction::StoreField {
+            crate::mir::Instruction::StoreField {
                 val: Operand::Local(l),
                 ..
             } => {
                 initialized.remove(l);
             }
-            Instruction::Drop(local) => {
+            crate::mir::Instruction::Drop(local) => {
                 initialized.remove(local);
             }
             _ => {}
         }
 
-        match instruction {
-            Instruction::Assign(destination, _)
-            | Instruction::TransactionCommit { destination }
-            | Instruction::Call { destination, .. }
-            | Instruction::ConstraintCall { destination, .. }
-            | Instruction::IndirectCall { destination, .. } => {
+        match &instruction.0 {
+            crate::mir::Instruction::Assign(destination, _)
+            | crate::mir::Instruction::TransactionCommit { destination }
+            | crate::mir::Instruction::Call { destination, .. }
+            | crate::mir::Instruction::ConstraintCall { destination, .. }
+            | crate::mir::Instruction::IndirectCall { destination, .. } => {
                 initialized.insert(*destination);
             }
             _ => {}
         }
     }
 
-    match &block.terminator {
-        Terminator::Return(Some(Operand::Local(l))) => {
+    match &block.terminator.0 {
+        crate::mir::Terminator::Return(Some(Operand::Local(l))) => {
             initialized.remove(l);
         }
-        Terminator::Branch {
+        crate::mir::Terminator::Branch {
             cond: Operand::Local(l),
             ..
         } => {
@@ -288,17 +288,17 @@ fn apply_initialization_effects(block: &BasicBlock, initialized: &mut HashSet<Lo
     }
 }
 
-fn successor_blocks(terminator: &Terminator) -> Vec<(BlockId, &Vec<Operand>)> {
+fn successor_blocks(terminator: &crate::mir::Terminator) -> Vec<(BlockId, &Vec<Operand>)> {
     match terminator {
-        Terminator::Jump { target, args } => vec![(*target, args)],
-        Terminator::Branch {
+        crate::mir::Terminator::Jump { target, args } => vec![(*target, args)],
+        crate::mir::Terminator::Branch {
             true_block,
             true_args,
             false_block,
             false_args,
             ..
         } => vec![(*true_block, true_args), (*false_block, false_args)],
-        Terminator::Return(_) | Terminator::Panic(_) => Vec::new(),
+        crate::mir::Terminator::Return(_) | crate::mir::Terminator::Panic(_) => Vec::new(),
     }
 }
 
@@ -309,8 +309,8 @@ fn validate_basic_block(
     errors: &mut Vec<ValidationError>,
 ) {
     for inst in &bb.instructions {
-        match inst {
-            Instruction::Assign(dest, rvalue) => {
+        match &inst.0 {
+            crate::mir::Instruction::Assign(dest, rvalue) => {
                 if !func.locals.iter().any(|decl| decl.id == *dest) {
                     errors.push(ValidationError {
                         message: format!(
@@ -322,7 +322,7 @@ fn validate_basic_block(
                 validate_rvalue_operands(rvalue, func, initialized, errors);
                 initialized.insert(*dest);
             }
-            Instruction::Drop(local) => {
+            crate::mir::Instruction::Drop(local) => {
                 if !func.locals.iter().any(|decl| decl.id == *local) {
                     errors.push(ValidationError {
                         message: format!(
@@ -333,24 +333,24 @@ fn validate_basic_block(
                 }
                 initialized.remove(local);
             }
-            Instruction::StoreGlobal(_, val) => {
+            crate::mir::Instruction::StoreGlobal(_, val) => {
                 validate_operand(val, func, initialized, errors);
             }
-            Instruction::StoreIndex { arr, idx, val } => {
+            crate::mir::Instruction::StoreIndex { arr, idx, val } => {
                 validate_operand(arr, func, initialized, errors);
                 validate_operand(idx, func, initialized, errors);
                 validate_operand(val, func, initialized, errors);
             }
-            Instruction::StoreField { obj, val, .. } => {
+            crate::mir::Instruction::StoreField { obj, val, .. } => {
                 validate_operand(obj, func, initialized, errors);
                 validate_operand(val, func, initialized, errors);
             }
-            Instruction::TransactionStart { targets } => {
+            crate::mir::Instruction::TransactionStart { targets } => {
                 for target in targets {
                     validate_operand(target, func, initialized, errors);
                 }
             }
-            Instruction::TransactionCommit { destination } => {
+            crate::mir::Instruction::TransactionCommit { destination } => {
                 if !func.locals.iter().any(|decl| decl.id == *destination) {
                     errors.push(ValidationError {
                         message: format!(
@@ -361,8 +361,8 @@ fn validate_basic_block(
                 }
                 initialized.insert(*destination);
             }
-            Instruction::TransactionRollback => {}
-            Instruction::Call {
+            crate::mir::Instruction::TransactionRollback => {}
+            crate::mir::Instruction::Call {
                 func: _,
                 args,
                 destination,
@@ -380,7 +380,7 @@ fn validate_basic_block(
                 }
                 initialized.insert(*destination);
             }
-            Instruction::ConstraintCall {
+            crate::mir::Instruction::ConstraintCall {
                 method_name: _,
                 obj,
                 args,
@@ -400,7 +400,7 @@ fn validate_basic_block(
                 }
                 initialized.insert(*destination);
             }
-            Instruction::IndirectCall {
+            crate::mir::Instruction::IndirectCall {
                 func: func_op,
                 args,
                 destination,
@@ -422,13 +422,13 @@ fn validate_basic_block(
         }
     }
 
-    match &bb.terminator {
-        Terminator::Return(Some(op)) => {
+    match &bb.terminator.0 {
+        crate::mir::Terminator::Return(Some(op)) => {
             validate_operand(op, func, initialized, errors);
         }
-        Terminator::Return(None) => {}
-        Terminator::Jump { target: _, args: _ } => {}
-        Terminator::Branch {
+        crate::mir::Terminator::Return(None) => {}
+        crate::mir::Terminator::Jump { target: _, args: _ } => {}
+        crate::mir::Terminator::Branch {
             cond,
             true_args: _,
             false_args: _,
@@ -436,7 +436,7 @@ fn validate_basic_block(
         } => {
             validate_operand(cond, func, initialized, errors);
         }
-        Terminator::Panic(_) => {}
+        crate::mir::Terminator::Panic(_) => {}
     }
 }
 

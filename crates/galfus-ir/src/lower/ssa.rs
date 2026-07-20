@@ -4,7 +4,7 @@ use std::collections::HashMap;
 pub fn convert_to_ssa(func: &mut MirFunction) {
     let mut preds: HashMap<BlockId, Vec<BlockId>> = HashMap::new();
     for block in &func.blocks {
-        let succs = match &block.terminator {
+        let succs = match &block.terminator.0 {
             Terminator::Jump { target, .. } => vec![*target],
             Terminator::Branch {
                 true_block,
@@ -133,8 +133,12 @@ pub fn convert_to_ssa(func: &mut MirFunction) {
             }
         }
 
-        fn replace_instruction(&mut self, block: BlockId, inst: &mut Instruction) {
-            match inst {
+        fn replace_instruction(
+            &mut self,
+            block: BlockId,
+            inst: &mut (crate::mir::Instruction, Option<galfus_core::Span>),
+        ) {
+            match &mut inst.0 {
                 Instruction::Assign(target, rvalue) => {
                     self.replace_rvalue(block, rvalue);
                     let orig_target = *target;
@@ -281,7 +285,7 @@ pub fn convert_to_ssa(func: &mut MirFunction) {
         }
 
         // Handle terminator
-        match &mut block.terminator {
+        match &mut block.terminator.0 {
             Terminator::Return(Some(op)) => builder.replace_operand(block_id, op),
             Terminator::Branch { cond, .. } => builder.replace_operand(block_id, cond),
             _ => {}
@@ -346,7 +350,7 @@ pub fn convert_to_ssa(func: &mut MirFunction) {
             args
         };
 
-        match &mut block.terminator {
+        match &mut block.terminator.0 {
             Terminator::Jump { target, args } => {
                 *args = get_args(*target);
             }

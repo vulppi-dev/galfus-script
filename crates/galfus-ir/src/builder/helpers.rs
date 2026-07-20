@@ -404,8 +404,10 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
 
         if is_numeric(actual_from_ty) && is_numeric(to_ty) {
             let temp_id = self.declare_local(None, to_ty);
-            self.current_instructions
-                .push(Instruction::Assign(temp_id, RValue::Cast(operand, to_ty)));
+            self.current_instructions.push((
+                Instruction::Assign(temp_id, RValue::Cast(operand, to_ty)),
+                None,
+            ));
             Operand::Local(temp_id)
         } else {
             operand

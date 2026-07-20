@@ -76,9 +76,12 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                             let spread_fields = self.get_struct_fields(spread_sym);
                             if spread_fields.iter().any(|(n, _)| *n == field_name) {
                                 let temp_id = self.declare_local(None, field_ty);
-                                self.current_instructions.push(Instruction::Assign(
-                                    temp_id,
-                                    RValue::MemberAccess(spread_op.clone(), field_name.clone()),
+                                self.current_instructions.push((
+                                    Instruction::Assign(
+                                        temp_id,
+                                        RValue::MemberAccess(spread_op.clone(), field_name.clone()),
+                                    ),
+                                    None,
                                 ));
                                 fields.push(Operand::Local(temp_id));
                                 found_in_spread = true;
@@ -102,13 +105,16 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
             }
 
             let temp_id = self.declare_local(None, struct_type);
-            self.current_instructions.push(Instruction::Assign(
-                temp_id,
-                RValue::NewStruct {
-                    struct_type,
-                    fields,
-                    storage_meta: StorageMetadata::Local,
-                },
+            self.current_instructions.push((
+                Instruction::Assign(
+                    temp_id,
+                    RValue::NewStruct {
+                        struct_type,
+                        fields,
+                        storage_meta: StorageMetadata::Local,
+                    },
+                ),
+                None,
             ));
             Operand::Local(temp_id)
         } else {
@@ -189,9 +195,9 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
             }
 
             let temp_id = self.declare_local(None, array_type);
-            self.current_instructions.push(Instruction::Assign(
-                temp_id,
-                RValue::NewArrayDynamic(array_type, elements),
+            self.current_instructions.push((
+                Instruction::Assign(temp_id, RValue::NewArrayDynamic(array_type, elements)),
+                None,
             ));
             Operand::Local(temp_id)
         } else {
@@ -235,9 +241,9 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
             }
 
             let temp_id = self.declare_local(None, array_type);
-            self.current_instructions.push(Instruction::Assign(
-                temp_id,
-                RValue::NewArray(array_type, elements),
+            self.current_instructions.push((
+                Instruction::Assign(temp_id, RValue::NewArray(array_type, elements)),
+                None,
             ));
             Operand::Local(temp_id)
         }
@@ -267,8 +273,10 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
             .unwrap_or_else(|| self.builder.find_tuple_type(&element_types));
 
         let temp_id = self.declare_local(None, ty);
-        self.current_instructions
-            .push(Instruction::Assign(temp_id, RValue::NewTuple(ty, elements)));
+        self.current_instructions.push((
+            Instruction::Assign(temp_id, RValue::NewTuple(ty, elements)),
+            None,
+        ));
         Operand::Local(temp_id)
     }
 
@@ -352,7 +360,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
         };
 
         self.current_instructions
-            .push(Instruction::Assign(temp_id, rvalue));
+            .push((Instruction::Assign(temp_id, rvalue), None));
 
         Operand::Local(temp_id)
     }

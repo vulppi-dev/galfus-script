@@ -101,7 +101,8 @@ pub fn compile_changed_modules(
         }
         let path = modules[mod_idx].path().clone();
         let semantic_revision = modules[mod_idx].semantic_revision();
-        let image = compile_single_module(modules, &mir_modules, &specialized_targets, mod_idx)?;
+        let (image, metadata) =
+            compile_single_module(modules, &mir_modules, &specialized_targets, mod_idx)?;
         if let Err(errors) = galfus_bytecode::validation::validate_bytecode_module(&image) {
             return Err(anyhow::anyhow!(
                 "BytecodeModule validation failed for `{}`: {:?}",
@@ -114,7 +115,7 @@ pub fn compile_changed_modules(
             path,
             semantic_revision,
             module: image,
-            metadata: None,
+            metadata: Some(metadata),
         });
     }
 
@@ -145,7 +146,7 @@ fn compile_single_module(
     mir_modules: &[Option<galfus_ir::mir::MirModule>],
     specialized_targets: &HashMap<galfus_core::FunctionId, (usize, galfus_core::FunctionId)>,
     mod_idx: usize,
-) -> Result<BytecodeModule> {
+) -> Result<(BytecodeModule, galfus_bytecode::graph::ExecutionMetadata)> {
     use crate::compile::resolve::{
         collect_call_targets, resolve_import_target, resolve_local_call_target,
     };
@@ -286,6 +287,10 @@ fn compile_single_module(
         ctx.function_return_types.insert(func.id, func.return_type);
     }
 
+    let mut execution_metadata = galfus_bytecode::graph::ExecutionMetadata {
+        spans: std::collections::HashMap::new(),
+    };
+
     // Register cross-module calls as import function slots.
     for (&local_id, &(target_mod_idx, target_func_id)) in &cross_module_calls {
         if let Some(&import_idx) = import_func_map.get(&(target_mod_idx, target_func_id)) {
@@ -320,7 +325,10 @@ fn compile_single_module(
             param_count,
             local_count,
         );
-        let mut instructions = emitter.emit();
+        let (mut instructions, function_spans) = emitter.emit();
+        execution_metadata
+            .spans
+            .insert(local_func_idx, function_spans);
 
         rewrite_global_indices(&mut instructions, modules, mod_idx)?;
 
@@ -347,7 +355,7 @@ fn compile_single_module(
     };
     let _ = null_type_idx;
 
-    Ok(BytecodeModule {
+    let module = BytecodeModule {
         name: module.path().as_str().to_string(),
         constants: ctx.constant_pool,
         functions,
@@ -357,5 +365,6 @@ fn compile_single_module(
         imports: import_slots,
         exports: export_slots,
         init_func_idx,
-    })
+    };
+    Ok((module, execution_metadata))
 }
