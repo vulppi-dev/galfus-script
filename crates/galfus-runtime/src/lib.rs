@@ -1,5 +1,3 @@
-mod module_graph;
-
 use galfus_bytecode::BytecodeModule;
 use galfus_bytecode::graph::CompiledBytecodeModule;
 use galfus_core::ModuleId;
@@ -11,7 +9,7 @@ use std::sync::{Arc, Mutex};
 #[cfg(test)]
 mod tests;
 
-pub use module_graph::{LinkedImport, ModuleLink, RuntimeLinkError, RuntimeModuleGraph};
+pub use galfus_bytecode::{LinkError, LinkedImport, ModuleLink};
 
 #[derive(Debug, thiserror::Error)]
 pub enum RuntimeError {
@@ -32,7 +30,7 @@ pub enum RuntimeError {
     #[error("{0}")]
     VmPanic(#[from] VmPanic),
     #[error(transparent)]
-    Link(#[from] RuntimeLinkError),
+    Link(#[from] LinkError),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -146,7 +144,6 @@ impl LogicalThread {
 
 pub struct Runtime {
     registry: Arc<Mutex<ModuleRegistry>>,
-    modules: RuntimeModuleGraph,
     threads: Vec<LogicalThread>,
 }
 
@@ -154,7 +151,6 @@ impl Runtime {
     pub fn new() -> Self {
         Self {
             registry: Arc::new(Mutex::new(ModuleRegistry::new())),
-            modules: RuntimeModuleGraph::new(),
             threads: Vec::new(),
         }
     }
@@ -177,38 +173,16 @@ impl Runtime {
         RuntimeLoader::new(self.registry())
     }
 
-    /// Upsert a compiled module using its stable `ModuleId`.
-    pub fn load(&mut self, image: CompiledBytecodeModule) -> Option<CompiledBytecodeModule> {
-        self.modules.load(image)
-    }
-
-    /// Remove a compiled module and its path lookup entry.
-    pub fn unload(&mut self, id: ModuleId) -> Option<CompiledBytecodeModule> {
-        self.modules.unload(id)
-    }
-
-    pub fn modules(&self) -> &RuntimeModuleGraph {
-        &self.modules
-    }
-
-    /// Resolve a module's import slots against the currently loaded modules.
-    pub fn link_module(&self, id: ModuleId) -> Result<ModuleLink, RuntimeLinkError> {
-        self.modules.link(id)
-    }
-
-    pub fn initialization_order(&self, id: ModuleId) -> Result<Vec<ModuleId>, RuntimeLinkError> {
-        self.modules.initialization_order(id)
-    }
-
-    /// Execute an entry exported by a module loaded through [`Runtime::load`].
+    /// Execute an entry exported by a module loaded in the given BytecodeGraph.
     pub fn run_module_entry(
         &mut self,
+        graph: &galfus_bytecode::BytecodeGraph,
         id: ModuleId,
         entry_name: &str,
         args: &[Vec<u8>],
         providers: Option<Providers>,
     ) -> Result<i32, RuntimeError> {
-        let image = self.modules.linked_image(id)?;
+        let image = graph.linked_image(id)?;
         self.run_image_entry(image, entry_name, args, providers)
     }
 

@@ -1,12 +1,16 @@
 pub use instruction::*;
+pub use linker::*;
 pub use validation::*;
 
+pub mod graph;
 pub mod instruction;
+pub mod linker;
 pub mod validation;
 
 pub use graph::{
     BytecodeGraph, BytecodeGraphTransaction, CompiledBytecodeModule, CompiledImportEdge,
 };
+pub use linker::{LinkError, LinkedImport, ModuleLink};
 
 // =========================================================================
 // Image Value Model
@@ -170,4 +174,3 @@ pub struct BytecodeModule {
     pub exports: Vec<ExportSlot>,
     pub init_func_idx: Option<FuncIdx>,
 }
-pub mod graph;

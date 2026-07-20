@@ -1,5 +1,5 @@
-use galfus_bytecode::graph::CompiledBytecodeModule;
-use galfus_bytecode::{
+use crate::graph::CompiledBytecodeModule;
+use crate::{
     BytecodeModule, Constant, ConstantPool, ExportSlot, ImageFunction, ImageType,
     instruction::{ChoiceLayoutIdx, ConstIdx, FuncIdx, Instruction, Reg, StructLayoutIdx, TypeIdx},
 };
@@ -22,7 +22,7 @@ pub struct ModuleLink {
 }
 
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
-pub enum RuntimeLinkError {
+pub enum LinkError {
     #[error("module {0:?} is not loaded")]
     ModuleNotLoaded(ModuleId),
     #[error("module {importer:?} imports unloaded module `{module_path}`")]
@@ -40,64 +40,19 @@ pub enum RuntimeLinkError {
     InitializationCycle(ModuleId),
 }
 
-/// Loaded compiled modules, indexed by their stable IDs.
-#[derive(Debug, Default)]
-pub struct RuntimeModuleGraph {
-    modules: HashMap<ModuleId, CompiledBytecodeModule>,
-    ids_by_path: HashMap<ModulePath, ModuleId>,
-}
-
-impl RuntimeModuleGraph {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Insert or replace a module. Existing import links are resolved lazily.
-    pub fn load(&mut self, image: CompiledBytecodeModule) -> Option<CompiledBytecodeModule> {
-        if let Some(previous) = self.modules.get(&image.id)
-            && previous.path != image.path
-        {
-            self.ids_by_path.remove(&previous.path);
-        }
-        self.ids_by_path.insert(image.path.clone(), image.id);
-        self.modules.insert(image.id, image)
-    }
-
-    pub fn unload(&mut self, id: ModuleId) -> Option<CompiledBytecodeModule> {
-        let image = self.modules.remove(&id)?;
-        self.ids_by_path.remove(&image.path);
-        Some(image)
-    }
-
-    pub fn get(&self, id: ModuleId) -> Option<&CompiledBytecodeModule> {
-        self.modules.get(&id)
-    }
-
-    /// Stable IDs for every module currently loaded by the runtime.
-    pub fn module_ids(&self) -> impl Iterator<Item = ModuleId> + '_ {
-        self.modules.keys().copied()
-    }
-
-    pub fn len(&self) -> usize {
-        self.modules.len()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.modules.is_empty()
-    }
-
+impl crate::graph::BytecodeGraph {
     /// Resolve each import slot to an exported function in another loaded module.
-    pub fn link(&self, id: ModuleId) -> Result<ModuleLink, RuntimeLinkError> {
+    pub fn link(&self, id: ModuleId) -> Result<ModuleLink, LinkError> {
         let image = self
             .modules
             .get(&id)
-            .ok_or(RuntimeLinkError::ModuleNotLoaded(id))?;
+            .ok_or(LinkError::ModuleNotLoaded(id))?;
         let mut imports = Vec::with_capacity(image.image.imports.len());
 
         for (slot, import) in image.image.imports.iter().enumerate() {
             let module_id = ModulePath::new(import.module_name.as_str())
                 .and_then(|path| self.ids_by_path.get(&path).copied())
-                .ok_or_else(|| RuntimeLinkError::ImportModuleNotLoaded {
+                .ok_or_else(|| LinkError::ImportModuleNotLoaded {
                     importer: id,
                     module_path: import.module_name.clone(),
                 })?;
@@ -111,7 +66,7 @@ impl RuntimeModuleGraph {
                 .iter()
                 .find(|export| export.symbol_name == import.symbol_name)
                 .map(|export| export.func_idx)
-                .ok_or_else(|| RuntimeLinkError::ImportSymbolNotExported {
+                .ok_or_else(|| LinkError::ImportSymbolNotExported {
                     importer: id,
                     module_path: import.module_name.clone(),
                     symbol_name: import.symbol_name.clone(),
@@ -130,7 +85,7 @@ impl RuntimeModuleGraph {
     }
 
     /// Return modules in dependency-first initialization order for `id`.
-    pub fn initialization_order(&self, id: ModuleId) -> Result<Vec<ModuleId>, RuntimeLinkError> {
+    pub fn initialization_order(&self, id: ModuleId) -> Result<Vec<ModuleId>, LinkError> {
         let mut order = Vec::new();
         let mut visited = HashSet::new();
         let mut visiting = HashSet::new();
@@ -140,7 +95,7 @@ impl RuntimeModuleGraph {
 
     /// Link the reachable module subgraph into one VM image for execution.
     /// Module images remain separately stored; this image is an execution view.
-    pub fn linked_image(&self, entry: ModuleId) -> Result<BytecodeModule, RuntimeLinkError> {
+    pub fn linked_image(&self, entry: ModuleId) -> Result<BytecodeModule, LinkError> {
         let order = self.initialization_order(entry)?;
         let mut function_bases = HashMap::new();
         let mut constant_bases = HashMap::new();
@@ -301,12 +256,12 @@ impl RuntimeModuleGraph {
         order: &mut Vec<ModuleId>,
         visited: &mut HashSet<ModuleId>,
         visiting: &mut HashSet<ModuleId>,
-    ) -> Result<(), RuntimeLinkError> {
+    ) -> Result<(), LinkError> {
         if visited.contains(&id) {
             return Ok(());
         }
         if !visiting.insert(id) {
-            return Err(RuntimeLinkError::InitializationCycle(id));
+            return Err(LinkError::InitializationCycle(id));
         }
 
         for import in self.link(id)?.imports {
@@ -365,14 +320,14 @@ fn relocate_type(ty: ImageType, type_base: u16, struct_base: u16, choice_base: u
         ImageType::Tuple(indices) => ImageType::Tuple(
             indices
                 .into_iter()
-                .map(|index| TypeIdx(type_base + index.raw()))
+                .map(|index: TypeIdx| TypeIdx(type_base + index.raw()))
                 .collect(),
         ),
         ImageType::Choice(index) => ImageType::Choice(ChoiceLayoutIdx(choice_base + index.raw())),
         ImageType::Function { params, ret } => ImageType::Function {
             params: params
                 .into_iter()
-                .map(|index| TypeIdx(type_base + index.raw()))
+                .map(|index: TypeIdx| TypeIdx(type_base + index.raw()))
                 .collect(),
             ret: TypeIdx(type_base + ret.raw()),
         },

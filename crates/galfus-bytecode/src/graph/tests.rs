@@ -1,5 +1,5 @@
 use super::*;
-use galfus_bytecode::ConstantPool;
+use crate::ConstantPool;
 
 fn compiled_image(id: ModuleId, revision: SemanticRevision) -> CompiledBytecodeModule {
     CompiledBytecodeModule {

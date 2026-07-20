@@ -62,8 +62,9 @@ pub struct BytecodeGraphTransaction {
 /// subset of modules changed (incremental compilation — Phase 10).
 #[derive(Debug, Clone, Default)]
 pub struct BytecodeGraph {
-    modules: HashMap<ModuleId, CompiledBytecodeModule>,
-    edges: Vec<CompiledImportEdge>,
+    pub(crate) modules: HashMap<ModuleId, CompiledBytecodeModule>,
+    pub(crate) ids_by_path: HashMap<ModulePath, ModuleId>,
+    pub(crate) edges: Vec<CompiledImportEdge>,
 }
 
 impl BytecodeGraph {
