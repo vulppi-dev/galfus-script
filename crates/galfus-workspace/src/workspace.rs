@@ -402,23 +402,30 @@ impl Workspace {
             })
             .collect();
 
-        // Populate the BytecodeGraph — one image per module.
-        let mut module_graph = cached_graph
-            .map(|graph| (**graph).clone())
-            .unwrap_or_else(BytecodeGraph::new);
+        // Build the transaction.
         let current_modules = semantic_modules
             .iter()
             .map(|module| module.id())
             .collect::<HashSet<_>>();
-        for id in &changed_modules {
-            if !current_modules.contains(id) {
-                module_graph.remove(*id);
-            }
-        }
-        for image in outputs {
-            module_graph.upsert(image);
-        }
-        module_graph.set_edges(edges);
+        let removed_modules: Vec<_> = changed_modules
+            .iter()
+            .filter(|id| !current_modules.contains(id))
+            .copied()
+            .collect();
+
+        let transaction = galfus_bytecode::BytecodeGraphTransaction {
+            upserted_modules: outputs,
+            removed_modules,
+            edges,
+        };
+
+        // Apply transaction to a clone of the old graph or a new graph.
+        // If validation fails in the future, we can simply drop the clone.
+        let mut module_graph = cached_graph
+            .map(|graph| (**graph).clone())
+            .unwrap_or_else(BytecodeGraph::new);
+
+        module_graph.apply(transaction);
 
         let graph = Arc::new(module_graph);
         self.bytecode_state.compile_state = CompileState::Ready {

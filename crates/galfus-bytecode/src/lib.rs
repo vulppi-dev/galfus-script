@@ -4,7 +4,9 @@ pub use validation::*;
 pub mod instruction;
 pub mod validation;
 
-pub use graph::{BytecodeGraph, CompiledBytecodeModule, CompiledImportEdge};
+pub use graph::{
+    BytecodeGraph, BytecodeGraphTransaction, CompiledBytecodeModule, CompiledImportEdge,
+};
 
 // =========================================================================
 // Image Value Model

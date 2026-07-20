@@ -48,6 +48,13 @@ pub struct CompiledImportEdge {
     pub to: ModuleId,
 }
 
+#[derive(Debug, Clone)]
+pub struct BytecodeGraphTransaction {
+    pub upserted_modules: Vec<CompiledBytecodeModule>,
+    pub removed_modules: Vec<ModuleId>,
+    pub edges: Vec<CompiledImportEdge>,
+}
+
 /// The full compiled representation of a workspace.
 ///
 /// The workspace holds one of these after a successful `compile()`. Individual
@@ -74,9 +81,15 @@ impl BytecodeGraph {
         self.modules.remove(&id)
     }
 
-    /// Replace all edges (import dependencies).
-    pub fn set_edges(&mut self, edges: Vec<CompiledImportEdge>) {
-        self.edges = edges;
+    /// Applies a transaction atomically to the graph.
+    pub fn apply(&mut self, transaction: BytecodeGraphTransaction) {
+        for id in transaction.removed_modules {
+            self.modules.remove(&id);
+        }
+        for image in transaction.upserted_modules {
+            self.modules.insert(image.id, image);
+        }
+        self.edges = transaction.edges;
     }
 
     pub fn get(&self, id: ModuleId) -> Option<&CompiledBytecodeModule> {
