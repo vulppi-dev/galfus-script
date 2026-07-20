@@ -467,8 +467,8 @@ impl Workspace {
             .clone();
 
         let _start_time = Instant::now();
-        let exit_code = Runtime::new()
-            .run_module_entry(&graph, entry_id, entry_name.as_str(), args, providers)
+        let exit_code = Runtime::new(&graph, providers)
+            .run_module_entry(entry_id, entry_name.as_str(), args)
             .map_err(|error| {
                 if let galfus_runtime::RuntimeError::VmPanic(panic) = &error {
                     RunBlocked::RuntimeError(galfus_runtime::format_panic(&graph, panic))

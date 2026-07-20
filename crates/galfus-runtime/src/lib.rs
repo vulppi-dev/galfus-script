@@ -64,28 +64,28 @@ impl EntryAbi {
     }
 }
 
-pub struct Runtime;
-
-impl Default for Runtime {
-    fn default() -> Self {
-        Self::new()
-    }
+/// A single execution composed from one executable graph and optional host providers.
+pub struct Runtime<'graph> {
+    graph: &'graph galfus_bytecode::BytecodeGraph,
+    providers: Option<Providers>,
 }
 
-impl Runtime {
-    pub fn new() -> Self {
-        Self
+impl<'graph> Runtime<'graph> {
+    pub fn new(
+        graph: &'graph galfus_bytecode::BytecodeGraph,
+        providers: Option<Providers>,
+    ) -> Self {
+        Self { graph, providers }
     }
 
     /// Execute an entry exported by a module loaded in the given BytecodeGraph.
     pub fn run_module_entry(
-        &self,
-        graph: &galfus_bytecode::BytecodeGraph,
+        self,
         module_id: galfus_core::ModuleId,
         entry_name: &str,
         args: &[Vec<u8>],
-        providers: Option<Providers>,
     ) -> Result<i32, RuntimeError> {
+        let graph = self.graph;
         let image = &graph.get(module_id).unwrap().module;
         let abi = EntryAbi::default_app();
         let entry_idx = image
@@ -110,7 +110,7 @@ impl Runtime {
             });
         }
 
-        let mut vm = VirtualMachine::new(graph).with_providers(providers);
+        let mut vm = VirtualMachine::new(graph).with_providers(self.providers);
 
         let result = (|| {
             for initialized_module_id in graph.initialization_order(module_id)? {

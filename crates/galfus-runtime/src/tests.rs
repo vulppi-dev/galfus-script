@@ -105,8 +105,8 @@ fn run_initializes_dependencies_before_the_entry_module() {
     .expect("valid graph");
 
     assert_eq!(
-        Runtime::new()
-            .run_module_entry(&graph, entry_id, "main", &[], None)
+        Runtime::new(&graph, None)
+            .run_module_entry(entry_id, "main", &[])
             .expect("entry execution succeeds"),
         42
     );
