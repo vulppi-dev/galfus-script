@@ -48,10 +48,16 @@ fn run_initializes_dependencies_before_the_entry_module() {
         struct_layouts: vec![],
         choice_layouts: vec![],
         imports: vec![],
-        exports: vec![ExportSlot {
-            symbol_name: "marker".to_string(),
-            func_idx: FuncIdx(0),
-        }],
+        exports: vec![
+            ExportSlot {
+                symbol_name: "marker".to_string(),
+                kind: galfus_bytecode::ExportKind::Function(FuncIdx(0)),
+            },
+            ExportSlot {
+                symbol_name: "global_0".to_string(),
+                kind: galfus_bytecode::ExportKind::Global(GlobalIdx(0)),
+            },
+        ],
         init_func_idx: Some(FuncIdx(0)),
     };
     let entry = BytecodeModule {
@@ -84,10 +90,11 @@ fn run_initializes_dependencies_before_the_entry_module() {
             module_name: "dependency.gfs".to_string(),
             symbol_name: "marker".to_string(),
             ty: TypeIdx(3),
+            kind: galfus_bytecode::ImportKind::Function,
         }],
         exports: vec![ExportSlot {
             symbol_name: "main".to_string(),
-            func_idx: FuncIdx(0),
+            kind: galfus_bytecode::ExportKind::Function(FuncIdx(0)),
         }],
         init_func_idx: None,
     };

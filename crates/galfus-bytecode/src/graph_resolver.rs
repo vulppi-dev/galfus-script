@@ -4,10 +4,16 @@ use std::collections::HashSet;
 
 /// A resolved runtime target for one import slot.
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ResolvedImportKind {
+    Function(FuncIdx),
+    Global(crate::instruction::GlobalIdx),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResolvedImport {
     pub slot: usize,
     pub module_id: ModuleId,
-    pub function: FuncIdx,
+    pub kind: ResolvedImportKind,
 }
 
 /// The dynamic linking result for one loaded module.
@@ -56,21 +62,26 @@ impl crate::graph::BytecodeGraph {
                 .modules
                 .get(&module_id)
                 .expect("path index refers to loaded module");
-            let function = target
+            let target_export = target
                 .module
                 .exports
                 .iter()
                 .find(|export| export.symbol_name == import.symbol_name)
-                .map(|export| export.func_idx)
                 .ok_or_else(|| GraphResolutionError::ImportSymbolNotExported {
                     importer: id,
                     module_path: import.module_name.clone(),
                     symbol_name: import.symbol_name.clone(),
                 })?;
+
+            let kind = match target_export.kind {
+                crate::ExportKind::Function(idx) => ResolvedImportKind::Function(idx),
+                crate::ExportKind::Global(idx) => ResolvedImportKind::Global(idx),
+            };
+
             imports.push(ResolvedImport {
                 slot,
                 module_id,
-                function,
+                kind,
             });
         }
 

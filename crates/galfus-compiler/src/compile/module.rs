@@ -210,6 +210,7 @@ fn compile_single_module(
                     symbol_name,
                     // Type info not yet resolved — placeholder.
                     ty: TypeIdx(0),
+                    kind: galfus_bytecode::ImportKind::Function,
                 });
 
                 FuncIdx(slot_idx)
@@ -232,9 +233,16 @@ fn compile_single_module(
                 if let Some(&local_idx) = local_func_map.get(&func_id) {
                     export_slots.push(ExportSlot {
                         symbol_name: export.name().to_string(),
-                        func_idx: local_idx,
+                        kind: galfus_bytecode::ExportKind::Function(local_idx),
                     });
                 }
+            } else if export.kind() == SymbolKind::Var || export.kind() == SymbolKind::Const {
+                export_slots.push(ExportSlot {
+                    symbol_name: export.name().to_string(),
+                    kind: galfus_bytecode::ExportKind::Global(
+                        galfus_bytecode::instruction::GlobalIdx(export.symbol().raw() as u16),
+                    ),
+                });
             }
         }
     }
@@ -247,13 +255,13 @@ fn compile_single_module(
         };
         if export_slots
             .iter()
-            .any(|export| export.func_idx == local_idx)
+            .any(|export| matches!(export.kind, galfus_bytecode::ExportKind::Function(idx) if idx == local_idx))
         {
             continue;
         }
         export_slots.push(ExportSlot {
             symbol_name: format!("func_{}", target_func_id.raw()),
-            func_idx: local_idx,
+            kind: galfus_bytecode::ExportKind::Function(local_idx),
         });
     }
 

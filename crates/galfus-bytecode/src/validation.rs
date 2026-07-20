@@ -85,11 +85,19 @@ pub fn validate_bytecode_module(
 
     // 2. Validate exports
     for export in &module.exports {
-        if export.func_idx.raw() as usize >= module.functions.len() {
-            errors.push(BytecodeValidationError::ExportFunctionOutOfBounds {
-                symbol_name: export.symbol_name.clone(),
-                func_idx: export.func_idx,
-            });
+        match export.kind {
+            crate::ExportKind::Function(func_idx) => {
+                if func_idx.raw() as usize >= module.functions.len() {
+                    errors.push(BytecodeValidationError::ExportFunctionOutOfBounds {
+                        symbol_name: export.symbol_name.clone(),
+                        func_idx,
+                    });
+                }
+            }
+            crate::ExportKind::Global(_global_idx) => {
+                // Global index validation requires information not currently in BytecodeModule
+                // (number of globals is not explicitly recorded).
+            }
         }
     }
 

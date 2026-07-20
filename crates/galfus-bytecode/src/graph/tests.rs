@@ -115,6 +115,7 @@ fn apply_rejects_invalid_imports_without_changing_the_snapshot() {
         module_name: "missing.gfs".to_string(),
         symbol_name: "missing".to_string(),
         ty: crate::instruction::TypeIdx(0),
+        kind: crate::ImportKind::Function,
     });
 
     let error = graph

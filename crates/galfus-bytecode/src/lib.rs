@@ -105,16 +105,29 @@ pub struct ChoiceLayout {
 // =========================================================================
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ImportKind {
+    Function,
+    Global,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ImportSlot {
     pub module_name: String,
     pub symbol_name: String,
     pub ty: TypeIdx,
+    pub kind: ImportKind,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ExportKind {
+    Function(FuncIdx),
+    Global(GlobalIdx),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ExportSlot {
     pub symbol_name: String,
-    pub func_idx: FuncIdx,
+    pub kind: ExportKind,
 }
 
 // =========================================================================

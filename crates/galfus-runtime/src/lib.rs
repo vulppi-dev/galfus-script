@@ -92,7 +92,10 @@ impl<'graph> Runtime<'graph> {
             .exports
             .iter()
             .find(|export| export.symbol_name == entry_name)
-            .map(|export| export.func_idx)
+            .and_then(|export| match export.kind {
+                galfus_bytecode::ExportKind::Function(f) => Some(f),
+                _ => None,
+            })
             .ok_or_else(|| RuntimeError::EntryNotExported(entry_name.to_string()))?;
 
         let entry_func = &image.functions[entry_idx.raw() as usize];

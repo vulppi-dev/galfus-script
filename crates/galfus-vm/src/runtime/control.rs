@@ -81,7 +81,11 @@ impl<'a> VirtualMachine<'a> {
                             .imports
                             .get(import_idx)
                             .ok_or(VmError::FunctionOutOfBounds { index: func_idx })?;
-                        (import.module_id, import.function)
+                        let func = match &import.kind {
+                            galfus_bytecode::graph_resolver::ResolvedImportKind::Function(f) => *f,
+                            _ => return Err(VmError::FunctionOutOfBounds { index: func_idx }),
+                        };
+                        (import.module_id, func)
                     };
 
                 let target_image = &self.graph.get(target_module_id).unwrap().module;
@@ -236,15 +240,19 @@ impl<'a> VirtualMachine<'a> {
                     && let Ok(link) = self.graph.resolve_imports(resolution_module_id)
                 {
                     for imp in &link.imports {
+                        let target_func_idx = match &imp.kind {
+                            galfus_bytecode::graph_resolver::ResolvedImportKind::Function(f) => *f,
+                            _ => continue,
+                        };
                         let target_image = &self.graph.get(imp.module_id).unwrap().module;
-                        let target_func = &target_image.functions[imp.function.raw() as usize];
+                        let target_func = &target_image.functions[target_func_idx.raw() as usize];
                         let matched = if let Some(qualified_name) = &qualified_name {
                             check_name(&target_func.name, qualified_name, true)
                         } else {
                             check_name(&target_func.name, &method_name, false)
                         };
                         if matched {
-                            resolved_target = Some((imp.module_id, imp.function));
+                            resolved_target = Some((imp.module_id, target_func_idx));
                             break;
                         }
                     }
@@ -258,9 +266,15 @@ impl<'a> VirtualMachine<'a> {
                         .collect::<Vec<_>>();
                     if let Ok(link) = self.graph.resolve_imports(resolution_module_id) {
                         for imp in &link.imports {
+                            let target_func_idx = match &imp.kind {
+                                galfus_bytecode::graph_resolver::ResolvedImportKind::Function(
+                                    f,
+                                ) => *f,
+                                _ => continue,
+                            };
                             let target_image = &self.graph.get(imp.module_id).unwrap().module;
                             available.push(
-                                target_image.functions[imp.function.raw() as usize]
+                                target_image.functions[target_func_idx.raw() as usize]
                                     .name
                                     .clone(),
                             );
@@ -347,7 +361,11 @@ impl<'a> VirtualMachine<'a> {
                             .imports
                             .get(import_idx)
                             .ok_or(VmError::FunctionOutOfBounds { index: func_idx })?;
-                        (import.module_id, import.function)
+                        let func = match &import.kind {
+                            galfus_bytecode::graph_resolver::ResolvedImportKind::Function(f) => *f,
+                            _ => return Err(VmError::FunctionOutOfBounds { index: func_idx }),
+                        };
+                        (import.module_id, func)
                     };
 
                 let target_image = &self.graph.get(target_module_id).unwrap().module;

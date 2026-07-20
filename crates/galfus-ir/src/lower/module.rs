@@ -71,7 +71,7 @@ pub fn lower_module(
             let func_idx = ctx.function_map[&mir_func.id];
             exports.push(ExportSlot {
                 symbol_name: mir_func.name.clone(),
-                func_idx,
+                kind: ExportKind::Function(func_idx),
             });
         }
     }

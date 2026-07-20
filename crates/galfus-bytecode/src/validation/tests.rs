@@ -215,7 +215,7 @@ fn test_export_function_out_of_bounds() {
     let mut image = create_dummy_module(vec![Instruction::Ret { src: Reg(0) }]);
     image.exports.push(ExportSlot {
         symbol_name: "compute".to_string(),
-        func_idx: FuncIdx(10),
+        kind: crate::ExportKind::Function(FuncIdx(10)),
     });
     let res = validate_bytecode_module(&image);
     assert!(res.is_err());

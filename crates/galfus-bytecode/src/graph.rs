@@ -168,20 +168,41 @@ impl BytecodeGraph {
             }
             for function in &node.module.functions {
                 for instruction in &function.instructions {
-                    let owner = match instruction {
-                        crate::instruction::Instruction::LoadGlobal { module_id, .. }
-                        | crate::instruction::Instruction::StoreGlobal { module_id, .. } => {
-                            Some(*module_id)
+                    let owner_global = match instruction {
+                        crate::instruction::Instruction::LoadGlobal {
+                            module_id,
+                            global_idx,
+                            ..
                         }
+                        | crate::instruction::Instruction::StoreGlobal {
+                            module_id,
+                            global_idx,
+                            ..
+                        } => Some((*module_id, *global_idx)),
                         _ => None,
                     };
-                    if let Some(owner) = owner
-                        && !self.modules.contains_key(&owner)
-                    {
-                        return Err(BytecodeGraphValidationError::MissingGlobalModule {
-                            importer: *id,
-                            owner,
-                        });
+                    if let Some((owner, global_idx)) = owner_global {
+                        if owner != *id {
+                            if let Some(owner_node) = self.modules.get(&owner) {
+                                let is_exported = owner_node.module.exports.iter().any(|e| {
+                                    matches!(e.kind, crate::ExportKind::Global(idx) if idx == global_idx)
+                                });
+                                if !is_exported {
+                                    return Err(
+                                        BytecodeGraphValidationError::MissingImportedExport {
+                                            importer: *id,
+                                            module_path: owner_node.path.as_str().to_string(),
+                                            symbol_name: format!("global_{}", global_idx.raw()),
+                                        },
+                                    );
+                                }
+                            } else {
+                                return Err(BytecodeGraphValidationError::MissingGlobalModule {
+                                    importer: *id,
+                                    owner,
+                                });
+                            }
+                        }
                     }
                 }
             }
