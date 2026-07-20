@@ -75,7 +75,7 @@ fn test_mir_builder_phase4() {
     let mut found_drops = 0;
     fn count_drops(func: &MirFunction, found_drops: &mut usize) {
         for block in &func.blocks {
-            for inst in &block.instructions {
+            for (inst, _) in &block.instructions {
                 if matches!(inst, Instruction::Drop(_)) {
                     *found_drops += 1;
                 }
@@ -131,7 +131,7 @@ fn test_mir_lowering_basic() {
     );
 
     let mir_module = MirBuilder::new(&graph, &type_result, code).build();
-    let module_image = lower_module(&mir_module, &type_result, &graph, code);
+    let (module_image, _) = lower_module(&mir_module, &type_result, &graph, code);
 
     // Verify bytecode module metadata
     assert!(!module_image.functions.is_empty());
@@ -185,7 +185,7 @@ fn test_mir_lowering_defaults_integer_constants_to_int32() {
     );
 
     let mir_module = MirBuilder::new(&graph, &type_result, code).build();
-    let module_image = lower_module(&mir_module, &type_result, &graph, code);
+    let (module_image, _) = lower_module(&mir_module, &type_result, &graph, code);
 
     assert!(
         module_image
@@ -253,7 +253,7 @@ fn test_mir_lowering_advanced() {
     );
 
     let mir_module = MirBuilder::new(&graph, &type_result, code).build();
-    let module_image = lower_module(&mir_module, &type_result, &graph, code);
+    let (module_image, _) = lower_module(&mir_module, &type_result, &graph, code);
 
     // Verify functions
     assert!(!module_image.functions.is_empty());
