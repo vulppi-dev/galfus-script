@@ -1,7 +1,7 @@
 mod module_graph;
 
 use galfus_bytecode::BytecodeModule;
-use galfus_compiler::CompiledBytecodeModule;
+use galfus_bytecode::graph::CompiledBytecodeModule;
 use galfus_core::ModuleId;
 use galfus_host::Providers;
 use galfus_vm::{HeapObject, VirtualMachine, VmPanic, VmValue};

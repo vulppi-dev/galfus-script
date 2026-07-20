@@ -160,6 +160,7 @@ dependencies = [
 name = "galfus-bytecode"
 version = "0.0.0"
 dependencies = [
+ "galfus-core",
  "indexmap",
  "thiserror",
 ]
@@ -279,6 +280,7 @@ name = "galfus-workspace"
 version = "0.0.0"
 dependencies = [
  "galfus-builtins",
+ "galfus-bytecode",
  "galfus-compiler",
  "galfus-core",
  "galfus-frontend",

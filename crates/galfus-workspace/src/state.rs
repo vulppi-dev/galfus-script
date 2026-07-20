@@ -1,4 +1,4 @@
-use galfus_compiler::CompiledModuleGraph;
+use galfus_bytecode::BytecodeGraph;
 use galfus_core::{DiagnosticBag, ModuleId, Revision, SemanticRevision};
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -61,6 +61,51 @@ pub enum RunBlocked {
     RuntimeError(String),
 }
 
+pub struct SourceState {
+    pub store: crate::source_store::SourceStore,
+    pub revision: Revision,
+    pub dirty_sources: HashSet<galfus_core::ModulePath>,
+    pub removed_modules: Vec<ModuleId>,
+}
+
+impl SourceState {
+    pub fn new() -> Self {
+        Self {
+            store: crate::source_store::SourceStore::new(),
+            revision: Revision::new(1),
+            dirty_sources: HashSet::new(),
+            removed_modules: Vec::new(),
+        }
+    }
+}
+
+pub struct SemanticState {
+    pub check_state: CheckState,
+}
+
+impl SemanticState {
+    pub fn new() -> Self {
+        Self {
+            check_state: CheckState::Dirty {
+                current_revision: Revision::new(1),
+                previous_checked_revision: None,
+            },
+        }
+    }
+}
+
+pub struct BytecodeState {
+    pub compile_state: CompileState,
+}
+
+impl BytecodeState {
+    pub fn new() -> Self {
+        Self {
+            compile_state: CompileState::Missing,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum CompileState {
     /// No compilation has ever been attempted.
@@ -68,13 +113,13 @@ pub enum CompileState {
     /// A previous compiled graph exists but is stale (check result changed).
     Stale {
         semantic_revision: SemanticRevision,
-        graph: Arc<CompiledModuleGraph>,
+        graph: Arc<BytecodeGraph>,
     },
     /// A compiled graph is available and up-to-date with the last check.
     Ready {
         semantic_revision: SemanticRevision,
         /// The compiled module graph produced by the last successful compile.
-        graph: Arc<CompiledModuleGraph>,
+        graph: Arc<BytecodeGraph>,
     },
     /// The last compilation attempt failed.
     Failed {
@@ -88,7 +133,7 @@ impl CompileState {
         matches!(self, Self::Ready { .. })
     }
 
-    pub fn graph(&self) -> Option<&Arc<CompiledModuleGraph>> {
+    pub fn graph(&self) -> Option<&Arc<BytecodeGraph>> {
         match self {
             Self::Ready { graph, .. } | Self::Stale { graph, .. } => Some(graph),
             _ => None,

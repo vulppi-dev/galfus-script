@@ -4,6 +4,8 @@ pub use validation::*;
 pub mod instruction;
 pub mod validation;
 
+pub use graph::{BytecodeGraph, CompiledBytecodeModule, CompiledImportEdge};
+
 // =========================================================================
 // Image Value Model
 // =========================================================================
@@ -166,3 +168,4 @@ pub struct BytecodeModule {
     pub exports: Vec<ExportSlot>,
     pub init_func_idx: Option<FuncIdx>,
 }
+pub mod graph;

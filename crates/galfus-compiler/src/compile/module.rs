@@ -13,12 +13,12 @@ use galfus_bytecode::{
 };
 use std::collections::{HashMap, HashSet};
 
-use crate::CompiledBytecodeModule;
 use crate::compile::{
     context::MyWorkspaceContext,
     globals::{image_local_count, rewrite_global_indices},
 };
 use crate::input::CompiledModule;
+use galfus_bytecode::graph::CompiledBytecodeModule;
 
 /// Compile all modules in `modules`, each producing its own
 /// `BytecodeModule` with imports and exports declared.

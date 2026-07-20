@@ -24,7 +24,7 @@ fn compiled_image(id: ModuleId, revision: SemanticRevision) -> CompiledBytecodeM
 fn graph_keys_images_and_edges_by_stable_module_id() {
     let main = ModuleId::new(41);
     let utilities = ModuleId::new(7);
-    let mut graph = CompiledModuleGraph::new();
+    let mut graph = BytecodeGraph::new();
 
     graph.upsert(compiled_image(main, SemanticRevision::new(3)));
     graph.upsert(compiled_image(utilities, SemanticRevision::new(2)));

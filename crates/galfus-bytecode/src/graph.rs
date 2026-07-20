@@ -1,4 +1,4 @@
-use galfus_bytecode::BytecodeModule;
+use crate::BytecodeModule;
 use galfus_core::{ModuleId, ModulePath, SemanticRevision};
 use std::collections::HashMap;
 
@@ -54,12 +54,12 @@ pub struct CompiledImportEdge {
 /// modules can be upserted independently when the compiler detects that only a
 /// subset of modules changed (incremental compilation — Phase 10).
 #[derive(Debug, Clone, Default)]
-pub struct CompiledModuleGraph {
+pub struct BytecodeGraph {
     modules: HashMap<ModuleId, CompiledBytecodeModule>,
     edges: Vec<CompiledImportEdge>,
 }
 
-impl CompiledModuleGraph {
+impl BytecodeGraph {
     pub fn new() -> Self {
         Self::default()
     }

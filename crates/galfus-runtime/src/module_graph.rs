@@ -1,8 +1,8 @@
+use galfus_bytecode::graph::CompiledBytecodeModule;
 use galfus_bytecode::{
     BytecodeModule, Constant, ConstantPool, ExportSlot, ImageFunction, ImageType,
     instruction::{ChoiceLayoutIdx, ConstIdx, FuncIdx, Instruction, Reg, StructLayoutIdx, TypeIdx},
 };
-use galfus_compiler::CompiledBytecodeModule;
 use galfus_core::{ModuleId, ModulePath};
 use std::collections::{HashMap, HashSet};
 
