@@ -1,14 +1,11 @@
 # galfus-runtime
 
-`galfus-runtime` defines the execution environment, module registration, loading boundaries, and concurrency (logical thread) tracking.
+`galfus-runtime` defines the execution environment, module state, and execution context mapping over the `BytecodeGraph`.
 
 ## Responsibilities
 
-- **ModuleRegistry**: Tracks active loaded modules and their references in the runtime.
-- **RuntimeLoader**: Manages loading of `ModuleImage` formats into the registry.
-- **LogicalThread**: Represents a virtual thread of execution, state, and concurrency tracking.
-- **Runtime Execution Context**: Aggregates registries and the optional host providers supplied for an execution.
+- **Runtime Execution State**: Maintains global variables, module initialization status, and the runtime heap.
+- **Runtime Context**: Aggregates the `BytecodeGraph` and the optional host providers supplied for an execution.
+- **Host Integration**: Receives `Providers` from the workspace and routes capability requests to the host platform.
 
-The runtime does not select a target or construct platform adapters. It passes
-the optional providers received from `galfus-workspace` to the VM only when an
-entry is executed.
+The runtime does not copy, rebuild, or deduplicate the `BytecodeGraph`. It merely maintains the live execution state associated with it.

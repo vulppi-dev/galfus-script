@@ -24,19 +24,16 @@ than source text or syntax-only output.
 
 ## Compiler boundary
 
-`CompiledModule` is the compiler input boundary for one checked semantic
-module. The compiler produces one `CompiledModuleImage` per module, preserving
-its `ModuleId`, `ModulePath`, and source `SemanticRevision` alongside the
-`ModuleImage`. `CompiledModuleGraph` owns those images and dependency edges;
-it supports upsert and removal, so unchanged images remain cached.
+The compiler consumes the `SemanticGraph` delta and produces a `BytecodeGraphTransaction`.
+This transaction contains inserted, replaced, or removed `BytecodeModule` values.
+The transaction is validated and committed atomically to produce a new `BytecodeGraph` snapshot.
+The `BytecodeGraph` is the single canonical executable graph.
 
 ## Runtime boundary
 
-`RuntimeModuleGraph` accepts `CompiledModuleImage` values with `load` and
-removes them with `unload`. It resolves image import slots by `ModuleId` and
-module path, computes dependency-safe initialization order, and links the
-reachable images only when executing an entry. The runtime never performs
-parsing, semantic checking, or compilation.
+The runtime consumes an `Arc<BytecodeGraph>` directly.
+It maintains execution state (such as globals and module initialization status) but does not rebuild, copy, or duplicate the graph.
+The runtime never performs parsing, semantic checking, or compilation, and there is no separate runtime module graph.
 
 ## Host-provider boundary
 
