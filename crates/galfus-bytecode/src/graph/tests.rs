@@ -1,5 +1,6 @@
 use super::*;
 use crate::{BytecodeModule, ConstantPool, ImportSlot};
+use std::collections::HashMap;
 
 fn compiled_module(id: ModuleId, revision: SemanticRevision) -> BytecodeNode {
     BytecodeNode {
@@ -134,4 +135,16 @@ fn apply_rejects_invalid_imports_without_changing_the_snapshot() {
     ));
     assert_eq!(graph.version(), 0);
     assert!(graph.is_empty());
+}
+
+#[test]
+fn execution_metadata_resolves_the_span_for_an_instruction() {
+    let function = crate::instruction::FuncIdx(3);
+    let span = galfus_core::Span::new(galfus_core::SourceId::new(9), 18, 27);
+    let metadata = ExecutionMetadata {
+        spans: HashMap::from([(function, HashMap::from([(4, span)]))]),
+    };
+
+    assert_eq!(metadata.span_for(function, 4), Some(span));
+    assert_eq!(metadata.span_for(function, 5), None);
 }

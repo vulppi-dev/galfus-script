@@ -222,18 +222,20 @@ pub fn format_panic(graph: &galfus_bytecode::BytecodeGraph, panic: &VmPanic) -> 
                 .map(|f| f.name.as_str())
                 .unwrap_or("<unknown>");
 
-            // Check metadata if available
-            let mut location_str = format!("PC {}", frame.pc);
-
-            // Currently ExecutionMetadata is not populated, but we prepare for it
-            if let Some(metadata) = &module.metadata
-                && let Some(func_spans) = metadata.spans.get(&frame.func_idx)
-                && let Some(span) = func_spans.get(&frame.pc)
-            {
-                // Assuming source file resolution would be passed in,
-                // for now we just show the raw span info or we can ignore it.
-                location_str = format!("PC {}, Span {:?}", frame.pc, span);
-            }
+            let location_str = module
+                .metadata
+                .as_ref()
+                .and_then(|metadata| metadata.span_for(frame.func_idx, frame.instruction_offset))
+                .map(|span| {
+                    format!(
+                        "instruction {} at source#{}:{}..{}",
+                        frame.instruction_offset,
+                        span.source_id().raw(),
+                        span.start(),
+                        span.end()
+                    )
+                })
+                .unwrap_or_else(|| format!("instruction {}", frame.instruction_offset));
 
             writeln!(
                 &mut out,
@@ -247,8 +249,8 @@ pub fn format_panic(graph: &galfus_bytecode::BytecodeGraph, panic: &VmPanic) -> 
         } else {
             writeln!(
                 &mut out,
-                "  #{}: Module {:?} Func {:?} (at PC {})",
-                i, frame.module_id, frame.func_idx, frame.pc
+                "  #{}: Module {:?} Func {:?} (at instruction {})",
+                i, frame.module_id, frame.func_idx, frame.instruction_offset
             )
             .unwrap();
         }

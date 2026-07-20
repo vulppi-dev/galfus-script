@@ -97,6 +97,7 @@ If a provider is not supplied, related builtin calls will fail deterministically
 ## 8. Execution Metadata
 
 Each `BytecodeNode` may contain optional `ExecutionMetadata` with instruction
-spans. Panic frames always contain module ID, function index, and instruction
-offset; the runtime formats them and uses spans when they are available.
+spans. Panic frames always contain module ID, function index, and the offset of
+the instruction that failed; the runtime formats them and uses spans when they
+are available.
 Function-symbol and source-path mappings are planned metadata extensions.

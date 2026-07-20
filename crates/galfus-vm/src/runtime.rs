@@ -235,7 +235,7 @@ impl<'a> VirtualMachine<'a> {
                     stack_trace.push(StackFrameInfo {
                         module_id: frame.module_id,
                         func_idx: frame.func_idx,
-                        pc: frame.pc,
+                        instruction_offset: frame.pc.saturating_sub(1),
                     });
                 }
                 Err(VmPanic {

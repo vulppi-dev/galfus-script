@@ -12,3 +12,7 @@ a borrowed `BytecodeGraph`.
 The runtime does not copy, rebuild, or deduplicate the `BytecodeGraph`.
 Current VM state includes a global-slot vector and initialization flag for each
 module, plus the heap and call frames.
+
+When available, `ExecutionMetadata` maps a function instruction offset to its
+source span. Panics always retain the module ID, function index, and instruction
+offset; formatting enriches them with the optional source span.

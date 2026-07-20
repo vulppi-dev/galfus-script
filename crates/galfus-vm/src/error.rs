@@ -65,7 +65,7 @@ pub enum VmError {
 pub struct StackFrameInfo {
     pub module_id: galfus_core::ModuleId,
     pub func_idx: FuncIdx,
-    pub pc: usize,
+    pub instruction_offset: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -81,8 +81,8 @@ impl std::fmt::Display for VmPanic {
         for (i, frame) in self.stack_trace.iter().enumerate() {
             writeln!(
                 f,
-                "  #{}: Module {:?} Func {:?} (at PC {})",
-                i, frame.module_id, frame.func_idx, frame.pc
+                "  #{}: Module {:?} Func {:?} (at instruction {})",
+                i, frame.module_id, frame.func_idx, frame.instruction_offset
             )?;
         }
         Ok(())

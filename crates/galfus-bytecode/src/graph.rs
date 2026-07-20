@@ -11,6 +11,19 @@ pub struct ExecutionMetadata {
     pub spans: HashMap<crate::instruction::FuncIdx, HashMap<usize, galfus_core::Span>>,
 }
 
+impl ExecutionMetadata {
+    pub fn span_for(
+        &self,
+        function: crate::instruction::FuncIdx,
+        instruction_offset: usize,
+    ) -> Option<galfus_core::Span> {
+        self.spans
+            .get(&function)
+            .and_then(|spans| spans.get(&instruction_offset))
+            .copied()
+    }
+}
+
 /// The compiled artifact for one source module.
 #[derive(Debug, Clone)]
 pub struct BytecodeNode {
