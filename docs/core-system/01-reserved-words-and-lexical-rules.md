@@ -75,7 +75,7 @@ throw
 commit
 ```
 
-`commit` is not a keyword because transaction commit is implicit when a transaction block completes without `rollback`.
+
 
 ## 1.3 Primitive Type Names
 

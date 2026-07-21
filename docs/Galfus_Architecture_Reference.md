@@ -56,7 +56,7 @@ There is no global shared namespace. A variable without `export` belongs strictl
 It contains multiple `BytecodeModule`s and their dependencies.
 It is the only executable graph. The runtime does not rebuild or duplicate this graph.
 
-The compiler produces a `BytecodeGraphTransaction` for changed modules. The
+The compiler produces a updated modules for changed modules. The
 workspace applies it only to the declared graph version, validates the complete
 result, and then publishes the next snapshot. Failed or stale transactions
 leave the prior snapshot unchanged.

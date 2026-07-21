@@ -1,6 +1,6 @@
-# galfus-host
+# galfus-contract
 
-`galfus-host` defines the optional host integration contracts used by a Galfus
+`galfus-contract` defines the optional host integration contracts used by a Galfus
 execution. It contains no target selection and no concrete platform adapter.
 
 ## Responsibilities

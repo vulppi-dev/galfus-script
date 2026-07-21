@@ -28,7 +28,7 @@ The compiler consumes semantic modules and produces a versioned
 `BytecodeGraphTransaction` containing changed modules, removals, and dependency
 edges. The workspace applies it only when its base version matches, validates
 the complete resulting graph, and publishes the next snapshot atomically.
-Failed or stale transactions retain the prior snapshot.
+
 The `BytecodeGraph` is the single canonical executable graph.
 
 ## Runtime boundary
@@ -41,7 +41,7 @@ The runtime never performs parsing, semantic checking, or compilation, and there
 
 ## Host-provider boundary
 
-`galfus-host` defines optional host contracts independently of the workspace,
+`galfus-contract` defines optional host contracts independently of the workspace,
 runtime, and VM. A host constructs `Providers` with concrete implementations
 and composes `Runtime::new(&graph, providers)` directly, or passes them to
 `Workspace::run` when source management is needed. The workspace remains the
