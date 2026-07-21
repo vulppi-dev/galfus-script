@@ -489,12 +489,30 @@ impl VirtualMachine {
                     msg: msg_val,
                 });
             }
-            Instruction::Spawn { dest, func, arg } => {
+            Instruction::CreateThread { dest, func, key } => {
                 let func_val = thread.read_reg(func)?.clone();
-                let arg_val = thread.read_reg(arg)?.clone();
-                return Ok(ExecutionStep::Spawn {
+                let key_val = thread.read_reg(key)?.clone();
+                return Ok(ExecutionStep::CreateThread {
                     dest,
                     func: func_val,
+                    key: key_val,
+                });
+            }
+
+            Instruction::StartThread { dest, thread_id, arg } => {
+                let tid_val = match thread.read_reg(thread_id)? {
+                    Value::Int64(id) => id as u64,
+                    _ => {
+                        return Err(VmError::TypeMismatch {
+                            expected: "Int64".into(),
+                            found: "other".into(),
+                        })
+                    }
+                };
+                let arg_val = thread.read_reg(arg)?.clone();
+                return Ok(ExecutionStep::StartThread {
+                    dest,
+                    thread_id: tid_val,
                     arg: arg_val,
                 });
             }

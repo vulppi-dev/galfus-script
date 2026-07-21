@@ -1,15 +1,23 @@
 use galfus_contract::{RunnableTask, ThreadExecutor, ThreadResult};
 use std::collections::VecDeque;
-use std::sync::Mutex;
+use std::sync::{
+    Mutex,
+    atomic::{AtomicU64, Ordering},
+};
+
+#[cfg(test)]
+mod tests;
 
 pub struct SingleThreadExecutor {
     queue: Mutex<VecDeque<Box<dyn RunnableTask>>>,
+    next_thread_id: AtomicU64,
 }
 
 impl SingleThreadExecutor {
     pub fn new() -> Self {
         Self {
             queue: Mutex::new(VecDeque::new()),
+            next_thread_id: AtomicU64::new(1),
         }
     }
 
@@ -46,6 +54,10 @@ impl SingleThreadExecutor {
 }
 
 impl ThreadExecutor for SingleThreadExecutor {
+    fn allocate_thread_id(&self) -> u64 {
+        self.next_thread_id.fetch_add(1, Ordering::Relaxed)
+    }
+
     fn spawn(&self, task: Box<dyn RunnableTask>) {
         self.queue.lock().unwrap().push_back(task);
     }

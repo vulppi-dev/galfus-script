@@ -244,6 +244,66 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                             if name.starts_with("__builtin_") {
                                 let native_name = &name["__builtin_".len()..];
 
+                                if native_name == "create_thread" {
+                                    let func_reg = self.alloc_temp();
+                                    self.load_operand_to(&args[0], func_reg);
+                                    let key_reg = self.alloc_temp();
+                                    self.load_operand_to(&args[1], key_reg);
+                                    
+                                    self.instructions.push(Instruction::CreateThread {
+                                        dest: Reg(destination.raw() as u16),
+                                        func: func_reg,
+                                        key: key_reg,
+                                    });
+                                    self.free_temps(2);
+                                    continue;
+                                }
+
+                                if native_name == "spawn_thread" {
+                                    let thread_id_reg = self.alloc_temp();
+                                    self.load_operand_to(&args[0], thread_id_reg);
+                                    let arg_reg = self.alloc_temp();
+                                    self.load_operand_to(&args[1], arg_reg);
+                                    
+                                    self.instructions.push(Instruction::StartThread {
+                                        dest: Reg(destination.raw() as u16),
+                                        thread_id: thread_id_reg,
+                                        arg: arg_reg,
+                                    });
+                                    self.free_temps(2);
+                                    continue;
+                                }
+
+                                if native_name == "send" {
+                                    let target_reg = self.alloc_temp();
+                                    self.load_operand_to(&args[0], target_reg);
+                                    let msg_reg = self.alloc_temp();
+                                    self.load_operand_to(&args[1], msg_reg);
+                                    
+                                    self.instructions.push(Instruction::Send {
+                                        dest: Reg(destination.raw() as u16),
+                                        target: target_reg,
+                                        msg: msg_reg,
+                                    });
+                                    self.free_temps(2);
+                                    continue;
+                                }
+
+                                if native_name == "receive" {
+                                    let sender_reg = self.alloc_temp();
+                                    self.load_operand_to(&args[0], sender_reg);
+                                    let timeout_reg = self.alloc_temp();
+                                    self.load_operand_to(&args[1], timeout_reg);
+                                    
+                                    self.instructions.push(Instruction::ReceiveFilter {
+                                        dest: Reg(destination.raw() as u16),
+                                        sender: sender_reg,
+                                        timeout: timeout_reg,
+                                    });
+                                    self.free_temps(2);
+                                    continue;
+                                }
+
                                 let start_reg = if args.is_empty() {
                                     Reg(0) // Dummy if no args
                                 } else {
@@ -289,6 +349,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                         }
 
                         let func_idx = *self.ctx.function_map.get(func).unwrap_or_else(|| {
+                                eprintln!("Missing func: {:?}, available map: {:?}", func, self.ctx.function_map);
                                 panic!(
                                     "missing lowered function mapping for {:?} while emitting {} ({:?})",
                                     func, self.func.name, self.func.id

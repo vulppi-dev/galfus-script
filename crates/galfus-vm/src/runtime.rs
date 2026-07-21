@@ -33,9 +33,14 @@ pub enum ExecutionStep {
         target: u64,
         msg: Value,
     },
-    Spawn {
+    CreateThread {
         dest: Reg,
         func: Value,
+        key: Value,
+    },
+    StartThread {
+        dest: Reg,
+        thread_id: u64,
         arg: Value,
     },
 }
@@ -290,8 +295,11 @@ impl VirtualMachine {
                         timeout,
                     });
                 }
-                Ok(ExecutionStep::Spawn { dest, func, arg }) => {
-                    return Ok(ExecutionStep::Spawn { dest, func, arg });
+                Ok(ExecutionStep::CreateThread { dest, func, key }) => {
+                    return Ok(ExecutionStep::CreateThread { dest, func, key });
+                }
+                Ok(ExecutionStep::StartThread { dest, thread_id, arg }) => {
+                    return Ok(ExecutionStep::StartThread { dest, thread_id, arg });
                 }
                 Err(err) => {
                     let mut stack_trace = Vec::new();
@@ -371,7 +379,8 @@ impl VirtualMachine {
             | Instruction::RetNull
             | Instruction::Send { .. }
             | Instruction::ReceiveFilter { .. }
-            | Instruction::Spawn { .. }
+            | Instruction::CreateThread { .. }
+            | Instruction::StartThread { .. }
             | Instruction::Panic { .. } => self.execute_control_instruction(thread, instr)?,
 
             Instruction::AllocLocal { .. }
@@ -408,7 +417,8 @@ impl VirtualMachine {
                 ExecutionStep::Blocked => return Err(VmError::UnresolvedHostBlocked),
                 ExecutionStep::SendMsg { .. } => return Err(VmError::UnresolvedHostBlocked),
                 ExecutionStep::ReceiveFilter { .. } => return Err(VmError::UnresolvedHostBlocked),
-                ExecutionStep::Spawn { .. } => return Err(VmError::UnresolvedHostBlocked),
+                ExecutionStep::CreateThread { .. } => return Err(VmError::UnresolvedHostBlocked),
+                ExecutionStep::StartThread { .. } => return Err(VmError::UnresolvedHostBlocked),
             }
         }
     }

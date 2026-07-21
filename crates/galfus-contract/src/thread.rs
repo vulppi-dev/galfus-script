@@ -26,6 +26,11 @@ pub enum ThreadResult {
 
 /// The Host must implement this trait to dictate how tasks are scheduled.
 pub trait ThreadExecutor: Send + Sync {
+    /// Allocates a unique, non-zero identity for a virtual thread.
+    ///
+    /// Implementations must never reuse an allocated value during one execution.
+    fn allocate_thread_id(&self) -> u64;
+
     /// The Runtime calls this whenever a new thread is born or "woken up".
     fn spawn(&self, task: Box<dyn RunnableTask>);
 }

@@ -333,9 +333,16 @@ pub fn validate_bytecode_module(
                 } => {
                     // Requires no validation
                 }
-                Instruction::Spawn {
+                Instruction::CreateThread {
                     dest: _,
                     func: _,
+                    key: _,
+                } => {
+                    // Requires no validation
+                }
+                Instruction::StartThread {
+                    dest: _,
+                    thread_id: _,
                     arg: _,
                 } => {
                     // Requires no validation

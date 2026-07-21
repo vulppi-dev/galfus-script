@@ -260,9 +260,14 @@ pub enum Instruction {
         target: Reg,
         msg: Reg,
     },
-    Spawn {
+    CreateThread {
         dest: Reg,
         func: Reg,
+        key: Reg,
+    },
+    StartThread {
+        dest: Reg, // To store success/fail status
+        thread_id: Reg,
         arg: Reg,
     },
     Panic {

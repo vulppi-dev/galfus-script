@@ -95,8 +95,14 @@ impl Runtime {
     }
 
     /// Cria uma nova thread a partir de um módulo e função de entrada
-    pub fn spawn_thread(&mut self, thread: VirtualThread) -> ThreadId {
-        let id = self.registry.register(thread);
+    pub fn spawn_thread(
+        &mut self,
+        thread: VirtualThread,
+        executor: &dyn galfus_contract::ThreadExecutor,
+    ) -> ThreadId {
+        let id = ThreadId::from_executor(executor.allocate_thread_id())
+            .expect("thread executor returned the reserved thread ID 0");
+        self.registry.register(id, thread);
         self.runnable.enqueue(id);
         id
     }
@@ -175,7 +181,7 @@ impl Runtime {
         vm.prepare_function(&mut thread, module_id, entry_idx, vec![entry_args])
             .map_err(RuntimeError::VmPanic)?;
 
-        let main_thread_id = self.spawn_thread(thread);
+        let main_thread_id = self.spawn_thread(thread, executor.as_ref());
         let main_thread = self.registry.take(main_thread_id).unwrap();
 
         let task = Box::new(crate::task::RuntimeTask {

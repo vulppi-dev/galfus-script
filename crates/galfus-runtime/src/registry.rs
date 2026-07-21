@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod tests;
+
 use galfus_vm::VmValue;
 use galfus_vm::thread::VirtualThread;
 use std::collections::HashMap;
@@ -5,13 +8,26 @@ use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct ThreadId(pub u64);
+pub struct ThreadId(u64);
+
+impl ThreadId {
+    pub(crate) fn from_executor(value: u64) -> Option<Self> {
+        (value != 0).then_some(Self(value))
+    }
+
+    pub(crate) fn from_raw(value: u64) -> Option<Self> {
+        Self::from_executor(value)
+    }
+
+    pub(crate) fn raw(self) -> u64 {
+        self.0
+    }
+}
 
 pub struct ThreadRegistry {
     threads: HashMap<ThreadId, VirtualThread>,
     mailboxes: HashMap<ThreadId, Arc<Mutex<VecDeque<(u64, VmValue)>>>>,
     keys: HashMap<String, ThreadId>,
-    next_id: u64,
 }
 
 impl ThreadRegistry {
@@ -20,14 +36,11 @@ impl ThreadRegistry {
             threads: HashMap::new(),
             mailboxes: HashMap::new(),
             keys: HashMap::new(),
-            next_id: 1, // Start at 1 to reserve 0 or just for clarity
         }
     }
 
-    pub fn register(&mut self, thread: VirtualThread) -> ThreadId {
+    pub fn register(&mut self, id: ThreadId, thread: VirtualThread) {
         let mailbox = thread.mailbox.clone();
-        let id = ThreadId(self.next_id);
-        self.next_id += 1;
 
         if let Some(key) = &thread.key {
             self.keys.insert(key.clone(), id);
@@ -35,7 +48,6 @@ impl ThreadRegistry {
 
         self.threads.insert(id, thread);
         self.mailboxes.insert(id, mailbox);
-        id
     }
 
     pub fn register_with_id(&mut self, id: ThreadId, thread: VirtualThread) {

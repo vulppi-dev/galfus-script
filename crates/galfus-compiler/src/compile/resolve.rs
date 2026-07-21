@@ -24,45 +24,70 @@ pub(super) fn resolve_import_target(
     let module = &modules[mod_idx];
     let resolution = module.graph().resolution()?;
     let symbol_id = SymbolId::new(func_id.raw());
-    let node_id = path_call_target_node(func_id).unwrap_or_else(|| NodeId::new(func_id.raw()));
+    
+    let mut import_symbol = symbol_id;
 
-    if let Some(syntax_node) = module.graph().syntax().node(node_id)
-        && syntax_node.kind() == SyntaxNodeKind::PathExpression
-        && let Some(root_node) = syntax_node.first_child()
-    {
-        let root_sym = resolution.reference_symbol(root_node);
-        if let Some(root_symbol) = root_sym {
-            let import_found = resolution
-                .imports()
-                .iter()
-                .find(|imp| imp.local_symbol() == root_symbol);
-            if let Some(import) = import_found
-                && let Some(member_node) = syntax_node.child(1)
-            {
-                let syntax = module.graph().syntax();
-                let member_node_data = syntax.node(member_node)?;
-                let member_span = member_node_data.span();
-                let member_name = module.source().slice(member_span)?;
-                let target_idx = import_target_index(modules, mod_idx, import.source());
-                if let Some(target_idx) = target_idx {
-                    let target_mod = &modules[target_idx];
-                    let target_resolution = target_mod.graph().resolution()?;
-                    for export in target_resolution.exports() {
-                        if export.name() == member_name {
-                            return Some((target_idx, FunctionId::new(export.symbol().raw())));
+    if let Some(node_id) = path_call_target_node(func_id) {
+        if let Some(syntax_node) = module.graph().syntax().node(node_id)
+            && syntax_node.kind() == SyntaxNodeKind::PathExpression
+            && let Some(root_node) = syntax_node.first_child()
+        {
+            let root_sym = resolution.reference_symbol(root_node);
+            if let Some(root_symbol) = root_sym {
+                let import_found = resolution
+                    .imports()
+                    .iter()
+                    .find(|imp| imp.local_symbol() == root_symbol);
+                if let Some(import) = import_found
+                    && let Some(member_node) = syntax_node.child(1)
+                {
+                    let syntax = module.graph().syntax();
+                    let member_node_data = syntax.node(member_node)?;
+                    let member_span = member_node_data.span();
+                    let member_name = module.source().slice(member_span)?;
+                    let target_idx = import_target_index(modules, mod_idx, import.source());
+                    if let Some(target_idx) = target_idx {
+                        let target_mod = &modules[target_idx];
+                        let target_resolution = target_mod.graph().resolution()?;
+                        for export in target_resolution.exports() {
+                            if export.name() == member_name {
+                                return Some((target_idx, FunctionId::new(export.symbol().raw())));
+                            }
                         }
                     }
                 }
             }
         }
-    }
 
-    let import_symbol = module
-        .graph()
-        .syntax()
-        .node(node_id)
-        .and_then(|_| resolution.reference_symbol(node_id))
-        .unwrap_or(symbol_id);
+        if let Some(syntax_node) = module.graph().syntax().node(node_id)
+            && syntax_node.kind() == SyntaxNodeKind::PathExpression
+            && let Some(member_node) = syntax_node.child(1)
+            && let Some(member_node_data) = module.graph().syntax().node(member_node)
+            && let Some(member_name) = module.source().slice(member_node_data.span())
+            && let Some(receiver) = syntax_node.child(0)
+            && let Some(source) = import_source_for_expression(module, receiver)
+            && let Some(target_idx) = import_target_index(modules, mod_idx, source)
+            && let Some(target_resolution) = modules[target_idx].graph().resolution()
+        {
+            let mut candidates = target_resolution.exports().iter().filter_map(|export| {
+                let matches_member = export.name() == member_name
+                    || export.name().ends_with(&format!("::{member_name}"));
+                (export.kind() == SymbolKind::Function && matches_member)
+                    .then_some((target_idx, FunctionId::new(export.symbol().raw())))
+            });
+            let first = candidates.next();
+            if first.is_some() && candidates.next().is_none() {
+                return first;
+            }
+        }
+
+        import_symbol = module
+            .graph()
+            .syntax()
+            .node(node_id)
+            .and_then(|_| resolution.reference_symbol(node_id))
+            .unwrap_or(symbol_id);
+    }
 
     if let Some(import) = resolution
         .imports()
@@ -71,35 +96,12 @@ pub(super) fn resolve_import_target(
         && let Some(imported_name) = import.imported_name()
     {
         let target_idx = import_target_index(modules, mod_idx, import.source())?;
-
         let target_mod = &modules[target_idx];
         let target_resolution = target_mod.graph().resolution()?;
         for export in target_resolution.exports() {
             if export.name() == imported_name {
                 return Some((target_idx, FunctionId::new(export.symbol().raw())));
             }
-        }
-    }
-
-    if let Some(syntax_node) = module.graph().syntax().node(node_id)
-        && syntax_node.kind() == SyntaxNodeKind::PathExpression
-        && let Some(member_node) = syntax_node.child(1)
-        && let Some(member_node_data) = module.graph().syntax().node(member_node)
-        && let Some(member_name) = module.source().slice(member_node_data.span())
-        && let Some(receiver) = syntax_node.child(0)
-        && let Some(source) = import_source_for_expression(module, receiver)
-        && let Some(target_idx) = import_target_index(modules, mod_idx, source)
-        && let Some(target_resolution) = modules[target_idx].graph().resolution()
-    {
-        let mut candidates = target_resolution.exports().iter().filter_map(|export| {
-            let matches_member = export.name() == member_name
-                || export.name().ends_with(&format!("::{member_name}"));
-            (export.kind() == SymbolKind::Function && matches_member)
-                .then_some((target_idx, FunctionId::new(export.symbol().raw())))
-        });
-        let first = candidates.next();
-        if first.is_some() && candidates.next().is_none() {
-            return first;
         }
     }
 
@@ -174,10 +176,14 @@ pub(super) fn import_target_index(
 ) -> Option<usize> {
     let direct_path = galfus_core::ModulePath::new(source)
         .or_else(|| galfus_core::ModulePath::new(format!("{source}.gfs").as_str()));
-    if let Some(target) = direct_path
-        && let Some(index) = modules.iter().position(|module| module.path() == &target)
-    {
-        return Some(index);
+    if let Some(target) = direct_path {
+        if let Some(index) = modules.iter().position(|module| module.path() == &target) {
+            return Some(index);
+        } else {
+            eprintln!("import_target_index: target '{}' not found. Available modules: {:?}", target.as_str(), modules.iter().map(|m| m.path().as_str()).collect::<Vec<_>>());
+        }
+    } else {
+        eprintln!("import_target_index: failed to create ModulePath for source '{}'", source);
     }
 
     let target = galfus_frontend::modules::resolution::resolve_relative_import(

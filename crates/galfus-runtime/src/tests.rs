@@ -113,14 +113,21 @@ fn run_initializes_dependencies_before_the_entry_module() {
 
     struct TestExecutor {
         queue: std::sync::Mutex<std::collections::VecDeque<Box<dyn galfus_contract::RunnableTask>>>,
+        next_thread_id: std::sync::atomic::AtomicU64,
     }
     impl galfus_contract::ThreadExecutor for TestExecutor {
+        fn allocate_thread_id(&self) -> u64 {
+            self.next_thread_id
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+        }
+
         fn spawn(&self, task: Box<dyn galfus_contract::RunnableTask>) {
             self.queue.lock().unwrap().push_back(task);
         }
     }
     let executor = std::sync::Arc::new(TestExecutor {
         queue: std::sync::Mutex::new(std::collections::VecDeque::new()),
+        next_thread_id: std::sync::atomic::AtomicU64::new(1),
     });
 
     let task = Runtime::new(std::sync::Arc::new(graph.clone()), None)

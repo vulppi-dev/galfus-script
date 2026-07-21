@@ -1,5 +1,5 @@
 use crate::queue::BlockedQueue;
-use crate::registry::ThreadRegistry;
+use crate::registry::{ThreadId, ThreadRegistry};
 use galfus_contract::{RunnableTask, ThreadExecutor, ThreadResult};
 use galfus_vm::thread::VirtualThread;
 use galfus_vm::{ExecutionStep, VirtualMachine};
@@ -59,47 +59,78 @@ impl RunnableTask for RuntimeTask {
                     .register_with_id(self.thread_id, self.thread);
                 ThreadResult::Blocked
             }
-            ExecutionStep::Spawn { dest, func, arg } => {
+            ExecutionStep::CreateThread { dest, func, key } => {
                 let mut new_thread = VirtualThread::new();
+                
+                // Store the string key if available
+                if let galfus_vm::VmValue::Object(key_ref) = key {
+                    if let Ok(galfus_vm::HeapObject::Array { elements, .. }) = self.thread.heap.get_object(key_ref) {
+                        let mut string_key = String::new();
+                        let mut is_string = true;
+                        for e in elements {
+                            if let galfus_vm::VmValue::Uint8(b) = e {
+                                string_key.push(*b as char);
+                            } else {
+                                is_string = false;
+                                break;
+                            }
+                        }
+                        if is_string && !string_key.is_empty() {
+                            new_thread.key = Some(string_key);
+                        }
+                    }
+                }
 
+                // Call prepare_function immediately without args so it is ready to execute, but don't spawn it yet
+                if let galfus_vm::VmValue::Function(_) = func {
+                    new_thread.entry_func = Some(func);
+                }
+
+                // We register the thread, but we don't put it in the BlockedQueue or executor yet.
+                let new_id = ThreadId::from_executor(self.executor.allocate_thread_id())
+                    .expect("thread executor returned the reserved thread ID 0");
+                self.registry.lock().unwrap().register(new_id, new_thread);
+                let _ = self.thread.write_reg(dest, galfus_vm::VmValue::Int64(new_id.raw() as i64));
+                
+                ThreadResult::Yielded(self)
+            }
+            ExecutionStep::StartThread { dest, thread_id, arg } => {
+                let mut success = false;
+                
                 // Deep copy the argument to the new thread's heap
-                let copied_arg = galfus_vm::thread::deep_copy_value(
-                    &self.thread.heap,
-                    &mut new_thread.heap,
-                    &arg,
-                )
-                .unwrap_or(galfus_vm::VmValue::Null);
+                let Some(target_id) = ThreadId::from_raw(thread_id) else {
+                    let _ = self.thread.write_reg(dest, galfus_vm::VmValue::Bool(false));
+                    return ThreadResult::Yielded(self);
+                };
 
-                // Prepare the function execution
-                if let galfus_vm::VmValue::Function(func_idx) = func {
-                    // Call prepare_function
-                    let current_module_id = self.thread.call_stack.last().unwrap().module_id;
-                    let _ = self.vm.prepare_function(
-                        &mut new_thread,
-                        current_module_id,
-                        func_idx,
-                        vec![copied_arg],
-                    );
+                if let Some(mut target_thread) = self.registry.lock().unwrap().take(target_id) {
+                    let copied_arg = galfus_vm::thread::deep_copy_value(&self.thread.heap, &mut target_thread.heap, &arg).unwrap_or(galfus_vm::VmValue::Null);
+
+                    if let Some(galfus_vm::VmValue::Function(func_idx)) = target_thread.entry_func.clone() {
+                        let current_module_id = self.thread.call_stack.last().unwrap().module_id;
+                        let _ = self.vm.prepare_function(&mut target_thread, current_module_id, func_idx, vec![copied_arg]);
+                        
+                        self.registry.lock().unwrap().register_with_id(target_id, target_thread);
+                        
+                        if let Some(spawned_thread) = self.registry.lock().unwrap().take(target_id) {
+                            let new_task = Box::new(RuntimeTask {
+                                thread_id: target_id,
+                                thread: spawned_thread,
+                                vm: self.vm.clone(),
+                                registry: self.registry.clone(),
+                                blocked: self.blocked.clone(),
+                                executor: self.executor.clone(),
+                            });
+                            self.executor.spawn(new_task);
+                            success = true;
+                        }
+                    } else {
+                        // Put it back if no function
+                        self.registry.lock().unwrap().register_with_id(target_id, target_thread);
+                    }
                 }
-
-                let new_id = self.registry.lock().unwrap().register(new_thread);
-                let _ = self
-                    .thread
-                    .write_reg(dest, galfus_vm::VmValue::Int64(new_id.0 as i64));
-
-                // Spawn it immediately
-                if let Some(target_thread) = self.registry.lock().unwrap().take(new_id) {
-                    let new_task = Box::new(RuntimeTask {
-                        thread_id: new_id,
-                        thread: target_thread,
-                        vm: self.vm.clone(),
-                        registry: self.registry.clone(),
-                        blocked: self.blocked.clone(),
-                        executor: self.executor.clone(),
-                    });
-                    self.executor.spawn(new_task);
-                }
-
+                
+                let _ = self.thread.write_reg(dest, galfus_vm::VmValue::Bool(success));
                 ThreadResult::Yielded(self)
             }
             ExecutionStep::SendMsg { dest, target, msg } => {
@@ -123,7 +154,7 @@ impl RunnableTask for RuntimeTask {
                                             executor: self.executor.clone(),
                                             vm: self.vm.clone(),
                                         });
-                                        let tid = self.thread_id.0 as usize;
+                                        let tid = self.thread_id.raw() as usize;
                                         self.registry
                                             .lock()
                                             .unwrap()
@@ -141,9 +172,13 @@ impl RunnableTask for RuntimeTask {
                     );
                 }
 
+                let Some(target_id) = ThreadId::from_raw(target) else {
+                    let _ = self.thread.write_reg(dest, galfus_vm::VmValue::Int32(1));
+                    return ThreadResult::Yielded(self);
+                };
+
                 {
                     let mut registry_lock = self.registry.lock().unwrap();
-                    let target_id = crate::registry::ThreadId(target);
 
                     let mut success = false;
 
@@ -159,7 +194,7 @@ impl RunnableTask for RuntimeTask {
                                 .mailbox
                                 .lock()
                                 .unwrap()
-                                .push_back((self.thread_id.0, copied_msg));
+                                .push_back((self.thread_id.raw(), copied_msg));
                             success = true;
                         }
 
@@ -286,7 +321,8 @@ impl galfus_contract::MessageInjector for RuntimeInjector {
     fn inject_system_response(&self, thread_id: usize, response: galfus_contract::HostResponse) {
         let mut registry_lock = self.registry.lock().unwrap();
         if let Some(mut target_thread) =
-            registry_lock.take(crate::registry::ThreadId(thread_id as u64))
+            ThreadId::from_raw(thread_id as u64)
+                .and_then(|thread_id| registry_lock.take(thread_id))
         {
             let val = match response {
                 galfus_contract::HostResponse::Success(v) => {
@@ -302,10 +338,10 @@ impl galfus_contract::MessageInjector for RuntimeInjector {
             self.blocked
                 .lock()
                 .unwrap()
-                .unblock(crate::registry::ThreadId(thread_id as u64));
+                .unblock(ThreadId::from_raw(thread_id as u64).expect("host response thread ID is non-zero"));
 
             let new_task = Box::new(RuntimeTask {
-                thread_id: crate::registry::ThreadId(thread_id as u64),
+                thread_id: ThreadId::from_raw(thread_id as u64).expect("host response thread ID is non-zero"),
                 thread: target_thread,
                 vm: self.vm.clone(),
                 registry: self.registry.clone(),

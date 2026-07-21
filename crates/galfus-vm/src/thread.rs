@@ -6,6 +6,9 @@ use galfus_core::ModuleId;
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
 
+#[cfg(test)]
+mod tests;
+
 pub struct PrivateHeap {
     pub objects: Vec<Option<HeapObject>>,
     pub free_slots: Vec<usize>,
@@ -86,11 +89,29 @@ pub struct VirtualThread {
     pub mailbox: Arc<Mutex<VecDeque<(u64, crate::runtime::Value)>>>,
     pub state: ThreadState,
     pub key: Option<String>,
+    pub entry_func: Option<crate::runtime::Value>,
 }
 
 impl Default for VirtualThread {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl ThreadState {
+    pub fn is_running(self) -> bool {
+        matches!(self, Self::Running)
+    }
+
+    pub fn is_exited(self) -> bool {
+        matches!(self, Self::Exited(_))
+    }
+
+    pub fn exit_reason(self) -> Option<i32> {
+        match self {
+            Self::Exited(code) => Some(code),
+            Self::Created | Self::Running => None,
+        }
     }
 }
 
@@ -104,7 +125,26 @@ impl VirtualThread {
             mailbox: Arc::new(Mutex::new(VecDeque::new())),
             state: ThreadState::Created,
             key: None,
+            entry_func: None,
         }
+    }
+
+    pub fn mark_running(&mut self) -> bool {
+        if self.state != ThreadState::Created {
+            return false;
+        }
+
+        self.state = ThreadState::Running;
+        true
+    }
+
+    pub fn mark_exited(&mut self, code: i32) -> bool {
+        if !self.state.is_running() {
+            return false;
+        }
+
+        self.state = ThreadState::Exited(code);
+        true
     }
 
     pub fn module_state(&self, module_id: ModuleId) -> Option<&RuntimeModuleState> {

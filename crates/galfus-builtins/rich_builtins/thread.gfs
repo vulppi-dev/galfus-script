@@ -1,0 +1,37 @@
+fn __builtin_create_thread(func: fn([[u8]]): i32, key: [u8] | null): i64 { return -1 }
+fn __builtin_get_thread(key: [u8]): i64 { return -1 }
+fn __builtin_spawn_thread(id: i64, args: [[u8]]): bool { return false }
+fn __builtin_send(id: i64, data: [u8]): i32 { return -1 }
+fn __builtin_receive(id: i64, timeout: i32): [u8] | null { return null }
+
+export struct Thread {
+    id: i64,
+    key: [u8] | null
+}
+
+export fn createThread(func: fn([[u8]]): i32, key: [u8] | null = null): Thread {
+    return new(Thread) { 
+        id: __builtin_create_thread(func, key), 
+        key: key 
+    }
+}
+
+export fn getThread(key: [u8]): Thread | null {
+    const id = __builtin_get_thread(key)
+    if id == -1 {
+        return null
+    }
+    return new(Thread) { id: id, key: key }
+}
+
+fn Thread::spawn(self, args: [[u8]] = []): bool {
+    return __builtin_spawn_thread(self.id, args)
+}
+
+fn Thread::send(self, data: [u8]): i32 {
+    return __builtin_send(self.id, data)
+}
+
+fn Thread::tryReceiveMessage(self, timeout: i32): [u8] | null {
+    return __builtin_receive(self.id, timeout)
+}
