@@ -356,8 +356,7 @@ impl VirtualMachine {
             | Instruction::Instanceof { .. } => self.execute_object_instruction(thread, instr)?,
 
             Instruction::Drop { .. }
-            | Instruction::Write { .. }
-            | Instruction::Read { .. }
+            | Instruction::CallNative { .. }
             | Instruction::Len { .. }
             | Instruction::CopyArray { .. } => self.execute_system_instruction(thread, instr)?,
         };

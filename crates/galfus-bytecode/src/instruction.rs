@@ -327,13 +327,12 @@ pub enum Instruction {
         reg: Reg,
     },
 
-    // Category G: Standard I/O
-    Write {
-        src: Reg,
-    },
-    Read {
+    // Category G: Native Integrations
+    CallNative {
         dest: Reg,
-        terminator: Reg,
+        name_const: ConstIdx,
+        args_start: Reg,
+        arg_count: u8,
     },
     Len {
         dest: Reg,

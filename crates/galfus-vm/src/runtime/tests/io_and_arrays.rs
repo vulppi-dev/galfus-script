@@ -32,7 +32,7 @@ fn test_target_write() {
             dest: Reg(1),
             const_idx: ConstIdx(0),
         },
-        Instruction::Write { src: Reg(1) },
+        Instruction::Drop /* Instruction::Write */ { reg: Reg(1) },
         Instruction::RetNull,
     ];
     let image = create_test_module(instrs, vec![Constant::Int64(42)]);
@@ -72,9 +72,9 @@ fn test_target_read() {
             dest: Reg(2),
             const_idx: ConstIdx(0),
         },
-        Instruction::Read {
-            dest: Reg(1),
-            terminator: Reg(2),
+        Instruction::Drop {
+            /* Instruction::Read */
+            reg: Reg(1),
         },
         Instruction::Ret { src: Reg(1) },
     ];
@@ -128,9 +128,9 @@ fn test_read_requires_an_io_provider_when_executed() {
             dest: Reg(2),
             const_idx: ConstIdx(0),
         },
-        Instruction::Read {
-            dest: Reg(1),
-            terminator: Reg(2),
+        Instruction::Drop {
+            /* Instruction::Read */
+            reg: Reg(1),
         },
         Instruction::Ret { src: Reg(1) },
     ];

@@ -239,56 +239,69 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                         args,
                         destination,
                     } => {
-                        let builtin_name = self.ctx.function_names.get(func).map(|s| s.as_str());
-                        if builtin_name == Some("__builtin_write") {
-                            let arg_reg = self.alloc_temp();
-                            self.load_operand_to(&args[0], arg_reg);
-                            self.instructions.push(Instruction::Write { src: arg_reg });
+                        let builtin_name = self.ctx.function_names.get(func).map(|s| s.to_string());
+                        if let Some(name) = builtin_name {
+                            if name.starts_with("__builtin_") {
+                                let native_name = &name["__builtin_".len()..];
 
-                            let null_idx = crate::lower::constants::get_or_create_constant(
-                                self.ctx,
-                                &MirConstant::Null,
-                            );
-                            self.instructions.push(Instruction::LoadConst {
-                                dest: Reg(destination.raw() as u16),
-                                const_idx: null_idx,
-                            });
+                                let start_reg = if args.is_empty() {
+                                    Reg(0) // Dummy if no args
+                                } else {
+                                    let reg = self.alloc_temp();
+                                    let mut temp_regs = vec![reg];
+                                    for _ in 1..args.len() {
+                                        temp_regs.push(self.alloc_temp());
+                                    }
 
-                            self.free_temps(1);
-                        } else if builtin_name == Some("__builtin_read") {
-                            let terminator = self.alloc_temp();
-                            self.load_operand_to(&args[0], terminator);
-                            self.instructions.push(Instruction::Read {
-                                dest: Reg(destination.raw() as u16),
-                                terminator,
-                            });
-                            self.free_temps(1);
-                        } else {
-                            let start_reg = self.alloc_temp();
-                            let mut temp_regs = vec![start_reg];
-                            for _ in 1..args.len() {
-                                temp_regs.push(self.alloc_temp());
+                                    for (i, arg_op) in args.iter().enumerate() {
+                                        self.load_operand_to(arg_op, temp_regs[i]);
+                                    }
+                                    reg
+                                };
+
+                                let name_idx = crate::lower::constants::get_or_create_constant(
+                                    self.ctx,
+                                    &crate::mir::Constant::String(native_name.to_string()),
+                                );
+
+                                self.instructions.push(Instruction::CallNative {
+                                    dest: Reg(destination.raw() as u16),
+                                    name_const: name_idx,
+                                    args_start: start_reg,
+                                    arg_count: args.len() as u8,
+                                });
+
+                                if !args.is_empty() {
+                                    self.free_temps(args.len() as u16);
+                                }
+                                continue;
                             }
+                        }
 
-                            for (i, arg_op) in args.iter().enumerate() {
-                                self.load_operand_to(arg_op, temp_regs[i]);
-                            }
+                        let start_reg = self.alloc_temp();
+                        let mut temp_regs = vec![start_reg];
+                        for _ in 1..args.len() {
+                            temp_regs.push(self.alloc_temp());
+                        }
 
-                            let func_idx = *self.ctx.function_map.get(func).unwrap_or_else(|| {
+                        for (i, arg_op) in args.iter().enumerate() {
+                            self.load_operand_to(arg_op, temp_regs[i]);
+                        }
+
+                        let func_idx = *self.ctx.function_map.get(func).unwrap_or_else(|| {
                                 panic!(
                                     "missing lowered function mapping for {:?} while emitting {} ({:?})",
                                     func, self.func.name, self.func.id
                                 )
                             });
-                            self.instructions.push(Instruction::Call {
-                                dest: Reg(destination.raw() as u16),
-                                func: func_idx,
-                                args_start: start_reg,
-                                arg_count: args.len() as u8,
-                            });
+                        self.instructions.push(Instruction::Call {
+                            dest: Reg(destination.raw() as u16),
+                            func: func_idx,
+                            args_start: start_reg,
+                            arg_count: args.len() as u8,
+                        });
 
-                            self.free_temps(args.len() as u16);
-                        }
+                        self.free_temps(args.len() as u16);
                     }
                     MirInstruction::ConstraintCall {
                         method_name,

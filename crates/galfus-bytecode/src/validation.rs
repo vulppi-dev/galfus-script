@@ -513,12 +513,17 @@ pub fn validate_bytecode_module(
                     check_reg(reg, &mut errors);
                 }
 
-                Instruction::Write { src } => {
-                    check_reg(src, &mut errors);
-                }
-                Instruction::Read { dest, terminator } => {
+                Instruction::CallNative {
+                    dest,
+                    name_const,
+                    args_start,
+                    arg_count,
+                } => {
                     check_reg(dest, &mut errors);
-                    check_reg(terminator, &mut errors);
+                    check_const(name_const, &mut errors);
+                    if arg_count > 0 {
+                        check_reg(Reg(args_start.raw() + arg_count as u16 - 1), &mut errors);
+                    }
                 }
                 Instruction::Len { dest, src } => {
                     check_reg(dest, &mut errors);

@@ -12,14 +12,14 @@ impl VirtualMachine {
                 thread.write_reg(reg, Value::Null)?;
             }
 
-            Instruction::Write { src } => {
-                let val = thread.read_reg(src)?;
-                self.execute_write(thread, val)?;
-            }
-            Instruction::Read { dest, terminator } => {
-                let terminator = thread.read_reg(terminator)?;
-                let value = self.execute_read(thread, terminator)?;
-                thread.write_reg(dest, value)?;
+            Instruction::CallNative {
+                dest,
+                name_const,
+                args_start,
+                arg_count,
+            } => {
+                // Phase 1: Stub out CallNative. Phase 3 will implement the state machine.
+                unimplemented!("CallNative not implemented yet");
             }
             Instruction::Len { dest, src } => {
                 let val = thread.read_reg(src)?;
