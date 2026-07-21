@@ -250,6 +250,13 @@ pub enum Instruction {
         src: Reg,
     },
     RetNull,
+    Receive {
+        dest: Reg,
+    },
+    Send {
+        target: Reg,
+        msg: Reg,
+    },
     Panic {
         const_idx: ConstIdx,
     },

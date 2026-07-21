@@ -24,6 +24,7 @@ pub enum ExecutionStep {
     Continue,
     Return(Value),
     Blocked,
+    SendMsg { target: u64, msg: Value },
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -207,6 +208,9 @@ impl<'a> VirtualMachine<'a> {
                 Ok(ExecutionStep::Continue) => budget -= 1,
                 Ok(ExecutionStep::Return(val)) => return Ok(ExecutionStep::Return(val)),
                 Ok(ExecutionStep::Blocked) => return Ok(ExecutionStep::Blocked),
+                Ok(ExecutionStep::SendMsg { target, msg }) => {
+                    return Ok(ExecutionStep::SendMsg { target, msg });
+                }
                 Err(err) => {
                     let mut stack_trace = Vec::new();
                     for frame in thread.call_stack.iter().rev() {
@@ -283,6 +287,8 @@ impl<'a> VirtualMachine<'a> {
             | Instruction::CallDynamic { .. }
             | Instruction::Ret { .. }
             | Instruction::RetNull
+            | Instruction::Send { .. }
+            | Instruction::Receive { .. }
             | Instruction::Panic { .. } => self.execute_control_instruction(thread, instr)?,
 
             Instruction::AllocLocal { .. }
@@ -318,6 +324,7 @@ impl<'a> VirtualMachine<'a> {
                 ExecutionStep::Continue => {}
                 ExecutionStep::Return(value) => return Ok(value),
                 ExecutionStep::Blocked => return Err(VmError::UnresolvedHostBlocked),
+                ExecutionStep::SendMsg { .. } => return Err(VmError::UnresolvedHostBlocked),
             }
         }
     }

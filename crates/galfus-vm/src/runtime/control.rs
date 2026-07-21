@@ -414,6 +414,34 @@ impl<'a> VirtualMachine<'a> {
                 });
             }
 
+            Instruction::Receive { dest } => {
+                if let Some(msg) = thread.mailbox.pop_front() {
+                    thread.write_reg(dest, msg);
+                    return Ok(ExecutionStep::Continue);
+                } else {
+                    return Ok(ExecutionStep::Blocked);
+                }
+            }
+            Instruction::Send { target, msg } => {
+                let target_val = thread.read_reg(target)?.clone();
+                let msg_val = thread.read_reg(msg)?.clone();
+
+                let target_id = match target_val {
+                    Value::Int64(id) => id as u64,
+                    _ => {
+                        return Err(VmError::TypeMismatch {
+                            expected: "Int64".into(),
+                            found: "other".into(),
+                        });
+                    }
+                };
+
+                return Ok(ExecutionStep::SendMsg {
+                    target: target_id,
+                    msg: msg_val,
+                });
+            }
+
             Instruction::Ret { src } => {
                 let val = thread.read_reg(src)?;
                 let completed_frame = thread.call_stack.pop().ok_or(VmError::EmptyCallStack)?;
@@ -458,7 +486,7 @@ impl<'a> VirtualMachine<'a> {
             _ => unreachable!("instruction routed to the wrong runtime handler"),
         }
 
-        Ok(ExecutionStep::Continue)
+        return Ok(ExecutionStep::Continue);
     }
 
     fn execute_array_iterator_method(

@@ -319,6 +319,12 @@ pub fn validate_bytecode_module(
                     check_reg(src, &mut errors);
                 }
                 Instruction::RetNull => {}
+                Instruction::Receive { dest: _ } => {
+                    // validate registers if necessary, for now we will just accept it
+                }
+                Instruction::Send { target: _, msg: _ } => {
+                    // validate registers if necessary, for now we will just accept it
+                }
                 Instruction::Panic { const_idx } => {
                     check_const(const_idx, &mut errors);
                 }

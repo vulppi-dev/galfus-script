@@ -3,7 +3,7 @@ use crate::runtime::Value;
 use crate::runtime::{CallFrame, HeapObject, RuntimeModuleState, VmObjectRef};
 use galfus_bytecode::instruction::Reg;
 use galfus_core::ModuleId;
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 
 pub struct PrivateHeap {
     pub objects: Vec<Option<HeapObject>>,
@@ -70,6 +70,7 @@ pub struct VirtualThread {
     pub call_stack: Vec<CallFrame>,
     pub heap: PrivateHeap,
     pub module_states: HashMap<ModuleId, RuntimeModuleState>,
+    pub mailbox: VecDeque<crate::runtime::Value>,
 }
 
 impl VirtualThread {
@@ -78,6 +79,7 @@ impl VirtualThread {
             call_stack: Vec::new(),
             heap: PrivateHeap::new(),
             module_states: HashMap::new(),
+            mailbox: VecDeque::new(),
         }
     }
 
