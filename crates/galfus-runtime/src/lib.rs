@@ -5,7 +5,7 @@ use galfus_bytecode::BytecodeModule;
 use galfus_contract::Providers;
 use galfus_vm::VmError;
 use galfus_vm::thread::VirtualThread;
-use galfus_vm::{HeapObject, VirtualMachine, VmPanic, VmValue};
+use galfus_vm::{ExecutionStep, HeapObject, VirtualMachine, VmPanic, VmValue};
 use queue::{BlockedQueue, RunnableQueue};
 use registry::{ThreadId, ThreadRegistry};
 
@@ -74,7 +74,7 @@ impl EntryAbi {
 /// A single execution composed from one executable graph and optional host providers.
 pub struct Runtime<'graph> {
     graph: &'graph galfus_bytecode::BytecodeGraph,
-    providers: Option<Providers>,
+    providers: Option<std::rc::Rc<std::cell::RefCell<Providers>>>,
     registry: ThreadRegistry,
     runnable: RunnableQueue,
     blocked: BlockedQueue,
@@ -87,7 +87,7 @@ impl<'graph> Runtime<'graph> {
     ) -> Self {
         Self {
             graph,
-            providers,
+            providers: providers.map(|p| std::rc::Rc::new(std::cell::RefCell::new(p))),
             registry: ThreadRegistry::new(),
             runnable: RunnableQueue::new(),
             blocked: BlockedQueue::new(),
@@ -108,7 +108,7 @@ impl<'graph> Runtime<'graph> {
 
     /// Execute an entry exported by a module loaded in the given BytecodeGraph.
     pub fn run_module_entry(
-        self,
+        mut self,
         module_id: galfus_core::ModuleId,
         entry_name: &str,
         args: &[Vec<u8>],
@@ -142,31 +142,90 @@ impl<'graph> Runtime<'graph> {
         }
 
         let mut thread = galfus_vm::thread::VirtualThread::new();
-        let vm = VirtualMachine::new(graph).with_providers(self.providers);
+        let vm = VirtualMachine::new(graph).with_shared_providers(self.providers.clone());
 
-        let result = (|| {
-            for initialized_module_id in graph.initialization_order(module_id)? {
-                if thread.is_module_initialized(initialized_module_id) {
-                    continue;
-                }
-                if let Some(init_idx) = graph
-                    .get(initialized_module_id)
-                    .expect("initialization order only contains loaded modules")
-                    .module
-                    .init_func_idx
-                {
-                    vm.run_function(&mut thread, initialized_module_id, init_idx, vec![])?;
-                }
-                thread.mark_module_initialized(initialized_module_id);
+        for initialized_module_id in graph.initialization_order(module_id)? {
+            if thread.is_module_initialized(initialized_module_id) {
+                continue;
             }
+            if let Some(init_idx) = graph
+                .get(initialized_module_id)
+                .expect("initialization order only contains loaded modules")
+                .module
+                .init_func_idx
+            {
+                vm.run_function(&mut thread, initialized_module_id, init_idx, vec![])?;
+            }
+            thread.mark_module_initialized(initialized_module_id);
+        }
 
-            let entry_args = build_entry_args(&mut thread, &vm, module_id, args)?;
-            vm.run_function(&mut thread, module_id, entry_idx, vec![entry_args])
-                .map_err(RuntimeError::VmPanic)
-        })();
-        let result = result?;
+        let entry_args = build_entry_args(&mut thread, &vm, module_id, args)?;
+        vm.prepare_function(&mut thread, module_id, entry_idx, vec![entry_args])
+            .map_err(RuntimeError::VmPanic)?;
 
-        match result {
+        let main_thread_id = self.spawn_thread(thread);
+        let mut final_result = galfus_vm::VmValue::Null;
+
+        // Scheduler Loop
+        let budget = 100;
+
+        loop {
+            let Some(current_id) = self.next_runnable() else {
+                break;
+            };
+
+            let mut current_thread = self.registry.remove(current_id).unwrap();
+
+            // Execute thread
+            let vm = VirtualMachine::new(graph).with_shared_providers(self.providers.clone());
+
+            match vm.execute_with_budget(&mut current_thread, budget) {
+                Ok(ExecutionStep::Continue) => {
+                    self.registry.register_with_id(current_id, current_thread);
+                    self.runnable.enqueue(current_id);
+                }
+                Ok(ExecutionStep::Blocked) => {
+                    self.registry.register_with_id(current_id, current_thread);
+                    self.blocked.block(current_id);
+                }
+                Ok(ExecutionStep::SendMsg { target, msg }) => {
+                    if target == 0 {
+                        // Host I/O
+                        // For now we panic if no IO provider, or handle it?
+                        // "Se target for 0 (Host), processar via Providers"
+                        // we can do that in a bit
+                    } else {
+                        // Peer to Peer
+                        let target_id = crate::registry::ThreadId(target);
+                        if let Some(target_thread) = self.registry.get_mut(target_id) {
+                            if let Ok(copied_msg) =
+                                galfus_vm::runtime::objects::copy_value_between_heaps(
+                                    &current_thread.heap,
+                                    &mut target_thread.heap,
+                                    &msg,
+                                )
+                            {
+                                target_thread.mailbox.push_back(copied_msg);
+                                if self.blocked.unblock(target_id) {
+                                    self.runnable.enqueue(target_id);
+                                }
+                            }
+                        }
+                    }
+                    self.registry.register_with_id(current_id, current_thread);
+                    self.runnable.enqueue(current_id);
+                }
+                Ok(ExecutionStep::Return(val)) => {
+                    if current_id == main_thread_id {
+                        final_result = val;
+                        break;
+                    }
+                }
+                Err(err) => return Err(RuntimeError::VmPanic(err)),
+            }
+        }
+
+        match final_result {
             galfus_vm::VmValue::Int32(code) => Ok(code),
             galfus_vm::VmValue::Null => Ok(0),
             _other => Err(RuntimeError::EntryReturnTypeMismatch {

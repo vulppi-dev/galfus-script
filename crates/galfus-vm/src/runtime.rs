@@ -7,13 +7,14 @@ use galfus_contract::Providers;
 use galfus_core::ModuleId;
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::rc::Rc;
 
 mod casts;
 mod control;
 mod data;
 mod graph_release;
 mod heap;
-mod objects;
+pub mod objects;
 mod operators;
 mod system;
 mod target_io;
@@ -82,7 +83,7 @@ pub enum HeapObject {
 }
 
 pub struct VmContext {
-    providers: Option<RefCell<Providers>>,
+    providers: Option<Rc<RefCell<Providers>>>,
 }
 
 #[derive(Default)]
@@ -94,7 +95,7 @@ pub struct RuntimeModuleState {
 impl VmContext {
     pub fn new(providers: Option<Providers>) -> Self {
         Self {
-            providers: providers.map(RefCell::new),
+            providers: providers.map(|p| Rc::new(RefCell::new(p))),
         }
     }
 }
@@ -130,12 +131,61 @@ impl<'a> VirtualMachine<'a> {
         self
     }
 
+    pub fn with_shared_providers(mut self, providers: Option<Rc<RefCell<Providers>>>) -> Self {
+        self.context.providers = providers;
+        self
+    }
+
     pub fn current_image(
         &self,
         thread: &crate::thread::VirtualThread,
     ) -> Result<&'a galfus_bytecode::BytecodeModule, VmError> {
         let frame = thread.call_stack.last().ok_or(VmError::EmptyCallStack)?;
         Ok(&self.graph.get(frame.module_id).unwrap().module)
+    }
+
+    pub fn prepare_function(
+        &self,
+        thread: &mut crate::thread::VirtualThread,
+        module_id: galfus_core::ModuleId,
+        func_idx: FuncIdx,
+        args: Vec<Value>,
+    ) -> Result<(), VmPanic> {
+        if (func_idx.raw() as usize) >= self.graph.get(module_id).unwrap().module.functions.len() {
+            return Err(VmPanic {
+                error: VmError::FunctionOutOfBounds { index: func_idx },
+                stack_trace: vec![],
+            });
+        }
+
+        let func = &self.graph.get(module_id).unwrap().module.functions[func_idx.raw() as usize];
+        if args.len() != func.param_count as usize {
+            return Err(VmPanic {
+                error: VmError::TypeMismatch {
+                    expected: format!("{} arguments", func.param_count),
+                    found: format!("{} arguments", args.len()),
+                },
+                stack_trace: vec![],
+            });
+        }
+
+        thread.call_stack.clear();
+        let total_regs =
+            func.param_count as usize + func.local_count as usize + func.temp_count as usize;
+        let mut registers = vec![Value::Null; total_regs];
+        for (i, val) in args.into_iter().enumerate() {
+            registers[i] = val;
+        }
+
+        thread.call_stack.push(CallFrame {
+            module_id,
+            func_idx,
+            pc: 0,
+            registers,
+            return_dest: None,
+        });
+
+        Ok(())
     }
 
     pub fn run_function(

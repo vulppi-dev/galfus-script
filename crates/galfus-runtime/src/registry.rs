@@ -24,6 +24,10 @@ impl ThreadRegistry {
         id
     }
 
+    pub fn register_with_id(&mut self, id: ThreadId, thread: VirtualThread) {
+        self.threads.insert(id, thread);
+    }
+
     pub fn get_mut(&mut self, id: ThreadId) -> Option<&mut VirtualThread> {
         self.threads.get_mut(&id)
     }
