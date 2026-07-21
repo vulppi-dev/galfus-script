@@ -1,19 +1,30 @@
 use super::*;
-use galfus_contract::{IoProvider, IoProviderError, IoRead, Providers};
+use galfus_contract::{HostProvider, HostResponse, HostValue, MessageInjector, Providers};
 use std::sync::{Arc, Mutex};
 
 struct TerminatorIo {
     terminator: Arc<Mutex<Vec<u8>>>,
 }
 
-impl IoProvider for TerminatorIo {
-    fn read(&mut self, terminator: &[u8]) -> Result<IoRead, IoProviderError> {
-        *self.terminator.lock().expect("terminator state") = terminator.to_vec();
-        Ok(IoRead::EndOfInput)
-    }
-
-    fn write(&mut self, _bytes: &[u8]) -> Result<(), IoProviderError> {
-        Ok(())
+impl HostProvider for TerminatorIo {
+    fn dispatch(
+        &mut self,
+        thread_id: usize,
+        method: &str,
+        args: &[HostValue],
+        injector: Arc<dyn MessageInjector>,
+    ) {
+        if method == "read" {
+            if let Some(HostValue::Bytes(terminator)) = args.first() {
+                *self.terminator.lock().expect("terminator state") = terminator.clone();
+            }
+            injector.inject_system_response(
+                thread_id,
+                HostResponse::Success(HostValue::Bytes(Vec::new())),
+            );
+        } else {
+            injector.inject_system_response(thread_id, HostResponse::Success(HostValue::Null));
+        }
     }
 }
 
@@ -394,7 +405,7 @@ fn run_reports_missing_io_provider_only_when_io_is_executed() {
     };
     assert!(matches!(
         error,
-        RunBlocked::RuntimeError(message) if message.contains("I/O provider is unavailable for write")
+        RunBlocked::RuntimeError(message) if message.contains("HostProvider missing")
     ));
 }
 
@@ -429,7 +440,7 @@ fn run_passes_read_terminator_to_the_io_provider() {
     workspace.compile().expect("workspace compiles");
 
     let terminator = Arc::new(Mutex::new(Vec::new()));
-    let providers = Providers::with_io(Box::new(TerminatorIo {
+    let providers = Providers::with_host(Box::new(TerminatorIo {
         terminator: Arc::clone(&terminator),
     }));
     assert_eq!(

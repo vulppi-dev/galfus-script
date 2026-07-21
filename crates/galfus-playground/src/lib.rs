@@ -90,7 +90,7 @@ impl Playground {
 
     pub fn run(&mut self, args: &[Vec<u8>]) -> Result<i32> {
         self.workspace
-            .run(args, Some(Providers::with_io(Box::new(self.io.clone()))))
+            .run(args, Some(Providers::with_host(Box::new(self.io.clone()))))
             .map(|report| report.exit_code)
             .map_err(|error| anyhow::anyhow!("playground execution failed: {error:?}"))
     }

@@ -6,55 +6,39 @@ pub use thread::*;
 #[cfg(test)]
 mod tests;
 
-/// The I/O operation that failed in a host provider.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum IoOperation {
-    Read,
-    Write,
-}
-
-/// An error returned by a host I/O provider.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct IoProviderError {
-    operation: IoOperation,
-    message: String,
-}
-
-impl IoProviderError {
-    pub fn new(operation: IoOperation, message: impl Into<String>) -> Self {
-        Self {
-            operation,
-            message: message.into(),
-        }
-    }
-
-    pub fn operation(&self) -> IoOperation {
-        self.operation
-    }
-
-    pub fn message(&self) -> &str {
-        self.message.as_str()
-    }
-}
-
-/// The result of reading from a host I/O provider.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum IoRead {
+pub enum HostValue {
+    Null,
+    Int32(i32),
+    String(String),
     Bytes(Vec<u8>),
-    EndOfInput,
+    Array(Vec<HostValue>),
 }
 
-/// Synchronous host I/O available to a Galfus execution.
-pub trait IoProvider: Send {
-    fn read(&mut self, terminator: &[u8]) -> Result<IoRead, IoProviderError>;
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum HostResponse {
+    Success(HostValue),
+    Error(String),
+}
 
-    fn write(&mut self, bytes: &[u8]) -> Result<(), IoProviderError>;
+pub trait MessageInjector: Send + Sync {
+    fn inject_system_response(&self, thread_id: usize, response: HostResponse);
+}
+
+pub trait HostProvider: Send {
+    fn dispatch(
+        &mut self,
+        thread_id: usize,
+        name: &str,
+        args: &[HostValue],
+        injector: std::sync::Arc<dyn MessageInjector>,
+    );
 }
 
 /// Optional host capabilities supplied for one execution.
 #[derive(Default)]
 pub struct Providers {
-    io: Option<Box<dyn IoProvider>>,
+    host: Option<Box<dyn HostProvider>>,
 }
 
 impl Providers {
@@ -62,11 +46,11 @@ impl Providers {
         Self::default()
     }
 
-    pub fn with_io(io: Box<dyn IoProvider>) -> Self {
-        Self { io: Some(io) }
+    pub fn with_host(host: Box<dyn HostProvider>) -> Self {
+        Self { host: Some(host) }
     }
 
-    pub fn io_mut(&mut self) -> Option<&mut (dyn IoProvider + 'static)> {
-        self.io.as_deref_mut()
+    pub fn host_mut(&mut self) -> Option<&mut (dyn HostProvider + 'static)> {
+        self.host.as_deref_mut()
     }
 }

@@ -73,6 +73,7 @@ impl PrivateHeap {
 
 pub struct VirtualThread {
     pub call_stack: Vec<CallFrame>,
+    pub system_response: Option<crate::VmValue>,
     pub heap: PrivateHeap,
     pub module_states: HashMap<ModuleId, RuntimeModuleState>,
     pub mailbox: Arc<Mutex<VecDeque<crate::runtime::Value>>>,
@@ -88,6 +89,7 @@ impl VirtualThread {
     pub fn new() -> Self {
         Self {
             call_stack: Vec::new(),
+            system_response: None,
             heap: PrivateHeap::new(),
             module_states: HashMap::new(),
             mailbox: Arc::new(Mutex::new(VecDeque::new())),

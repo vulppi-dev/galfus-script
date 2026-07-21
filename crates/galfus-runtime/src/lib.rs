@@ -168,6 +168,7 @@ impl Runtime {
         let main_thread = self.registry.take(main_thread_id).unwrap();
 
         let task = Box::new(crate::task::RuntimeTask {
+            thread_id: main_thread_id,
             thread: main_thread,
             vm,
             registry: std::sync::Arc::new(std::sync::Mutex::new(self.registry)),

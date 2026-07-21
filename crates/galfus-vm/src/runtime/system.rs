@@ -18,8 +18,45 @@ impl VirtualMachine {
                 args_start,
                 arg_count,
             } => {
-                // Phase 1: Stub out CallNative. Phase 3 will implement the state machine.
-                unimplemented!("CallNative not implemented yet");
+                if let Some(resp) = thread.system_response.take() {
+                    thread.write_reg(dest, resp)?;
+                    return Ok(ExecutionStep::Continue);
+                } else {
+                    let frame = thread.call_stack.last_mut().unwrap();
+                    frame.pc -= 1; // repeat this instruction upon resume
+
+                    let name = match self.current_image(thread)?.constants.constants
+                        [name_const.raw() as usize]
+                    {
+                        Constant::String(ref s) => s.clone(),
+                        _ => {
+                            return Err(VmError::TypeMismatch {
+                                expected: "String constant".to_string(),
+                                found: "other".to_string(),
+                            });
+                        }
+                    };
+
+                    let mut elements = Vec::new();
+                    // First element is the method name as a string (array of bytes)
+                    let name_chars = name.into_bytes().into_iter().map(Value::Uint8).collect();
+                    let name_val = Value::Object(thread.heap.alloc(HeapObject::Array {
+                        element_ty: TypeIdx(0),
+                        elements: name_chars,
+                    }));
+                    elements.push(name_val);
+
+                    for i in 0..arg_count {
+                        elements.push(thread.read_reg(Reg(args_start.raw() + i as u16))?);
+                    }
+
+                    let msg = Value::Object(thread.heap.alloc(HeapObject::Array {
+                        element_ty: TypeIdx(0), // dummy for system messages
+                        elements,
+                    }));
+
+                    return Ok(ExecutionStep::SendMsg { target: 0, msg });
+                }
             }
             Instruction::Len { dest, src } => {
                 let val = thread.read_reg(src)?;

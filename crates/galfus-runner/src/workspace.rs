@@ -40,7 +40,7 @@ pub fn run_project(root: &str, cli_args: &[String]) -> Result<i32> {
     let report = workspace
         .run(
             args.as_slice(),
-            Some(Providers::with_io(Box::new(super::NativeIoProvider))),
+            Some(Providers::with_host(Box::new(super::NativeIoProvider))),
         )
         .map_err(|error| anyhow::anyhow!("workspace execution failed: {error:?}"))?;
     Ok(report.exit_code)

@@ -1,4 +1,4 @@
-use galfus_contract::{IoOperation, IoProvider, IoProviderError, IoRead};
+use galfus_contract::{HostProvider, HostResponse, HostValue, MessageInjector};
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 
@@ -62,54 +62,99 @@ impl BufferIoProvider {
     }
 }
 
-impl IoProvider for BufferIoProvider {
-    fn read(&mut self, terminator: &[u8]) -> Result<IoRead, IoProviderError> {
-        if terminator.is_empty() {
-            return Err(IoProviderError::new(
-                IoOperation::Read,
-                "input terminator must not be empty",
-            ));
-        }
+impl HostProvider for BufferIoProvider {
+    fn dispatch(
+        &mut self,
+        thread_id: usize,
+        method: &str,
+        args: &[HostValue],
+        injector: Arc<dyn MessageInjector>,
+    ) {
+        match method {
+            "write" => {
+                if let Some(HostValue::Bytes(bytes)) = args.first() {
+                    #[cfg(feature = "wasm")]
+                    let callback = {
+                        let mut state = self.state.lock().expect("buffer I/O state");
+                        state.output.extend_from_slice(bytes);
+                        state.write_callback.clone()
+                    };
 
-        let mut state = self.state.lock().expect("buffer I/O state");
-        if state.input.is_empty() {
-            return Ok(IoRead::EndOfInput);
-        }
+                    #[cfg(not(feature = "wasm"))]
+                    self.state
+                        .lock()
+                        .expect("buffer I/O state")
+                        .output
+                        .extend_from_slice(bytes);
 
-        let mut input = Vec::new();
-        while let Some(byte) = state.input.pop_front() {
-            input.push(byte);
-            if input.ends_with(terminator) {
-                input.truncate(input.len() - terminator.len());
-                break;
+                    #[cfg(feature = "wasm")]
+                    if let Some(WriteCallback(callback)) = callback {
+                        let value = Uint8Array::from(bytes.as_slice());
+                        if let Err(e) = callback.call1(&JsValue::UNDEFINED, &value.into()) {
+                            injector.inject_system_response(
+                                thread_id,
+                                HostResponse::Error(format!("{:?}", e)),
+                            );
+                            return;
+                        }
+                    }
+                    injector
+                        .inject_system_response(thread_id, HostResponse::Success(HostValue::Null));
+                } else {
+                    injector.inject_system_response(
+                        thread_id,
+                        HostResponse::Error("Invalid arguments for write".to_string()),
+                    );
+                }
+            }
+            "read" => {
+                let terminator = if let Some(HostValue::Bytes(b)) = args.first() {
+                    b.clone()
+                } else {
+                    injector.inject_system_response(
+                        thread_id,
+                        HostResponse::Error("Invalid arguments for read".to_string()),
+                    );
+                    return;
+                };
+
+                if terminator.is_empty() {
+                    injector.inject_system_response(
+                        thread_id,
+                        HostResponse::Error("input terminator must not be empty".to_string()),
+                    );
+                    return;
+                }
+
+                let mut state = self.state.lock().expect("buffer I/O state");
+                if state.input.is_empty() {
+                    injector.inject_system_response(
+                        thread_id,
+                        HostResponse::Success(HostValue::Bytes(Vec::new())),
+                    );
+                    return;
+                }
+
+                let mut input = Vec::new();
+                while let Some(byte) = state.input.pop_front() {
+                    input.push(byte);
+                    if input.ends_with(&terminator) {
+                        input.truncate(input.len() - terminator.len());
+                        break;
+                    }
+                }
+
+                injector.inject_system_response(
+                    thread_id,
+                    HostResponse::Success(HostValue::Bytes(input)),
+                );
+            }
+            _ => {
+                injector.inject_system_response(
+                    thread_id,
+                    HostResponse::Error(format!("Method {} not found", method)),
+                );
             }
         }
-
-        Ok(IoRead::Bytes(input))
-    }
-
-    fn write(&mut self, bytes: &[u8]) -> Result<(), IoProviderError> {
-        #[cfg(feature = "wasm")]
-        let callback = {
-            let mut state = self.state.lock().expect("buffer I/O state");
-            state.output.extend_from_slice(bytes);
-            state.write_callback.clone()
-        };
-
-        #[cfg(not(feature = "wasm"))]
-        self.state
-            .lock()
-            .expect("buffer I/O state")
-            .output
-            .extend_from_slice(bytes);
-
-        #[cfg(feature = "wasm")]
-        if let Some(WriteCallback(callback)) = callback {
-            let value = Uint8Array::from(bytes);
-            callback
-                .call1(&JsValue::UNDEFINED, &value.into())
-                .map_err(|error| IoProviderError::new(IoOperation::Write, format!("{error:?}")))?;
-        }
-        Ok(())
     }
 }

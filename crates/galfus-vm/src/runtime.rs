@@ -16,7 +16,6 @@ mod heap;
 pub mod objects;
 mod operators;
 mod system;
-mod target_io;
 #[cfg(test)]
 mod tests;
 
@@ -115,6 +114,10 @@ pub struct VirtualMachine {
 }
 
 impl VirtualMachine {
+    pub fn shared_providers(&self) -> Option<Arc<Mutex<Providers>>> {
+        self.context.providers.clone()
+    }
+
     pub fn new(graph: Arc<BytecodeGraph>) -> Self {
         Self {
             graph,
