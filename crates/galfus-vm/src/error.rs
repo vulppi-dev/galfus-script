@@ -57,7 +57,6 @@ pub enum VmError {
 
     #[error("Unimplemented instruction: {instruction}")]
     UnimplementedInstruction { instruction: String },
-
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -71,12 +71,21 @@ impl PrivateHeap {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ThreadState {
+    Created,
+    Running,
+    Exited(i32),
+}
+
 pub struct VirtualThread {
     pub call_stack: Vec<CallFrame>,
     pub system_response: Option<crate::VmValue>,
     pub heap: PrivateHeap,
     pub module_states: HashMap<ModuleId, RuntimeModuleState>,
-    pub mailbox: Arc<Mutex<VecDeque<crate::runtime::Value>>>,
+    pub mailbox: Arc<Mutex<VecDeque<(u64, crate::runtime::Value)>>>,
+    pub state: ThreadState,
+    pub key: Option<String>,
 }
 
 impl Default for VirtualThread {
@@ -93,6 +102,8 @@ impl VirtualThread {
             heap: PrivateHeap::new(),
             module_states: HashMap::new(),
             mailbox: Arc::new(Mutex::new(VecDeque::new())),
+            state: ThreadState::Created,
+            key: None,
         }
     }
 

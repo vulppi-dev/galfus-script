@@ -416,7 +416,7 @@ impl VirtualMachine {
 
             Instruction::Receive { dest } => {
                 let msg = thread.mailbox.lock().unwrap().pop_front();
-                if let Some(msg) = msg {
+                if let Some((_sender, msg)) = msg {
                     let _ = thread.write_reg(dest, msg);
                     return Ok(ExecutionStep::Continue);
                 } else {

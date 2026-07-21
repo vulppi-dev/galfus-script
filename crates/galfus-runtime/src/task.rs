@@ -80,7 +80,7 @@ impl RunnableTask for RuntimeTask {
                         registry_lock.get_mailbox(crate::registry::ThreadId(target))
                     {
                         // Deep copy here in real system. For now just clone (assuming immutable or primitive)
-                        mailbox.lock().unwrap().push_back(msg);
+                        mailbox.lock().unwrap().push_back((self.thread_id.0, msg));
 
                         let mut blocked_lock = self.blocked.lock().unwrap();
                         let target_id = crate::registry::ThreadId(target);

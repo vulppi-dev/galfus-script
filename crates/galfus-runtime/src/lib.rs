@@ -101,6 +101,17 @@ impl Runtime {
         id
     }
 
+    /// O Host deve chamar esta função para bombear os cronômetros das threads bloqueadas
+    pub fn tick_timeouts(&mut self, delta_ms: u64) {
+        let woke_up = self.blocked.tick_timeouts(delta_ms);
+        for id in woke_up {
+            // Se a thread ainda existir, mandamos de volta para runnable
+            if self.registry.get(id).is_some() {
+                self.runnable.enqueue(id);
+            }
+        }
+    }
+
     /// Retorna o próximo ThreadId pronto para executar
     pub fn next_runnable(&mut self) -> Option<ThreadId> {
         self.runnable.dequeue()
