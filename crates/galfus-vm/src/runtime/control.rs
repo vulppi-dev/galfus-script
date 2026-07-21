@@ -521,6 +521,27 @@ impl VirtualMachine {
                     arg: arg_val,
                 });
             }
+            Instruction::GetThread { dest, key } => {
+                return Ok(ExecutionStep::GetThread {
+                    dest,
+                    key: thread.read_reg(key)?.clone(),
+                });
+            }
+
+            Instruction::ThreadIsRunning { dest, thread_id } => {
+                let thread_id = thread_id_value(thread, thread_id)?;
+                return Ok(ExecutionStep::ThreadIsRunning { dest, thread_id });
+            }
+
+            Instruction::ThreadIsExited { dest, thread_id } => {
+                let thread_id = thread_id_value(thread, thread_id)?;
+                return Ok(ExecutionStep::ThreadIsExited { dest, thread_id });
+            }
+
+            Instruction::ThreadExitReason { dest, thread_id } => {
+                let thread_id = thread_id_value(thread, thread_id)?;
+                return Ok(ExecutionStep::ThreadExitReason { dest, thread_id });
+            }
 
             Instruction::Ret { src } => {
                 let val = thread.read_reg(src)?;
@@ -652,5 +673,15 @@ impl VirtualMachine {
             }
             _ => Ok(None),
         }
+    }
+}
+
+fn thread_id_value(thread: &crate::thread::VirtualThread, register: Reg) -> Result<u64, VmError> {
+    match thread.read_reg(register)? {
+        Value::Int64(id) => Ok(id as u64),
+        value => Err(VmError::TypeMismatch {
+            expected: "Int64".into(),
+            found: format!("{value:?}"),
+        }),
     }
 }

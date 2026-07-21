@@ -43,6 +43,22 @@ pub enum ExecutionStep {
         thread_id: u64,
         arg: Value,
     },
+    GetThread {
+        dest: Reg,
+        key: Value,
+    },
+    ThreadIsRunning {
+        dest: Reg,
+        thread_id: u64,
+    },
+    ThreadIsExited {
+        dest: Reg,
+        thread_id: u64,
+    },
+    ThreadExitReason {
+        dest: Reg,
+        thread_id: u64,
+    },
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -312,6 +328,18 @@ impl VirtualMachine {
                         arg,
                     });
                 }
+                Ok(ExecutionStep::GetThread { dest, key }) => {
+                    return Ok(ExecutionStep::GetThread { dest, key });
+                }
+                Ok(ExecutionStep::ThreadIsRunning { dest, thread_id }) => {
+                    return Ok(ExecutionStep::ThreadIsRunning { dest, thread_id });
+                }
+                Ok(ExecutionStep::ThreadIsExited { dest, thread_id }) => {
+                    return Ok(ExecutionStep::ThreadIsExited { dest, thread_id });
+                }
+                Ok(ExecutionStep::ThreadExitReason { dest, thread_id }) => {
+                    return Ok(ExecutionStep::ThreadExitReason { dest, thread_id });
+                }
                 Err(err) => {
                     let mut stack_trace = Vec::new();
                     for frame in thread.call_stack.iter().rev() {
@@ -392,6 +420,10 @@ impl VirtualMachine {
             | Instruction::ReceiveFilter { .. }
             | Instruction::CreateThread { .. }
             | Instruction::StartThread { .. }
+            | Instruction::GetThread { .. }
+            | Instruction::ThreadIsRunning { .. }
+            | Instruction::ThreadIsExited { .. }
+            | Instruction::ThreadExitReason { .. }
             | Instruction::Panic { .. } => self.execute_control_instruction(thread, instr)?,
 
             Instruction::AllocLocal { .. }
@@ -430,6 +462,14 @@ impl VirtualMachine {
                 ExecutionStep::ReceiveFilter { .. } => return Err(VmError::UnresolvedHostBlocked),
                 ExecutionStep::CreateThread { .. } => return Err(VmError::UnresolvedHostBlocked),
                 ExecutionStep::StartThread { .. } => return Err(VmError::UnresolvedHostBlocked),
+                ExecutionStep::GetThread { .. } => return Err(VmError::UnresolvedHostBlocked),
+                ExecutionStep::ThreadIsRunning { .. } => {
+                    return Err(VmError::UnresolvedHostBlocked);
+                }
+                ExecutionStep::ThreadIsExited { .. } => return Err(VmError::UnresolvedHostBlocked),
+                ExecutionStep::ThreadExitReason { .. } => {
+                    return Err(VmError::UnresolvedHostBlocked);
+                }
             }
         }
     }

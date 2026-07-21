@@ -179,6 +179,43 @@ impl RunnableTask for RuntimeTask {
                     .write_reg(dest, galfus_vm::VmValue::Bool(success));
                 ThreadResult::Yielded(self)
             }
+            ExecutionStep::GetThread { dest, key } => {
+                let thread_id = thread_key(&self.thread, key)
+                    .and_then(|key| self.registry.lock().unwrap().lookup_key(&key))
+                    .map(|thread_id| thread_id.raw() as i64)
+                    .unwrap_or(-1);
+                let _ = self
+                    .thread
+                    .write_reg(dest, galfus_vm::VmValue::Int64(thread_id));
+                ThreadResult::Yielded(self)
+            }
+            ExecutionStep::ThreadIsRunning { dest, thread_id } => {
+                let running = ThreadId::from_raw(thread_id)
+                    .and_then(|thread_id| self.registry.lock().unwrap().state(thread_id))
+                    .is_some_and(|state| state.is_running());
+                let _ = self
+                    .thread
+                    .write_reg(dest, galfus_vm::VmValue::Bool(running));
+                ThreadResult::Yielded(self)
+            }
+            ExecutionStep::ThreadIsExited { dest, thread_id } => {
+                let exited = ThreadId::from_raw(thread_id)
+                    .and_then(|thread_id| self.registry.lock().unwrap().state(thread_id))
+                    .is_some_and(|state| state.is_exited());
+                let _ = self
+                    .thread
+                    .write_reg(dest, galfus_vm::VmValue::Bool(exited));
+                ThreadResult::Yielded(self)
+            }
+            ExecutionStep::ThreadExitReason { dest, thread_id } => {
+                let reason = ThreadId::from_raw(thread_id)
+                    .and_then(|thread_id| self.registry.lock().unwrap().state(thread_id))
+                    .and_then(|state| state.exit_reason())
+                    .map(galfus_vm::VmValue::Int32)
+                    .unwrap_or(galfus_vm::VmValue::Null);
+                let _ = self.thread.write_reg(dest, reason);
+                ThreadResult::Yielded(self)
+            }
             ExecutionStep::SendMsg { dest, target, msg } => {
                 if target == 0 {
                     let host_val = to_host_value(&self.thread.heap, msg);
@@ -277,6 +314,25 @@ impl RunnableTask for RuntimeTask {
             }
         }
     }
+}
+
+fn thread_key(thread: &VirtualThread, value: galfus_vm::VmValue) -> Option<String> {
+    let galfus_vm::VmValue::Object(key_ref) = value else {
+        return None;
+    };
+    let galfus_vm::HeapObject::Array { elements, .. } = thread.heap.get_object(key_ref).ok()?
+    else {
+        return None;
+    };
+
+    let mut key = String::with_capacity(elements.len());
+    for element in elements {
+        let galfus_vm::VmValue::Uint8(byte) = element else {
+            return None;
+        };
+        key.push(*byte as char);
+    }
+    (!key.is_empty()).then_some(key)
 }
 
 use galfus_contract::HostValue;

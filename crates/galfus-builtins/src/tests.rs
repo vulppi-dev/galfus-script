@@ -58,3 +58,11 @@ fn test_format_ansi_source_checks() {
     assert!(FORMAT_ANSI_SOURCE.contains("apply"));
     assert!(FORMAT_ANSI_SOURCE.contains("red"));
 }
+
+#[test]
+fn test_thread_source_checks() {
+    assert_builtin_checks("std/thread", THREAD_SOURCE);
+    assert!(THREAD_SOURCE.contains("isRunning"));
+    assert!(THREAD_SOURCE.contains("isExited"));
+    assert!(THREAD_SOURCE.contains("exitReason"));
+}

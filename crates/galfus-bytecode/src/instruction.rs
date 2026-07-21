@@ -270,6 +270,22 @@ pub enum Instruction {
         thread_id: Reg,
         arg: Reg,
     },
+    GetThread {
+        dest: Reg,
+        key: Reg,
+    },
+    ThreadIsRunning {
+        dest: Reg,
+        thread_id: Reg,
+    },
+    ThreadIsExited {
+        dest: Reg,
+        thread_id: Reg,
+    },
+    ThreadExitReason {
+        dest: Reg,
+        thread_id: Reg,
+    },
     Panic {
         const_idx: ConstIdx,
     },

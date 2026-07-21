@@ -274,6 +274,45 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                                     continue;
                                 }
 
+                                if native_name == "get_thread" {
+                                    let key_reg = self.alloc_temp();
+                                    self.load_operand_to(&args[0], key_reg);
+
+                                    self.instructions.push(Instruction::GetThread {
+                                        dest: Reg(destination.raw() as u16),
+                                        key: key_reg,
+                                    });
+                                    self.free_temps(1);
+                                    continue;
+                                }
+
+                                if native_name == "is_thread_running"
+                                    || native_name == "is_thread_exited"
+                                    || native_name == "thread_exit_reason"
+                                {
+                                    let thread_id_reg = self.alloc_temp();
+                                    self.load_operand_to(&args[0], thread_id_reg);
+                                    let dest = Reg(destination.raw() as u16);
+                                    let instruction = match native_name {
+                                        "is_thread_running" => Instruction::ThreadIsRunning {
+                                            dest,
+                                            thread_id: thread_id_reg,
+                                        },
+                                        "is_thread_exited" => Instruction::ThreadIsExited {
+                                            dest,
+                                            thread_id: thread_id_reg,
+                                        },
+                                        "thread_exit_reason" => Instruction::ThreadExitReason {
+                                            dest,
+                                            thread_id: thread_id_reg,
+                                        },
+                                        _ => unreachable!(),
+                                    };
+                                    self.instructions.push(instruction);
+                                    self.free_temps(1);
+                                    continue;
+                                }
+
                                 if native_name == "send" {
                                     let target_reg = self.alloc_temp();
                                     self.load_operand_to(&args[0], target_reg);

@@ -347,6 +347,21 @@ pub fn validate_bytecode_module(
                 } => {
                     // Requires no validation
                 }
+                Instruction::GetThread { dest: _, key: _ }
+                | Instruction::ThreadIsRunning {
+                    dest: _,
+                    thread_id: _,
+                }
+                | Instruction::ThreadIsExited {
+                    dest: _,
+                    thread_id: _,
+                }
+                | Instruction::ThreadExitReason {
+                    dest: _,
+                    thread_id: _,
+                } => {
+                    // Requires no validation
+                }
                 Instruction::Panic { const_idx } => {
                     check_const(const_idx, &mut errors);
                 }
