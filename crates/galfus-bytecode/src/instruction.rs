@@ -250,12 +250,20 @@ pub enum Instruction {
         src: Reg,
     },
     RetNull,
-    Receive {
+    ReceiveFilter {
         dest: Reg,
+        sender: Reg,
+        timeout: Reg,
     },
     Send {
+        dest: Reg,
         target: Reg,
         msg: Reg,
+    },
+    Spawn {
+        dest: Reg,
+        func: Reg,
+        arg: Reg,
     },
     Panic {
         const_idx: ConstIdx,

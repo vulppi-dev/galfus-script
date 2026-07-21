@@ -319,11 +319,26 @@ pub fn validate_bytecode_module(
                     check_reg(src, &mut errors);
                 }
                 Instruction::RetNull => {}
-                Instruction::Receive { dest: _ } => {
-                    // validate registers if necessary, for now we will just accept it
+                Instruction::ReceiveFilter {
+                    dest: _,
+                    sender: _,
+                    timeout: _,
+                } => {
+                    // Requires no validation (arguments are not bounds-checked here)
                 }
-                Instruction::Send { target: _, msg: _ } => {
-                    // validate registers if necessary, for now we will just accept it
+                Instruction::Send {
+                    dest: _,
+                    target: _,
+                    msg: _,
+                } => {
+                    // Requires no validation
+                }
+                Instruction::Spawn {
+                    dest: _,
+                    func: _,
+                    arg: _,
+                } => {
+                    // Requires no validation
                 }
                 Instruction::Panic { const_idx } => {
                     check_const(const_idx, &mut errors);

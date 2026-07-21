@@ -35,7 +35,74 @@ impl RunnableTask for RuntimeTask {
                 ThreadResult::Completed(code)
             }
             ExecutionStep::Blocked => ThreadResult::Blocked,
-            ExecutionStep::SendMsg { target, msg } => {
+            ExecutionStep::ReceiveFilter {
+                dest,
+                sender_id,
+                timeout,
+            } => {
+                // If it reached here, control.rs has already checked the mailbox and found nothing.
+                // We should add this thread to blocked queue.
+                // If timeout is Some, we must set a timeout.
+                if let Some(ms) = timeout {
+                    self.blocked
+                        .lock()
+                        .unwrap()
+                        .block_with_timeout(self.thread_id, ms);
+                } else {
+                    self.blocked.lock().unwrap().block(self.thread_id);
+                }
+
+                // We must put the thread back into the registry so others can send messages to it.
+                self.registry
+                    .lock()
+                    .unwrap()
+                    .register_with_id(self.thread_id, self.thread);
+                ThreadResult::Blocked
+            }
+            ExecutionStep::Spawn { dest, func, arg } => {
+                let mut new_thread = VirtualThread::new();
+
+                // Deep copy the argument to the new thread's heap
+                let copied_arg = galfus_vm::thread::deep_copy_value(
+                    &self.thread.heap,
+                    &mut new_thread.heap,
+                    &arg,
+                )
+                .unwrap_or(galfus_vm::VmValue::Null);
+
+                // Prepare the function execution
+                if let galfus_vm::VmValue::Function(func_idx) = func {
+                    // Call prepare_function
+                    let current_module_id = self.thread.call_stack.last().unwrap().module_id;
+                    let _ = self.vm.prepare_function(
+                        &mut new_thread,
+                        current_module_id,
+                        func_idx,
+                        vec![copied_arg],
+                    );
+                }
+
+                let new_id = self.registry.lock().unwrap().register(new_thread);
+                let _ = self
+                    .thread
+                    .write_reg(dest, galfus_vm::VmValue::Int64(new_id.0 as i64));
+
+                // Spawn it immediately
+                if let Some(target_thread) = self.registry.lock().unwrap().take(new_id) {
+                    let new_task = Box::new(RuntimeTask {
+                        thread_id: new_id,
+                        thread: target_thread,
+                        vm: self.vm.clone(),
+                        registry: self.registry.clone(),
+                        blocked: self.blocked.clone(),
+                        executor: self.executor.clone(),
+                    });
+                    self.executor.spawn(new_task);
+                }
+
+                ThreadResult::Yielded(self)
+            }
+            ExecutionStep::SendMsg { dest, target, msg } => {
                 if target == 0 {
                     let host_val = to_host_value(&self.thread.heap, msg);
                     if let Some(HostValue::Array(mut arr)) = host_val {
@@ -76,28 +143,54 @@ impl RunnableTask for RuntimeTask {
 
                 {
                     let mut registry_lock = self.registry.lock().unwrap();
-                    if let Some(mailbox) =
-                        registry_lock.get_mailbox(crate::registry::ThreadId(target))
-                    {
-                        // Deep copy here in real system. For now just clone (assuming immutable or primitive)
-                        mailbox.lock().unwrap().push_back((self.thread_id.0, msg));
+                    let target_id = crate::registry::ThreadId(target);
 
-                        let mut blocked_lock = self.blocked.lock().unwrap();
-                        let target_id = crate::registry::ThreadId(target);
-                        if blocked_lock.unblock(target_id)
-                            && let Some(target_thread) = registry_lock.take(target_id)
-                        {
-                            let new_task = Box::new(RuntimeTask {
-                                thread_id: target_id,
-                                thread: target_thread,
-                                vm: self.vm.clone(),
-                                registry: self.registry.clone(),
-                                blocked: self.blocked.clone(),
-                                executor: self.executor.clone(),
-                            });
-                            self.executor.spawn(new_task);
+                    let mut success = false;
+
+                    // The target thread might be currently running (so not in registry),
+                    // or in the registry.
+                    if let Some(mut target_thread) = registry_lock.take(target_id) {
+                        if let Ok(copied_msg) = galfus_vm::thread::deep_copy_value(
+                            &self.thread.heap,
+                            &mut target_thread.heap,
+                            &msg,
+                        ) {
+                            target_thread
+                                .mailbox
+                                .lock()
+                                .unwrap()
+                                .push_back((self.thread_id.0, copied_msg));
+                            success = true;
                         }
+
+                        registry_lock.register_with_id(target_id, target_thread);
+
+                        if success {
+                            let mut blocked_lock = self.blocked.lock().unwrap();
+                            if blocked_lock.unblock(target_id)
+                                && let Some(target_thread) = registry_lock.take(target_id)
+                            {
+                                let new_task = Box::new(RuntimeTask {
+                                    thread_id: target_id,
+                                    thread: target_thread,
+                                    vm: self.vm.clone(),
+                                    registry: self.registry.clone(),
+                                    blocked: self.blocked.clone(),
+                                    executor: self.executor.clone(),
+                                });
+                                self.executor.spawn(new_task);
+                            }
+                        }
+                    } else {
+                        // Thread is likely running in executor and not in registry, so we can't deep copy!
+                        // For now, if we can't deep copy, we fail the send (return 1).
+                        // In a more robust system, we would queue the serialized message and deserialize later.
+                        success = false;
                     }
+
+                    let _ = self
+                        .thread
+                        .write_reg(dest, galfus_vm::VmValue::Int32(if success { 0 } else { 1 }));
                 }
                 ThreadResult::Yielded(self)
             }

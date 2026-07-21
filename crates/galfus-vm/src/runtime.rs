@@ -23,7 +23,21 @@ pub enum ExecutionStep {
     Continue,
     Return(Value),
     Blocked,
-    SendMsg { target: u64, msg: Value },
+    ReceiveFilter {
+        dest: Reg,
+        sender_id: u64,
+        timeout: Option<u64>,
+    },
+    SendMsg {
+        dest: Reg,
+        target: u64,
+        msg: Value,
+    },
+    Spawn {
+        dest: Reg,
+        func: Value,
+        arg: Value,
+    },
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -262,8 +276,22 @@ impl VirtualMachine {
                 Ok(ExecutionStep::Continue) => budget -= 1,
                 Ok(ExecutionStep::Return(val)) => return Ok(ExecutionStep::Return(val)),
                 Ok(ExecutionStep::Blocked) => return Ok(ExecutionStep::Blocked),
-                Ok(ExecutionStep::SendMsg { target, msg }) => {
-                    return Ok(ExecutionStep::SendMsg { target, msg });
+                Ok(ExecutionStep::SendMsg { dest, target, msg }) => {
+                    return Ok(ExecutionStep::SendMsg { dest, target, msg });
+                }
+                Ok(ExecutionStep::ReceiveFilter {
+                    dest,
+                    sender_id,
+                    timeout,
+                }) => {
+                    return Ok(ExecutionStep::ReceiveFilter {
+                        dest,
+                        sender_id,
+                        timeout,
+                    });
+                }
+                Ok(ExecutionStep::Spawn { dest, func, arg }) => {
+                    return Ok(ExecutionStep::Spawn { dest, func, arg });
                 }
                 Err(err) => {
                     let mut stack_trace = Vec::new();
@@ -342,7 +370,8 @@ impl VirtualMachine {
             | Instruction::Ret { .. }
             | Instruction::RetNull
             | Instruction::Send { .. }
-            | Instruction::Receive { .. }
+            | Instruction::ReceiveFilter { .. }
+            | Instruction::Spawn { .. }
             | Instruction::Panic { .. } => self.execute_control_instruction(thread, instr)?,
 
             Instruction::AllocLocal { .. }
@@ -378,6 +407,8 @@ impl VirtualMachine {
                 ExecutionStep::Return(value) => return Ok(value),
                 ExecutionStep::Blocked => return Err(VmError::UnresolvedHostBlocked),
                 ExecutionStep::SendMsg { .. } => return Err(VmError::UnresolvedHostBlocked),
+                ExecutionStep::ReceiveFilter { .. } => return Err(VmError::UnresolvedHostBlocked),
+                ExecutionStep::Spawn { .. } => return Err(VmError::UnresolvedHostBlocked),
             }
         }
     }

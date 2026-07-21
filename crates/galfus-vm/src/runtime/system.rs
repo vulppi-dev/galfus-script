@@ -55,7 +55,11 @@ impl VirtualMachine {
                         elements,
                     }));
 
-                    return Ok(ExecutionStep::SendMsg { target: 0, msg });
+                    return Ok(ExecutionStep::SendMsg {
+                        dest,
+                        target: 0,
+                        msg,
+                    });
                 }
             }
             Instruction::Len { dest, src } => {

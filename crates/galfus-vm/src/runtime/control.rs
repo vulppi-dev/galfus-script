@@ -414,16 +414,62 @@ impl VirtualMachine {
                 });
             }
 
-            Instruction::Receive { dest } => {
-                let msg = thread.mailbox.lock().unwrap().pop_front();
-                if let Some((_sender, msg)) = msg {
+            Instruction::ReceiveFilter {
+                dest,
+                sender,
+                timeout,
+            } => {
+                let sender_id = match thread.read_reg(sender)? {
+                    Value::Int64(id) => id as u64,
+                    _ => {
+                        return Err(VmError::TypeMismatch {
+                            expected: "Int64".into(),
+                            found: "other".into(),
+                        });
+                    }
+                };
+
+                let timeout_val = match thread.read_reg(timeout)? {
+                    Value::Int32(t) => {
+                        if t < 0 {
+                            None
+                        } else {
+                            Some(t as u64)
+                        }
+                    }
+                    _ => {
+                        return Err(VmError::TypeMismatch {
+                            expected: "Int32".into(),
+                            found: "other".into(),
+                        });
+                    }
+                };
+
+                // Remove from mailbox the first message matching sender_id
+                let msg_opt = {
+                    let mut mailbox = thread.mailbox.lock().unwrap();
+                    let idx = mailbox.iter().position(|(s, _)| *s == sender_id);
+                    if let Some(idx) = idx {
+                        Some(mailbox.remove(idx).unwrap().1)
+                    } else {
+                        None
+                    }
+                };
+
+                if let Some(msg) = msg_opt {
                     let _ = thread.write_reg(dest, msg);
                     return Ok(ExecutionStep::Continue);
                 } else {
-                    return Ok(ExecutionStep::Blocked);
+                    // Revert PC so we try again after waking up
+                    thread.call_stack.last_mut().unwrap().pc -= 1;
+                    return Ok(ExecutionStep::ReceiveFilter {
+                        dest,
+                        sender_id,
+                        timeout: timeout_val,
+                    });
                 }
             }
-            Instruction::Send { target, msg } => {
+            Instruction::Send { dest, target, msg } => {
                 let target_val = thread.read_reg(target)?.clone();
                 let msg_val = thread.read_reg(msg)?.clone();
 
@@ -438,8 +484,18 @@ impl VirtualMachine {
                 };
 
                 return Ok(ExecutionStep::SendMsg {
+                    dest,
                     target: target_id,
                     msg: msg_val,
+                });
+            }
+            Instruction::Spawn { dest, func, arg } => {
+                let func_val = thread.read_reg(func)?.clone();
+                let arg_val = thread.read_reg(arg)?.clone();
+                return Ok(ExecutionStep::Spawn {
+                    dest,
+                    func: func_val,
+                    arg: arg_val,
                 });
             }
 
