@@ -53,10 +53,11 @@ an instruction requires a missing provider. Consequently, running without
 providers is a valid sandbox configuration for programs that do not reach
 host-backed builtins.
 
-The current `IoProvider` is synchronous and supports byte-stream reads with a
-terminator and writes. It is intentionally independent of native, WASM, or
-browser APIs: the CLI adapts native streams, and the playground adapts its
-buffered stream to JavaScript through its WASM-facing API.
+The current `HostProvider` is asynchronous and supports payload dispatching
+through message injection. It is intentionally independent of native, WASM, or
+browser APIs: the CLI adapts native OS streams, and the playground adapts its
+buffered streams to JavaScript through its WASM-facing API, all running on top of
+a suspended virtual thread.
 
 ## Gate rules
 

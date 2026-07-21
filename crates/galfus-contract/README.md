@@ -6,11 +6,11 @@ execution. It contains no target selection and no concrete platform adapter.
 ## Responsibilities
 
 - **Providers**: Owns the optional providers supplied for one execution.
-- **IoProvider**: Defines synchronous byte-stream reads and writes for `std/io`.
-- **IoRead**: Distinguishes bytes read from end of input.
-- **IoProviderError**: Reports an I/O operation failure to the runtime.
+- **HostProvider**: Defines an asynchronous, message-based dispatch contract for executing native host capabilities.
+- **HostValue & HostResponse**: Agnostic data representation for payloads passing between the Galfus VM and the Host.
+- **MessageInjector**: Trait for injecting responses back into a suspended virtual thread.
 
 Hosts construct `Providers` and pass them to `Workspace::run`. The CLI uses a
-native stream provider, while the playground uses a buffered provider. If no
-I/O provider is supplied, only executions that reach `std/io` fail at runtime;
-compilation and executions without I/O remain valid.
+native host provider, while the playground uses a buffered host provider. If no
+host provider is supplied, only executions that reach native calls (e.g. `std/io`) fail at runtime;
+compilation and executions without native calls remain valid.

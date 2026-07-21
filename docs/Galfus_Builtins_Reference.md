@@ -79,9 +79,9 @@ Example configuration:
 
 Basic console and standard input/output stream interaction.
 
-`std/io` is resolved at execution time through the optional host `IoProvider`.
-The compiler does not require a provider. If execution reaches `std/io` with
-no I/O provider configured, it fails at runtime. This permits hosts to run
+`std/io` is resolved at execution time through the optional `HostProvider` via asynchronous native calls.
+The compiler does not require a provider. If execution reaches a native `std/io` call with
+no host provider configured, it fails at runtime. This permits hosts to run
 code without providers as a sandbox.
 
 ```galfus
