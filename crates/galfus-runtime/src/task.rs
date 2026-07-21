@@ -45,7 +45,7 @@ impl RunnableTask for RuntimeTask {
             ExecutionStep::Blocked => ThreadResult::Blocked { timeout: None },
             ExecutionStep::ReceiveFilter {
                 dest,
-                sender_id,
+                sender_id: _,
                 timeout,
             } => {
                 // If it reached here, control.rs has already checked the mailbox and found nothing.
@@ -133,7 +133,11 @@ impl RunnableTask for RuntimeTask {
                             func_idx,
                         }) => {
                             let copied_arg = if matches!(&arg, galfus_vm::VmValue::Null) {
-                                Ok(empty_thread_args(&self.vm, &mut target_thread.heap, module_id))
+                                Ok(empty_thread_args(
+                                    &self.vm,
+                                    &mut target_thread.heap,
+                                    module_id,
+                                ))
                             } else {
                                 galfus_vm::thread::deep_copy_value(
                                     &self.thread.heap,
@@ -384,7 +388,11 @@ fn empty_thread_args(
     heap: &mut galfus_vm::thread::PrivateHeap,
     module_id: galfus_core::ModuleId,
 ) -> galfus_vm::VmValue {
-    let module = &vm.graph.get(module_id).expect("thread entry module is loaded").module;
+    let module = &vm
+        .graph
+        .get(module_id)
+        .expect("thread entry module is loaded")
+        .module;
     let element_ty = module
         .types
         .iter()

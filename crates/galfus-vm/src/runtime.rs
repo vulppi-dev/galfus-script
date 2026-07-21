@@ -418,6 +418,8 @@ impl VirtualMachine {
             | Instruction::RetNull
             | Instruction::Send { .. }
             | Instruction::ReceiveFilter { .. }
+            | Instruction::MailboxHasMessages { .. }
+            | Instruction::MailboxGetMessage { .. }
             | Instruction::CreateThread { .. }
             | Instruction::StartThread { .. }
             | Instruction::GetThread { .. }

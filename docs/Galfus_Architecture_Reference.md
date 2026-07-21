@@ -28,7 +28,6 @@ VM (Instruction Execution)
 - **GFB (Galfus Bytecode File):** Removed. The graph exists only in memory.
 - **Bundler:** Not implemented.
 - **Optimizer:** Not implemented.
-- **Multithreading:** Not implemented.
 - **Debugger:** Not implemented.
 - **JIT Compilation:** Not implemented.
 
@@ -82,6 +81,10 @@ globals and initialization status. Dependencies initialize before the entry
 module, and the runtime does not duplicate bytecode.
 
 The `VM` executes bytecode instructions. It receives frames containing `ModuleId`, `FunctionId`, and `InstructionOffset`. Execution is implemented fundamentally via a `step` function that runs one instruction at a time.
+
+Virtual threads provide cooperative concurrent execution. Each thread has an
+isolated heap and mailbox; the runtime registry retains its identity, lifecycle
+state, key, and mailbox while it is created, running, blocked, or exited.
 
 ---
 

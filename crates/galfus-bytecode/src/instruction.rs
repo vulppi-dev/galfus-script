@@ -255,6 +255,12 @@ pub enum Instruction {
         sender: Reg,
         timeout: Reg,
     },
+    MailboxHasMessages {
+        dest: Reg,
+    },
+    MailboxGetMessage {
+        dest: Reg,
+    },
     Send {
         dest: Reg,
         target: Reg,

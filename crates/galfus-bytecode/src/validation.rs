@@ -326,6 +326,10 @@ pub fn validate_bytecode_module(
                 } => {
                     // Requires no validation (arguments are not bounds-checked here)
                 }
+                Instruction::MailboxHasMessages { dest: _ }
+                | Instruction::MailboxGetMessage { dest: _ } => {
+                    // Requires no validation
+                }
                 Instruction::Send {
                     dest: _,
                     target: _,

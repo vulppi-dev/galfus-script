@@ -476,6 +476,20 @@ impl VirtualMachine {
                     });
                 }
             }
+            Instruction::MailboxHasMessages { dest } => {
+                let has_messages = !thread.mailbox.lock().unwrap().is_empty();
+                thread.write_reg(dest, Value::Bool(has_messages))?;
+            }
+            Instruction::MailboxGetMessage { dest } => {
+                let message = thread.mailbox.lock().unwrap().pop_front();
+                let value = message.map_or(Value::Null, |message| {
+                    Value::Object(thread.heap.alloc(HeapObject::Array {
+                        element_ty: self.uint8_type_idx(thread),
+                        elements: message.data.into_iter().map(Value::Uint8).collect(),
+                    }))
+                });
+                thread.write_reg(dest, value)?;
+            }
             Instruction::Send { dest, target, msg } => {
                 let target_val = thread.read_reg(target)?.clone();
                 let msg_val = thread.read_reg(msg)?.clone();

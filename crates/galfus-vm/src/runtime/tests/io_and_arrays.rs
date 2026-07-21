@@ -464,3 +464,47 @@ fn test_receive_returns_the_matching_mailbox_message() {
     };
     assert_eq!(elements, &[VmValue::Uint8(65), VmValue::Uint8(66)]);
 }
+
+#[test]
+fn test_current_thread_mailbox_functions_read_and_consume_messages() {
+    let image = create_test_module(
+        vec![
+            Instruction::MailboxHasMessages { dest: Reg(0) },
+            Instruction::MailboxGetMessage { dest: Reg(1) },
+            Instruction::MailboxHasMessages { dest: Reg(2) },
+            Instruction::RetNull,
+        ],
+        vec![],
+    );
+    let module_id = galfus_core::ModuleId::new(0);
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
+        id: module_id,
+        path: galfus_core::ModulePath::new("test.gfs").unwrap(),
+        semantic_revision: galfus_core::SemanticRevision::new(0),
+        module: image,
+        metadata: None,
+    });
+    let vm = VirtualMachine::new(std::sync::Arc::new(graph));
+    let mut thread = crate::thread::VirtualThread::new();
+    thread.mailbox.lock().unwrap().push_back(MailboxMessage {
+        sender_id: 7,
+        data: vec![65, 66],
+    });
+    vm.prepare_function(&mut thread, module_id, FuncIdx(0), vec![])
+        .unwrap();
+
+    vm.step(&mut thread).unwrap();
+    assert_eq!(thread.read_reg(Reg(0)).unwrap(), VmValue::Bool(true));
+
+    vm.step(&mut thread).unwrap();
+    let VmValue::Object(message_ref) = thread.read_reg(Reg(1)).unwrap() else {
+        panic!("getMessage should return a byte array");
+    };
+    let HeapObject::Array { elements, .. } = thread.heap.get_object(message_ref).unwrap() else {
+        panic!("getMessage should return a byte array");
+    };
+    assert_eq!(elements, &[VmValue::Uint8(65), VmValue::Uint8(66)]);
+
+    vm.step(&mut thread).unwrap();
+    assert_eq!(thread.read_reg(Reg(2)).unwrap(), VmValue::Bool(false));
+}

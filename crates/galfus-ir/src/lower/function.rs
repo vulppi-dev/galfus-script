@@ -343,6 +343,20 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                                     continue;
                                 }
 
+                                if native_name == "has_messages" {
+                                    self.instructions.push(Instruction::MailboxHasMessages {
+                                        dest: Reg(destination.raw() as u16),
+                                    });
+                                    continue;
+                                }
+
+                                if native_name == "get_message" {
+                                    self.instructions.push(Instruction::MailboxGetMessage {
+                                        dest: Reg(destination.raw() as u16),
+                                    });
+                                    continue;
+                                }
+
                                 let start_reg = if args.is_empty() {
                                     Reg(0) // Dummy if no args
                                 } else {
