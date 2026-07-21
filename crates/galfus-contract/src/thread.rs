@@ -21,7 +21,9 @@ pub enum ThreadResult {
     /// The thread needs to call a Provider or is waiting for a message.
     /// The Host should discard the task. The Runtime Orchestrator will
     /// wake it up and send it back to the Host when ready.
-    Blocked,
+    Blocked {
+        timeout: Option<std::time::Duration>,
+    },
 }
 
 /// The Host must implement this trait to dictate how tasks are scheduled.

@@ -1,4 +1,5 @@
 use super::*;
+use crate::thread::MailboxMessage;
 use galfus_bytecode::BytecodeModule;
 
 #[test]
@@ -415,4 +416,51 @@ fn test_store_index_out_of_bounds_returns_error() {
         err.error,
         VmError::IndexOutOfBounds { index: 3, len: 3 }
     ));
+}
+
+#[test]
+fn test_receive_returns_the_matching_mailbox_message() {
+    let mut image = create_test_module(
+        vec![
+            Instruction::ReceiveFilter {
+                dest: Reg(2),
+                sender: Reg(0),
+                timeout: Reg(1),
+            },
+            Instruction::Ret { src: Reg(2) },
+        ],
+        vec![],
+    );
+    image.functions[0].param_count = 2;
+    let module_id = galfus_core::ModuleId::new(0);
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
+        id: module_id,
+        path: galfus_core::ModulePath::new("test.gfs").unwrap(),
+        semantic_revision: galfus_core::SemanticRevision::new(0),
+        module: image,
+        metadata: None,
+    });
+    let vm = VirtualMachine::new(std::sync::Arc::new(graph));
+    let mut thread = crate::thread::VirtualThread::new();
+    thread.mailbox.lock().unwrap().push_back(MailboxMessage {
+        sender_id: 7,
+        data: vec![65, 66],
+    });
+
+    let value = vm
+        .run_function(
+            &mut thread,
+            module_id,
+            FuncIdx(0),
+            vec![VmValue::Int64(7), VmValue::Int32(10)],
+        )
+        .unwrap();
+
+    let VmValue::Object(message_ref) = value else {
+        panic!("receive should return an array");
+    };
+    let HeapObject::Array { elements, .. } = thread.heap.get_object(message_ref).unwrap() else {
+        panic!("receive should return a byte array");
+    };
+    assert_eq!(elements, &[VmValue::Uint8(65), VmValue::Uint8(66)]);
 }

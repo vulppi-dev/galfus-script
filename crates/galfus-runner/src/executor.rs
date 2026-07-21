@@ -22,6 +22,7 @@ impl SingleThreadExecutor {
     }
 
     pub fn run_until_idle(&self) -> Result<(), String> {
+        let mut pending_timeout = None;
         loop {
             let task = {
                 let mut q = self.queue.lock().unwrap();
@@ -29,17 +30,23 @@ impl SingleThreadExecutor {
             };
 
             let Some(task) = task else {
-                break;
+                let Some(timeout) = pending_timeout.take() else {
+                    break;
+                };
+                std::thread::sleep(timeout);
+                continue;
             };
 
             match task.run(100) {
                 ThreadResult::Yielded(t) => {
                     self.queue.lock().unwrap().push_back(t);
                 }
-                ThreadResult::Blocked => {
-                    // It will be re-spawned when unblocked by another thread sending a message.
-                    // For a single threaded executor, if no other threads are running, it is a deadlock.
-                    // But maybe another thread is already in the queue.
+                ThreadResult::Blocked { timeout } => {
+                    pending_timeout = match (pending_timeout, timeout) {
+                        (Some(current), Some(next)) => Some(current.min(next)),
+                        (Some(current), None) => Some(current),
+                        (None, next) => next,
+                    };
                 }
                 ThreadResult::Completed(_code) => {
                     // Task finished

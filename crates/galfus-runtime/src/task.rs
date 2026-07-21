@@ -5,6 +5,9 @@ use galfus_vm::thread::VirtualThread;
 use galfus_vm::{ExecutionStep, VirtualMachine};
 use std::sync::{Arc, Mutex};
 
+#[cfg(test)]
+mod tests;
+
 pub struct RuntimeTask {
     pub thread_id: crate::registry::ThreadId,
     pub thread: VirtualThread,
@@ -39,7 +42,7 @@ impl RunnableTask for RuntimeTask {
                     .mark_exited(self.thread_id, code);
                 ThreadResult::Completed(code)
             }
-            ExecutionStep::Blocked => ThreadResult::Blocked,
+            ExecutionStep::Blocked => ThreadResult::Blocked { timeout: None },
             ExecutionStep::ReceiveFilter {
                 dest,
                 sender_id,
@@ -53,6 +56,7 @@ impl RunnableTask for RuntimeTask {
                         .lock()
                         .unwrap()
                         .block_with_timeout(self.thread_id, ms);
+                    self.schedule_receive_timeout(dest, ms);
                 } else {
                     self.blocked.lock().unwrap().block(self.thread_id);
                 }
@@ -62,7 +66,9 @@ impl RunnableTask for RuntimeTask {
                     .lock()
                     .unwrap()
                     .register_with_id(self.thread_id, self.thread);
-                ThreadResult::Blocked
+                ThreadResult::Blocked {
+                    timeout: timeout.map(std::time::Duration::from_millis),
+                }
             }
             ExecutionStep::CreateThread { dest, func, key } => {
                 let galfus_vm::VmValue::Function { .. } = func else {
@@ -244,7 +250,7 @@ impl RunnableTask for RuntimeTask {
                                             .register_with_id(self.thread_id, self.thread);
                                         self.blocked.lock().unwrap().block(self.thread_id);
                                         host.dispatch(tid, &method, &arr, injector);
-                                        return ThreadResult::Blocked;
+                                        return ThreadResult::Blocked { timeout: None };
                                     }
                                 }
                             }
@@ -297,6 +303,39 @@ impl RunnableTask for RuntimeTask {
                 ThreadResult::Yielded(self)
             }
         }
+    }
+}
+
+impl RuntimeTask {
+    fn schedule_receive_timeout(&self, dest: galfus_bytecode::instruction::Reg, timeout_ms: u64) {
+        let thread_id = self.thread_id;
+        let registry = self.registry.clone();
+        let blocked = self.blocked.clone();
+        let executor = self.executor.clone();
+        let vm = self.vm.clone();
+
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(timeout_ms));
+
+            if !blocked.lock().unwrap().unblock(thread_id) {
+                return;
+            }
+            let Some(mut thread) = registry.lock().unwrap().take(thread_id) else {
+                return;
+            };
+            let _ = thread.write_reg(dest, galfus_vm::VmValue::Null);
+            if let Some(frame) = thread.call_stack.last_mut() {
+                frame.pc += 1;
+            }
+            executor.spawn(Box::new(RuntimeTask {
+                thread_id,
+                thread,
+                vm,
+                registry,
+                blocked,
+                executor: executor.clone(),
+            }));
+        });
     }
 }
 

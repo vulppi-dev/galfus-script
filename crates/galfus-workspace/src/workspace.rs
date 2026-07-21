@@ -499,9 +499,16 @@ impl Workspace {
         galfus_contract::ThreadExecutor::spawn(executor.as_ref(), task);
 
         let mut exit_code = 0;
+        let mut pending_timeout = None;
         loop {
             let t = executor.queue.lock().unwrap().pop_front();
-            let Some(t) = t else { break };
+            let Some(t) = t else {
+                let Some(timeout) = pending_timeout.take() else {
+                    break;
+                };
+                std::thread::sleep(timeout);
+                continue;
+            };
             match t.run(100) {
                 galfus_contract::ThreadResult::Yielded(t) => {
                     executor.queue.lock().unwrap().push_back(t)
@@ -512,7 +519,13 @@ impl Workspace {
                 galfus_contract::ThreadResult::Failed(err) => {
                     return Err(RunBlocked::RuntimeError(err));
                 }
-                _ => {}
+                galfus_contract::ThreadResult::Blocked { timeout } => {
+                    pending_timeout = match (pending_timeout, timeout) {
+                        (Some(current), Some(next)) => Some(current.min(next)),
+                        (Some(current), None) => Some(current),
+                        (None, next) => next,
+                    };
+                }
             }
         }
         Ok(RunReport { exit_code })
