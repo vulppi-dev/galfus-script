@@ -1,13 +1,13 @@
 pub mod queue;
 pub mod registry;
 
-use queue::{RunnableQueue, BlockedQueue};
-use registry::{ThreadRegistry, ThreadId};
-use galfus_vm::thread::VirtualThread;
-use galfus_vm::VmError;
 use galfus_bytecode::BytecodeModule;
 use galfus_contract::Providers;
+use galfus_vm::VmError;
+use galfus_vm::thread::VirtualThread;
 use galfus_vm::{HeapObject, VirtualMachine, VmPanic, VmValue};
+use queue::{BlockedQueue, RunnableQueue};
+use registry::{ThreadId, ThreadRegistry};
 
 #[cfg(test)]
 mod tests;
@@ -100,12 +100,11 @@ impl<'graph> Runtime<'graph> {
         self.runnable.enqueue(id);
         id
     }
-    
+
     /// Retorna o próximo ThreadId pronto para executar
     pub fn next_runnable(&mut self) -> Option<ThreadId> {
         self.runnable.dequeue()
     }
-
 
     /// Execute an entry exported by a module loaded in the given BytecodeGraph.
     pub fn run_module_entry(
