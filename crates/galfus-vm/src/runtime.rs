@@ -69,7 +69,7 @@ pub enum VmValue {
     Float32(f32),
     Float64(f64),
     Object(VmObjectRef),
-    Function(FuncIdx),
+    Function { module_id: ModuleId, func_idx: FuncIdx },
 }
 
 pub type Value = VmValue;

@@ -343,8 +343,11 @@ impl VirtualMachine {
                 args_start,
                 arg_count,
             } => {
-                let func_idx = match thread.read_reg(func_reg)? {
-                    Value::Function(func_idx) => func_idx,
+                let (target_module_id, func_idx) = match thread.read_reg(func_reg)? {
+                    Value::Function {
+                        module_id,
+                        func_idx,
+                    } => (module_id, func_idx),
                     value => {
                         return Err(VmError::TypeMismatch {
                             expected: "function value".to_string(),
@@ -353,18 +356,16 @@ impl VirtualMachine {
                     }
                 };
 
-                let frame = thread.call_stack.last().ok_or(VmError::EmptyCallStack)?;
-                let current_module_id = frame.module_id;
-                let current_image = &self.graph.get(current_module_id).unwrap().module;
+                let current_image = &self.graph.get(target_module_id).unwrap().module;
 
                 let (target_module_id, target_func_idx) =
                     if (func_idx.raw() as usize) < current_image.functions.len() {
-                        (current_module_id, func_idx)
+                        (target_module_id, func_idx)
                     } else {
                         let import_idx = (func_idx.raw() as usize) - current_image.functions.len();
                         let link = self
                             .graph
-                            .resolve_imports(current_module_id)
+                            .resolve_imports(target_module_id)
                             .map_err(|_| VmError::FunctionOutOfBounds { index: func_idx })?;
                         let import = link
                             .imports

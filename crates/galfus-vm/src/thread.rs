@@ -198,7 +198,13 @@ pub fn deep_copy_value(
         Value::Uint64(i) => Ok(Value::Uint64(*i)),
         Value::Float32(f) => Ok(Value::Float32(*f)),
         Value::Float64(f) => Ok(Value::Float64(*f)),
-        Value::Function(idx) => Ok(Value::Function(*idx)),
+        Value::Function {
+            module_id,
+            func_idx,
+        } => Ok(Value::Function {
+            module_id: *module_id,
+            func_idx: *func_idx,
+        }),
         Value::Object(obj_ref) => {
             let obj = src_heap.get_object(*obj_ref)?;
             let new_obj = match obj {

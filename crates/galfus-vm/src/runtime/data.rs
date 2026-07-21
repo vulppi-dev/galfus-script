@@ -44,7 +44,17 @@ impl VirtualMachine {
                         };
                         Value::Object(thread.heap.alloc(obj))
                     }
-                    Constant::Function(idx) => Value::Function(*idx),
+                    Constant::Function(func_idx) => {
+                        let module_id = thread
+                            .call_stack
+                            .last()
+                            .ok_or(VmError::EmptyCallStack)?
+                            .module_id;
+                        Value::Function {
+                            module_id,
+                            func_idx: *func_idx,
+                        }
+                    }
                 };
                 thread.write_reg(dest, val)?;
             }

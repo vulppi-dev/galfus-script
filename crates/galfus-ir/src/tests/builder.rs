@@ -65,6 +65,51 @@ fn test_mir_builder_basic() {
 }
 
 #[test]
+fn test_mir_builder_lowers_named_function_as_a_function_constant() {
+    let source_id = SourceId::new(0);
+    let code = r#"
+        fn worker(args: [[u8]]): i32 {
+            return 0
+        }
+
+        fn main(args: [[u8]]): i32 {
+            const handler = worker
+            return handler(args)
+        }
+    "#;
+    let source = SourceFile::new(source_id, "test.gfs".to_string(), code.to_string());
+
+    let parse_result = parse(&source);
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    let graph = resolve_result.into_graph();
+    let type_result = check_declaration_types(&source, &graph);
+    assert!(
+        !type_result.has_errors(),
+        "Typecheck errors occurred: {:?}",
+        type_result.diagnostics()
+    );
+
+    let mir_module = builder::MirBuilder::new(&graph, &type_result, code).build();
+    let worker = mir_module
+        .functions
+        .iter()
+        .find(|function| function.name == "worker")
+        .expect("worker function should be lowered");
+
+    assert!(mir_module
+        .functions
+        .iter()
+        .flat_map(|function| { function.blocks.iter().flat_map(|block| &block.instructions) })
+        .any(|(instruction, _)| {
+            matches!(
+                instruction,
+                Instruction::Assign(_, RValue::Use(Operand::Constant(Constant::Function(id))))
+                    if *id == worker.id
+            )
+        }));
+}
+
+#[test]
 fn test_mir_builder_lowers_copy_expression() {
     let source_id = SourceId::new(0);
     let code = r#"

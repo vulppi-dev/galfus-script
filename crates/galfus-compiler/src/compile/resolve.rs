@@ -9,10 +9,111 @@ pub(super) fn collect_call_targets(
 ) {
     for bb in blocks {
         for inst in &bb.instructions {
-            if let (galfus_ir::mir::Instruction::Call { func, .. }, _) = inst {
-                targets.push(*func);
+            match &inst.0 {
+                galfus_ir::mir::Instruction::Assign(_, value) => {
+                    collect_rvalue_function_targets(value, targets);
+                }
+                galfus_ir::mir::Instruction::StoreGlobal(_, operand) => {
+                    collect_operand_function_target(operand, targets);
+                }
+                galfus_ir::mir::Instruction::StoreIndex { arr, idx, val } => {
+                    collect_operand_function_target(arr, targets);
+                    collect_operand_function_target(idx, targets);
+                    collect_operand_function_target(val, targets);
+                }
+                galfus_ir::mir::Instruction::StoreField { obj, val, .. } => {
+                    collect_operand_function_target(obj, targets);
+                    collect_operand_function_target(val, targets);
+                }
+                galfus_ir::mir::Instruction::Call { func, args, .. } => {
+                    targets.push(*func);
+                    collect_operand_function_targets(args, targets);
+                }
+                galfus_ir::mir::Instruction::IndirectCall { func, args, .. } => {
+                    collect_operand_function_target(func, targets);
+                    collect_operand_function_targets(args, targets);
+                }
+                galfus_ir::mir::Instruction::ConstraintCall { obj, args, .. } => {
+                    collect_operand_function_target(obj, targets);
+                    collect_operand_function_targets(args, targets);
+                }
+                galfus_ir::mir::Instruction::Drop(_) => {}
             }
         }
+        match &bb.terminator.0 {
+            galfus_ir::mir::Terminator::Return(Some(operand)) => {
+                collect_operand_function_target(operand, targets);
+            }
+            galfus_ir::mir::Terminator::Jump { args, .. } => {
+                collect_operand_function_targets(args, targets);
+            }
+            galfus_ir::mir::Terminator::Branch {
+                cond,
+                true_args,
+                false_args,
+                ..
+            } => {
+                collect_operand_function_target(cond, targets);
+                collect_operand_function_targets(true_args, targets);
+                collect_operand_function_targets(false_args, targets);
+            }
+            galfus_ir::mir::Terminator::Return(None) | galfus_ir::mir::Terminator::Panic(_) => {}
+        }
+    }
+}
+
+fn collect_rvalue_function_targets(value: &galfus_ir::mir::RValue, targets: &mut Vec<FunctionId>) {
+    use galfus_ir::mir::RValue;
+
+    match value {
+        RValue::Use(operand)
+        | RValue::UnaryOp(_, operand)
+        | RValue::Cast(operand, _)
+        | RValue::Copy(operand)
+        | RValue::MemberAccess(operand, _)
+        | RValue::ChoiceVariantIs(operand, _)
+        | RValue::Instanceof(operand, _)
+        | RValue::Len(operand) => collect_operand_function_target(operand, targets),
+        RValue::BinaryOp(_, left, right) | RValue::ArrayIndex(left, right) => {
+            collect_operand_function_target(left, targets);
+            collect_operand_function_target(right, targets);
+        }
+        RValue::NewStruct { fields, .. }
+        | RValue::NewArray(_, fields)
+        | RValue::NewTuple(_, fields) => collect_operand_function_targets(fields, targets),
+        RValue::NewArrayDynamic(_, elements) => {
+            for element in elements {
+                let operand = match element {
+                    galfus_ir::mir::ArrayLiteralElement::Single(operand)
+                    | galfus_ir::mir::ArrayLiteralElement::Spread(operand) => operand,
+                };
+                collect_operand_function_target(operand, targets);
+            }
+        }
+        RValue::NewArrayZeroedDynamic { length, .. } => {
+            collect_operand_function_target(length, targets);
+        }
+        RValue::Choice(_, _, payload) => {
+            if let Some(operand) = payload {
+                collect_operand_function_target(operand, targets);
+            }
+        }
+        RValue::NewArrayZeroed { .. } | RValue::LoadGlobal(_) => {}
+    }
+}
+
+fn collect_operand_function_targets(
+    operands: &[galfus_ir::mir::Operand],
+    targets: &mut Vec<FunctionId>,
+) {
+    for operand in operands {
+        collect_operand_function_target(operand, targets);
+    }
+}
+
+fn collect_operand_function_target(operand: &galfus_ir::mir::Operand, targets: &mut Vec<FunctionId>) {
+    if let galfus_ir::mir::Operand::Constant(galfus_ir::mir::Constant::Function(func)) = operand {
+        targets.push(*func);
     }
 }
 

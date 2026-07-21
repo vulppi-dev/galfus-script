@@ -203,6 +203,14 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                         if let Some(local_id) = self.symbol_to_local.get(&sym).copied() {
                             return Operand::Local(local_id);
                         } else {
+                            if matches!(
+                                res.symbol(sym).map(|symbol| symbol.kind()),
+                                Some(SymbolKind::Function)
+                            ) {
+                                return Operand::Constant(Constant::Function(FunctionId::new(
+                                    sym.raw(),
+                                )));
+                            }
                             let is_global = matches!(
                                 res.symbol(sym).map(|s| s.kind()),
                                 Some(galfus_frontend::SymbolKind::Var)
