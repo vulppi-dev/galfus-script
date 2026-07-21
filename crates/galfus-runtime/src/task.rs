@@ -127,28 +127,31 @@ impl RunnableTask for RuntimeTask {
                 let target_thread = self.registry.lock().unwrap().take_created(target_id);
 
                 if let Some(mut target_thread) = target_thread {
-                    let copied_arg = galfus_vm::thread::deep_copy_value(
-                        &self.thread.heap,
-                        &mut target_thread.heap,
-                        &arg,
-                    );
-
-                    let prepared = match (copied_arg, target_thread.entry_func.clone()) {
-                        (
-                            Ok(copied_arg),
-                            Some(galfus_vm::VmValue::Function {
-                                module_id,
-                                func_idx,
-                            }),
-                        ) => self
-                            .vm
-                            .prepare_function(
-                                &mut target_thread,
-                                module_id,
-                                func_idx,
-                                vec![copied_arg],
-                            )
-                            .is_ok(),
+                    let prepared = match target_thread.entry_func.clone() {
+                        Some(galfus_vm::VmValue::Function {
+                            module_id,
+                            func_idx,
+                        }) => {
+                            let copied_arg = if matches!(&arg, galfus_vm::VmValue::Null) {
+                                Ok(empty_thread_args(&self.vm, &mut target_thread.heap, module_id))
+                            } else {
+                                galfus_vm::thread::deep_copy_value(
+                                    &self.thread.heap,
+                                    &mut target_thread.heap,
+                                    &arg,
+                                )
+                            };
+                            copied_arg.is_ok_and(|copied_arg| {
+                                self.vm
+                                    .prepare_function(
+                                        &mut target_thread,
+                                        module_id,
+                                        func_idx,
+                                        vec![copied_arg],
+                                    )
+                                    .is_ok()
+                            })
+                        }
                         _ => false,
                     };
 
@@ -374,6 +377,29 @@ fn message_bytes(thread: &VirtualThread, value: galfus_vm::VmValue) -> Option<Ve
             _ => None,
         })
         .collect()
+}
+
+fn empty_thread_args(
+    vm: &VirtualMachine,
+    heap: &mut galfus_vm::thread::PrivateHeap,
+    module_id: galfus_core::ModuleId,
+) -> galfus_vm::VmValue {
+    let module = &vm.graph.get(module_id).expect("thread entry module is loaded").module;
+    let element_ty = module
+        .types
+        .iter()
+        .enumerate()
+        .find_map(|(_, ty)| match ty {
+            galfus_bytecode::BytecodeType::Array(inner)
+                if matches!(module.types.get(inner.raw() as usize), Some(galfus_bytecode::BytecodeType::Array(byte))
+                    if matches!(module.types.get(byte.raw() as usize), Some(galfus_bytecode::BytecodeType::Uint8))) => Some(*inner),
+            _ => None,
+        })
+        .unwrap_or(galfus_bytecode::instruction::TypeIdx(0));
+    galfus_vm::VmValue::Object(heap.alloc(galfus_vm::HeapObject::Array {
+        element_ty,
+        elements: vec![],
+    }))
 }
 
 use galfus_contract::HostValue;

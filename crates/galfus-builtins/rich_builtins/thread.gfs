@@ -1,6 +1,6 @@
 fn __builtin_create_thread(func: fn([[u8]]): i32, key: [u8] | null): i64 { return -1 }
 fn __builtin_get_thread(key: [u8]): i64 { return -1 }
-fn __builtin_spawn_thread(id: i64, args: [[u8]]): bool { return false }
+fn __builtin_spawn_thread(id: i64, args: [[u8]] | null): bool { return false }
 fn __builtin_is_thread_running(id: i64): bool { return false }
 fn __builtin_is_thread_exited(id: i64): bool { return false }
 fn __builtin_thread_exit_reason(id: i64): i32 | null { return null }
@@ -27,7 +27,7 @@ export fn getThread(key: [u8]): Thread | null {
     return new(Thread) { id: id, key: key }
 }
 
-fn Thread::spawn(self, args: [[u8]] = []): bool {
+fn Thread::spawn(self, args: [[u8]] | null = null): bool {
     return __builtin_spawn_thread(self.id, args)
 }
 

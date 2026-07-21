@@ -518,9 +518,16 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                     is_namespace_call = true;
                 }
 
-                let target_symbol = anchored_receiver
-                    .and_then(|receiver| self.anchored_function_symbol(receiver, target_node))
-                    .or_else(|| self.call_target_symbol(target_node));
+                let anchored_function_symbol = anchored_receiver
+                    .and_then(|receiver| self.anchored_function_symbol(receiver, target_node));
+                let target_symbol = anchored_function_symbol.or_else(|| {
+                    anchored_receiver
+                        .is_none()
+                        .then(|| self.call_target_symbol(target_node))
+                        .flatten()
+                });
+                let is_dynamic_anchored_method =
+                    anchored_receiver.is_some() && anchored_function_symbol.is_none();
 
                 // Detect constraint method call: receiver is of a constraint type.
                 // Example: `item::stringify()` where `item: Stringable`.
@@ -558,7 +565,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                     })
                     .is_some();
 
-                if is_constraint_method {
+                if is_constraint_method || is_dynamic_anchored_method {
                     // Extract method name from the PathExpression member node (child 1).
                     let method_name = syntax
                         .node(real_target)

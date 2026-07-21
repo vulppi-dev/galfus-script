@@ -305,7 +305,7 @@ impl VirtualMachine {
                 let target_image = &self.graph.get(target_module_id).unwrap().module;
                 let callee = &target_image.functions[target_func_idx.raw() as usize];
 
-                if arg_count != callee.param_count {
+                if arg_count > callee.param_count {
                     return Err(VmError::TypeMismatch {
                         expected: format!("{} arguments", callee.param_count),
                         found: format!("{} arguments", arg_count),
