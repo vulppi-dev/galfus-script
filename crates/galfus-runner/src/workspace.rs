@@ -1,5 +1,5 @@
 use anyhow::{Context, Result, bail};
-use galfus_host::Providers;
+use galfus_contract::Providers;
 use galfus_workspace::{LoadResult, Workspace};
 use std::path::Path;
 

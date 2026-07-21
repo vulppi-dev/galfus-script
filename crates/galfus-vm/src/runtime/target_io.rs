@@ -75,8 +75,8 @@ impl<'a> VirtualMachine<'a> {
             .map_err(|error| VmError::IoError(error.message().to_string()))?;
 
         let bytes = match input {
-            galfus_host::IoRead::Bytes(bytes) => bytes,
-            galfus_host::IoRead::EndOfInput => Vec::new(),
+            galfus_contract::IoRead::Bytes(bytes) => bytes,
+            galfus_contract::IoRead::EndOfInput => Vec::new(),
         };
         Ok(self.bytes_to_uint8_array(bytes))
     }

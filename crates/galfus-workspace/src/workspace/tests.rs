@@ -1,5 +1,5 @@
 use super::*;
-use galfus_host::{IoProvider, IoProviderError, IoRead, Providers};
+use galfus_contract::{IoProvider, IoProviderError, IoRead, Providers};
 use std::sync::{Arc, Mutex};
 
 struct TerminatorIo {

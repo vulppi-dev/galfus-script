@@ -1,4 +1,4 @@
-use galfus_host::{IoOperation, IoProvider, IoProviderError, IoRead};
+use galfus_contract::{IoOperation, IoProvider, IoProviderError, IoRead};
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 

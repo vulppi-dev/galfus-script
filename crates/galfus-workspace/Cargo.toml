@@ -10,7 +10,7 @@ galfus-bytecode = { path = "../galfus-bytecode" }
 galfus-compiler = { path = "../galfus-compiler" }
 galfus-core = { path = "../galfus-core" }
 galfus-frontend = { path = "../galfus-frontend" }
-galfus-host = { path = "../galfus-host" }
+galfus-contract = { path = "../galfus-contract" }
 galfus-runtime = { path = "../galfus-runtime" }
 serde = { workspace = true }
 toml = { workspace = true }

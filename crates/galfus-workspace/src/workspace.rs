@@ -6,11 +6,11 @@ use crate::state::{
 };
 use galfus_bytecode::{BytecodeGraph, ImportEdge};
 use galfus_compiler::CompiledModule;
+use galfus_contract::Providers;
 use galfus_core::{DiagnosticBag, ModulePath, SourceFile};
 use galfus_frontend::modules::{
     FrontendRoots, FrontendSession, FrontendSource, FrontendUpdate, SemanticRoot, SemanticRootKind,
 };
-use galfus_host::Providers;
 use galfus_runtime::Runtime;
 use std::collections::HashSet;
 use std::sync::Arc;

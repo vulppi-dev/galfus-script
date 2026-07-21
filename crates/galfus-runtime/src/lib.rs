@@ -1,5 +1,5 @@
 use galfus_bytecode::BytecodeModule;
-use galfus_host::Providers;
+use galfus_contract::Providers;
 use galfus_vm::{HeapObject, VirtualMachine, VmPanic, VmValue};
 
 #[cfg(test)]

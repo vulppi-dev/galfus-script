@@ -1,6 +1,6 @@
 use super::*;
 use galfus_bytecode::BytecodeModule;
-use galfus_host::{IoProvider, IoProviderError, IoRead, Providers};
+use galfus_contract::{IoProvider, IoProviderError, IoRead, Providers};
 
 struct BufferIo {
     buffer: std::sync::Arc<std::sync::Mutex<Vec<u8>>>,

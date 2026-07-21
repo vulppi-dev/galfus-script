@@ -3,8 +3,8 @@ use galfus_bytecode::instruction::{
     ChoiceLayoutIdx, FuncIdx, Instruction, Reg, StructLayoutIdx, TypeIdx,
 };
 use galfus_bytecode::{BytecodeGraph, BytecodeType, Constant, OwnershipKind};
+use galfus_contract::Providers;
 use galfus_core::ModuleId;
-use galfus_host::Providers;
 use std::collections::HashMap;
 
 mod casts;
