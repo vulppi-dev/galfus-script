@@ -2,23 +2,29 @@ use super::*;
 
 impl<'a> VirtualMachine<'a> {
     pub(super) fn execute_control_instruction(
-        &mut self,
+        &self,
+        thread: &mut crate::thread::VirtualThread,
         instr: Instruction,
     ) -> Result<ExecutionStep, VmError> {
         match instr {
             // Category C: Control Flow & Subroutines
             Instruction::Jump { offset } => {
-                let frame = self.call_stack.last_mut().ok_or(VmError::EmptyCallStack)?;
+                let frame = thread
+                    .call_stack
+                    .last_mut()
+                    .ok_or(VmError::EmptyCallStack)?;
                 let new_pc = (frame.pc as i32 + offset) as usize;
                 frame.pc = new_pc;
             }
             Instruction::JumpTrue { cond, offset } => {
-                let cond_val = self.read_reg(cond)?;
+                let cond_val = thread.read_reg(cond)?;
                 match cond_val {
                     Value::Bool(b) => {
                         if b {
-                            let frame =
-                                self.call_stack.last_mut().ok_or(VmError::EmptyCallStack)?;
+                            let frame = thread
+                                .call_stack
+                                .last_mut()
+                                .ok_or(VmError::EmptyCallStack)?;
                             let new_pc = (frame.pc as i32 + offset) as usize;
                             frame.pc = new_pc;
                         }
@@ -32,12 +38,14 @@ impl<'a> VirtualMachine<'a> {
                 }
             }
             Instruction::JumpFalse { cond, offset } => {
-                let cond_val = self.read_reg(cond)?;
+                let cond_val = thread.read_reg(cond)?;
                 match cond_val {
                     Value::Bool(b) => {
                         if !b {
-                            let frame =
-                                self.call_stack.last_mut().ok_or(VmError::EmptyCallStack)?;
+                            let frame = thread
+                                .call_stack
+                                .last_mut()
+                                .ok_or(VmError::EmptyCallStack)?;
                             let new_pc = (frame.pc as i32 + offset) as usize;
                             frame.pc = new_pc;
                         }
@@ -51,9 +59,12 @@ impl<'a> VirtualMachine<'a> {
                 }
             }
             Instruction::JumpNull { val, offset } => {
-                let val_read = self.read_reg(val)?;
+                let val_read = thread.read_reg(val)?;
                 if matches!(val_read, Value::Null) {
-                    let frame = self.call_stack.last_mut().ok_or(VmError::EmptyCallStack)?;
+                    let frame = thread
+                        .call_stack
+                        .last_mut()
+                        .ok_or(VmError::EmptyCallStack)?;
                     let new_pc = (frame.pc as i32 + offset) as usize;
                     frame.pc = new_pc;
                 }
@@ -64,7 +75,7 @@ impl<'a> VirtualMachine<'a> {
                 args_start,
                 arg_count,
             } => {
-                let frame = self.call_stack.last().ok_or(VmError::EmptyCallStack)?;
+                let frame = thread.call_stack.last().ok_or(VmError::EmptyCallStack)?;
                 let current_module_id = frame.module_id;
                 let current_image = &self.graph.get(current_module_id).unwrap().module;
 
@@ -112,12 +123,12 @@ impl<'a> VirtualMachine<'a> {
 
                 for (i, dest) in callee_regs.iter_mut().enumerate().take(arg_count as usize) {
                     let src_reg = Reg(args_start.raw() + i as u16);
-                    let val = self.read_reg(src_reg)?;
+                    let val = thread.read_reg(src_reg)?;
                     *dest = val;
                 }
 
                 // Save destination register inside call frame to write return value back
-                self.call_stack.push(CallFrame {
+                thread.call_stack.push(CallFrame {
                     module_id: target_module_id,
                     func_idx: target_func_idx,
                     pc: 0,
@@ -134,7 +145,7 @@ impl<'a> VirtualMachine<'a> {
             } => {
                 // Resolve method name from constant pool.
                 let method_name = match self
-                    .current_image()
+                    .current_image(thread)
                     .unwrap()
                     .constants
                     .constants
@@ -151,24 +162,24 @@ impl<'a> VirtualMachine<'a> {
                 };
 
                 if let Some(value) =
-                    self.execute_array_iterator_method(obj, method_name.as_str())?
+                    self.execute_array_iterator_method(thread, obj, method_name.as_str())?
                 {
-                    self.write_reg(dest, value)?;
+                    thread.write_reg(dest, value)?;
                     return Ok(ExecutionStep::Continue);
                 }
 
                 if method_name == "compare" {
-                    let obj_val = self.read_reg(obj)?;
+                    let obj_val = thread.read_reg(obj)?;
                     if !matches!(obj_val, Value::Object(_)) {
-                        let arg_val = self.read_reg(Reg(args_start.raw() + 1))?;
+                        let arg_val = thread.read_reg(Reg(args_start.raw() + 1))?;
                         let is_equal = obj_val == arg_val;
-                        self.write_reg(dest, Value::Bool(is_equal))?;
+                        thread.write_reg(dest, Value::Bool(is_equal))?;
                         return Ok(ExecutionStep::Continue);
                     }
                 }
 
-                let receiver_layout = match self.read_reg(obj)? {
-                    Value::Object(obj_ref) => match self.get_object(obj_ref)? {
+                let receiver_layout = match thread.read_reg(obj)? {
+                    Value::Object(obj_ref) => match thread.heap.get_object(obj_ref)? {
                         HeapObject::Struct {
                             module_id,
                             layout_idx,
@@ -209,7 +220,7 @@ impl<'a> VirtualMachine<'a> {
                     }
                 };
 
-                let current_module_id = self.call_stack.last().unwrap().module_id;
+                let current_module_id = thread.call_stack.last().unwrap().module_id;
                 let resolution_module_id = receiver_layout
                     .as_ref()
                     .map(|(module_id, _)| *module_id)
@@ -315,10 +326,10 @@ impl<'a> VirtualMachine<'a> {
                     } else {
                         Reg(args_start.raw() + i as u16)
                     };
-                    *dest = self.read_reg(src_reg)?;
+                    *dest = thread.read_reg(src_reg)?;
                 }
 
-                self.call_stack.push(CallFrame {
+                thread.call_stack.push(CallFrame {
                     module_id: target_module_id,
                     func_idx: target_func_idx,
                     pc: 0,
@@ -332,7 +343,7 @@ impl<'a> VirtualMachine<'a> {
                 args_start,
                 arg_count,
             } => {
-                let func_idx = match self.read_reg(func_reg)? {
+                let func_idx = match thread.read_reg(func_reg)? {
                     Value::Function(func_idx) => func_idx,
                     value => {
                         return Err(VmError::TypeMismatch {
@@ -342,7 +353,7 @@ impl<'a> VirtualMachine<'a> {
                     }
                 };
 
-                let frame = self.call_stack.last().ok_or(VmError::EmptyCallStack)?;
+                let frame = thread.call_stack.last().ok_or(VmError::EmptyCallStack)?;
                 let current_module_id = frame.module_id;
                 let current_image = &self.graph.get(current_module_id).unwrap().module;
 
@@ -391,10 +402,10 @@ impl<'a> VirtualMachine<'a> {
                     callee_regs.iter_mut().enumerate().take(arg_count as usize)
                 {
                     let source = Reg(args_start.raw() + index as u16);
-                    *callee_reg = self.read_reg(source)?;
+                    *callee_reg = thread.read_reg(source)?;
                 }
 
-                self.call_stack.push(CallFrame {
+                thread.call_stack.push(CallFrame {
                     module_id: target_module_id,
                     func_idx: target_func_idx,
                     pc: 0,
@@ -404,12 +415,12 @@ impl<'a> VirtualMachine<'a> {
             }
 
             Instruction::Ret { src } => {
-                let val = self.read_reg(src)?;
-                let completed_frame = self.call_stack.pop().ok_or(VmError::EmptyCallStack)?;
+                let val = thread.read_reg(src)?;
+                let completed_frame = thread.call_stack.pop().ok_or(VmError::EmptyCallStack)?;
 
                 match completed_frame.return_dest {
                     Some(dest) => {
-                        self.write_reg(dest, val)?;
+                        thread.write_reg(dest, val)?;
                     }
                     None => {
                         return Ok(ExecutionStep::Return(val));
@@ -417,11 +428,11 @@ impl<'a> VirtualMachine<'a> {
                 }
             }
             Instruction::RetNull => {
-                let completed_frame = self.call_stack.pop().ok_or(VmError::EmptyCallStack)?;
+                let completed_frame = thread.call_stack.pop().ok_or(VmError::EmptyCallStack)?;
 
                 match completed_frame.return_dest {
                     Some(dest) => {
-                        self.write_reg(dest, Value::Null)?;
+                        thread.write_reg(dest, Value::Null)?;
                     }
                     None => {
                         return Ok(ExecutionStep::Return(Value::Null));
@@ -430,7 +441,7 @@ impl<'a> VirtualMachine<'a> {
             }
             Instruction::Panic { const_idx } => {
                 let constant = self
-                    .current_image()
+                    .current_image(thread)
                     .unwrap()
                     .constants
                     .constants
@@ -451,15 +462,16 @@ impl<'a> VirtualMachine<'a> {
     }
 
     fn execute_array_iterator_method(
-        &mut self,
+        &self,
+        thread: &mut crate::thread::VirtualThread,
         obj: Reg,
         method_name: &str,
     ) -> Result<Option<Value>, VmError> {
-        let Value::Object(iterator_ref) = self.read_reg(obj)? else {
+        let Value::Object(iterator_ref) = thread.read_reg(obj)? else {
             return Ok(None);
         };
 
-        let (array_ref, current) = match self.get_object(iterator_ref)? {
+        let (array_ref, current) = match thread.heap.get_object(iterator_ref)? {
             HeapObject::Struct {
                 module_id,
                 layout_idx,
@@ -503,14 +515,15 @@ impl<'a> VirtualMachine<'a> {
 
         match method_name {
             "iter" => {
-                let HeapObject::Struct { fields, .. } = self.get_object_mut(iterator_ref)? else {
+                let HeapObject::Struct { fields, .. } = thread.heap.get_object_mut(iterator_ref)?
+                else {
                     unreachable!("iterator object was validated as a struct")
                 };
                 fields[1] = Value::Int32(0);
                 Ok(Some(Value::Object(iterator_ref)))
             }
             "next" => {
-                let value = match self.get_object(array_ref)? {
+                let value = match thread.heap.get_object(array_ref)? {
                     HeapObject::Array { elements, .. } => elements.get(current as usize).cloned(),
                     value => {
                         return Err(VmError::TypeMismatch {
@@ -520,7 +533,8 @@ impl<'a> VirtualMachine<'a> {
                     }
                 };
                 if value.is_some() {
-                    let HeapObject::Struct { fields, .. } = self.get_object_mut(iterator_ref)?
+                    let HeapObject::Struct { fields, .. } =
+                        thread.heap.get_object_mut(iterator_ref)?
                     else {
                         unreachable!("iterator object was validated as a struct")
                     };

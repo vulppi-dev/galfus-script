@@ -2,34 +2,35 @@ use super::*;
 
 impl<'a> VirtualMachine<'a> {
     pub(super) fn execute_system_instruction(
-        &mut self,
+        &self,
+        thread: &mut crate::thread::VirtualThread,
         instr: Instruction,
     ) -> Result<ExecutionStep, VmError> {
         match instr {
             // Category E: Memory Ownership
             Instruction::Drop { reg } => {
-                self.write_reg(reg, Value::Null)?;
+                thread.write_reg(reg, Value::Null)?;
             }
 
             Instruction::Write { src } => {
-                let val = self.read_reg(src)?;
-                self.execute_write(val)?;
+                let val = thread.read_reg(src)?;
+                self.execute_write(thread, val)?;
             }
             Instruction::Read { dest, terminator } => {
-                let terminator = self.read_reg(terminator)?;
-                let value = self.execute_read(terminator)?;
-                self.write_reg(dest, value)?;
+                let terminator = thread.read_reg(terminator)?;
+                let value = self.execute_read(thread, terminator)?;
+                thread.write_reg(dest, value)?;
             }
             Instruction::Len { dest, src } => {
-                let val = self.read_reg(src)?;
+                let val = thread.read_reg(src)?;
                 if let Value::Object(obj_ref) = val {
-                    let heap_obj = self.get_object(obj_ref)?;
+                    let heap_obj = thread.heap.get_object(obj_ref)?;
                     match heap_obj {
                         HeapObject::Array { elements, .. } => {
-                            self.write_reg(dest, Value::Int32(elements.len() as i32))?;
+                            thread.write_reg(dest, Value::Int32(elements.len() as i32))?;
                         }
                         HeapObject::Tuple { elements, .. } => {
-                            self.write_reg(dest, Value::Int32(elements.len() as i32))?;
+                            thread.write_reg(dest, Value::Int32(elements.len() as i32))?;
                         }
                         _ => {
                             return Err(VmError::TypeMismatch {
@@ -50,9 +51,9 @@ impl<'a> VirtualMachine<'a> {
                 dest_start,
                 src,
             } => {
-                let dest_val = self.read_reg(dest)?;
-                let start_val = self.read_reg(dest_start)?;
-                let src_val = self.read_reg(src)?;
+                let dest_val = thread.read_reg(dest)?;
+                let start_val = thread.read_reg(dest_start)?;
+                let src_val = thread.read_reg(src)?;
 
                 let start_idx = match start_val {
                     Value::Int8(x) if x >= 0 => x as usize,
@@ -74,7 +75,7 @@ impl<'a> VirtualMachine<'a> {
                 if let (Value::Object(dest_ref), Value::Object(src_ref)) =
                     (dest_val.clone(), src_val.clone())
                 {
-                    let src_elements = match self.get_object(src_ref)? {
+                    let src_elements = match thread.heap.get_object(src_ref)? {
                         HeapObject::Array { elements, .. } => elements.clone(),
                         HeapObject::Tuple { elements, .. } => elements.clone(),
                         other => {
@@ -85,7 +86,7 @@ impl<'a> VirtualMachine<'a> {
                         }
                     };
 
-                    let dest_obj = self.get_object_mut(dest_ref)?;
+                    let dest_obj = thread.heap.get_object_mut(dest_ref)?;
                     if let HeapObject::Array { elements, .. } = dest_obj {
                         if start_idx + src_elements.len() > elements.len() {
                             return Err(VmError::IndexOutOfBounds {

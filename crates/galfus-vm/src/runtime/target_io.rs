@@ -1,11 +1,15 @@
 use super::*;
 
 impl<'a> VirtualMachine<'a> {
-    pub(super) fn value_to_bytes(&self, val: Value) -> Result<Vec<u8>, VmError> {
+    pub(super) fn value_to_bytes(
+        &self,
+        thread: &mut crate::thread::VirtualThread,
+        val: Value,
+    ) -> Result<Vec<u8>, VmError> {
         let mut bytes = Vec::new();
         match val {
             Value::Object(obj_ref) => {
-                let heap_obj = self.get_object(obj_ref)?;
+                let heap_obj = thread.heap.get_object(obj_ref)?;
                 if let HeapObject::Array { elements, .. } = heap_obj {
                     for elem in elements {
                         match elem {
@@ -47,9 +51,13 @@ impl<'a> VirtualMachine<'a> {
         Ok(bytes)
     }
 
-    pub(super) fn bytes_to_uint8_array(&mut self, bytes: Vec<u8>) -> Value {
+    pub(super) fn bytes_to_uint8_array(
+        &self,
+        thread: &mut crate::thread::VirtualThread,
+        bytes: Vec<u8>,
+    ) -> Value {
         let element_ty = self
-            .current_image()
+            .current_image(thread)
             .unwrap()
             .types
             .iter()
@@ -60,16 +68,24 @@ impl<'a> VirtualMachine<'a> {
             element_ty,
             elements: bytes.into_iter().map(Value::Uint8).collect(),
         };
-        Value::Object(self.alloc(obj))
+        Value::Object(thread.heap.alloc(obj))
     }
 
-    pub(super) fn execute_read(&mut self, terminator: Value) -> Result<Value, VmError> {
-        let terminator = self.byte_array_value(terminator)?;
-        let input = self
+    pub(super) fn execute_read(
+        &self,
+        thread: &mut crate::thread::VirtualThread,
+        terminator: Value,
+    ) -> Result<Value, VmError> {
+        let terminator = self.byte_array_value(thread, terminator)?;
+        let mut providers_borrow = self
             .context
             .providers
-            .as_mut()
-            .and_then(|providers| providers.io_mut())
+            .as_ref()
+            .ok_or(VmError::IoProviderUnavailable { operation: "read" })?
+            .borrow_mut();
+
+        let input = providers_borrow
+            .io_mut()
             .ok_or(VmError::IoProviderUnavailable { operation: "read" })?
             .read(terminator.as_slice())
             .map_err(|error| VmError::IoError(error.message().to_string()))?;
@@ -78,17 +94,21 @@ impl<'a> VirtualMachine<'a> {
             galfus_contract::IoRead::Bytes(bytes) => bytes,
             galfus_contract::IoRead::EndOfInput => Vec::new(),
         };
-        Ok(self.bytes_to_uint8_array(bytes))
+        Ok(self.bytes_to_uint8_array(thread, bytes))
     }
 
-    fn byte_array_value(&self, value: Value) -> Result<Vec<u8>, VmError> {
+    fn byte_array_value(
+        &self,
+        thread: &mut crate::thread::VirtualThread,
+        value: Value,
+    ) -> Result<Vec<u8>, VmError> {
         let Value::Object(object) = value else {
             return Err(VmError::TypeMismatch {
                 expected: "[u8]".to_string(),
                 found: format!("{value:?}"),
             });
         };
-        let heap_object = self.get_object(object)?;
+        let heap_object = thread.heap.get_object(object)?;
         let HeapObject::Array { elements, .. } = heap_object else {
             return Err(VmError::TypeMismatch {
                 expected: "[u8]".to_string(),
@@ -108,12 +128,21 @@ impl<'a> VirtualMachine<'a> {
             .collect()
     }
 
-    pub(super) fn execute_write(&mut self, val: Value) -> Result<(), VmError> {
-        let bytes = self.value_to_bytes(val)?;
-        self.context
+    pub(super) fn execute_write(
+        &self,
+        thread: &mut crate::thread::VirtualThread,
+        val: Value,
+    ) -> Result<(), VmError> {
+        let bytes = self.value_to_bytes(thread, val)?;
+        let mut providers_borrow = self
+            .context
             .providers
-            .as_mut()
-            .and_then(|providers| providers.io_mut())
+            .as_ref()
+            .ok_or(VmError::IoProviderUnavailable { operation: "write" })?
+            .borrow_mut();
+
+        providers_borrow
+            .io_mut()
             .ok_or(VmError::IoProviderUnavailable { operation: "write" })?
             .write(bytes.as_slice())
             .map_err(|error| VmError::IoError(error.message().to_string()))

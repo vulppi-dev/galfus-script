@@ -5,6 +5,7 @@ use galfus_bytecode::instruction::{
 use galfus_bytecode::{BytecodeGraph, BytecodeType, Constant, OwnershipKind};
 use galfus_contract::Providers;
 use galfus_core::ModuleId;
+use std::cell::RefCell;
 use std::collections::HashMap;
 
 mod casts;
@@ -22,6 +23,7 @@ mod tests;
 pub enum ExecutionStep {
     Continue,
     Return(Value),
+    Blocked,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -51,7 +53,7 @@ pub enum VmValue {
     Function(FuncIdx),
 }
 
-type Value = VmValue;
+pub type Value = VmValue;
 type ObjectRef = VmObjectRef;
 
 const RELEASE_ALLOCATION_THRESHOLD: usize = 64;
@@ -79,7 +81,7 @@ pub enum HeapObject {
 }
 
 pub struct VmContext {
-    providers: Option<Providers>,
+    providers: Option<RefCell<Providers>>,
 }
 
 #[derive(Default)]
@@ -90,7 +92,9 @@ pub struct RuntimeModuleState {
 
 impl VmContext {
     pub fn new(providers: Option<Providers>) -> Self {
-        Self { providers }
+        Self {
+            providers: providers.map(RefCell::new),
+        }
     }
 }
 
@@ -104,24 +108,14 @@ pub struct CallFrame {
 
 pub struct VirtualMachine<'a> {
     pub graph: &'a BytecodeGraph,
-    pub module_states: HashMap<ModuleId, RuntimeModuleState>,
-    pub heap: Vec<Option<HeapObject>>,
-    pub free_slots: Vec<usize>,
-    pub call_stack: Vec<CallFrame>,
     pub context: VmContext,
-    allocations_since_release: usize,
 }
 
 impl<'a> VirtualMachine<'a> {
     pub fn new(graph: &'a BytecodeGraph) -> Self {
         Self {
             graph,
-            module_states: HashMap::new(),
-            heap: Vec::new(),
-            free_slots: Vec::new(),
-            call_stack: Vec::new(),
             context: VmContext::new(None),
-            allocations_since_release: 0,
         }
     }
 
@@ -135,58 +129,17 @@ impl<'a> VirtualMachine<'a> {
         self
     }
 
-    pub fn alloc(&mut self, obj: HeapObject) -> ObjectRef {
-        self.allocations_since_release += 1;
-
-        if let Some(idx) = self.free_slots.pop() {
-            self.heap[idx] = Some(obj);
-            VmObjectRef(idx)
-        } else {
-            let idx = self.heap.len();
-            self.heap.push(Some(obj));
-            VmObjectRef(idx)
-        }
-    }
-
-    pub fn module_state(&self, module_id: ModuleId) -> Option<&RuntimeModuleState> {
-        self.module_states.get(&module_id)
-    }
-
-    pub fn is_module_initialized(&self, module_id: ModuleId) -> bool {
-        self.module_state(module_id)
-            .is_some_and(|state| state.initialized)
-    }
-
-    pub fn mark_module_initialized(&mut self, module_id: ModuleId) {
-        self.module_states.entry(module_id).or_default().initialized = true;
-    }
-
-    pub fn current_image(&self) -> Result<&'a galfus_bytecode::BytecodeModule, VmError> {
-        let frame = self.call_stack.last().ok_or(VmError::EmptyCallStack)?;
+    pub fn current_image(
+        &self,
+        thread: &crate::thread::VirtualThread,
+    ) -> Result<&'a galfus_bytecode::BytecodeModule, VmError> {
+        let frame = thread.call_stack.last().ok_or(VmError::EmptyCallStack)?;
         Ok(&self.graph.get(frame.module_id).unwrap().module)
     }
 
-    pub fn read_reg(&self, reg: Reg) -> Result<Value, VmError> {
-        let frame = self.call_stack.last().ok_or(VmError::EmptyCallStack)?;
-        frame
-            .registers
-            .get(reg.raw() as usize)
-            .cloned()
-            .ok_or(VmError::RegisterOutOfBounds { reg })
-    }
-
-    pub fn write_reg(&mut self, reg: Reg, val: Value) -> Result<(), VmError> {
-        let frame = self.call_stack.last_mut().ok_or(VmError::EmptyCallStack)?;
-        if (reg.raw() as usize) < frame.registers.len() {
-            frame.registers[reg.raw() as usize] = val;
-            Ok(())
-        } else {
-            Err(VmError::RegisterOutOfBounds { reg })
-        }
-    }
-
     pub fn run_function(
-        &mut self,
+        &self,
+        thread: &mut crate::thread::VirtualThread,
         module_id: galfus_core::ModuleId,
         func_idx: FuncIdx,
         args: Vec<Value>,
@@ -209,7 +162,7 @@ impl<'a> VirtualMachine<'a> {
             });
         }
 
-        self.call_stack.clear();
+        thread.call_stack.clear();
         let total_regs =
             func.param_count as usize + func.local_count as usize + func.temp_count as usize;
         let mut registers = vec![Value::Null; total_regs];
@@ -217,7 +170,7 @@ impl<'a> VirtualMachine<'a> {
             registers[i] = val;
         }
 
-        self.call_stack.push(CallFrame {
+        thread.call_stack.push(CallFrame {
             module_id,
             func_idx,
             pc: 0,
@@ -225,11 +178,11 @@ impl<'a> VirtualMachine<'a> {
             return_dest: None,
         });
 
-        match self.execute_loop() {
+        match self.execute_loop(thread) {
             Ok(val) => Ok(val),
             Err(err) => {
                 let mut stack_trace = Vec::new();
-                for frame in self.call_stack.iter().rev() {
+                for frame in thread.call_stack.iter().rev() {
                     stack_trace.push(StackFrameInfo {
                         module_id: frame.module_id,
                         func_idx: frame.func_idx,
@@ -244,9 +197,44 @@ impl<'a> VirtualMachine<'a> {
         }
     }
 
-    pub fn step(&mut self) -> Result<ExecutionStep, VmError> {
+    pub fn execute_with_budget(
+        &self,
+        thread: &mut crate::thread::VirtualThread,
+        mut budget: usize,
+    ) -> Result<ExecutionStep, VmPanic> {
+        while budget > 0 {
+            match self.step(thread) {
+                Ok(ExecutionStep::Continue) => budget -= 1,
+                Ok(ExecutionStep::Return(val)) => return Ok(ExecutionStep::Return(val)),
+                Ok(ExecutionStep::Blocked) => return Ok(ExecutionStep::Blocked),
+                Err(err) => {
+                    let mut stack_trace = Vec::new();
+                    for frame in thread.call_stack.iter().rev() {
+                        stack_trace.push(StackFrameInfo {
+                            module_id: frame.module_id,
+                            func_idx: frame.func_idx,
+                            instruction_offset: frame.pc.saturating_sub(1),
+                        });
+                    }
+                    return Err(VmPanic {
+                        error: err,
+                        stack_trace,
+                    });
+                }
+            }
+        }
+        Ok(ExecutionStep::Continue)
+    }
+
+    pub fn step(
+        &self,
+        thread: &mut crate::thread::VirtualThread,
+    ) -> Result<ExecutionStep, VmError> {
         let instr = {
-            let frame = self.call_stack.last_mut().ok_or(VmError::EmptyCallStack)?;
+            let frame = thread
+                .call_stack
+                .last_mut()
+                .ok_or(VmError::EmptyCallStack)?;
             let func = &self.graph.get(frame.module_id).unwrap().module.functions
                 [frame.func_idx.raw() as usize];
             if frame.pc >= func.instructions.len() {
@@ -262,7 +250,7 @@ impl<'a> VirtualMachine<'a> {
             | Instruction::Move { .. }
             | Instruction::LoadGlobal { .. }
             | Instruction::StoreGlobal { .. }
-            | Instruction::LoadNull { .. } => self.execute_data_instruction(instr)?,
+            | Instruction::LoadNull { .. } => self.execute_data_instruction(thread, instr)?,
 
             Instruction::Add { .. }
             | Instruction::Sub { .. }
@@ -284,7 +272,7 @@ impl<'a> VirtualMachine<'a> {
             | Instruction::Le { .. }
             | Instruction::Gt { .. }
             | Instruction::Ge { .. }
-            | Instruction::Fallback { .. } => self.execute_operator_instruction(instr)?,
+            | Instruction::Fallback { .. } => self.execute_operator_instruction(thread, instr)?,
 
             Instruction::Jump { .. }
             | Instruction::JumpTrue { .. }
@@ -295,7 +283,7 @@ impl<'a> VirtualMachine<'a> {
             | Instruction::CallDynamic { .. }
             | Instruction::Ret { .. }
             | Instruction::RetNull
-            | Instruction::Panic { .. } => self.execute_control_instruction(instr)?,
+            | Instruction::Panic { .. } => self.execute_control_instruction(thread, instr)?,
 
             Instruction::AllocLocal { .. }
             | Instruction::AllocShared { .. }
@@ -308,36 +296,41 @@ impl<'a> VirtualMachine<'a> {
             | Instruction::NewChoice { .. }
             | Instruction::Cast { .. }
             | Instruction::Copy { .. }
-            | Instruction::Instanceof { .. } => self.execute_object_instruction(instr)?,
+            | Instruction::Instanceof { .. } => self.execute_object_instruction(thread, instr)?,
 
             Instruction::Drop { .. }
             | Instruction::Write { .. }
             | Instruction::Read { .. }
             | Instruction::Len { .. }
-            | Instruction::CopyArray { .. } => self.execute_system_instruction(instr)?,
+            | Instruction::CopyArray { .. } => self.execute_system_instruction(thread, instr)?,
         };
 
         if matches!(step, ExecutionStep::Continue) {
-            self.release_unreachable_if_needed(instr);
+            self.release_unreachable_if_needed(thread, instr);
         }
 
         Ok(step)
     }
 
-    fn execute_loop(&mut self) -> Result<Value, VmError> {
+    fn execute_loop(&self, thread: &mut crate::thread::VirtualThread) -> Result<Value, VmError> {
         loop {
-            match self.step()? {
+            match self.step(thread)? {
                 ExecutionStep::Continue => {}
                 ExecutionStep::Return(value) => return Ok(value),
+                ExecutionStep::Blocked => return Err(VmError::UnresolvedHostBlocked),
             }
         }
     }
 
-    fn release_unreachable_if_needed(&mut self, instr: Instruction) {
+    fn release_unreachable_if_needed(
+        &self,
+        thread: &mut crate::thread::VirtualThread,
+        instr: Instruction,
+    ) {
         if matches!(instr, Instruction::Drop { .. })
-            || self.allocations_since_release >= RELEASE_ALLOCATION_THRESHOLD
+            || thread.heap.allocations_since_release >= RELEASE_ALLOCATION_THRESHOLD
         {
-            self.release_unreachable();
+            self.release_unreachable(thread);
         }
     }
 }

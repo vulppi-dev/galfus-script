@@ -32,6 +32,10 @@ pub enum VmError {
 
     #[error("Empty call stack")]
     EmptyCallStack,
+    #[error("Unresolved host block")]
+    UnresolvedHostBlocked,
+    #[error("Invalid object reference")]
+    InvalidObjectReference,
 
     #[error("Invalid jump target: pc {pc}")]
     InvalidJumpTarget { pc: usize },

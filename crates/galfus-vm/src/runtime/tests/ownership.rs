@@ -67,16 +67,22 @@ fn test_ownership_deterministic_release() {
         module: image,
         metadata: None,
     });
-    let mut vm = VirtualMachine::new(&graph);
+    let vm = VirtualMachine::new(&graph);
+    let mut thread = crate::thread::VirtualThread::new();
     let res = vm
-        .run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![])
+        .run_function(
+            &mut thread,
+            galfus_core::ModuleId::new(0),
+            FuncIdx(0),
+            vec![],
+        )
         .unwrap();
     let node1_ref = match res {
         Value::Object(r) => r,
         other => panic!("expected object, got {:?}", other),
     };
 
-    let node1 = vm.get_object(node1_ref).unwrap();
+    let node1 = thread.heap.get_object(node1_ref).unwrap();
     let node2_ref = match node1 {
         HeapObject::Struct { fields, .. } => match fields[0] {
             Value::Object(r) => r,
@@ -85,12 +91,12 @@ fn test_ownership_deterministic_release() {
         other => panic!("expected struct, got {:?}", other),
     };
 
-    assert!(vm.heap[node1_ref.raw()].is_some());
-    assert!(vm.heap[node2_ref.raw()].is_some());
+    assert!(thread.heap.objects[node1_ref.raw()].is_some());
+    assert!(thread.heap.objects[node2_ref.raw()].is_some());
 
-    vm.release_unreachable();
-    assert!(vm.heap[node1_ref.raw()].is_none());
-    assert!(vm.heap[node2_ref.raw()].is_none());
+    vm.release_unreachable(&mut thread);
+    assert!(thread.heap.objects[node1_ref.raw()].is_none());
+    assert!(thread.heap.objects[node2_ref.raw()].is_none());
 }
 
 #[test]
@@ -162,16 +168,22 @@ fn test_ownership_cycle_release() {
         module: image,
         metadata: None,
     });
-    let mut vm = VirtualMachine::new(&graph);
+    let vm = VirtualMachine::new(&graph);
+    let mut thread = crate::thread::VirtualThread::new();
     let res = vm
-        .run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![])
+        .run_function(
+            &mut thread,
+            galfus_core::ModuleId::new(0),
+            FuncIdx(0),
+            vec![],
+        )
         .unwrap();
     let tuple_ref = match res {
         Value::Object(r) => r,
         other => panic!("expected object, got {:?}", other),
     };
 
-    let (node1_ref, node2_ref) = match vm.get_object(tuple_ref).unwrap() {
+    let (node1_ref, node2_ref) = match thread.heap.get_object(tuple_ref).unwrap() {
         HeapObject::Tuple { elements } => {
             let n1 = match &elements[0] {
                 Value::Object(r) => *r,
@@ -186,14 +198,14 @@ fn test_ownership_cycle_release() {
         other => panic!("expected tuple, got {:?}", other),
     };
 
-    assert!(vm.heap[node1_ref.raw()].is_some());
-    assert!(vm.heap[node2_ref.raw()].is_some());
-    assert!(vm.heap[tuple_ref.raw()].is_some());
+    assert!(thread.heap.objects[node1_ref.raw()].is_some());
+    assert!(thread.heap.objects[node2_ref.raw()].is_some());
+    assert!(thread.heap.objects[tuple_ref.raw()].is_some());
 
-    vm.release_unreachable();
-    assert!(vm.heap[node1_ref.raw()].is_none());
-    assert!(vm.heap[node2_ref.raw()].is_none());
-    assert!(vm.heap[tuple_ref.raw()].is_none());
+    vm.release_unreachable(&mut thread);
+    assert!(thread.heap.objects[node1_ref.raw()].is_none());
+    assert!(thread.heap.objects[node2_ref.raw()].is_none());
+    assert!(thread.heap.objects[tuple_ref.raw()].is_none());
 }
 
 #[test]
@@ -267,18 +279,24 @@ fn test_ownership_weak_invalidation() {
         module: image,
         metadata: None,
     });
-    let mut vm = VirtualMachine::new(&graph);
+    let vm = VirtualMachine::new(&graph);
+    let mut thread = crate::thread::VirtualThread::new();
     let res = vm
-        .run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![])
+        .run_function(
+            &mut thread,
+            galfus_core::ModuleId::new(0),
+            FuncIdx(0),
+            vec![],
+        )
         .unwrap();
     let node2_ref = match res {
         Value::Object(r) => r,
         other => panic!("expected object, got {:?}", other),
     };
 
-    assert!(vm.heap[node2_ref.raw()].is_some());
+    assert!(thread.heap.objects[node2_ref.raw()].is_some());
 
-    let node2 = vm.get_object(node2_ref).unwrap();
+    let node2 = thread.heap.get_object(node2_ref).unwrap();
     match node2 {
         HeapObject::Struct { fields, .. } => {
             assert_eq!(fields[1], Value::Null);

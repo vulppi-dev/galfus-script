@@ -8,3 +8,4 @@ mod tests;
 
 pub mod error;
 pub mod runtime;
+pub mod thread;

@@ -113,11 +113,12 @@ impl<'graph> Runtime<'graph> {
             });
         }
 
-        let mut vm = VirtualMachine::new(graph).with_providers(self.providers);
+        let mut thread = galfus_vm::thread::VirtualThread::new();
+        let vm = VirtualMachine::new(graph).with_providers(self.providers);
 
         let result = (|| {
             for initialized_module_id in graph.initialization_order(module_id)? {
-                if vm.is_module_initialized(initialized_module_id) {
+                if thread.is_module_initialized(initialized_module_id) {
                     continue;
                 }
                 if let Some(init_idx) = graph
@@ -126,13 +127,13 @@ impl<'graph> Runtime<'graph> {
                     .module
                     .init_func_idx
                 {
-                    vm.run_function(initialized_module_id, init_idx, vec![])?;
+                    vm.run_function(&mut thread, initialized_module_id, init_idx, vec![])?;
                 }
-                vm.mark_module_initialized(initialized_module_id);
+                thread.mark_module_initialized(initialized_module_id);
             }
 
-            let entry_args = build_entry_args(&mut vm, module_id, args)?;
-            vm.run_function(module_id, entry_idx, vec![entry_args])
+            let entry_args = build_entry_args(&mut thread, &vm, module_id, args)?;
+            vm.run_function(&mut thread, module_id, entry_idx, vec![entry_args])
                 .map_err(RuntimeError::VmPanic)
         })();
         let result = result?;
@@ -148,7 +149,8 @@ impl<'graph> Runtime<'graph> {
 }
 
 fn build_entry_args(
-    vm: &mut VirtualMachine,
+    thread: &mut galfus_vm::thread::VirtualThread,
+    vm: &VirtualMachine,
     module_id: galfus_core::ModuleId,
     args: &[Vec<u8>],
 ) -> Result<VmValue, RuntimeError> {
@@ -183,14 +185,14 @@ fn build_entry_args(
     let mut arg_values = Vec::with_capacity(args.len());
     for arg in args {
         let elements = arg.iter().copied().map(VmValue::Uint8).collect();
-        let arg_ref = vm.alloc(HeapObject::Array {
+        let arg_ref = thread.heap.alloc(HeapObject::Array {
             element_ty: uint8_ty,
             elements,
         });
         arg_values.push(VmValue::Object(arg_ref));
     }
 
-    let args_ref = vm.alloc(HeapObject::Array {
+    let args_ref = thread.heap.alloc(HeapObject::Array {
         element_ty: byte_array_ty,
         elements: arg_values,
     });

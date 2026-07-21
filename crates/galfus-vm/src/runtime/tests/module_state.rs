@@ -60,22 +60,23 @@ fn globals_with_the_same_index_are_isolated_by_module() {
         galfus_core::SemanticRevision::new(0),
         vec![node(first, first_module), node(second, second_module)],
     );
-    let mut vm = VirtualMachine::new(&graph);
+    let vm = VirtualMachine::new(&graph);
+    let mut thread = crate::thread::VirtualThread::new();
 
     assert_eq!(
-        vm.run_function(first, FuncIdx(0), vec![]),
+        vm.run_function(&mut thread, first, FuncIdx(0), vec![]),
         Ok(Value::Int64(10))
     );
     assert_eq!(
-        vm.run_function(second, FuncIdx(0), vec![]),
+        vm.run_function(&mut thread, second, FuncIdx(0), vec![]),
         Ok(Value::Int64(20))
     );
     assert_eq!(
-        vm.module_state(first).map(|state| &state.globals),
+        thread.module_state(first).map(|state| &state.globals),
         Some(&vec![Value::Int64(10)])
     );
     assert_eq!(
-        vm.module_state(second).map(|state| &state.globals),
+        thread.module_state(second).map(|state| &state.globals),
         Some(&vec![Value::Int64(20)])
     );
 }

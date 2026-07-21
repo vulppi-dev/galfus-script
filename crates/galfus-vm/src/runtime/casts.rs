@@ -1,15 +1,20 @@
 use super::*;
 
 impl<'a> VirtualMachine<'a> {
-    pub(super) fn cast_value(&self, val: &Value, target_ty: TypeIdx) -> Result<Value, VmError> {
+    pub(super) fn execute_cast(
+        &self,
+        thread: &crate::thread::VirtualThread,
+        val: &Value,
+        target_ty: TypeIdx,
+    ) -> Result<Value, VmError> {
         let ty = self
-            .current_image()
+            .current_image(thread)
             .unwrap()
             .types
             .get(target_ty.raw() as usize)
             .ok_or(VmError::TypeOutOfBounds { index: target_ty })?;
 
-        if self.check_value_type(val, target_ty) {
+        if self.check_value_type(thread, val, target_ty) {
             return Ok(val.clone());
         }
 

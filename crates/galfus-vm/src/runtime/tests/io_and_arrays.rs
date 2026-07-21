@@ -51,8 +51,14 @@ fn test_target_write() {
     });
     let mut vm =
         VirtualMachine::new(&graph).with_providers(Some(Providers::with_io(Box::new(provider))));
+    let mut thread = crate::thread::VirtualThread::new();
     let res = vm
-        .run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![])
+        .run_function(
+            &mut thread,
+            galfus_core::ModuleId::new(0),
+            FuncIdx(0),
+            vec![],
+        )
         .unwrap();
     assert_eq!(res, Value::Null);
     let output = buffer.lock().unwrap();
@@ -89,19 +95,25 @@ fn test_target_read() {
     });
     let mut vm =
         VirtualMachine::new(&graph).with_providers(Some(Providers::with_io(Box::new(provider))));
+    let mut thread = crate::thread::VirtualThread::new();
     let res = vm
-        .run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![])
+        .run_function(
+            &mut thread,
+            galfus_core::ModuleId::new(0),
+            FuncIdx(0),
+            vec![],
+        )
         .unwrap();
     let arr_ref = match res {
         Value::Object(r) => r,
         other => panic!("expected object, got {:?}", other),
     };
-    let arr_obj = vm.get_object(arr_ref).unwrap();
+    let arr_obj = thread.heap.get_object(arr_ref).unwrap();
     match arr_obj {
         HeapObject::Array { elements, .. } => {
             assert_eq!(
-                elements,
-                &vec![Value::Uint8(b'a'), Value::Uint8(b'b'), Value::Uint8(b'c')]
+                *elements,
+                vec![Value::Uint8(b'a'), Value::Uint8(b'b'), Value::Uint8(b'c')]
             );
         }
         other => panic!("expected array, got {:?}", other),
@@ -130,10 +142,16 @@ fn test_read_requires_an_io_provider_when_executed() {
         module: image,
         metadata: None,
     });
-    let mut vm = VirtualMachine::new(&graph);
+    let vm = VirtualMachine::new(&graph);
+    let mut thread = crate::thread::VirtualThread::new();
 
     let panic = vm
-        .run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![])
+        .run_function(
+            &mut thread,
+            galfus_core::ModuleId::new(0),
+            FuncIdx(0),
+            vec![],
+        )
         .expect_err("read without I/O provider fails");
 
     assert_eq!(
@@ -260,15 +278,21 @@ fn test_len_and_copy_array() {
         module: image,
         metadata: None,
     });
-    let mut vm = VirtualMachine::new(&graph);
+    let vm = VirtualMachine::new(&graph);
+    let mut thread = crate::thread::VirtualThread::new();
     let res = vm
-        .run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![])
+        .run_function(
+            &mut thread,
+            galfus_core::ModuleId::new(0),
+            FuncIdx(0),
+            vec![],
+        )
         .unwrap();
     let arr_ref = match res {
         Value::Object(r) => r,
         other => panic!("expected object, got {:?}", other),
     };
-    let arr_obj = vm.get_object(arr_ref).unwrap();
+    let arr_obj = thread.heap.get_object(arr_ref).unwrap();
     match arr_obj {
         HeapObject::Array { elements, .. } => {
             assert_eq!(elements.len(), 5);
@@ -366,9 +390,15 @@ fn test_load_index_accepts_negative_index() {
         module: image,
         metadata: None,
     });
-    let mut vm = VirtualMachine::new(&graph);
+    let vm = VirtualMachine::new(&graph);
+    let mut thread = crate::thread::VirtualThread::new();
     let res = vm
-        .run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![])
+        .run_function(
+            &mut thread,
+            galfus_core::ModuleId::new(0),
+            FuncIdx(0),
+            vec![],
+        )
         .unwrap();
 
     assert_eq!(res, Value::Int64(30));
@@ -407,9 +437,15 @@ fn test_load_index_out_of_bounds_returns_null() {
         module: image,
         metadata: None,
     });
-    let mut vm = VirtualMachine::new(&graph);
+    let vm = VirtualMachine::new(&graph);
+    let mut thread = crate::thread::VirtualThread::new();
     let res = vm
-        .run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![])
+        .run_function(
+            &mut thread,
+            galfus_core::ModuleId::new(0),
+            FuncIdx(0),
+            vec![],
+        )
         .unwrap();
 
     assert_eq!(res, Value::Null);
@@ -469,9 +505,15 @@ fn test_store_index_accepts_negative_index() {
         module: image,
         metadata: None,
     });
-    let mut vm = VirtualMachine::new(&graph);
+    let vm = VirtualMachine::new(&graph);
+    let mut thread = crate::thread::VirtualThread::new();
     let res = vm
-        .run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![])
+        .run_function(
+            &mut thread,
+            galfus_core::ModuleId::new(0),
+            FuncIdx(0),
+            vec![],
+        )
         .unwrap();
 
     assert_eq!(res, Value::Int64(99));
@@ -517,9 +559,15 @@ fn test_store_index_out_of_bounds_returns_error() {
         module: image,
         metadata: None,
     });
-    let mut vm = VirtualMachine::new(&graph);
+    let vm = VirtualMachine::new(&graph);
+    let mut thread = crate::thread::VirtualThread::new();
     let err = vm
-        .run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![])
+        .run_function(
+            &mut thread,
+            galfus_core::ModuleId::new(0),
+            FuncIdx(0),
+            vec![],
+        )
         .unwrap_err();
 
     assert!(matches!(

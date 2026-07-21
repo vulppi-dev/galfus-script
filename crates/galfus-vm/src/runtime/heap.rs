@@ -1,29 +1,6 @@
 use super::*;
 
 impl<'a> VirtualMachine<'a> {
-    pub(super) fn get_object(&self, obj_ref: ObjectRef) -> Result<&HeapObject, VmError> {
-        self.heap
-            .get(obj_ref.raw())
-            .and_then(|opt| opt.as_ref())
-            .ok_or_else(|| VmError::TypeMismatch {
-                expected: "valid object reference".to_string(),
-                found: format!("{:?}", obj_ref),
-            })
-    }
-
-    pub(super) fn get_object_mut(
-        &mut self,
-        obj_ref: ObjectRef,
-    ) -> Result<&mut HeapObject, VmError> {
-        self.heap
-            .get_mut(obj_ref.raw())
-            .and_then(|opt| opt.as_mut())
-            .ok_or_else(|| VmError::TypeMismatch {
-                expected: "valid object reference".to_string(),
-                found: format!("{:?}", obj_ref),
-            })
-    }
-
     pub(super) fn to_shift_amount(&self, val: Value) -> Result<u32, VmError> {
         match val {
             Value::Int8(x) => Ok(x as u32),
@@ -122,9 +99,14 @@ impl<'a> VirtualMachine<'a> {
         Ok(ord)
     }
 
-    pub(super) fn check_value_type(&self, val: &Value, expected_ty: TypeIdx) -> bool {
+    pub(super) fn check_value_type(
+        &self,
+        thread: &crate::thread::VirtualThread,
+        val: &Value,
+        expected_ty: TypeIdx,
+    ) -> bool {
         let ty = match self
-            .current_image()
+            .current_image(thread)
             .unwrap()
             .types
             .get(expected_ty.raw() as usize)
@@ -146,26 +128,27 @@ impl<'a> VirtualMachine<'a> {
             (Value::Float32(_), BytecodeType::Float32) => true,
             (Value::Float64(_), BytecodeType::Float64) => true,
             (Value::Object(obj_ref), BytecodeType::Struct(expected_layout_idx)) => {
-                if let Ok(HeapObject::Struct { layout_idx, .. }) = self.get_object(*obj_ref) {
-                    layout_idx == expected_layout_idx
+                if let Ok(HeapObject::Struct { layout_idx, .. }) = thread.heap.get_object(*obj_ref)
+                {
+                    *layout_idx == *expected_layout_idx
                 } else {
                     false
                 }
             }
             (Value::Object(obj_ref), BytecodeType::Array(expected_el_ty)) => {
-                if let Ok(HeapObject::Array { element_ty, .. }) = self.get_object(*obj_ref) {
-                    self.type_idx_matches(*element_ty, *expected_el_ty)
+                if let Ok(HeapObject::Array { element_ty, .. }) = thread.heap.get_object(*obj_ref) {
+                    self.type_idx_matches(thread, *element_ty, *expected_el_ty)
                 } else {
                     false
                 }
             }
             (Value::Object(obj_ref), BytecodeType::Tuple(expected_tys)) => {
-                if let Ok(HeapObject::Tuple { elements }) = self.get_object(*obj_ref) {
+                if let Ok(HeapObject::Tuple { elements }) = thread.heap.get_object(*obj_ref) {
                     if elements.len() == expected_tys.len() {
                         elements
                             .iter()
                             .zip(expected_tys.iter())
-                            .all(|(v, &ty)| self.check_value_type(v, ty))
+                            .all(|(v, &ty)| self.check_value_type(thread, v, ty))
                     } else {
                         false
                     }
@@ -174,8 +157,9 @@ impl<'a> VirtualMachine<'a> {
                 }
             }
             (Value::Object(obj_ref), BytecodeType::Choice(expected_layout_idx)) => {
-                if let Ok(HeapObject::Choice { layout_idx, .. }) = self.get_object(*obj_ref) {
-                    layout_idx == expected_layout_idx
+                if let Ok(HeapObject::Choice { layout_idx, .. }) = thread.heap.get_object(*obj_ref)
+                {
+                    *layout_idx == *expected_layout_idx
                 } else {
                     false
                 }
@@ -188,14 +172,14 @@ impl<'a> VirtualMachine<'a> {
                     layout_idx,
                     variant_idx,
                     ..
-                }) = self.get_object(*obj_ref)
+                }) = thread.heap.get_object(*obj_ref)
                 {
-                    if layout_idx == expected_choice_idx && *variant_idx == *expected_variant_idx {
+                    if *layout_idx == *expected_choice_idx && variant_idx == expected_variant_idx {
                         return true;
                     }
 
                     let Some(actual_layout) = self
-                        .current_image()
+                        .current_image(thread)
                         .unwrap()
                         .choice_layouts
                         .get(layout_idx.raw() as usize)
@@ -203,7 +187,7 @@ impl<'a> VirtualMachine<'a> {
                         return false;
                     };
                     let Some(expected_layout) = self
-                        .current_image()
+                        .current_image(thread)
                         .unwrap()
                         .choice_layouts
                         .get(expected_choice_idx.raw() as usize)
@@ -225,8 +209,9 @@ impl<'a> VirtualMachine<'a> {
                 }
             }
             (Value::Object(obj_ref), BytecodeType::Constraint(expected_constraint)) => {
-                if let Ok(HeapObject::Struct { layout_idx, .. }) = self.get_object(*obj_ref) {
-                    self.current_image()
+                if let Ok(HeapObject::Struct { layout_idx, .. }) = thread.heap.get_object(*obj_ref)
+                {
+                    self.current_image(thread)
                         .unwrap()
                         .struct_layouts
                         .get(layout_idx.raw() as usize)
@@ -239,12 +224,23 @@ impl<'a> VirtualMachine<'a> {
         }
     }
 
-    fn type_idx_matches(&self, actual: TypeIdx, expected: TypeIdx) -> bool {
-        self.type_idx_matches_inner(actual, expected, &mut std::collections::HashSet::new())
+    fn type_idx_matches(
+        &self,
+        thread: &crate::thread::VirtualThread,
+        actual: TypeIdx,
+        expected: TypeIdx,
+    ) -> bool {
+        self.type_idx_matches_inner(
+            thread,
+            actual,
+            expected,
+            &mut std::collections::HashSet::new(),
+        )
     }
 
     fn type_idx_matches_inner(
         &self,
+        thread: &crate::thread::VirtualThread,
         actual: TypeIdx,
         expected: TypeIdx,
         seen: &mut std::collections::HashSet<(u16, u16)>,
@@ -257,7 +253,7 @@ impl<'a> VirtualMachine<'a> {
         }
 
         let Some(actual_ty) = self
-            .current_image()
+            .current_image(thread)
             .unwrap()
             .types
             .get(actual.raw() as usize)
@@ -265,7 +261,7 @@ impl<'a> VirtualMachine<'a> {
             return false;
         };
         let Some(expected_ty) = self
-            .current_image()
+            .current_image(thread)
             .unwrap()
             .types
             .get(expected.raw() as usize)
@@ -275,13 +271,13 @@ impl<'a> VirtualMachine<'a> {
 
         match (actual_ty, expected_ty) {
             (BytecodeType::Array(actual_el), BytecodeType::Array(expected_el)) => {
-                self.type_idx_matches_inner(*actual_el, *expected_el, seen)
+                self.type_idx_matches_inner(thread, *actual_el, *expected_el, seen)
             }
             (BytecodeType::Tuple(actual_elements), BytecodeType::Tuple(expected_elements)) => {
                 actual_elements.len() == expected_elements.len()
                     && actual_elements.iter().zip(expected_elements.iter()).all(
                         |(&actual_el, &expected_el)| {
-                            self.type_idx_matches_inner(actual_el, expected_el, seen)
+                            self.type_idx_matches_inner(thread, actual_el, expected_el, seen)
                         },
                     )
             }
