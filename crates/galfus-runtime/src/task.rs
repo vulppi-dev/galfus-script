@@ -65,6 +65,11 @@ impl RunnableTask for RuntimeTask {
                 ThreadResult::Blocked
             }
             ExecutionStep::CreateThread { dest, func, key } => {
+                let galfus_vm::VmValue::Function { .. } = func else {
+                    let _ = self.thread.write_reg(dest, galfus_vm::VmValue::Int64(-1));
+                    return ThreadResult::Yielded(self);
+                };
+
                 let mut new_thread = VirtualThread::new();
 
                 // Store the string key if available
@@ -88,12 +93,9 @@ impl RunnableTask for RuntimeTask {
                     }
                 }
 
-                // Call prepare_function immediately without args so it is ready to execute, but don't spawn it yet
-                if let galfus_vm::VmValue::Function { .. } = func {
-                    new_thread.entry_func = Some(func);
-                }
+                new_thread.entry_func = Some(func);
 
-                // We register the thread, but we don't put it in the BlockedQueue or executor yet.
+                // The thread remains suspended until StartThread succeeds.
                 let new_id = ThreadId::from_executor(self.executor.allocate_thread_id())
                     .expect("thread executor returned the reserved thread ID 0");
                 self.registry.lock().unwrap().register(new_id, new_thread);
@@ -116,45 +118,41 @@ impl RunnableTask for RuntimeTask {
                     return ThreadResult::Yielded(self);
                 };
 
-                let target_thread = {
-                    let mut registry = self.registry.lock().unwrap();
-                    if registry.mark_running(target_id) {
-                        registry.take(target_id)
-                    } else {
-                        None
-                    }
-                };
+                let target_thread = self.registry.lock().unwrap().take_created(target_id);
 
                 if let Some(mut target_thread) = target_thread {
                     let copied_arg = galfus_vm::thread::deep_copy_value(
                         &self.thread.heap,
                         &mut target_thread.heap,
                         &arg,
-                    )
-                    .unwrap_or(galfus_vm::VmValue::Null);
+                    );
 
-                    if let Some(galfus_vm::VmValue::Function {
-                        module_id,
-                        func_idx,
-                    }) = target_thread.entry_func.clone()
-                    {
-                        let _ = self.vm.prepare_function(
-                            &mut target_thread,
-                            module_id,
-                            func_idx,
-                            vec![copied_arg],
-                        );
+                    let prepared = match (copied_arg, target_thread.entry_func.clone()) {
+                        (
+                            Ok(copied_arg),
+                            Some(galfus_vm::VmValue::Function {
+                                module_id,
+                                func_idx,
+                            }),
+                        ) => self
+                            .vm
+                            .prepare_function(
+                                &mut target_thread,
+                                module_id,
+                                func_idx,
+                                vec![copied_arg],
+                            )
+                            .is_ok(),
+                        _ => false,
+                    };
 
-                        self.registry
-                            .lock()
-                            .unwrap()
-                            .register_with_id(target_id, target_thread);
-
-                        if let Some(spawned_thread) = self.registry.lock().unwrap().take(target_id)
+                    if prepared {
+                        if target_thread.mark_running()
+                            && self.registry.lock().unwrap().mark_running(target_id)
                         {
                             let new_task = Box::new(RuntimeTask {
                                 thread_id: target_id,
-                                thread: spawned_thread,
+                                thread: target_thread,
                                 vm: self.vm.clone(),
                                 registry: self.registry.clone(),
                                 blocked: self.blocked.clone(),
@@ -162,9 +160,13 @@ impl RunnableTask for RuntimeTask {
                             });
                             self.executor.spawn(new_task);
                             success = true;
+                        } else {
+                            self.registry
+                                .lock()
+                                .unwrap()
+                                .register_with_id(target_id, target_thread);
                         }
                     } else {
-                        // Put it back if no function
                         self.registry
                             .lock()
                             .unwrap()

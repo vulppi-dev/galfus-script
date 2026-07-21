@@ -49,3 +49,14 @@ fn registry_tracks_state_after_the_thread_body_is_taken() {
 
     assert_eq!(registry.state(id), Some(ThreadState::Exited(7)));
 }
+
+#[test]
+fn registry_only_releases_a_created_thread_once_for_spawn() {
+    let id = ThreadId::from_executor(1).expect("non-zero thread ID");
+    let mut registry = ThreadRegistry::new();
+
+    registry.register(id, VirtualThread::new());
+
+    assert!(registry.take_created(id).is_some());
+    assert!(registry.take_created(id).is_none());
+}

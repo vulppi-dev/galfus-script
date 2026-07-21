@@ -71,6 +71,12 @@ impl ThreadRegistry {
         self.threads.remove(&id)
     }
 
+    pub fn take_created(&mut self, id: ThreadId) -> Option<VirtualThread> {
+        (self.state(id) == Some(ThreadState::Created))
+            .then(|| self.take(id))
+            .flatten()
+    }
+
     pub fn get_mut(&mut self, id: ThreadId) -> Option<&mut VirtualThread> {
         self.threads.get_mut(&id)
     }
