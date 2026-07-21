@@ -233,23 +233,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                         self.free_temp_if_operand(val);
                         self.free_temp_if_operand(obj);
                     }
-                    MirInstruction::TransactionStart { targets } => {
-                        let key = targets
-                            .first()
-                            .cloned()
-                            .unwrap_or(Operand::Constant(MirConstant::Null));
-                        let key_reg = self.operand_reg(&key);
-                        self.instructions.push(Instruction::TxStart { key_reg });
-                        self.free_temp_if_operand(&key);
-                    }
-                    MirInstruction::TransactionCommit { destination } => {
-                        self.instructions.push(Instruction::TxCommit {
-                            dest_reg: Reg(destination.raw() as u16),
-                        });
-                    }
-                    MirInstruction::TransactionRollback => {
-                        self.instructions.push(Instruction::TxRollback);
-                    }
+
                     MirInstruction::Call {
                         func,
                         args,

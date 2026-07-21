@@ -81,9 +81,6 @@ pub enum SyntaxNodeKind {
     LoopStatement,
     AssignmentStatement,
 
-    // Transactions
-    TransactionStatement,
-    TransactionTargetList,
     RollbackStatement,
 
     // Patterns
@@ -211,7 +208,6 @@ impl SyntaxNodeKind {
                 | SyntaxNodeKind::ForStatement
                 | SyntaxNodeKind::LoopStatement
                 | SyntaxNodeKind::AssignmentStatement
-                | SyntaxNodeKind::TransactionStatement
                 | SyntaxNodeKind::RollbackStatement
         )
     }
@@ -304,7 +300,6 @@ impl SyntaxNodeKind {
                 | SyntaxNodeKind::StructLiteralFieldList
                 | SyntaxNodeKind::DecoratorList
                 | SyntaxNodeKind::KeywordMetadataList
-                | SyntaxNodeKind::TransactionTargetList
         )
     }
 

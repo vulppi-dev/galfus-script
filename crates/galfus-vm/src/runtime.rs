@@ -100,7 +100,6 @@ pub struct CallFrame {
     pub pc: usize,
     pub registers: Vec<Value>,
     pub return_dest: Option<Reg>,
-    pub in_transaction: bool,
 }
 
 pub struct VirtualMachine<'a> {
@@ -224,7 +223,6 @@ impl<'a> VirtualMachine<'a> {
             pc: 0,
             registers,
             return_dest: None,
-            in_transaction: false,
         });
 
         match self.execute_loop() {
@@ -313,11 +311,6 @@ impl<'a> VirtualMachine<'a> {
             | Instruction::Instanceof { .. } => self.execute_object_instruction(instr)?,
 
             Instruction::Drop { .. }
-            | Instruction::TxStart { .. }
-            | Instruction::TxLoad { .. }
-            | Instruction::TxStore { .. }
-            | Instruction::TxCommit { .. }
-            | Instruction::TxRollback
             | Instruction::Write { .. }
             | Instruction::Read { .. }
             | Instruction::Len { .. }

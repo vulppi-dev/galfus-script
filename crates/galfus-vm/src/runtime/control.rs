@@ -123,7 +123,6 @@ impl<'a> VirtualMachine<'a> {
                     pc: 0,
                     registers: callee_regs,
                     return_dest: Some(dest),
-                    in_transaction: false,
                 });
             }
             Instruction::CallMethod {
@@ -325,7 +324,6 @@ impl<'a> VirtualMachine<'a> {
                     pc: 0,
                     registers: callee_regs,
                     return_dest: Some(dest),
-                    in_transaction: false,
                 });
             }
             Instruction::CallDynamic {
@@ -402,7 +400,6 @@ impl<'a> VirtualMachine<'a> {
                     pc: 0,
                     registers: callee_regs,
                     return_dest: Some(dest),
-                    in_transaction: false,
                 });
             }
 

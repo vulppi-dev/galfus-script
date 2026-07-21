@@ -320,25 +320,6 @@ pub enum Instruction {
         reg: Reg,
     },
 
-    // Category F: Transactional Shared Memory
-    TxStart {
-        key_reg: Reg,
-    },
-    TxLoad {
-        dest: Reg,
-        obj: Reg,
-        field: FieldIdx,
-    },
-    TxStore {
-        obj: Reg,
-        field: FieldIdx,
-        val: Reg,
-    },
-    TxCommit {
-        dest_reg: Reg,
-    },
-    TxRollback,
-
     // Category G: Standard I/O
     Write {
         src: Reg,

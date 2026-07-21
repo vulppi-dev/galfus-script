@@ -507,36 +507,6 @@ pub fn validate_bytecode_module(
                     check_reg(reg, &mut errors);
                 }
 
-                // Category F
-                Instruction::TxStart { key_reg } => {
-                    check_reg(key_reg, &mut errors);
-                }
-                Instruction::TxLoad { dest, obj, field } => {
-                    check_reg(dest, &mut errors);
-                    check_reg(obj, &mut errors);
-                    if field.raw() as usize >= max_fields {
-                        errors.push(BytecodeValidationError::FieldOutOfBounds {
-                            func_name: func_name.clone(),
-                            instr_idx,
-                            field_idx: field,
-                        });
-                    }
-                }
-                Instruction::TxStore { obj, field, val } => {
-                    check_reg(obj, &mut errors);
-                    check_reg(val, &mut errors);
-                    if field.raw() as usize >= max_fields {
-                        errors.push(BytecodeValidationError::FieldOutOfBounds {
-                            func_name: func_name.clone(),
-                            instr_idx,
-                            field_idx: field,
-                        });
-                    }
-                }
-                Instruction::TxCommit { dest_reg } => {
-                    check_reg(dest_reg, &mut errors);
-                }
-                Instruction::TxRollback => {}
                 Instruction::Write { src } => {
                     check_reg(src, &mut errors);
                 }

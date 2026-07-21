@@ -52,10 +52,6 @@ impl Parser {
             return self.parse_typeof_statement();
         }
 
-        if self.at(&TokenKind::Transaction) {
-            return self.parse_transaction_statement();
-        }
-
         if self.at(&TokenKind::Rollback) {
             return self.parse_rollback_statement();
         }
@@ -428,58 +424,6 @@ impl Parser {
             .unwrap_or_else(|| self.node_span(pattern));
 
         Some(self.add_node(SyntaxNodeKind::TypeofArm, span, vec![pattern, body]))
-    }
-
-    pub(super) fn parse_transaction_statement(&mut self) -> Option<NodeId> {
-        let transaction_token = self.expect(TokenKind::Transaction)?;
-
-        self.skip_newlines();
-
-        let mut targets = Vec::new();
-        while !self.is_eof() && self.at(&TokenKind::Identifier) {
-            if let Some(ident) = self.parse_identifier() {
-                targets.push(ident);
-            }
-
-            self.skip_newlines();
-            if self.at(&TokenKind::Comma) {
-                self.bump();
-                self.skip_newlines();
-                continue;
-            }
-            break;
-        }
-
-        let target_list_span = if !targets.is_empty() {
-            let first = targets.first().unwrap();
-            let last = targets.last().unwrap();
-            Span::cover(self.node_span(*first), self.node_span(*last))
-                .unwrap_or_else(|| self.node_span(*first))
-        } else {
-            Span::empty(
-                transaction_token.span().source_id(),
-                transaction_token.span().end(),
-            )
-        };
-
-        let target_list = self.add_node(
-            SyntaxNodeKind::TransactionTargetList,
-            target_list_span,
-            targets,
-        );
-
-        self.skip_newlines();
-
-        let body = self.parse_block()?;
-
-        let span = Span::cover(transaction_token.span(), self.node_span(body))
-            .unwrap_or_else(|| transaction_token.span());
-
-        Some(self.add_node(
-            SyntaxNodeKind::TransactionStatement,
-            span,
-            vec![target_list, body],
-        ))
     }
 
     pub(super) fn parse_rollback_statement(&mut self) -> Option<NodeId> {

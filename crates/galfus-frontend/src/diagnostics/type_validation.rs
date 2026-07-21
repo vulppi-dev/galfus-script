@@ -51,7 +51,7 @@ pub enum TypeDiagnosticCode {
     InvalidKeywordMetadata,
     DuplicateControlTarget,
     UnresolvedControlTarget,
-    RollbackOutsideTransaction,
+
     InvalidPatternOrder,
     UnreachablePattern,
     UnreachableCode,
@@ -110,7 +110,7 @@ impl DiagnosticCodeKind for TypeDiagnosticCode {
             Self::InvalidKeywordMetadata => "T0047",
             Self::DuplicateControlTarget => "T0048",
             Self::UnresolvedControlTarget => "T0049",
-            Self::RollbackOutsideTransaction => "T0050",
+
             Self::InvalidBufferElement => "T0052",
             Self::InvalidPatternOrder => "T0053",
             Self::UnreachablePattern => "T0054",
@@ -171,7 +171,7 @@ impl DiagnosticCodeKind for TypeDiagnosticCode {
             Self::InvalidKeywordMetadata => "invalid keyword metadata",
             Self::DuplicateControlTarget => "duplicate control target name",
             Self::UnresolvedControlTarget => "unresolved control target",
-            Self::RollbackOutsideTransaction => "rollback statement outside of a transaction block",
+
             Self::InvalidPatternOrder => "invalid pattern order",
             Self::UnreachablePattern => "unreachable pattern",
             Self::UnreachableCode => "unreachable code",

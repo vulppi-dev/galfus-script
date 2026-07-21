@@ -42,7 +42,7 @@ pub enum TokenKind {
     False,
     New,
     Copy,
-    Transaction,
+
     Rollback,
     SelfKw,
 

@@ -565,21 +565,6 @@ impl<'a> DeclarationTypeChecker<'a> {
         ));
     }
 
-    pub(super) fn report_rollback_outside_transaction(&mut self, node: NodeId) {
-        let span = self
-            .graph
-            .syntax()
-            .node(node)
-            .map(|node| node.span())
-            .unwrap_or_else(|| self.source.span());
-
-        self.diagnostics.push(Diagnostic::error_with_message(
-            TypeDiagnosticCode::RollbackOutsideTransaction,
-            "rollback statement outside of a transaction block".to_string(),
-            span,
-        ));
-    }
-
     pub(super) fn report_invalid_buffer_element(&mut self, node: NodeId, actual: TypeId) {
         let span = self
             .graph

@@ -87,13 +87,6 @@ pub enum Instruction {
         field_name: String,
         val: Operand,
     },
-    TransactionStart {
-        targets: Vec<Operand>,
-    },
-    TransactionCommit {
-        destination: LocalId,
-    },
-    TransactionRollback,
     Call {
         func: FunctionId,
         args: Vec<Operand>,

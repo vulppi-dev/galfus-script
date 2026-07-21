@@ -11,69 +11,6 @@ impl<'a> VirtualMachine<'a> {
                 self.write_reg(reg, Value::Null)?;
             }
 
-            // Category F: Transactional Shared Memory (stubbed/unimplemented)
-            Instruction::TxStart { .. } => {
-                let frame = self.call_stack.last_mut().ok_or(VmError::EmptyCallStack)?;
-                frame.in_transaction = true;
-            }
-            Instruction::TxLoad { dest, obj, field } => {
-                // Fall back to standard field load
-                let obj_val = self.read_reg(obj)?;
-                if let Value::Object(obj_ref) = obj_val {
-                    let heap_obj = self.get_object(obj_ref)?;
-                    if let HeapObject::Struct { fields, .. } = heap_obj {
-                        let val = fields
-                            .get(field.raw() as usize)
-                            .cloned()
-                            .ok_or(VmError::FieldOutOfBounds { index: field })?;
-                        self.write_reg(dest, val)?;
-                    } else {
-                        return Err(VmError::TypeMismatch {
-                            expected: "Struct object".to_string(),
-                            found: format!("{:?}", heap_obj),
-                        });
-                    }
-                } else {
-                    return Err(VmError::TypeMismatch {
-                        expected: "Object reference".to_string(),
-                        found: format!("{:?}", obj_val),
-                    });
-                }
-            }
-            Instruction::TxStore { obj, field, val } => {
-                // Fall back to standard field store
-                let obj_val = self.read_reg(obj)?;
-                let val_to_store = self.read_reg(val)?;
-                if let Value::Object(obj_ref) = obj_val {
-                    let heap_obj = self.get_object_mut(obj_ref)?;
-                    if let HeapObject::Struct { fields, .. } = heap_obj {
-                        if (field.raw() as usize) < fields.len() {
-                            fields[field.raw() as usize] = val_to_store;
-                        } else {
-                            return Err(VmError::FieldOutOfBounds { index: field });
-                        }
-                    } else {
-                        return Err(VmError::TypeMismatch {
-                            expected: "Struct object".to_string(),
-                            found: format!("{:?}", heap_obj),
-                        });
-                    }
-                } else {
-                    return Err(VmError::TypeMismatch {
-                        expected: "Object reference".to_string(),
-                        found: format!("{:?}", obj_val),
-                    });
-                }
-            }
-            Instruction::TxCommit { dest_reg } => {
-                let frame = self.call_stack.last_mut().ok_or(VmError::EmptyCallStack)?;
-                frame.in_transaction = false;
-                self.write_reg(dest_reg, Value::Bool(true))?;
-            }
-            Instruction::TxRollback => {
-                let frame = self.call_stack.last_mut().ok_or(VmError::EmptyCallStack)?;
-                frame.in_transaction = false;
-            }
             Instruction::Write { src } => {
                 let val = self.read_reg(src)?;
                 self.execute_write(val)?;

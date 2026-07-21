@@ -58,7 +58,7 @@ struct DeclarationTypeChecker<'a> {
     active_type_substitutions: Vec<HashMap<SymbolId, TypeId>>,
     imported_generic_params: HashMap<SymbolId, SymbolId>,
     control_targets: Vec<control_flow::ControlTarget>,
-    transaction_depth: usize,
+
     range_desugars: HashMap<NodeId, RangeDesugarTarget>,
 }
 
@@ -92,7 +92,7 @@ impl<'a> DeclarationTypeChecker<'a> {
             active_type_substitutions: Vec::new(),
             imported_generic_params: HashMap::new(),
             control_targets: Vec::new(),
-            transaction_depth: 0,
+
             range_desugars: HashMap::new(),
         }
     }
@@ -116,7 +116,7 @@ impl<'a> DeclarationTypeChecker<'a> {
             active_type_substitutions: Vec::new(),
             imported_generic_params: HashMap::new(),
             control_targets: Vec::new(),
-            transaction_depth: 0,
+
             range_desugars: previous_result.range_desugars,
         }
     }

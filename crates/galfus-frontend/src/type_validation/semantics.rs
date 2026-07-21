@@ -526,7 +526,7 @@ enum MetadataOwner {
     Enum,
     Loop,
     For,
-    Transaction,
+
     Other,
 }
 
@@ -551,7 +551,7 @@ impl<'a> DeclarationTypeChecker<'a> {
                 SyntaxNodeKind::EnumItem => MetadataOwner::Enum,
                 SyntaxNodeKind::LoopStatement => MetadataOwner::Loop,
                 SyntaxNodeKind::ForStatement => MetadataOwner::For,
-                SyntaxNodeKind::TransactionStatement => MetadataOwner::Transaction,
+
                 _ => MetadataOwner::Other,
             };
 
@@ -581,7 +581,7 @@ impl<'a> DeclarationTypeChecker<'a> {
 
                     let is_valid = match owner {
                         MetadataOwner::Function => flag_text == "stamp",
-                        MetadataOwner::Transaction => flag_text == "after" || flag_text == "shared",
+
                         _ => false,
                     };
 
@@ -591,7 +591,7 @@ impl<'a> DeclarationTypeChecker<'a> {
                             MetadataOwner::Enum => "enum",
                             MetadataOwner::Loop => "loop",
                             MetadataOwner::For => "for",
-                            MetadataOwner::Transaction => "transaction",
+
                             MetadataOwner::Other => "construct",
                         };
                         self.report_invalid_keyword_metadata(
@@ -607,7 +607,7 @@ impl<'a> DeclarationTypeChecker<'a> {
 
                     let is_valid = match owner {
                         MetadataOwner::Loop | MetadataOwner::For => key_text == "name",
-                        MetadataOwner::Transaction => key_text == "after" || key_text == "shared",
+
                         _ => false,
                     };
 
@@ -617,7 +617,7 @@ impl<'a> DeclarationTypeChecker<'a> {
                             MetadataOwner::Enum => "enum",
                             MetadataOwner::Loop => "loop",
                             MetadataOwner::For => "for",
-                            MetadataOwner::Transaction => "transaction",
+
                             MetadataOwner::Other => "construct",
                         };
                         self.report_invalid_keyword_metadata(
@@ -649,7 +649,7 @@ impl<'a> DeclarationTypeChecker<'a> {
                             MetadataOwner::Enum => "enum",
                             MetadataOwner::Loop => "loop",
                             MetadataOwner::For => "for",
-                            MetadataOwner::Transaction => "transaction",
+
                             MetadataOwner::Other => "construct",
                         };
                         self.report_invalid_keyword_metadata(
