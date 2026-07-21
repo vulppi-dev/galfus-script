@@ -81,12 +81,17 @@ pub enum ThreadState {
     Exited(i32),
 }
 
+pub struct MailboxMessage {
+    pub sender_id: u64,
+    pub data: Vec<u8>,
+}
+
 pub struct VirtualThread {
     pub call_stack: Vec<CallFrame>,
     pub system_response: Option<crate::VmValue>,
     pub heap: PrivateHeap,
     pub module_states: HashMap<ModuleId, RuntimeModuleState>,
-    pub mailbox: Arc<Mutex<VecDeque<(u64, crate::runtime::Value)>>>,
+    pub mailbox: Arc<Mutex<VecDeque<MailboxMessage>>>,
     pub state: ThreadState,
     pub key: Option<String>,
     pub entry_func: Option<crate::runtime::Value>,

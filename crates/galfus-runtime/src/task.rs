@@ -256,60 +256,44 @@ impl RunnableTask for RuntimeTask {
                 }
 
                 let Some(target_id) = ThreadId::from_raw(target) else {
-                    let _ = self.thread.write_reg(dest, galfus_vm::VmValue::Int32(1));
+                    let _ = self.thread.write_reg(dest, galfus_vm::VmValue::Bool(false));
                     return ThreadResult::Yielded(self);
                 };
 
-                {
-                    let mut registry_lock = self.registry.lock().unwrap();
+                let Some(data) = message_bytes(&self.thread, msg) else {
+                    let _ = self.thread.write_reg(dest, galfus_vm::VmValue::Bool(false));
+                    return ThreadResult::Yielded(self);
+                };
 
-                    let mut success = false;
+                let mailbox = self.registry.lock().unwrap().get_mailbox(target_id);
+                let Some(mailbox) = mailbox else {
+                    let _ = self.thread.write_reg(dest, galfus_vm::VmValue::Bool(false));
+                    return ThreadResult::Yielded(self);
+                };
+                mailbox
+                    .lock()
+                    .unwrap()
+                    .push_back(galfus_vm::thread::MailboxMessage {
+                        sender_id: self.thread_id.raw(),
+                        data,
+                    });
 
-                    // The target thread might be currently running (so not in registry),
-                    // or in the registry.
-                    if let Some(mut target_thread) = registry_lock.take(target_id) {
-                        if let Ok(copied_msg) = galfus_vm::thread::deep_copy_value(
-                            &self.thread.heap,
-                            &mut target_thread.heap,
-                            &msg,
-                        ) {
-                            target_thread
-                                .mailbox
-                                .lock()
-                                .unwrap()
-                                .push_back((self.thread_id.raw(), copied_msg));
-                            success = true;
-                        }
-
-                        registry_lock.register_with_id(target_id, target_thread);
-
-                        if success {
-                            let mut blocked_lock = self.blocked.lock().unwrap();
-                            if blocked_lock.unblock(target_id)
-                                && let Some(target_thread) = registry_lock.take(target_id)
-                            {
-                                let new_task = Box::new(RuntimeTask {
-                                    thread_id: target_id,
-                                    thread: target_thread,
-                                    vm: self.vm.clone(),
-                                    registry: self.registry.clone(),
-                                    blocked: self.blocked.clone(),
-                                    executor: self.executor.clone(),
-                                });
-                                self.executor.spawn(new_task);
-                            }
-                        }
-                    } else {
-                        // Thread is likely running in executor and not in registry, so we can't deep copy!
-                        // For now, if we can't deep copy, we fail the send (return 1).
-                        // In a more robust system, we would queue the serialized message and deserialize later.
-                        success = false;
-                    }
-
-                    let _ = self
-                        .thread
-                        .write_reg(dest, galfus_vm::VmValue::Int32(if success { 0 } else { 1 }));
+                let was_blocked = self.blocked.lock().unwrap().unblock(target_id);
+                let target_thread = was_blocked
+                    .then(|| self.registry.lock().unwrap().take(target_id))
+                    .flatten();
+                if let Some(target_thread) = target_thread {
+                    let new_task = Box::new(RuntimeTask {
+                        thread_id: target_id,
+                        thread: target_thread,
+                        vm: self.vm.clone(),
+                        registry: self.registry.clone(),
+                        blocked: self.blocked.clone(),
+                        executor: self.executor.clone(),
+                    });
+                    self.executor.spawn(new_task);
                 }
+                let _ = self.thread.write_reg(dest, galfus_vm::VmValue::Bool(true));
                 ThreadResult::Yielded(self)
             }
         }
@@ -333,6 +317,24 @@ fn thread_key(thread: &VirtualThread, value: galfus_vm::VmValue) -> Option<Strin
         key.push(*byte as char);
     }
     (!key.is_empty()).then_some(key)
+}
+
+fn message_bytes(thread: &VirtualThread, value: galfus_vm::VmValue) -> Option<Vec<u8>> {
+    let galfus_vm::VmValue::Object(message_ref) = value else {
+        return None;
+    };
+    let galfus_vm::HeapObject::Array { elements, .. } = thread.heap.get_object(message_ref).ok()?
+    else {
+        return None;
+    };
+
+    elements
+        .iter()
+        .map(|element| match element {
+            galfus_vm::VmValue::Uint8(byte) => Some(*byte),
+            _ => None,
+        })
+        .collect()
 }
 
 use galfus_contract::HostValue;

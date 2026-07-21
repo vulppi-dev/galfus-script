@@ -65,4 +65,5 @@ fn test_thread_source_checks() {
     assert!(THREAD_SOURCE.contains("isRunning"));
     assert!(THREAD_SOURCE.contains("isExited"));
     assert!(THREAD_SOURCE.contains("exitReason"));
+    assert!(THREAD_SOURCE.contains("fn Thread::send(self, data: [u8]): bool"));
 }

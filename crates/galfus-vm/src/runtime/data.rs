@@ -98,7 +98,7 @@ impl VirtualMachine {
         Ok(ExecutionStep::Continue)
     }
 
-    fn uint8_type_idx(&self, thread: &crate::thread::VirtualThread) -> TypeIdx {
+    pub(super) fn uint8_type_idx(&self, thread: &crate::thread::VirtualThread) -> TypeIdx {
         self.current_image(thread)
             .unwrap()
             .types

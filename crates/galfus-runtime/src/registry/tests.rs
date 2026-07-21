@@ -1,5 +1,5 @@
 use super::*;
-use galfus_vm::thread::ThreadState;
+use galfus_vm::thread::{MailboxMessage, ThreadState};
 
 #[test]
 fn thread_ids_are_executor_owned_and_non_zero() {
@@ -29,12 +29,23 @@ fn registry_keeps_the_mailbox_and_key_while_a_thread_is_running() {
     let mailbox = registry.get_mailbox(id).expect("mailbox is registered");
     let _running_thread = registry.take(id).expect("thread is available to run");
 
-    mailbox.lock().unwrap().push_back((7, VmValue::Int32(42)));
+    mailbox.lock().unwrap().push_back(MailboxMessage {
+        sender_id: 7,
+        data: vec![42],
+    });
 
     assert!(registry.contains(id));
     assert_eq!(registry.lookup_key("worker"), Some(id));
     assert_eq!(registry.state(id), Some(ThreadState::Created));
-    assert_eq!(registry.get_mailbox(id).unwrap().lock().unwrap().len(), 1);
+    let message = registry
+        .get_mailbox(id)
+        .unwrap()
+        .lock()
+        .unwrap()
+        .pop_front()
+        .expect("message is preserved");
+    assert_eq!(message.sender_id, 7);
+    assert_eq!(message.data, vec![42]);
 }
 
 #[test]

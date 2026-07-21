@@ -1,8 +1,7 @@
 #[cfg(test)]
 mod tests;
 
-use galfus_vm::VmValue;
-use galfus_vm::thread::{ThreadState, VirtualThread};
+use galfus_vm::thread::{MailboxMessage, ThreadState, VirtualThread};
 use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
@@ -26,7 +25,7 @@ impl ThreadId {
 
 pub struct ThreadRegistry {
     threads: HashMap<ThreadId, VirtualThread>,
-    mailboxes: HashMap<ThreadId, Arc<Mutex<VecDeque<(u64, VmValue)>>>>,
+    mailboxes: HashMap<ThreadId, Arc<Mutex<VecDeque<MailboxMessage>>>>,
     keys: HashMap<String, ThreadId>,
     states: HashMap<ThreadId, ThreadState>,
 }
@@ -59,7 +58,7 @@ impl ThreadRegistry {
         self.mailboxes.entry(id).or_insert(mailbox);
     }
 
-    pub fn get_mailbox(&self, id: ThreadId) -> Option<Arc<Mutex<VecDeque<(u64, VmValue)>>>> {
+    pub fn get_mailbox(&self, id: ThreadId) -> Option<Arc<Mutex<VecDeque<MailboxMessage>>>> {
         self.mailboxes.get(&id).cloned()
     }
 

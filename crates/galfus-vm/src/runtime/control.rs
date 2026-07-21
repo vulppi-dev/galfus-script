@@ -446,19 +446,25 @@ impl VirtualMachine {
                     }
                 };
 
-                // Remove from mailbox the first message matching sender_id
+                // Remove the first message matching sender_id.
                 let msg_opt = {
                     let mut mailbox = thread.mailbox.lock().unwrap();
-                    let idx = mailbox.iter().position(|(s, _)| *s == sender_id);
+                    let idx = mailbox
+                        .iter()
+                        .position(|message| message.sender_id == sender_id);
                     if let Some(idx) = idx {
-                        Some(mailbox.remove(idx).unwrap().1)
+                        Some(mailbox.remove(idx).unwrap().data)
                     } else {
                         None
                     }
                 };
 
-                if let Some(msg) = msg_opt {
-                    let _ = thread.write_reg(dest, msg);
+                if let Some(data) = msg_opt {
+                    let message = Value::Object(thread.heap.alloc(HeapObject::Array {
+                        element_ty: self.uint8_type_idx(thread),
+                        elements: data.into_iter().map(Value::Uint8).collect(),
+                    }));
+                    let _ = thread.write_reg(dest, message);
                     return Ok(ExecutionStep::Continue);
                 } else {
                     // Revert PC so we try again after waking up
