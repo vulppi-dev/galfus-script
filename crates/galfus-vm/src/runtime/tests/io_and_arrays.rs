@@ -1,146 +1,6 @@
 use super::*;
+use crate::thread::MailboxMessage;
 use galfus_bytecode::BytecodeModule;
-use galfus_host::{IoProvider, IoProviderError, IoRead, Providers};
-
-struct BufferIo {
-    buffer: std::sync::Arc<std::sync::Mutex<Vec<u8>>>,
-    input: std::sync::Arc<std::sync::Mutex<Vec<u8>>>,
-    terminator: std::sync::Arc<std::sync::Mutex<Vec<u8>>>,
-}
-
-impl IoProvider for BufferIo {
-    fn read(&mut self, terminator: &[u8]) -> Result<IoRead, IoProviderError> {
-        *self.terminator.lock().unwrap() = terminator.to_vec();
-        let mut input = self.input.lock().unwrap();
-        if input.is_empty() {
-            Ok(IoRead::EndOfInput)
-        } else {
-            Ok(IoRead::Bytes(std::mem::take(&mut *input)))
-        }
-    }
-
-    fn write(&mut self, data: &[u8]) -> Result<(), IoProviderError> {
-        self.buffer.lock().unwrap().extend_from_slice(data);
-        Ok(())
-    }
-}
-
-#[test]
-fn test_target_write() {
-    let instrs = vec![
-        Instruction::LoadConst {
-            dest: Reg(1),
-            const_idx: ConstIdx(0),
-        },
-        Instruction::Write { src: Reg(1) },
-        Instruction::RetNull,
-    ];
-    let image = create_test_module(instrs, vec![Constant::Int64(42)]);
-    let buffer = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
-    let provider = BufferIo {
-        buffer: buffer.clone(),
-        input: std::sync::Arc::new(std::sync::Mutex::new(Vec::new())),
-        terminator: std::sync::Arc::new(std::sync::Mutex::new(Vec::new())),
-    };
-    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
-        id: galfus_core::ModuleId::new(0),
-        path: galfus_core::ModulePath::new("test.gfs").unwrap(),
-        semantic_revision: galfus_core::SemanticRevision::new(0),
-        module: image,
-        metadata: None,
-    });
-    let mut vm =
-        VirtualMachine::new(&graph).with_providers(Some(Providers::with_io(Box::new(provider))));
-    let res = vm
-        .run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![])
-        .unwrap();
-    assert_eq!(res, Value::Null);
-    let output = buffer.lock().unwrap();
-    assert_eq!(std::str::from_utf8(&output).unwrap(), "42");
-}
-
-#[test]
-fn test_target_read() {
-    let instrs = vec![
-        Instruction::LoadConst {
-            dest: Reg(2),
-            const_idx: ConstIdx(0),
-        },
-        Instruction::Read {
-            dest: Reg(1),
-            terminator: Reg(2),
-        },
-        Instruction::Ret { src: Reg(1) },
-    ];
-    let image = create_test_module(instrs, vec![Constant::String("!".to_string())]);
-    let input = std::sync::Arc::new(std::sync::Mutex::new(b"abc".to_vec()));
-    let terminator = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
-    let provider = BufferIo {
-        buffer: std::sync::Arc::new(std::sync::Mutex::new(Vec::new())),
-        input,
-        terminator: terminator.clone(),
-    };
-    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
-        id: galfus_core::ModuleId::new(0),
-        path: galfus_core::ModulePath::new("test.gfs").unwrap(),
-        semantic_revision: galfus_core::SemanticRevision::new(0),
-        module: image,
-        metadata: None,
-    });
-    let mut vm =
-        VirtualMachine::new(&graph).with_providers(Some(Providers::with_io(Box::new(provider))));
-    let res = vm
-        .run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![])
-        .unwrap();
-    let arr_ref = match res {
-        Value::Object(r) => r,
-        other => panic!("expected object, got {:?}", other),
-    };
-    let arr_obj = vm.get_object(arr_ref).unwrap();
-    match arr_obj {
-        HeapObject::Array { elements, .. } => {
-            assert_eq!(
-                elements,
-                &vec![Value::Uint8(b'a'), Value::Uint8(b'b'), Value::Uint8(b'c')]
-            );
-        }
-        other => panic!("expected array, got {:?}", other),
-    }
-    assert_eq!(*terminator.lock().unwrap(), b"!");
-}
-
-#[test]
-fn test_read_requires_an_io_provider_when_executed() {
-    let instrs = vec![
-        Instruction::LoadConst {
-            dest: Reg(2),
-            const_idx: ConstIdx(0),
-        },
-        Instruction::Read {
-            dest: Reg(1),
-            terminator: Reg(2),
-        },
-        Instruction::Ret { src: Reg(1) },
-    ];
-    let image = create_test_module(instrs, vec![Constant::String("\n".to_string())]);
-    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
-        id: galfus_core::ModuleId::new(0),
-        path: galfus_core::ModulePath::new("test.gfs").unwrap(),
-        semantic_revision: galfus_core::SemanticRevision::new(0),
-        module: image,
-        metadata: None,
-    });
-    let mut vm = VirtualMachine::new(&graph);
-
-    let panic = vm
-        .run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![])
-        .expect_err("read without I/O provider fails");
-
-    assert_eq!(
-        panic.error,
-        VmError::IoProviderUnavailable { operation: "read" }
-    );
-}
 
 #[test]
 fn test_len_and_copy_array() {
@@ -260,15 +120,21 @@ fn test_len_and_copy_array() {
         module: image,
         metadata: None,
     });
-    let mut vm = VirtualMachine::new(&graph);
+    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()));
+    let mut thread = crate::thread::VirtualThread::new();
     let res = vm
-        .run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![])
+        .run_function(
+            &mut thread,
+            galfus_core::ModuleId::new(0),
+            FuncIdx(0),
+            vec![],
+        )
         .unwrap();
     let arr_ref = match res {
         Value::Object(r) => r,
         other => panic!("expected object, got {:?}", other),
     };
-    let arr_obj = vm.get_object(arr_ref).unwrap();
+    let arr_obj = thread.heap.get_object(arr_ref).unwrap();
     match arr_obj {
         HeapObject::Array { elements, .. } => {
             assert_eq!(elements.len(), 5);
@@ -366,9 +232,15 @@ fn test_load_index_accepts_negative_index() {
         module: image,
         metadata: None,
     });
-    let mut vm = VirtualMachine::new(&graph);
+    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()));
+    let mut thread = crate::thread::VirtualThread::new();
     let res = vm
-        .run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![])
+        .run_function(
+            &mut thread,
+            galfus_core::ModuleId::new(0),
+            FuncIdx(0),
+            vec![],
+        )
         .unwrap();
 
     assert_eq!(res, Value::Int64(30));
@@ -407,9 +279,15 @@ fn test_load_index_out_of_bounds_returns_null() {
         module: image,
         metadata: None,
     });
-    let mut vm = VirtualMachine::new(&graph);
+    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()));
+    let mut thread = crate::thread::VirtualThread::new();
     let res = vm
-        .run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![])
+        .run_function(
+            &mut thread,
+            galfus_core::ModuleId::new(0),
+            FuncIdx(0),
+            vec![],
+        )
         .unwrap();
 
     assert_eq!(res, Value::Null);
@@ -469,9 +347,15 @@ fn test_store_index_accepts_negative_index() {
         module: image,
         metadata: None,
     });
-    let mut vm = VirtualMachine::new(&graph);
+    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()));
+    let mut thread = crate::thread::VirtualThread::new();
     let res = vm
-        .run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![])
+        .run_function(
+            &mut thread,
+            galfus_core::ModuleId::new(0),
+            FuncIdx(0),
+            vec![],
+        )
         .unwrap();
 
     assert_eq!(res, Value::Int64(99));
@@ -517,13 +401,110 @@ fn test_store_index_out_of_bounds_returns_error() {
         module: image,
         metadata: None,
     });
-    let mut vm = VirtualMachine::new(&graph);
+    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()));
+    let mut thread = crate::thread::VirtualThread::new();
     let err = vm
-        .run_function(galfus_core::ModuleId::new(0), FuncIdx(0), vec![])
+        .run_function(
+            &mut thread,
+            galfus_core::ModuleId::new(0),
+            FuncIdx(0),
+            vec![],
+        )
         .unwrap_err();
 
     assert!(matches!(
         err.error,
         VmError::IndexOutOfBounds { index: 3, len: 3 }
     ));
+}
+
+#[test]
+fn test_receive_returns_the_matching_mailbox_message() {
+    let mut image = create_test_module(
+        vec![
+            Instruction::ReceiveFilter {
+                dest: Reg(2),
+                sender: Reg(0),
+                timeout: Reg(1),
+            },
+            Instruction::Ret { src: Reg(2) },
+        ],
+        vec![],
+    );
+    image.functions[0].param_count = 2;
+    let module_id = galfus_core::ModuleId::new(0);
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
+        id: module_id,
+        path: galfus_core::ModulePath::new("test.gfs").unwrap(),
+        semantic_revision: galfus_core::SemanticRevision::new(0),
+        module: image,
+        metadata: None,
+    });
+    let vm = VirtualMachine::new(std::sync::Arc::new(graph));
+    let mut thread = crate::thread::VirtualThread::new();
+    thread.mailbox.lock().unwrap().push_back(MailboxMessage {
+        sender_id: 7,
+        data: vec![65, 66],
+    });
+
+    let value = vm
+        .run_function(
+            &mut thread,
+            module_id,
+            FuncIdx(0),
+            vec![VmValue::Int64(7), VmValue::Int32(10)],
+        )
+        .unwrap();
+
+    let VmValue::Object(message_ref) = value else {
+        panic!("receive should return an array");
+    };
+    let HeapObject::Array { elements, .. } = thread.heap.get_object(message_ref).unwrap() else {
+        panic!("receive should return a byte array");
+    };
+    assert_eq!(elements, &[VmValue::Uint8(65), VmValue::Uint8(66)]);
+}
+
+#[test]
+fn test_current_thread_mailbox_functions_read_and_consume_messages() {
+    let image = create_test_module(
+        vec![
+            Instruction::MailboxHasMessages { dest: Reg(0) },
+            Instruction::MailboxGetMessage { dest: Reg(1) },
+            Instruction::MailboxHasMessages { dest: Reg(2) },
+            Instruction::RetNull,
+        ],
+        vec![],
+    );
+    let module_id = galfus_core::ModuleId::new(0);
+    let graph = graph_with_node(galfus_bytecode::BytecodeNode {
+        id: module_id,
+        path: galfus_core::ModulePath::new("test.gfs").unwrap(),
+        semantic_revision: galfus_core::SemanticRevision::new(0),
+        module: image,
+        metadata: None,
+    });
+    let vm = VirtualMachine::new(std::sync::Arc::new(graph));
+    let mut thread = crate::thread::VirtualThread::new();
+    thread.mailbox.lock().unwrap().push_back(MailboxMessage {
+        sender_id: 7,
+        data: vec![65, 66],
+    });
+    vm.prepare_function(&mut thread, module_id, FuncIdx(0), vec![])
+        .unwrap();
+
+    vm.step(&mut thread).unwrap();
+    assert_eq!(thread.read_reg(Reg(0)).unwrap(), VmValue::Bool(true));
+
+    vm.step(&mut thread).unwrap();
+    let VmValue::Object(message_ref) = thread.read_reg(Reg(1)).unwrap() else {
+        panic!("getMessage should return a byte array");
+    };
+    let HeapObject::Array { elements, .. } = thread.heap.get_object(message_ref).unwrap() else {
+        panic!("getMessage should return a byte array");
+    };
+    assert_eq!(elements, &[VmValue::Uint8(65), VmValue::Uint8(66)]);
+
+    vm.step(&mut thread).unwrap();
+    assert_eq!(thread.read_reg(Reg(2)).unwrap(), VmValue::Bool(false));
 }

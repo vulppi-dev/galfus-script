@@ -1,0 +1,49 @@
+import { println } from "std/io"
+import { createThread, getMessage, getThread, hasMessages } from "std/thread"
+
+fn worker(args: [[u8]]): i32 {
+  if hasMessages() {
+    return 10
+  }
+
+  if getMessage() != null {
+    return 11
+  }
+
+  return 7
+}
+
+export fn main(_args: [[u8]]): i32 {
+  if getThread("missing-thread") != null {
+    return 1
+  }
+
+  const thread = createThread(worker, "showcase-worker")
+  if thread::isRunning() || thread::isExited() || thread::exitReason() != null {
+    return 2
+  }
+
+  const found = getThread("showcase-worker")
+  if found == null {
+    return 3
+  }
+
+  if !thread::spawn() {
+    return 4
+  }
+
+  if !thread::isExited() || thread::isRunning() || thread::exitReason() == null {
+    return 5
+  }
+
+  if thread::spawn() {
+    return 6
+  }
+
+  if !thread::send("message stored in the mailbox") {
+    return 7
+  }
+
+  println("thread showcase completed")
+  return 0
+}

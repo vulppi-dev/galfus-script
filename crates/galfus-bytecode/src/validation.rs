@@ -319,6 +319,53 @@ pub fn validate_bytecode_module(
                     check_reg(src, &mut errors);
                 }
                 Instruction::RetNull => {}
+                Instruction::ReceiveFilter {
+                    dest: _,
+                    sender: _,
+                    timeout: _,
+                } => {
+                    // Requires no validation (arguments are not bounds-checked here)
+                }
+                Instruction::MailboxHasMessages { dest: _ }
+                | Instruction::MailboxGetMessage { dest: _ } => {
+                    // Requires no validation
+                }
+                Instruction::Send {
+                    dest: _,
+                    target: _,
+                    msg: _,
+                } => {
+                    // Requires no validation
+                }
+                Instruction::CreateThread {
+                    dest: _,
+                    func: _,
+                    key: _,
+                } => {
+                    // Requires no validation
+                }
+                Instruction::StartThread {
+                    dest: _,
+                    thread_id: _,
+                    arg: _,
+                } => {
+                    // Requires no validation
+                }
+                Instruction::GetThread { dest: _, key: _ }
+                | Instruction::ThreadIsRunning {
+                    dest: _,
+                    thread_id: _,
+                }
+                | Instruction::ThreadIsExited {
+                    dest: _,
+                    thread_id: _,
+                }
+                | Instruction::ThreadExitReason {
+                    dest: _,
+                    thread_id: _,
+                } => {
+                    // Requires no validation
+                }
                 Instruction::Panic { const_idx } => {
                     check_const(const_idx, &mut errors);
                 }
@@ -507,42 +554,17 @@ pub fn validate_bytecode_module(
                     check_reg(reg, &mut errors);
                 }
 
-                // Category F
-                Instruction::TxStart { key_reg } => {
-                    check_reg(key_reg, &mut errors);
-                }
-                Instruction::TxLoad { dest, obj, field } => {
+                Instruction::CallNative {
+                    dest,
+                    name_const,
+                    args_start,
+                    arg_count,
+                } => {
                     check_reg(dest, &mut errors);
-                    check_reg(obj, &mut errors);
-                    if field.raw() as usize >= max_fields {
-                        errors.push(BytecodeValidationError::FieldOutOfBounds {
-                            func_name: func_name.clone(),
-                            instr_idx,
-                            field_idx: field,
-                        });
+                    check_const(name_const, &mut errors);
+                    if arg_count > 0 {
+                        check_reg(Reg(args_start.raw() + arg_count as u16 - 1), &mut errors);
                     }
-                }
-                Instruction::TxStore { obj, field, val } => {
-                    check_reg(obj, &mut errors);
-                    check_reg(val, &mut errors);
-                    if field.raw() as usize >= max_fields {
-                        errors.push(BytecodeValidationError::FieldOutOfBounds {
-                            func_name: func_name.clone(),
-                            instr_idx,
-                            field_idx: field,
-                        });
-                    }
-                }
-                Instruction::TxCommit { dest_reg } => {
-                    check_reg(dest_reg, &mut errors);
-                }
-                Instruction::TxRollback => {}
-                Instruction::Write { src } => {
-                    check_reg(src, &mut errors);
-                }
-                Instruction::Read { dest, terminator } => {
-                    check_reg(dest, &mut errors);
-                    check_reg(terminator, &mut errors);
                 }
                 Instruction::Len { dest, src } => {
                     check_reg(dest, &mut errors);

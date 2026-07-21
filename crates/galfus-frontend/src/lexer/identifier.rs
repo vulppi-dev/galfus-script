@@ -35,7 +35,7 @@ impl Lexer<'_> {
             "false" => TokenKind::False,
             "new" => TokenKind::New,
             "copy" => TokenKind::Copy,
-            "transaction" => TokenKind::Transaction,
+
             "rollback" => TokenKind::Rollback,
             "self" => TokenKind::SelfKw,
             _ => return None,

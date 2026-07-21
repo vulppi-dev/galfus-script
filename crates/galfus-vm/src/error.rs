@@ -32,6 +32,10 @@ pub enum VmError {
 
     #[error("Empty call stack")]
     EmptyCallStack,
+    #[error("Unresolved host block")]
+    UnresolvedHostBlocked,
+    #[error("Invalid object reference")]
+    InvalidObjectReference,
 
     #[error("Invalid jump target: pc {pc}")]
     InvalidJumpTarget { pc: usize },
@@ -53,12 +57,6 @@ pub enum VmError {
 
     #[error("Unimplemented instruction: {instruction}")]
     UnimplementedInstruction { instruction: String },
-
-    #[error("I/O error: {0}")]
-    IoError(String),
-
-    #[error("I/O provider is unavailable for {operation}")]
-    IoProviderUnavailable { operation: &'static str },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

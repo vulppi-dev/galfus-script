@@ -171,27 +171,7 @@ pub fn convert_to_ssa(func: &mut MirFunction) {
                     self.replace_operand(block, obj);
                     self.replace_operand(block, val);
                 }
-                Instruction::TransactionStart { targets } => {
-                    for op in targets {
-                        self.replace_operand(block, op);
-                    }
-                }
-                Instruction::TransactionCommit { destination } => {
-                    let orig_target = *destination;
-                    let target_decl = self
-                        .new_locals
-                        .iter()
-                        .find(|d| d.id == orig_target)
-                        .unwrap()
-                        .clone();
-                    let new_id = LocalId::new(self.new_locals.len() as u32);
-                    self.new_locals.push(LocalDecl {
-                        id: new_id,
-                        ty: target_decl.ty,
-                    });
-                    *destination = new_id;
-                    self.write_variable(block, orig_target, new_id);
-                }
+
                 Instruction::Call {
                     args, destination, ..
                 } => {
@@ -262,7 +242,6 @@ pub fn convert_to_ssa(func: &mut MirFunction) {
                     *destination = new_id;
                     self.write_variable(block, orig_target, new_id);
                 }
-                Instruction::TransactionRollback => {}
             }
         }
     }

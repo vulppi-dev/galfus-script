@@ -1,24 +1,30 @@
 use super::*;
 
-impl<'a> VirtualMachine<'a> {
+impl VirtualMachine {
     pub(super) fn execute_control_instruction(
-        &mut self,
+        &self,
+        thread: &mut crate::thread::VirtualThread,
         instr: Instruction,
     ) -> Result<ExecutionStep, VmError> {
         match instr {
             // Category C: Control Flow & Subroutines
             Instruction::Jump { offset } => {
-                let frame = self.call_stack.last_mut().ok_or(VmError::EmptyCallStack)?;
+                let frame = thread
+                    .call_stack
+                    .last_mut()
+                    .ok_or(VmError::EmptyCallStack)?;
                 let new_pc = (frame.pc as i32 + offset) as usize;
                 frame.pc = new_pc;
             }
             Instruction::JumpTrue { cond, offset } => {
-                let cond_val = self.read_reg(cond)?;
+                let cond_val = thread.read_reg(cond)?;
                 match cond_val {
                     Value::Bool(b) => {
                         if b {
-                            let frame =
-                                self.call_stack.last_mut().ok_or(VmError::EmptyCallStack)?;
+                            let frame = thread
+                                .call_stack
+                                .last_mut()
+                                .ok_or(VmError::EmptyCallStack)?;
                             let new_pc = (frame.pc as i32 + offset) as usize;
                             frame.pc = new_pc;
                         }
@@ -32,12 +38,14 @@ impl<'a> VirtualMachine<'a> {
                 }
             }
             Instruction::JumpFalse { cond, offset } => {
-                let cond_val = self.read_reg(cond)?;
+                let cond_val = thread.read_reg(cond)?;
                 match cond_val {
                     Value::Bool(b) => {
                         if !b {
-                            let frame =
-                                self.call_stack.last_mut().ok_or(VmError::EmptyCallStack)?;
+                            let frame = thread
+                                .call_stack
+                                .last_mut()
+                                .ok_or(VmError::EmptyCallStack)?;
                             let new_pc = (frame.pc as i32 + offset) as usize;
                             frame.pc = new_pc;
                         }
@@ -51,9 +59,12 @@ impl<'a> VirtualMachine<'a> {
                 }
             }
             Instruction::JumpNull { val, offset } => {
-                let val_read = self.read_reg(val)?;
+                let val_read = thread.read_reg(val)?;
                 if matches!(val_read, Value::Null) {
-                    let frame = self.call_stack.last_mut().ok_or(VmError::EmptyCallStack)?;
+                    let frame = thread
+                        .call_stack
+                        .last_mut()
+                        .ok_or(VmError::EmptyCallStack)?;
                     let new_pc = (frame.pc as i32 + offset) as usize;
                     frame.pc = new_pc;
                 }
@@ -64,7 +75,7 @@ impl<'a> VirtualMachine<'a> {
                 args_start,
                 arg_count,
             } => {
-                let frame = self.call_stack.last().ok_or(VmError::EmptyCallStack)?;
+                let frame = thread.call_stack.last().ok_or(VmError::EmptyCallStack)?;
                 let current_module_id = frame.module_id;
                 let current_image = &self.graph.get(current_module_id).unwrap().module;
 
@@ -112,18 +123,17 @@ impl<'a> VirtualMachine<'a> {
 
                 for (i, dest) in callee_regs.iter_mut().enumerate().take(arg_count as usize) {
                     let src_reg = Reg(args_start.raw() + i as u16);
-                    let val = self.read_reg(src_reg)?;
+                    let val = thread.read_reg(src_reg)?;
                     *dest = val;
                 }
 
                 // Save destination register inside call frame to write return value back
-                self.call_stack.push(CallFrame {
+                thread.call_stack.push(CallFrame {
                     module_id: target_module_id,
                     func_idx: target_func_idx,
                     pc: 0,
                     registers: callee_regs,
                     return_dest: Some(dest),
-                    in_transaction: false,
                 });
             }
             Instruction::CallMethod {
@@ -135,7 +145,7 @@ impl<'a> VirtualMachine<'a> {
             } => {
                 // Resolve method name from constant pool.
                 let method_name = match self
-                    .current_image()
+                    .current_image(thread)
                     .unwrap()
                     .constants
                     .constants
@@ -152,24 +162,24 @@ impl<'a> VirtualMachine<'a> {
                 };
 
                 if let Some(value) =
-                    self.execute_array_iterator_method(obj, method_name.as_str())?
+                    self.execute_array_iterator_method(thread, obj, method_name.as_str())?
                 {
-                    self.write_reg(dest, value)?;
+                    thread.write_reg(dest, value)?;
                     return Ok(ExecutionStep::Continue);
                 }
 
                 if method_name == "compare" {
-                    let obj_val = self.read_reg(obj)?;
+                    let obj_val = thread.read_reg(obj)?;
                     if !matches!(obj_val, Value::Object(_)) {
-                        let arg_val = self.read_reg(Reg(args_start.raw() + 1))?;
+                        let arg_val = thread.read_reg(Reg(args_start.raw() + 1))?;
                         let is_equal = obj_val == arg_val;
-                        self.write_reg(dest, Value::Bool(is_equal))?;
+                        thread.write_reg(dest, Value::Bool(is_equal))?;
                         return Ok(ExecutionStep::Continue);
                     }
                 }
 
-                let receiver_layout = match self.read_reg(obj)? {
-                    Value::Object(obj_ref) => match self.get_object(obj_ref)? {
+                let receiver_layout = match thread.read_reg(obj)? {
+                    Value::Object(obj_ref) => match thread.heap.get_object(obj_ref)? {
                         HeapObject::Struct {
                             module_id,
                             layout_idx,
@@ -210,7 +220,7 @@ impl<'a> VirtualMachine<'a> {
                     }
                 };
 
-                let current_module_id = self.call_stack.last().unwrap().module_id;
+                let current_module_id = thread.call_stack.last().unwrap().module_id;
                 let resolution_module_id = receiver_layout
                     .as_ref()
                     .map(|(module_id, _)| *module_id)
@@ -295,7 +305,7 @@ impl<'a> VirtualMachine<'a> {
                 let target_image = &self.graph.get(target_module_id).unwrap().module;
                 let callee = &target_image.functions[target_func_idx.raw() as usize];
 
-                if arg_count != callee.param_count {
+                if arg_count > callee.param_count {
                     return Err(VmError::TypeMismatch {
                         expected: format!("{} arguments", callee.param_count),
                         found: format!("{} arguments", arg_count),
@@ -316,16 +326,15 @@ impl<'a> VirtualMachine<'a> {
                     } else {
                         Reg(args_start.raw() + i as u16)
                     };
-                    *dest = self.read_reg(src_reg)?;
+                    *dest = thread.read_reg(src_reg)?;
                 }
 
-                self.call_stack.push(CallFrame {
+                thread.call_stack.push(CallFrame {
                     module_id: target_module_id,
                     func_idx: target_func_idx,
                     pc: 0,
                     registers: callee_regs,
                     return_dest: Some(dest),
-                    in_transaction: false,
                 });
             }
             Instruction::CallDynamic {
@@ -334,8 +343,11 @@ impl<'a> VirtualMachine<'a> {
                 args_start,
                 arg_count,
             } => {
-                let func_idx = match self.read_reg(func_reg)? {
-                    Value::Function(func_idx) => func_idx,
+                let (target_module_id, func_idx) = match thread.read_reg(func_reg)? {
+                    Value::Function {
+                        module_id,
+                        func_idx,
+                    } => (module_id, func_idx),
                     value => {
                         return Err(VmError::TypeMismatch {
                             expected: "function value".to_string(),
@@ -344,18 +356,16 @@ impl<'a> VirtualMachine<'a> {
                     }
                 };
 
-                let frame = self.call_stack.last().ok_or(VmError::EmptyCallStack)?;
-                let current_module_id = frame.module_id;
-                let current_image = &self.graph.get(current_module_id).unwrap().module;
+                let current_image = &self.graph.get(target_module_id).unwrap().module;
 
                 let (target_module_id, target_func_idx) =
                     if (func_idx.raw() as usize) < current_image.functions.len() {
-                        (current_module_id, func_idx)
+                        (target_module_id, func_idx)
                     } else {
                         let import_idx = (func_idx.raw() as usize) - current_image.functions.len();
                         let link = self
                             .graph
-                            .resolve_imports(current_module_id)
+                            .resolve_imports(target_module_id)
                             .map_err(|_| VmError::FunctionOutOfBounds { index: func_idx })?;
                         let import = link
                             .imports
@@ -393,26 +403,173 @@ impl<'a> VirtualMachine<'a> {
                     callee_regs.iter_mut().enumerate().take(arg_count as usize)
                 {
                     let source = Reg(args_start.raw() + index as u16);
-                    *callee_reg = self.read_reg(source)?;
+                    *callee_reg = thread.read_reg(source)?;
                 }
 
-                self.call_stack.push(CallFrame {
+                thread.call_stack.push(CallFrame {
                     module_id: target_module_id,
                     func_idx: target_func_idx,
                     pc: 0,
                     registers: callee_regs,
                     return_dest: Some(dest),
-                    in_transaction: false,
                 });
             }
 
+            Instruction::ReceiveFilter {
+                dest,
+                sender,
+                timeout,
+            } => {
+                let sender_id = match thread.read_reg(sender)? {
+                    Value::Int64(id) => id as u64,
+                    _ => {
+                        return Err(VmError::TypeMismatch {
+                            expected: "Int64".into(),
+                            found: "other".into(),
+                        });
+                    }
+                };
+
+                let timeout_val = match thread.read_reg(timeout)? {
+                    Value::Int32(t) => {
+                        if t < 0 {
+                            None
+                        } else {
+                            Some(t as u64)
+                        }
+                    }
+                    _ => {
+                        return Err(VmError::TypeMismatch {
+                            expected: "Int32".into(),
+                            found: "other".into(),
+                        });
+                    }
+                };
+
+                // Remove the first message matching sender_id.
+                let msg_opt = {
+                    let mut mailbox = thread.mailbox.lock().unwrap();
+                    let idx = mailbox
+                        .iter()
+                        .position(|message| message.sender_id == sender_id);
+                    if let Some(idx) = idx {
+                        Some(mailbox.remove(idx).unwrap().data)
+                    } else {
+                        None
+                    }
+                };
+
+                if let Some(data) = msg_opt {
+                    let message = Value::Object(thread.heap.alloc(HeapObject::Array {
+                        element_ty: self.uint8_type_idx(thread),
+                        elements: data.into_iter().map(Value::Uint8).collect(),
+                    }));
+                    let _ = thread.write_reg(dest, message);
+                    return Ok(ExecutionStep::Continue);
+                } else {
+                    // Revert PC so we try again after waking up
+                    thread.call_stack.last_mut().unwrap().pc -= 1;
+                    return Ok(ExecutionStep::ReceiveFilter {
+                        dest,
+                        sender_id,
+                        timeout: timeout_val,
+                    });
+                }
+            }
+            Instruction::MailboxHasMessages { dest } => {
+                let has_messages = !thread.mailbox.lock().unwrap().is_empty();
+                thread.write_reg(dest, Value::Bool(has_messages))?;
+            }
+            Instruction::MailboxGetMessage { dest } => {
+                let message = thread.mailbox.lock().unwrap().pop_front();
+                let value = message.map_or(Value::Null, |message| {
+                    Value::Object(thread.heap.alloc(HeapObject::Array {
+                        element_ty: self.uint8_type_idx(thread),
+                        elements: message.data.into_iter().map(Value::Uint8).collect(),
+                    }))
+                });
+                thread.write_reg(dest, value)?;
+            }
+            Instruction::Send { dest, target, msg } => {
+                let target_val = thread.read_reg(target)?.clone();
+                let msg_val = thread.read_reg(msg)?.clone();
+
+                let target_id = match target_val {
+                    Value::Int64(id) => id as u64,
+                    _ => {
+                        return Err(VmError::TypeMismatch {
+                            expected: "Int64".into(),
+                            found: "other".into(),
+                        });
+                    }
+                };
+
+                return Ok(ExecutionStep::SendMsg {
+                    dest,
+                    target: target_id,
+                    msg: msg_val,
+                });
+            }
+            Instruction::CreateThread { dest, func, key } => {
+                let func_val = thread.read_reg(func)?.clone();
+                let key_val = thread.read_reg(key)?.clone();
+                return Ok(ExecutionStep::CreateThread {
+                    dest,
+                    func: func_val,
+                    key: key_val,
+                });
+            }
+
+            Instruction::StartThread {
+                dest,
+                thread_id,
+                arg,
+            } => {
+                let tid_val = match thread.read_reg(thread_id)? {
+                    Value::Int64(id) => id as u64,
+                    _ => {
+                        return Err(VmError::TypeMismatch {
+                            expected: "Int64".into(),
+                            found: "other".into(),
+                        });
+                    }
+                };
+                let arg_val = thread.read_reg(arg)?.clone();
+                return Ok(ExecutionStep::StartThread {
+                    dest,
+                    thread_id: tid_val,
+                    arg: arg_val,
+                });
+            }
+            Instruction::GetThread { dest, key } => {
+                return Ok(ExecutionStep::GetThread {
+                    dest,
+                    key: thread.read_reg(key)?.clone(),
+                });
+            }
+
+            Instruction::ThreadIsRunning { dest, thread_id } => {
+                let thread_id = thread_id_value(thread, thread_id)?;
+                return Ok(ExecutionStep::ThreadIsRunning { dest, thread_id });
+            }
+
+            Instruction::ThreadIsExited { dest, thread_id } => {
+                let thread_id = thread_id_value(thread, thread_id)?;
+                return Ok(ExecutionStep::ThreadIsExited { dest, thread_id });
+            }
+
+            Instruction::ThreadExitReason { dest, thread_id } => {
+                let thread_id = thread_id_value(thread, thread_id)?;
+                return Ok(ExecutionStep::ThreadExitReason { dest, thread_id });
+            }
+
             Instruction::Ret { src } => {
-                let val = self.read_reg(src)?;
-                let completed_frame = self.call_stack.pop().ok_or(VmError::EmptyCallStack)?;
+                let val = thread.read_reg(src)?;
+                let completed_frame = thread.call_stack.pop().ok_or(VmError::EmptyCallStack)?;
 
                 match completed_frame.return_dest {
                     Some(dest) => {
-                        self.write_reg(dest, val)?;
+                        thread.write_reg(dest, val)?;
                     }
                     None => {
                         return Ok(ExecutionStep::Return(val));
@@ -420,11 +577,11 @@ impl<'a> VirtualMachine<'a> {
                 }
             }
             Instruction::RetNull => {
-                let completed_frame = self.call_stack.pop().ok_or(VmError::EmptyCallStack)?;
+                let completed_frame = thread.call_stack.pop().ok_or(VmError::EmptyCallStack)?;
 
                 match completed_frame.return_dest {
                     Some(dest) => {
-                        self.write_reg(dest, Value::Null)?;
+                        thread.write_reg(dest, Value::Null)?;
                     }
                     None => {
                         return Ok(ExecutionStep::Return(Value::Null));
@@ -433,7 +590,7 @@ impl<'a> VirtualMachine<'a> {
             }
             Instruction::Panic { const_idx } => {
                 let constant = self
-                    .current_image()
+                    .current_image(thread)
                     .unwrap()
                     .constants
                     .constants
@@ -454,15 +611,16 @@ impl<'a> VirtualMachine<'a> {
     }
 
     fn execute_array_iterator_method(
-        &mut self,
+        &self,
+        thread: &mut crate::thread::VirtualThread,
         obj: Reg,
         method_name: &str,
     ) -> Result<Option<Value>, VmError> {
-        let Value::Object(iterator_ref) = self.read_reg(obj)? else {
+        let Value::Object(iterator_ref) = thread.read_reg(obj)? else {
             return Ok(None);
         };
 
-        let (array_ref, current) = match self.get_object(iterator_ref)? {
+        let (array_ref, current) = match thread.heap.get_object(iterator_ref)? {
             HeapObject::Struct {
                 module_id,
                 layout_idx,
@@ -506,14 +664,15 @@ impl<'a> VirtualMachine<'a> {
 
         match method_name {
             "iter" => {
-                let HeapObject::Struct { fields, .. } = self.get_object_mut(iterator_ref)? else {
+                let HeapObject::Struct { fields, .. } = thread.heap.get_object_mut(iterator_ref)?
+                else {
                     unreachable!("iterator object was validated as a struct")
                 };
                 fields[1] = Value::Int32(0);
                 Ok(Some(Value::Object(iterator_ref)))
             }
             "next" => {
-                let value = match self.get_object(array_ref)? {
+                let value = match thread.heap.get_object(array_ref)? {
                     HeapObject::Array { elements, .. } => elements.get(current as usize).cloned(),
                     value => {
                         return Err(VmError::TypeMismatch {
@@ -523,7 +682,8 @@ impl<'a> VirtualMachine<'a> {
                     }
                 };
                 if value.is_some() {
-                    let HeapObject::Struct { fields, .. } = self.get_object_mut(iterator_ref)?
+                    let HeapObject::Struct { fields, .. } =
+                        thread.heap.get_object_mut(iterator_ref)?
                     else {
                         unreachable!("iterator object was validated as a struct")
                     };
@@ -533,5 +693,15 @@ impl<'a> VirtualMachine<'a> {
             }
             _ => Ok(None),
         }
+    }
+}
+
+fn thread_id_value(thread: &crate::thread::VirtualThread, register: Reg) -> Result<u64, VmError> {
+    match thread.read_reg(register)? {
+        Value::Int64(id) => Ok(id as u64),
+        value => Err(VmError::TypeMismatch {
+            expected: "Int64".into(),
+            found: format!("{value:?}"),
+        }),
     }
 }

@@ -2,7 +2,7 @@
 
 > **Status: Historical design.** The current VM executes the in-memory Rust
 > `Instruction` representation. It has no serialized bytecode format,
-> variable-length binary encoding, multithreading, or STM contract.
+> variable-length binary encoding, or multithreading.
 
 This document preserves an earlier binary instruction-set proposal for the
 Galfus Virtual Machine.
@@ -122,20 +122,6 @@ The VM uses these opcodes to coordinate with the `owner_graph_core` for determin
 
 ---
 
-### Category F: Transactional Shared Memory (Future-Proof)
-
-STM-specific instructions that interact with the Transaction Manager instead of accessing the Shared Heap directly.
-
-| Opcode            | Hex    | Arguments                                  | Behavior                                                                              |
-| :---------------- | :----- | :----------------------------------------- | :------------------------------------------------------------------------------------ |
-| **`TX_START`**    | `0x60` | `key_reg: Reg`                             | Start a transaction scope, using `key_reg` (shared object) as the transaction key.    |
-| **`TX_LOAD`**     | `0x61` | `dest: Reg`, `obj: Reg`, `field: FieldIdx` | Read field of shared object via local transaction read set.                           |
-| **`TX_STORE`**    | `0x62` | `obj: Reg`, `field: FieldIdx`, `val: Reg`  | Write to shared object field via local alteration log (Write Set).                    |
-| **`TX_COMMIT`**   | `0x63` | `dest_reg: Reg`                            | Commit the alteration log. Sets `dest_reg` to `true` on success, `false` on conflict. |
-| **`TX_ROLLBACK`** | `0x64` | None                                       | Discard current transaction alteration log.                                           |
-
----
-
 ## 3. Bytecode Execution Semantics
 
 ### Call Frames and Register File
@@ -157,5 +143,4 @@ The interpreter's loop operates with exception/panic safety:
 3. Dispatch execution.
 4. If a panic or termination is triggered:
    - Walk up the call stack.
-   - If a frame was in an active transactional state (begun by `TX_START` without a completing `TX_COMMIT`), implicitly call `TX_ROLLBACK`.
-   - Continue unwinding until caught or the VM aborts.
+      - Continue unwinding until caught or the VM aborts.

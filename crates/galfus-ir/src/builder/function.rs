@@ -1,7 +1,7 @@
 use super::MirBuilder;
 use crate::mir::*;
 use galfus_core::{NodeId, SymbolId, TypeId};
-use galfus_frontend::{PrimitiveType, SymbolKind, SyntaxNodeKind, TypeKind};
+use galfus_frontend::{SymbolKind, SyntaxNodeKind, TypeKind};
 use std::collections::HashMap;
 
 pub struct FunctionBuilder<'b, 'a> {
@@ -15,18 +15,12 @@ pub struct FunctionBuilder<'b, 'a> {
     pub(super) return_type: TypeId,
     pub(super) type_substitutions: HashMap<SymbolId, TypeId>,
     pub(super) loop_targets: Vec<LoopTargets>,
-    pub(super) transactions: Vec<TransactionTargets>,
 }
 
 pub(super) struct LoopTargets {
     pub(super) name: Option<String>,
     pub(super) break_target: BlockId,
     pub(super) continue_target: BlockId,
-    pub(super) scope_depth: usize,
-}
-
-pub(super) struct TransactionTargets {
-    pub(super) end: BlockId,
     pub(super) scope_depth: usize,
 }
 
@@ -373,12 +367,6 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                         .push((Instruction::Drop(local_id), None));
                 }
             }
-            for t in self.transactions.iter().rev() {
-                if t.scope_depth == i {
-                    self.current_instructions
-                        .push((Instruction::TransactionRollback, None));
-                }
-            }
         }
     }
 
@@ -516,67 +504,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                     });
                 }
             }
-            SyntaxNodeKind::TransactionStatement => {
-                let target_list = node.child(0);
-                let body = node.child(1);
-                let targets = target_list
-                    .and_then(|list| syntax.node(list))
-                    .map(|list| {
-                        list.children()
-                            .iter()
-                            .filter_map(|target| {
-                                resolution
-                                    .and_then(|resolution| resolution.reference_symbol(*target))
-                                    .and_then(|symbol| self.symbol_to_local.get(&symbol).copied())
-                                    .map(Operand::Local)
-                            })
-                            .collect()
-                    })
-                    .unwrap_or_default();
-                self.current_instructions
-                    .push((Instruction::TransactionStart { targets }, None));
 
-                let end = self.builder.next_block();
-                self.transactions.push(TransactionTargets {
-                    end,
-                    scope_depth: self.scopes.len(),
-                });
-                if let Some(body) = body {
-                    self.lower_block(body);
-                }
-                if !self.is_terminated() {
-                    let bool_type = self
-                        .builder
-                        .type_result
-                        .layer()
-                        .table()
-                        .primitive(PrimitiveType::Bool);
-                    let committed = self.declare_local(None, bool_type);
-                    self.current_instructions.push((
-                        Instruction::TransactionCommit {
-                            destination: committed,
-                        },
-                        None,
-                    ));
-                    self.terminate_block(Terminator::Jump {
-                        target: end,
-                        args: Vec::new(),
-                    });
-                }
-                self.transactions.pop();
-                self.blocks.last_mut().unwrap().id = end;
-                self.current_block = end;
-            }
-            SyntaxNodeKind::RollbackStatement => {
-                if let Some(transaction) = self.transactions.last() {
-                    self.current_instructions
-                        .push((Instruction::TransactionRollback, None));
-                    self.terminate_block(Terminator::Jump {
-                        target: transaction.end,
-                        args: Vec::new(),
-                    });
-                }
-            }
             SyntaxNodeKind::ExpressionStatement => {
                 if let Some(expr) = node.first_child() {
                     self.lower_expression(expr);

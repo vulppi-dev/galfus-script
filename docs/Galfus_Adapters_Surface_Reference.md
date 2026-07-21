@@ -1,8 +1,8 @@
 # Galfus Adapters Surface Reference
 
-> **Status: Planned design.** The implemented host boundary is the optional
-> synchronous `IoProvider`. Proxy descriptors, native/WASM adapters, payloads,
-> and bundle reachability described below are not implemented.
+> **Status: Planned design.** The implemented host boundary uses the optional
+> asynchronous `HostProvider` through the `Instruction::CallNative` mechanism. Proxy descriptors, native/WASM adapters, payloads,
+> and bundle reachability described below are not implemented yet.
 
 This document defines the Galfus adapter surface model.
 

@@ -6,4 +6,3 @@ mod for_loop;
 mod if_else;
 mod loop_block;
 mod return_statement;
-mod transactions;

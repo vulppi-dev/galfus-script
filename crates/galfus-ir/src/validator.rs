@@ -88,8 +88,7 @@ fn validate_function(func: &MirFunction) -> Result<(), Vec<ValidationError>> {
                 }
                 | crate::mir::Instruction::ConstraintCall {
                     destination: dest, ..
-                }
-                | crate::mir::Instruction::TransactionCommit { destination: dest } => {
+                } => {
                     if !assigned_locals.insert(*dest) {
                         errors.push(ValidationError {
                             message: format!(
@@ -264,7 +263,6 @@ fn apply_initialization_effects(block: &BasicBlock, initialized: &mut HashSet<Lo
 
         match &instruction.0 {
             crate::mir::Instruction::Assign(destination, _)
-            | crate::mir::Instruction::TransactionCommit { destination }
             | crate::mir::Instruction::Call { destination, .. }
             | crate::mir::Instruction::ConstraintCall { destination, .. }
             | crate::mir::Instruction::IndirectCall { destination, .. } => {
@@ -345,23 +343,7 @@ fn validate_basic_block(
                 validate_operand(obj, func, initialized, errors);
                 validate_operand(val, func, initialized, errors);
             }
-            crate::mir::Instruction::TransactionStart { targets } => {
-                for target in targets {
-                    validate_operand(target, func, initialized, errors);
-                }
-            }
-            crate::mir::Instruction::TransactionCommit { destination } => {
-                if !func.locals.iter().any(|decl| decl.id == *destination) {
-                    errors.push(ValidationError {
-                        message: format!(
-                            "Function '{}': Transaction commit assigned to undeclared local ID {:?}",
-                            func.name, destination
-                        ),
-                    });
-                }
-                initialized.insert(*destination);
-            }
-            crate::mir::Instruction::TransactionRollback => {}
+
             crate::mir::Instruction::Call {
                 func: _,
                 args,

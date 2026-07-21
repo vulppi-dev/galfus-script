@@ -28,7 +28,7 @@ The compiler consumes semantic modules and produces a versioned
 `BytecodeGraphTransaction` containing changed modules, removals, and dependency
 edges. The workspace applies it only when its base version matches, validates
 the complete resulting graph, and publishes the next snapshot atomically.
-Failed or stale transactions retain the prior snapshot.
+
 The `BytecodeGraph` is the single canonical executable graph.
 
 ## Runtime boundary
@@ -41,7 +41,7 @@ The runtime never performs parsing, semantic checking, or compilation, and there
 
 ## Host-provider boundary
 
-`galfus-host` defines optional host contracts independently of the workspace,
+`galfus-contract` defines optional host contracts independently of the workspace,
 runtime, and VM. A host constructs `Providers` with concrete implementations
 and composes `Runtime::new(&graph, providers)` directly, or passes them to
 `Workspace::run` when source management is needed. The workspace remains the
@@ -53,10 +53,11 @@ an instruction requires a missing provider. Consequently, running without
 providers is a valid sandbox configuration for programs that do not reach
 host-backed builtins.
 
-The current `IoProvider` is synchronous and supports byte-stream reads with a
-terminator and writes. It is intentionally independent of native, WASM, or
-browser APIs: the CLI adapts native streams, and the playground adapts its
-buffered stream to JavaScript through its WASM-facing API.
+The current `HostProvider` is asynchronous and supports payload dispatching
+through message injection. It is intentionally independent of native, WASM, or
+browser APIs: the CLI adapts native OS streams, and the playground adapts its
+buffered streams to JavaScript through its WASM-facing API, all running on top of
+a suspended virtual thread.
 
 ## Gate rules
 

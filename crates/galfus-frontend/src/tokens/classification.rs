@@ -61,7 +61,6 @@ impl TokenKind {
                 | Self::False
                 | Self::New
                 | Self::Copy
-                | Self::Transaction
                 | Self::Rollback
                 | Self::SelfKw
         )
@@ -84,7 +83,7 @@ mod tests {
         );
         assert!(TokenKind::RightBrace.is_closing_delimiter());
         assert!(TokenKind::Typeof.is_keyword());
-        assert!(TokenKind::Transaction.is_keyword());
+
         assert!(TokenKind::Identifier.is_significant());
         assert!(!TokenKind::Newline.is_significant());
     }

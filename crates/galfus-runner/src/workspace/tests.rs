@@ -95,3 +95,53 @@ fn run_project_returns_the_application_exit_code() {
 
     std::fs::remove_file(source_path).expect("remove temporary source");
 }
+
+#[test]
+fn run_project_spawns_a_thread_with_the_anchored_api() {
+    let source_path = std::env::current_dir()
+        .expect("current directory")
+        .join(".tmp")
+        .join(format!(
+            "runner-thread-api-{}.gfs",
+            NEXT_WORKSPACE_ID.fetch_add(1, Ordering::Relaxed)
+        ));
+    std::fs::write(
+        source_path.as_path(),
+        r#"
+            import { createThread, getThread } from 'std/thread'
+
+            fn worker(args: [[u8]]): i32 {
+                return 0
+            }
+
+            export fn main(args: [[u8]]): i32 {
+                const thread = createThread(worker, "worker")
+                if getThread("worker") == null {
+                    return 1
+                }
+                if !thread::spawn() {
+                    return 2
+                }
+                if !thread::isExited() {
+                    return 3
+                }
+                if thread::isRunning() {
+                    return 4
+                }
+                if thread::exitReason() != 0 {
+                    return 5
+                }
+                return 0
+            }
+        "#,
+    )
+    .expect("entry source");
+
+    assert_eq!(
+        run_project(source_path.to_str().expect("UTF-8 source path"), &[])
+            .expect("runs thread API"),
+        0
+    );
+
+    std::fs::remove_file(source_path).expect("remove temporary source");
+}

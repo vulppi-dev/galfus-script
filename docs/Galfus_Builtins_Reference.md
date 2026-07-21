@@ -79,9 +79,9 @@ Example configuration:
 
 Basic console and standard input/output stream interaction.
 
-`std/io` is resolved at execution time through the optional host `IoProvider`.
-The compiler does not require a provider. If execution reaches `std/io` with
-no I/O provider configured, it fails at runtime. This permits hosts to run
+`std/io` is resolved at execution time through the optional `HostProvider` via asynchronous native calls.
+The compiler does not require a provider. If execution reaches a native `std/io` call with
+no host provider configured, it fails at runtime. This permits hosts to run
 code without providers as a sandbox.
 
 ```galfus
@@ -96,6 +96,60 @@ fn print(text: [u8]): null
 # Write raw UTF-8 bytes followed by a newline to standard output.
 fn println(text: [u8]): null
 ```
+
+### `std/thread`
+
+Virtual threads execute isolated functions with an independent heap and a
+mailbox. `createThread` only creates the thread; `spawn` starts it once and
+returns whether the transition succeeded. A key is optional, but allows
+retrieval through `getThread`.
+
+```galfus
+import {
+  createThread,
+  getMessage,
+  getThread,
+  hasMessages,
+} from "std/thread"
+
+fn worker(args: [[u8]]): i32 {
+  if hasMessages() {
+    const message = getMessage()
+  }
+  return 0
+}
+
+export fn main(args: [[u8]]): i32 {
+  const thread = createThread(worker, "worker")
+  thread::spawn()
+  return 0
+}
+```
+
+```galfus
+struct Thread {
+  id: i64,
+  key: [u8] | null,
+}
+
+fn createThread(func: fn([[u8]]): i32, key: [u8] | null = null): Thread
+fn getThread(key: [u8]): Thread | null
+
+fn hasMessages(): bool
+fn getMessage(): [u8] | null
+
+fn Thread::spawn(self, args: [[u8]] | null = null): bool
+fn Thread::isRunning(self): bool
+fn Thread::isExited(self): bool
+fn Thread::exitReason(self): i32 | null
+fn Thread::send(self, data: [u8]): bool
+fn Thread::tryReceiveMessage(self, timeout: i32): [u8] | null
+```
+
+`hasMessages` and `getMessage` inspect the mailbox of the current thread.
+`getMessage` is non-blocking: it removes and returns the oldest message, or
+returns `null` when the mailbox is empty. `tryReceiveMessage` is the
+timeout-aware receive operation associated with a `Thread` handle.
 
 ### `std/fs`
 

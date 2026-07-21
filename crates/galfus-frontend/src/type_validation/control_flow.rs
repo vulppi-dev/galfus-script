@@ -61,21 +61,6 @@ impl<'a> DeclarationTypeChecker<'a> {
                 }
             }
 
-            SyntaxNodeKind::RollbackStatement => {
-                if self.transaction_depth == 0 {
-                    self.report_rollback_outside_transaction(node);
-                }
-            }
-
-            SyntaxNodeKind::TransactionStatement => {
-                self.transaction_depth += 1;
-                let children = syntax_node.children().to_vec();
-                for child in children {
-                    self.check_control_flow(child);
-                }
-                self.transaction_depth -= 1;
-            }
-
             _ => {
                 let children = syntax_node.children().to_vec();
 

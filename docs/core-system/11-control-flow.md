@@ -4,7 +4,7 @@ Previous: [Functions and Calls](./10-functions-and-calls.md) | Index: [Galfus Co
 
 # 11. Control Flow
 
-This document defines `if`, `else`, `loop`, named loops, `break`, `continue`, `return`, reachability, and transaction control reservation.
+This document defines `if`, `else`, `loop`, named loops, `break`, `continue`, `return`, and reachability.
 
 ## 11.1 Branching
 
@@ -179,25 +179,6 @@ fn value(): i32 {
 
 The statement after `return` is unreachable but compilation may continue.
 
-## 11.10 Transaction Control Reservation
-
-`transaction` and `rollback` are reserved.
-
-```galfus
-transaction source, target {
-  source.balance -= 10
-  target.balance += 10
-
-  if source.balance < 0 {
-    rollback
-  }
-}
-```
-
-`rollback` is valid only inside a transaction.
-
-`commit` is implicit and not a keyword.
-
 ## 11.11 Contract
 
 The checker MUST:
@@ -210,7 +191,6 @@ The checker MUST:
 - Reject invalid `break`/`continue` target names.
 - Treat unreachable code as a warning.
 - Require definite return for non-null functions.
-- Restrict `rollback` to transaction blocks.
 
 ---
 

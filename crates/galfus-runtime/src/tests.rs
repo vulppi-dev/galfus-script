@@ -111,10 +111,41 @@ fn run_initializes_dependencies_before_the_entry_module() {
     )
     .expect("valid graph");
 
-    assert_eq!(
-        Runtime::new(&graph, None)
-            .run_module_entry(entry_id, "main", &[])
-            .expect("entry execution succeeds"),
-        42
-    );
+    struct TestExecutor {
+        queue: std::sync::Mutex<std::collections::VecDeque<Box<dyn galfus_contract::RunnableTask>>>,
+        next_thread_id: std::sync::atomic::AtomicU64,
+    }
+    impl galfus_contract::ThreadExecutor for TestExecutor {
+        fn allocate_thread_id(&self) -> u64 {
+            self.next_thread_id
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+        }
+
+        fn spawn(&self, task: Box<dyn galfus_contract::RunnableTask>) {
+            self.queue.lock().unwrap().push_back(task);
+        }
+    }
+    let executor = std::sync::Arc::new(TestExecutor {
+        queue: std::sync::Mutex::new(std::collections::VecDeque::new()),
+        next_thread_id: std::sync::atomic::AtomicU64::new(1),
+    });
+
+    let task = Runtime::new(std::sync::Arc::new(graph.clone()), None)
+        .build_module_entry(entry_id, "main", &[], executor.clone())
+        .expect("entry execution succeeds");
+    galfus_contract::ThreadExecutor::spawn(executor.as_ref(), task);
+
+    let mut exit_code = 0;
+    loop {
+        let t = executor.queue.lock().unwrap().pop_front();
+        let Some(t) = t else { break };
+        match t.run(100) {
+            galfus_contract::ThreadResult::Yielded(t) => {
+                executor.queue.lock().unwrap().push_back(t)
+            }
+            galfus_contract::ThreadResult::Completed(code) => exit_code = code,
+            _ => {}
+        }
+    }
+    assert_eq!(exit_code, 42);
 }

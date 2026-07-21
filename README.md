@@ -80,7 +80,7 @@ galfus-script/
        ├── galfus-frontend/   # Lexer, parser, resolver, checker, and semantic validation
        ├── galfus-ir/         # MIR representation and VM lowering code
        ├── galfus-bytecode/   # Bytecode format, validation, and in-memory executable graph
-       ├── galfus-host/       # Optional host-provider contracts used at execution time
+       ├── galfus-contract/       # Optional host-provider contracts used at execution time
        ├── galfus-runtime/    # Runtime execution state, module globals, and VM setup
        ├── galfus-vm/         # Virtual Machine interpreter and ownership graph engine
        ├── galfus-builtins/   # Standard library builtins and rich_builtins files

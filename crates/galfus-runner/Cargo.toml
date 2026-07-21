@@ -6,5 +6,5 @@ license.workspace = true
 
 [dependencies]
 anyhow.workspace = true
-galfus-host = { path = "../galfus-host" }
+galfus-contract = { path = "../galfus-contract" }
 galfus-workspace = { path = "../galfus-workspace" }

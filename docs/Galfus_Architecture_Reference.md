@@ -28,7 +28,6 @@ VM (Instruction Execution)
 - **GFB (Galfus Bytecode File):** Removed. The graph exists only in memory.
 - **Bundler:** Not implemented.
 - **Optimizer:** Not implemented.
-- **Multithreading:** Not implemented.
 - **Debugger:** Not implemented.
 - **JIT Compilation:** Not implemented.
 
@@ -56,7 +55,7 @@ There is no global shared namespace. A variable without `export` belongs strictl
 It contains multiple `BytecodeModule`s and their dependencies.
 It is the only executable graph. The runtime does not rebuild or duplicate this graph.
 
-The compiler produces a `BytecodeGraphTransaction` for changed modules. The
+The compiler produces a updated modules for changed modules. The
 workspace applies it only to the declared graph version, validates the complete
 result, and then publishes the next snapshot. Failed or stale transactions
 leave the prior snapshot unchanged.
@@ -82,6 +81,10 @@ globals and initialization status. Dependencies initialize before the entry
 module, and the runtime does not duplicate bytecode.
 
 The `VM` executes bytecode instructions. It receives frames containing `ModuleId`, `FunctionId`, and `InstructionOffset`. Execution is implemented fundamentally via a `step` function that runs one instruction at a time.
+
+Virtual threads provide cooperative concurrent execution. Each thread has an
+isolated heap and mailbox; the runtime registry retains its identity, lifecycle
+state, key, and mailbox while it is created, running, blocked, or exited.
 
 ---
 

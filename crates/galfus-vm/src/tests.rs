@@ -25,5 +25,5 @@ fn test_vm_creation() {
         vec![],
     )
     .expect("test module must form a valid bytecode graph");
-    let _vm = VirtualMachine::new(&graph);
+    let _vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()));
 }

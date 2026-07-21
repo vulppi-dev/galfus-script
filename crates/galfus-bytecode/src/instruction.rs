@@ -250,6 +250,48 @@ pub enum Instruction {
         src: Reg,
     },
     RetNull,
+    ReceiveFilter {
+        dest: Reg,
+        sender: Reg,
+        timeout: Reg,
+    },
+    MailboxHasMessages {
+        dest: Reg,
+    },
+    MailboxGetMessage {
+        dest: Reg,
+    },
+    Send {
+        dest: Reg,
+        target: Reg,
+        msg: Reg,
+    },
+    CreateThread {
+        dest: Reg,
+        func: Reg,
+        key: Reg,
+    },
+    StartThread {
+        dest: Reg, // To store success/fail status
+        thread_id: Reg,
+        arg: Reg,
+    },
+    GetThread {
+        dest: Reg,
+        key: Reg,
+    },
+    ThreadIsRunning {
+        dest: Reg,
+        thread_id: Reg,
+    },
+    ThreadIsExited {
+        dest: Reg,
+        thread_id: Reg,
+    },
+    ThreadExitReason {
+        dest: Reg,
+        thread_id: Reg,
+    },
     Panic {
         const_idx: ConstIdx,
     },
@@ -320,32 +362,12 @@ pub enum Instruction {
         reg: Reg,
     },
 
-    // Category F: Transactional Shared Memory
-    TxStart {
-        key_reg: Reg,
-    },
-    TxLoad {
+    // Category G: Native Integrations
+    CallNative {
         dest: Reg,
-        obj: Reg,
-        field: FieldIdx,
-    },
-    TxStore {
-        obj: Reg,
-        field: FieldIdx,
-        val: Reg,
-    },
-    TxCommit {
-        dest_reg: Reg,
-    },
-    TxRollback,
-
-    // Category G: Standard I/O
-    Write {
-        src: Reg,
-    },
-    Read {
-        dest: Reg,
-        terminator: Reg,
+        name_const: ConstIdx,
+        args_start: Reg,
+        arg_count: u8,
     },
     Len {
         dest: Reg,

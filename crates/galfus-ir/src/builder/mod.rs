@@ -187,7 +187,6 @@ impl<'a> MirBuilder<'a> {
             return_type: TypeId::new(0),
             type_substitutions: HashMap::new(),
             loop_targets: Vec::new(),
-            transactions: Vec::new(),
         };
 
         let syntax = builder_ctx.builder.graph.syntax();

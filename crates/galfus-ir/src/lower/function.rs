@@ -233,78 +233,189 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                         self.free_temp_if_operand(val);
                         self.free_temp_if_operand(obj);
                     }
-                    MirInstruction::TransactionStart { targets } => {
-                        let key = targets
-                            .first()
-                            .cloned()
-                            .unwrap_or(Operand::Constant(MirConstant::Null));
-                        let key_reg = self.operand_reg(&key);
-                        self.instructions.push(Instruction::TxStart { key_reg });
-                        self.free_temp_if_operand(&key);
-                    }
-                    MirInstruction::TransactionCommit { destination } => {
-                        self.instructions.push(Instruction::TxCommit {
-                            dest_reg: Reg(destination.raw() as u16),
-                        });
-                    }
-                    MirInstruction::TransactionRollback => {
-                        self.instructions.push(Instruction::TxRollback);
-                    }
+
                     MirInstruction::Call {
                         func,
                         args,
                         destination,
                     } => {
-                        let builtin_name = self.ctx.function_names.get(func).map(|s| s.as_str());
-                        if builtin_name == Some("__builtin_write") {
-                            let arg_reg = self.alloc_temp();
-                            self.load_operand_to(&args[0], arg_reg);
-                            self.instructions.push(Instruction::Write { src: arg_reg });
+                        let builtin_name = self.ctx.function_names.get(func).map(|s| s.to_string());
+                        if let Some(name) = builtin_name {
+                            if name.starts_with("__builtin_") {
+                                let native_name = &name["__builtin_".len()..];
 
-                            let null_idx = crate::lower::constants::get_or_create_constant(
-                                self.ctx,
-                                &MirConstant::Null,
-                            );
-                            self.instructions.push(Instruction::LoadConst {
-                                dest: Reg(destination.raw() as u16),
-                                const_idx: null_idx,
-                            });
+                                if native_name == "create_thread" {
+                                    let func_reg = self.alloc_temp();
+                                    self.load_operand_to(&args[0], func_reg);
+                                    let key_reg = self.alloc_temp();
+                                    self.load_operand_to(&args[1], key_reg);
 
-                            self.free_temps(1);
-                        } else if builtin_name == Some("__builtin_read") {
-                            let terminator = self.alloc_temp();
-                            self.load_operand_to(&args[0], terminator);
-                            self.instructions.push(Instruction::Read {
-                                dest: Reg(destination.raw() as u16),
-                                terminator,
-                            });
-                            self.free_temps(1);
-                        } else {
-                            let start_reg = self.alloc_temp();
-                            let mut temp_regs = vec![start_reg];
-                            for _ in 1..args.len() {
-                                temp_regs.push(self.alloc_temp());
+                                    self.instructions.push(Instruction::CreateThread {
+                                        dest: Reg(destination.raw() as u16),
+                                        func: func_reg,
+                                        key: key_reg,
+                                    });
+                                    self.free_temps(2);
+                                    continue;
+                                }
+
+                                if native_name == "spawn_thread" {
+                                    let thread_id_reg = self.alloc_temp();
+                                    self.load_operand_to(&args[0], thread_id_reg);
+                                    let arg_reg = self.alloc_temp();
+                                    self.load_operand_to(&args[1], arg_reg);
+
+                                    self.instructions.push(Instruction::StartThread {
+                                        dest: Reg(destination.raw() as u16),
+                                        thread_id: thread_id_reg,
+                                        arg: arg_reg,
+                                    });
+                                    self.free_temps(2);
+                                    continue;
+                                }
+
+                                if native_name == "get_thread" {
+                                    let key_reg = self.alloc_temp();
+                                    self.load_operand_to(&args[0], key_reg);
+
+                                    self.instructions.push(Instruction::GetThread {
+                                        dest: Reg(destination.raw() as u16),
+                                        key: key_reg,
+                                    });
+                                    self.free_temps(1);
+                                    continue;
+                                }
+
+                                if native_name == "is_thread_running"
+                                    || native_name == "is_thread_exited"
+                                    || native_name == "thread_exit_reason"
+                                {
+                                    let thread_id_reg = self.alloc_temp();
+                                    self.load_operand_to(&args[0], thread_id_reg);
+                                    let dest = Reg(destination.raw() as u16);
+                                    let instruction = match native_name {
+                                        "is_thread_running" => Instruction::ThreadIsRunning {
+                                            dest,
+                                            thread_id: thread_id_reg,
+                                        },
+                                        "is_thread_exited" => Instruction::ThreadIsExited {
+                                            dest,
+                                            thread_id: thread_id_reg,
+                                        },
+                                        "thread_exit_reason" => Instruction::ThreadExitReason {
+                                            dest,
+                                            thread_id: thread_id_reg,
+                                        },
+                                        _ => unreachable!(),
+                                    };
+                                    self.instructions.push(instruction);
+                                    self.free_temps(1);
+                                    continue;
+                                }
+
+                                if native_name == "send" {
+                                    let target_reg = self.alloc_temp();
+                                    self.load_operand_to(&args[0], target_reg);
+                                    let msg_reg = self.alloc_temp();
+                                    self.load_operand_to(&args[1], msg_reg);
+
+                                    self.instructions.push(Instruction::Send {
+                                        dest: Reg(destination.raw() as u16),
+                                        target: target_reg,
+                                        msg: msg_reg,
+                                    });
+                                    self.free_temps(2);
+                                    continue;
+                                }
+
+                                if native_name == "receive" {
+                                    let sender_reg = self.alloc_temp();
+                                    self.load_operand_to(&args[0], sender_reg);
+                                    let timeout_reg = self.alloc_temp();
+                                    self.load_operand_to(&args[1], timeout_reg);
+
+                                    self.instructions.push(Instruction::ReceiveFilter {
+                                        dest: Reg(destination.raw() as u16),
+                                        sender: sender_reg,
+                                        timeout: timeout_reg,
+                                    });
+                                    self.free_temps(2);
+                                    continue;
+                                }
+
+                                if native_name == "has_messages" {
+                                    self.instructions.push(Instruction::MailboxHasMessages {
+                                        dest: Reg(destination.raw() as u16),
+                                    });
+                                    continue;
+                                }
+
+                                if native_name == "get_message" {
+                                    self.instructions.push(Instruction::MailboxGetMessage {
+                                        dest: Reg(destination.raw() as u16),
+                                    });
+                                    continue;
+                                }
+
+                                let start_reg = if args.is_empty() {
+                                    Reg(0) // Dummy if no args
+                                } else {
+                                    let reg = self.alloc_temp();
+                                    let mut temp_regs = vec![reg];
+                                    for _ in 1..args.len() {
+                                        temp_regs.push(self.alloc_temp());
+                                    }
+
+                                    for (i, arg_op) in args.iter().enumerate() {
+                                        self.load_operand_to(arg_op, temp_regs[i]);
+                                    }
+                                    reg
+                                };
+
+                                let name_idx = crate::lower::constants::get_or_create_constant(
+                                    self.ctx,
+                                    &crate::mir::Constant::String(native_name.to_string()),
+                                );
+
+                                self.instructions.push(Instruction::CallNative {
+                                    dest: Reg(destination.raw() as u16),
+                                    name_const: name_idx,
+                                    args_start: start_reg,
+                                    arg_count: args.len() as u8,
+                                });
+
+                                if !args.is_empty() {
+                                    self.free_temps(args.len() as u16);
+                                }
+                                continue;
                             }
+                        }
 
-                            for (i, arg_op) in args.iter().enumerate() {
-                                self.load_operand_to(arg_op, temp_regs[i]);
-                            }
+                        let start_reg = self.alloc_temp();
+                        let mut temp_regs = vec![start_reg];
+                        for _ in 1..args.len() {
+                            temp_regs.push(self.alloc_temp());
+                        }
 
-                            let func_idx = *self.ctx.function_map.get(func).unwrap_or_else(|| {
+                        for (i, arg_op) in args.iter().enumerate() {
+                            self.load_operand_to(arg_op, temp_regs[i]);
+                        }
+
+                        let func_idx = *self.ctx.function_map.get(func).unwrap_or_else(|| {
+                                eprintln!("Missing func: {:?}, available map: {:?}", func, self.ctx.function_map);
                                 panic!(
                                     "missing lowered function mapping for {:?} while emitting {} ({:?})",
                                     func, self.func.name, self.func.id
                                 )
                             });
-                            self.instructions.push(Instruction::Call {
-                                dest: Reg(destination.raw() as u16),
-                                func: func_idx,
-                                args_start: start_reg,
-                                arg_count: args.len() as u8,
-                            });
+                        self.instructions.push(Instruction::Call {
+                            dest: Reg(destination.raw() as u16),
+                            func: func_idx,
+                            args_start: start_reg,
+                            arg_count: args.len() as u8,
+                        });
 
-                            self.free_temps(args.len() as u16);
-                        }
+                        self.free_temps(args.len() as u16);
                     }
                     MirInstruction::ConstraintCall {
                         method_name,

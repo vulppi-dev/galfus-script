@@ -1,15 +1,16 @@
 use super::*;
 
-impl<'a> VirtualMachine<'a> {
+impl VirtualMachine {
     pub(super) fn execute_data_instruction(
-        &mut self,
+        &self,
+        thread: &mut crate::thread::VirtualThread,
         instr: Instruction,
     ) -> Result<ExecutionStep, VmError> {
         match instr {
             // Category A: Data Movement & Constants
             Instruction::LoadConst { dest, const_idx } => {
                 let constant = self
-                    .current_image()
+                    .current_image(thread)
                     .unwrap()
                     .constants
                     .constants
@@ -28,57 +29,67 @@ impl<'a> VirtualMachine<'a> {
                     Constant::Float32(f) => Value::Float32(*f),
                     Constant::Float64(f) => Value::Float64(*f),
                     Constant::String(s) => {
-                        let element_ty = self.uint8_type_idx();
+                        let element_ty = self.uint8_type_idx(thread);
                         let obj = HeapObject::Array {
                             element_ty,
                             elements: s.bytes().map(Value::Uint8).collect(),
                         };
-                        Value::Object(self.alloc(obj))
+                        Value::Object(thread.heap.alloc(obj))
                     }
                     Constant::Bytes(b) => {
-                        let element_ty = self.uint8_type_idx();
+                        let element_ty = self.uint8_type_idx(thread);
                         let obj = HeapObject::Array {
                             element_ty,
                             elements: b.iter().map(|&x| Value::Uint8(x)).collect(),
                         };
-                        Value::Object(self.alloc(obj))
+                        Value::Object(thread.heap.alloc(obj))
                     }
-                    Constant::Function(idx) => Value::Function(*idx),
+                    Constant::Function(func_idx) => {
+                        let module_id = thread
+                            .call_stack
+                            .last()
+                            .ok_or(VmError::EmptyCallStack)?
+                            .module_id;
+                        Value::Function {
+                            module_id,
+                            func_idx: *func_idx,
+                        }
+                    }
                 };
-                self.write_reg(dest, val)?;
+                thread.write_reg(dest, val)?;
             }
             Instruction::Move { dest, src } => {
-                let val = self.read_reg(src)?;
-                self.write_reg(dest, val)?;
+                let val = thread.read_reg(src)?;
+                thread.write_reg(dest, val)?;
             }
             Instruction::LoadGlobal {
                 dest,
                 module_id,
                 global_idx,
             } => {
-                let val = self
+                let val = thread
                     .module_states
                     .get(&module_id)
                     .and_then(|state| state.globals.get(global_idx.raw() as usize))
                     .cloned()
                     .unwrap_or(Value::Null);
-                self.write_reg(dest, val)?;
+                thread.write_reg(dest, val)?;
             }
             Instruction::StoreGlobal {
                 module_id,
                 global_idx,
                 src,
             } => {
-                let val = self.read_reg(src)?;
+                let val = thread.read_reg(src)?;
                 let idx = global_idx.raw() as usize;
-                let globals = &mut self.module_states.entry(module_id).or_default().globals;
+                let globals = &mut thread.module_states.entry(module_id).or_default().globals;
                 if idx >= globals.len() {
                     globals.resize(idx + 1, Value::Null);
                 }
                 globals[idx] = val;
             }
             Instruction::LoadNull { dest } => {
-                self.write_reg(dest, Value::Null)?;
+                thread.write_reg(dest, Value::Null)?;
             }
 
             _ => unreachable!("instruction routed to the wrong runtime handler"),
@@ -87,8 +98,8 @@ impl<'a> VirtualMachine<'a> {
         Ok(ExecutionStep::Continue)
     }
 
-    fn uint8_type_idx(&self) -> TypeIdx {
-        self.current_image()
+    pub(super) fn uint8_type_idx(&self, thread: &crate::thread::VirtualThread) -> TypeIdx {
+        self.current_image(thread)
             .unwrap()
             .types
             .iter()

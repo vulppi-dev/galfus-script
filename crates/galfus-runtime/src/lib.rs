@@ -1,6 +1,13 @@
+pub mod queue;
+pub mod registry;
+pub mod task;
+
 use galfus_bytecode::BytecodeModule;
-use galfus_host::Providers;
+use galfus_contract::Providers;
+use galfus_vm::thread::VirtualThread;
 use galfus_vm::{HeapObject, VirtualMachine, VmPanic, VmValue};
+use queue::{BlockedQueue, RunnableQueue};
+use registry::{ThreadId, ThreadRegistry};
 
 #[cfg(test)]
 mod tests;
@@ -65,27 +72,66 @@ impl EntryAbi {
 }
 
 /// A single execution composed from one executable graph and optional host providers.
-pub struct Runtime<'graph> {
-    graph: &'graph galfus_bytecode::BytecodeGraph,
-    providers: Option<Providers>,
+pub struct Runtime {
+    graph: std::sync::Arc<galfus_bytecode::BytecodeGraph>,
+    providers: Option<std::sync::Arc<std::sync::Mutex<Providers>>>,
+    registry: ThreadRegistry,
+    runnable: RunnableQueue,
+    blocked: BlockedQueue,
 }
 
-impl<'graph> Runtime<'graph> {
+impl Runtime {
     pub fn new(
-        graph: &'graph galfus_bytecode::BytecodeGraph,
+        graph: std::sync::Arc<galfus_bytecode::BytecodeGraph>,
         providers: Option<Providers>,
     ) -> Self {
-        Self { graph, providers }
+        Self {
+            graph,
+            providers: providers.map(|p| std::sync::Arc::new(std::sync::Mutex::new(p))),
+            registry: ThreadRegistry::new(),
+            runnable: RunnableQueue::new(),
+            blocked: BlockedQueue::new(),
+        }
+    }
+
+    /// Cria uma nova thread a partir de um módulo e função de entrada
+    pub fn spawn_thread(
+        &mut self,
+        thread: VirtualThread,
+        executor: &dyn galfus_contract::ThreadExecutor,
+    ) -> ThreadId {
+        let id = ThreadId::from_executor(executor.allocate_thread_id())
+            .expect("thread executor returned the reserved thread ID 0");
+        self.registry.register(id, thread);
+        self.runnable.enqueue(id);
+        id
+    }
+
+    /// O Host deve chamar esta função para bombear os cronômetros das threads bloqueadas
+    pub fn tick_timeouts(&mut self, delta_ms: u64) {
+        let woke_up = self.blocked.tick_timeouts(delta_ms);
+        for id in woke_up {
+            // Se a thread ainda existir, mandamos de volta para runnable
+            if self.registry.contains(id) {
+                self.runnable.enqueue(id);
+            }
+        }
+    }
+
+    /// Retorna o próximo ThreadId pronto para executar
+    pub fn next_runnable(&mut self) -> Option<ThreadId> {
+        self.runnable.dequeue()
     }
 
     /// Execute an entry exported by a module loaded in the given BytecodeGraph.
-    pub fn run_module_entry(
-        self,
+    pub fn build_module_entry(
+        mut self,
         module_id: galfus_core::ModuleId,
         entry_name: &str,
         args: &[Vec<u8>],
-    ) -> Result<i32, RuntimeError> {
-        let graph = self.graph;
+        executor: std::sync::Arc<dyn galfus_contract::ThreadExecutor>,
+    ) -> Result<Box<dyn galfus_contract::RunnableTask>, RuntimeError> {
+        let graph = self.graph.clone();
         let image = &graph.get(module_id).unwrap().module;
         let abi = EntryAbi::default_app();
         let entry_idx = image
@@ -113,42 +159,48 @@ impl<'graph> Runtime<'graph> {
             });
         }
 
-        let mut vm = VirtualMachine::new(graph).with_providers(self.providers);
+        let mut thread = galfus_vm::thread::VirtualThread::new();
+        let vm = VirtualMachine::new(graph.clone()).with_shared_providers(self.providers.clone());
 
-        let result = (|| {
-            for initialized_module_id in graph.initialization_order(module_id)? {
-                if vm.is_module_initialized(initialized_module_id) {
-                    continue;
-                }
-                if let Some(init_idx) = graph
-                    .get(initialized_module_id)
-                    .expect("initialization order only contains loaded modules")
-                    .module
-                    .init_func_idx
-                {
-                    vm.run_function(initialized_module_id, init_idx, vec![])?;
-                }
-                vm.mark_module_initialized(initialized_module_id);
+        for initialized_module_id in graph.initialization_order(module_id)? {
+            if thread.is_module_initialized(initialized_module_id) {
+                continue;
             }
-
-            let entry_args = build_entry_args(&mut vm, module_id, args)?;
-            vm.run_function(module_id, entry_idx, vec![entry_args])
-                .map_err(RuntimeError::VmPanic)
-        })();
-        let result = result?;
-
-        match result {
-            galfus_vm::VmValue::Int32(code) => Ok(code),
-            galfus_vm::VmValue::Null => Ok(0),
-            _other => Err(RuntimeError::EntryReturnTypeMismatch {
-                name: entry_name.to_string(),
-            }),
+            if let Some(init_idx) = graph
+                .get(initialized_module_id)
+                .expect("initialization order only contains loaded modules")
+                .module
+                .init_func_idx
+            {
+                vm.run_function(&mut thread, initialized_module_id, init_idx, vec![])?;
+            }
+            thread.mark_module_initialized(initialized_module_id);
         }
+
+        let entry_args = build_entry_args(&mut thread, &vm, module_id, args)?;
+        vm.prepare_function(&mut thread, module_id, entry_idx, vec![entry_args])
+            .map_err(RuntimeError::VmPanic)?;
+
+        let main_thread_id = self.spawn_thread(thread, executor.as_ref());
+        let _ = self.registry.mark_running(main_thread_id);
+        let main_thread = self.registry.take(main_thread_id).unwrap();
+
+        let task = Box::new(crate::task::RuntimeTask {
+            thread_id: main_thread_id,
+            thread: main_thread,
+            vm,
+            registry: std::sync::Arc::new(std::sync::Mutex::new(self.registry)),
+            blocked: std::sync::Arc::new(std::sync::Mutex::new(self.blocked)),
+            executor,
+        });
+
+        Ok(task)
     }
 }
 
 fn build_entry_args(
-    vm: &mut VirtualMachine,
+    thread: &mut galfus_vm::thread::VirtualThread,
+    vm: &VirtualMachine,
     module_id: galfus_core::ModuleId,
     args: &[Vec<u8>],
 ) -> Result<VmValue, RuntimeError> {
@@ -183,14 +235,14 @@ fn build_entry_args(
     let mut arg_values = Vec::with_capacity(args.len());
     for arg in args {
         let elements = arg.iter().copied().map(VmValue::Uint8).collect();
-        let arg_ref = vm.alloc(HeapObject::Array {
+        let arg_ref = thread.heap.alloc(HeapObject::Array {
             element_ty: uint8_ty,
             elements,
         });
         arg_values.push(VmValue::Object(arg_ref));
     }
 
-    let args_ref = vm.alloc(HeapObject::Array {
+    let args_ref = thread.heap.alloc(HeapObject::Array {
         element_ty: byte_array_ty,
         elements: arg_values,
     });

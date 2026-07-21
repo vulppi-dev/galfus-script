@@ -188,6 +188,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "galfus-contract"
+version = "0.0.0"
+
+[[package]]
 name = "galfus-core"
 version = "0.0.0"
 dependencies = [
@@ -205,10 +209,6 @@ dependencies = [
  "thiserror",
  "unicode-ident",
 ]
-
-[[package]]
-name = "galfus-host"
-version = "0.0.0"
 
 [[package]]
 name = "galfus-ir"
@@ -235,7 +235,7 @@ name = "galfus-playground"
 version = "0.0.0"
 dependencies = [
  "anyhow",
- "galfus-host",
+ "galfus-contract",
  "galfus-workspace",
  "js-sys",
  "serde_json",
@@ -247,7 +247,7 @@ name = "galfus-runner"
 version = "0.0.0"
 dependencies = [
  "anyhow",
- "galfus-host",
+ "galfus-contract",
  "galfus-workspace",
 ]
 
@@ -257,8 +257,8 @@ version = "0.0.0"
 dependencies = [
  "galfus-bytecode",
  "galfus-compiler",
+ "galfus-contract",
  "galfus-core",
- "galfus-host",
  "galfus-vm",
  "smallvec",
  "thiserror",
@@ -269,8 +269,8 @@ name = "galfus-vm"
 version = "0.0.0"
 dependencies = [
  "galfus-bytecode",
+ "galfus-contract",
  "galfus-core",
- "galfus-host",
  "thiserror",
  "tracing",
 ]
@@ -282,9 +282,9 @@ dependencies = [
  "galfus-builtins",
  "galfus-bytecode",
  "galfus-compiler",
+ "galfus-contract",
  "galfus-core",
  "galfus-frontend",
- "galfus-host",
  "galfus-runtime",
  "serde",
  "toml",

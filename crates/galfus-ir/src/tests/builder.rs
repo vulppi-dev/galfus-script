@@ -34,7 +34,7 @@ fn test_mir_builder_basic() {
     let bb = func
         .blocks
         .iter()
-        .find(|b| matches!(b.terminator, Terminator::Return(_)))
+        .find(|b| matches!(b.terminator.0, Terminator::Return(_)))
         .unwrap();
     assert!(!bb.instructions.is_empty());
 
@@ -43,7 +43,7 @@ fn test_mir_builder_basic() {
         .blocks
         .iter()
         .flat_map(|b| &b.instructions)
-        .find(|inst| {
+        .find(|(inst, _)| {
             matches!(
                 inst,
                 Instruction::Assign(_, RValue::BinaryOp(MirBinaryOp::Add, _, _))
@@ -51,17 +51,64 @@ fn test_mir_builder_basic() {
         })
         .unwrap();
 
-    match assign_inst {
+    match &assign_inst.0 {
         Instruction::Assign(
             _dest,
             RValue::BinaryOp(MirBinaryOp::Add, Operand::Local(_lhs), Operand::Local(_rhs)),
         ) => {}
         other => panic!("Unexpected instruction: {:?}", other),
     }
-    match &bb.terminator {
+    match &bb.terminator.0 {
         Terminator::Return(Some(Operand::Local(_ret_local))) => {}
         other => panic!("Unexpected terminator: {:?}", other),
     }
+}
+
+#[test]
+fn test_mir_builder_lowers_named_function_as_a_function_constant() {
+    let source_id = SourceId::new(0);
+    let code = r#"
+        fn worker(args: [[u8]]): i32 {
+            return 0
+        }
+
+        fn main(args: [[u8]]): i32 {
+            const handler = worker
+            return handler(args)
+        }
+    "#;
+    let source = SourceFile::new(source_id, "test.gfs".to_string(), code.to_string());
+
+    let parse_result = parse(&source);
+    let resolve_result = resolve(&source, parse_result.into_graph());
+    let graph = resolve_result.into_graph();
+    let type_result = check_declaration_types(&source, &graph);
+    assert!(
+        !type_result.has_errors(),
+        "Typecheck errors occurred: {:?}",
+        type_result.diagnostics()
+    );
+
+    let mir_module = builder::MirBuilder::new(&graph, &type_result, code).build();
+    let worker = mir_module
+        .functions
+        .iter()
+        .find(|function| function.name == "worker")
+        .expect("worker function should be lowered");
+
+    assert!(
+        mir_module
+            .functions
+            .iter()
+            .flat_map(|function| { function.blocks.iter().flat_map(|block| &block.instructions) })
+            .any(|(instruction, _)| {
+                matches!(
+                    instruction,
+                    Instruction::Assign(_, RValue::Use(Operand::Constant(Constant::Function(id))))
+                        if *id == worker.id
+                )
+            })
+    );
 }
 
 #[test]
@@ -103,7 +150,7 @@ fn test_mir_builder_lowers_copy_expression() {
         block
             .instructions
             .iter()
-            .any(|instruction| matches!(instruction, Instruction::Assign(_, RValue::Copy(_))))
+            .any(|(instruction, _)| matches!(instruction, Instruction::Assign(_, RValue::Copy(_))))
     }));
 }
 
@@ -133,7 +180,7 @@ fn test_mir_builder_applies_default_parameter_when_argument_is_null() {
         .expect("read function should be lowered");
 
     assert!(function.blocks.iter().any(|block| {
-        block.instructions.iter().any(|instruction| {
+        block.instructions.iter().any(|(instruction, _)| {
             matches!(
                 instruction,
                 Instruction::Assign(
@@ -280,7 +327,7 @@ fn test_mir_builder_specializes_typeof_generic_parameter() {
 
 fn first_call_function_id(func: &MirFunction) -> Option<FunctionId> {
     for block in &func.blocks {
-        for inst in &block.instructions {
+        for (inst, _) in &block.instructions {
             if let Instruction::Call { func, .. } = inst {
                 return Some(*func);
             }
@@ -291,7 +338,7 @@ fn first_call_function_id(func: &MirFunction) -> Option<FunctionId> {
 
 fn has_string_assignment(func: &MirFunction, expected_value: &str) -> bool {
     func.blocks.iter().any(|block| {
-        let assigned = block.instructions.iter().any(|inst| {
+        let assigned = block.instructions.iter().any(|(inst, _)| {
             if let Instruction::Assign(_, RValue::Use(Operand::Constant(Constant::String(val)))) =
                 inst
             {
@@ -301,7 +348,7 @@ fn has_string_assignment(func: &MirFunction, expected_value: &str) -> bool {
             }
         });
         let returned = matches!(
-            &block.terminator,
+            &block.terminator.0,
             Terminator::Return(Some(Operand::Constant(Constant::String(value))))
                 if value == expected_value
         );
@@ -355,9 +402,9 @@ fn test_mir_builder_phase1() {
     let return_block = func
         .blocks
         .iter()
-        .find(|b| matches!(b.terminator, Terminator::Return(_)))
+        .find(|b| matches!(b.terminator.0, Terminator::Return(_)))
         .unwrap();
-    match &return_block.terminator {
+    match &return_block.terminator.0 {
         Terminator::Return(Some(Operand::Local(_local_id))) => {
             // It returns `a` (which is local 1)
         }
@@ -434,7 +481,7 @@ fn test_mir_builder_phase2() {
     let has_return = func
         .blocks
         .iter()
-        .any(|b| matches!(b.terminator, Terminator::Return(_)));
+        .any(|b| matches!(b.terminator.0, Terminator::Return(_)));
     assert!(has_return, "Return statement not found in MIR");
 }
 
@@ -521,7 +568,7 @@ fn test_mir_builder_phase3() {
     let mut found_array_index = 0;
 
     for bb in &test_func.blocks {
-        for inst in &bb.instructions {
+        for (inst, _) in &bb.instructions {
             if let Instruction::Assign(_, rval) = inst {
                 match rval {
                     RValue::NewStruct { .. } => found_new_struct += 1,

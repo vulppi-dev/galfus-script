@@ -298,23 +298,6 @@ Cycles are valid while reachable from an anchor.
 
 If a cycle becomes unreachable, the owner graph must release it deterministically.
 
-## 9.19 Transaction Reservation
-
-`transaction` and `rollback` are reserved.
-
-```galfus
-transaction source, target {
-  source.balance -= 10
-  target.balance += 10
-
-  if source.balance < 0 {
-    rollback
-  }
-}
-```
-
-`commit` is implicit and is not a keyword.
-
 ## 9.20 Contract
 
 The checker/lowering MUST:

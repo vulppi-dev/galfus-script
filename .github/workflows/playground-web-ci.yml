@@ -61,6 +61,9 @@ jobs:
         working-directory: scripts
         run: bun cmd github set-version --component playground
 
+      - name: Update Cargo lockfile
+        run: cargo generate-lockfile
+
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:

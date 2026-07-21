@@ -1,9 +1,10 @@
 use super::*;
 use std::collections::{HashMap, HashSet, VecDeque};
 
-impl<'a> VirtualMachine<'a> {
+impl VirtualMachine {
     pub(super) fn execute_object_instruction(
-        &mut self,
+        &self,
+        thread: &mut crate::thread::VirtualThread,
         instr: Instruction,
     ) -> Result<ExecutionStep, VmError> {
         match instr {
@@ -11,25 +12,25 @@ impl<'a> VirtualMachine<'a> {
             Instruction::AllocLocal { dest, type_idx }
             | Instruction::AllocShared { dest, type_idx } => {
                 let ty = self
-                    .current_image()
+                    .current_image(thread)
                     .unwrap()
                     .types
                     .get(type_idx.raw() as usize)
                     .ok_or(VmError::TypeOutOfBounds { index: type_idx })?;
                 if let BytecodeType::Struct(layout_idx) = ty {
                     let layout = self
-                        .current_image()
+                        .current_image(thread)
                         .unwrap()
                         .struct_layouts
                         .get(layout_idx.raw() as usize)
                         .ok_or(VmError::TypeOutOfBounds { index: type_idx })?;
                     let fields = vec![Value::Null; layout.fields.len()];
-                    let obj_ref = self.alloc(HeapObject::Struct {
-                        module_id: self.call_stack.last().unwrap().module_id,
+                    let obj_ref = thread.heap.alloc(HeapObject::Struct {
+                        module_id: thread.call_stack.last().unwrap().module_id,
                         layout_idx: *layout_idx,
                         fields,
                     });
-                    self.write_reg(dest, Value::Object(obj_ref))?;
+                    thread.write_reg(dest, Value::Object(obj_ref))?;
                 } else {
                     return Err(VmError::TypeMismatch {
                         expected: "Struct type".to_string(),
@@ -38,17 +39,17 @@ impl<'a> VirtualMachine<'a> {
                 }
             }
             Instruction::LoadField { dest, obj, field } => {
-                let obj_val = self.read_reg(obj)?;
+                let obj_val = thread.read_reg(obj)?;
                 if let Value::Object(obj_ref) = obj_val {
-                    let heap_obj = self.get_object(obj_ref)?;
+                    let heap_obj = thread.heap.get_object(obj_ref)?;
                     if let HeapObject::Struct { fields, .. } = heap_obj {
                         let val = fields
                             .get(field.raw() as usize)
                             .cloned()
                             .ok_or(VmError::FieldOutOfBounds { index: field })?;
-                        self.write_reg(dest, val)?;
+                        thread.write_reg(dest, val)?;
                     } else if let HeapObject::Choice { payload, .. } = heap_obj {
-                        self.write_reg(dest, payload.clone())?;
+                        thread.write_reg(dest, payload.clone())?;
                     } else {
                         return Err(VmError::TypeMismatch {
                             expected: "Struct or Choice object".to_string(),
@@ -63,10 +64,10 @@ impl<'a> VirtualMachine<'a> {
                 }
             }
             Instruction::StoreField { obj, field, val } => {
-                let obj_val = self.read_reg(obj)?;
-                let val_to_store = self.read_reg(val)?;
+                let obj_val = thread.read_reg(obj)?;
+                let val_to_store = thread.read_reg(val)?;
                 if let Value::Object(obj_ref) = obj_val {
-                    let heap_obj = self.get_object_mut(obj_ref)?;
+                    let heap_obj = thread.heap.get_object_mut(obj_ref)?;
                     if let HeapObject::Struct { fields, .. } = heap_obj {
                         if (field.raw() as usize) < fields.len() {
                             fields[field.raw() as usize] = val_to_store;
@@ -92,7 +93,7 @@ impl<'a> VirtualMachine<'a> {
                 len_reg,
             } => {
                 let ty = self
-                    .current_image()
+                    .current_image(thread)
                     .unwrap()
                     .types
                     .get(type_idx.raw() as usize)
@@ -106,7 +107,7 @@ impl<'a> VirtualMachine<'a> {
                         });
                     }
                 };
-                let len_val = self.read_reg(len_reg)?;
+                let len_val = thread.read_reg(len_reg)?;
                 let len = match len_val {
                     Value::Int8(x) if x >= 0 => x as usize,
                     Value::Int16(x) if x >= 0 => x as usize,
@@ -123,21 +124,21 @@ impl<'a> VirtualMachine<'a> {
                         });
                     }
                 };
-                let zero = self.zero_value_for_type(element_ty)?;
+                let zero = self.zero_value_for_type(thread, element_ty)?;
                 let elements = vec![zero; len];
-                let obj_ref = self.alloc(HeapObject::Array {
+                let obj_ref = thread.heap.alloc(HeapObject::Array {
                     element_ty,
                     elements,
                 });
-                self.write_reg(dest, Value::Object(obj_ref))?;
+                thread.write_reg(dest, Value::Object(obj_ref))?;
             }
             Instruction::LoadIndex { dest, arr, idx } => {
-                let arr_val = self.read_reg(arr)?;
-                let idx_val = self.read_reg(idx)?;
+                let arr_val = thread.read_reg(arr)?;
+                let idx_val = thread.read_reg(idx)?;
                 let raw_index = self.to_raw_array_index(idx_val)?;
 
                 if let Value::Object(obj_ref) = arr_val {
-                    let heap_obj = self.get_object(obj_ref)?;
+                    let heap_obj = thread.heap.get_object(obj_ref)?;
                     let val = match heap_obj {
                         HeapObject::Array { elements, .. } | HeapObject::Tuple { elements } => {
                             if let Some(index) =
@@ -156,7 +157,7 @@ impl<'a> VirtualMachine<'a> {
                         }
                     };
 
-                    self.write_reg(dest, val)?;
+                    thread.write_reg(dest, val)?;
                 } else {
                     return Err(VmError::TypeMismatch {
                         expected: "Object reference".to_string(),
@@ -165,14 +166,14 @@ impl<'a> VirtualMachine<'a> {
                 }
             }
             Instruction::StoreIndex { arr, idx, val } => {
-                let arr_val = self.read_reg(arr)?;
-                let idx_val = self.read_reg(idx)?;
+                let arr_val = thread.read_reg(arr)?;
+                let idx_val = thread.read_reg(idx)?;
                 let raw_index = self.to_raw_array_index(idx_val)?;
-                let val_to_store = self.read_reg(val)?;
+                let val_to_store = thread.read_reg(val)?;
 
                 if let Value::Object(obj_ref) = arr_val {
                     let (index, val_to_store) = {
-                        let heap_obj = self.get_object(obj_ref)?;
+                        let heap_obj = thread.heap.get_object(obj_ref)?;
 
                         match heap_obj {
                             HeapObject::Array {
@@ -186,7 +187,8 @@ impl<'a> VirtualMachine<'a> {
                                         len: elements.len(),
                                     })?;
 
-                                let val_to_store = self.cast_value(&val_to_store, *element_ty)?;
+                                let val_to_store =
+                                    self.execute_cast(thread, &val_to_store, *element_ty)?;
                                 (index, val_to_store)
                             }
                             HeapObject::Tuple { elements } => {
@@ -208,7 +210,7 @@ impl<'a> VirtualMachine<'a> {
                         }
                     };
 
-                    let heap_obj = self.get_object_mut(obj_ref)?;
+                    let heap_obj = thread.heap.get_object_mut(obj_ref)?;
 
                     match heap_obj {
                         HeapObject::Array { elements, .. } | HeapObject::Tuple { elements } => {
@@ -235,7 +237,7 @@ impl<'a> VirtualMachine<'a> {
                 count,
             } => {
                 let ty = self
-                    .current_image()
+                    .current_image(thread)
                     .unwrap()
                     .types
                     .get(type_idx.raw() as usize)
@@ -250,10 +252,10 @@ impl<'a> VirtualMachine<'a> {
                     let mut elements = Vec::new();
                     for i in 0..count as usize {
                         let src_reg = Reg(start.raw() + i as u16);
-                        elements.push(self.read_reg(src_reg)?);
+                        elements.push(thread.read_reg(src_reg)?);
                     }
-                    let obj_ref = self.alloc(HeapObject::Tuple { elements });
-                    self.write_reg(dest, Value::Object(obj_ref))?;
+                    let obj_ref = thread.heap.alloc(HeapObject::Tuple { elements });
+                    thread.write_reg(dest, Value::Object(obj_ref))?;
                 } else {
                     return Err(VmError::TypeMismatch {
                         expected: "Tuple type".to_string(),
@@ -268,20 +270,20 @@ impl<'a> VirtualMachine<'a> {
                 payload,
             } => {
                 let ty = self
-                    .current_image()
+                    .current_image(thread)
                     .unwrap()
                     .types
                     .get(type_idx.raw() as usize)
                     .ok_or(VmError::TypeOutOfBounds { index: type_idx })?;
                 if let BytecodeType::Choice(layout_idx) = ty {
-                    let payload_val = self.read_reg(payload)?;
-                    let obj_ref = self.alloc(HeapObject::Choice {
-                        module_id: self.call_stack.last().unwrap().module_id,
+                    let payload_val = thread.read_reg(payload)?;
+                    let obj_ref = thread.heap.alloc(HeapObject::Choice {
+                        module_id: thread.call_stack.last().unwrap().module_id,
                         layout_idx: *layout_idx,
                         variant_idx,
                         payload: payload_val,
                     });
-                    self.write_reg(dest, Value::Object(obj_ref))?;
+                    thread.write_reg(dest, Value::Object(obj_ref))?;
                 } else {
                     return Err(VmError::TypeMismatch {
                         expected: "Choice type".to_string(),
@@ -294,23 +296,23 @@ impl<'a> VirtualMachine<'a> {
                 src,
                 type_idx,
             } => {
-                let val = self.read_reg(src)?;
-                let res = self.cast_value(&val, type_idx)?;
-                self.write_reg(dest, res)?;
+                let val = thread.read_reg(src)?;
+                let res = self.execute_cast(thread, &val, type_idx)?;
+                thread.write_reg(dest, res)?;
             }
             Instruction::Copy { dest, src } => {
-                let val = self.read_reg(src)?;
-                let copied = self.deep_copy_value(&val)?;
-                self.write_reg(dest, copied)?;
+                let val = thread.read_reg(src)?;
+                let copied = self.deep_copy_value(thread, &val)?;
+                thread.write_reg(dest, copied)?;
             }
             Instruction::Instanceof {
                 dest,
                 src,
                 type_idx,
             } => {
-                let val = self.read_reg(src)?;
-                let is_instance = self.check_value_type(&val, type_idx);
-                self.write_reg(dest, Value::Bool(is_instance))?;
+                let val = thread.read_reg(src)?;
+                let is_instance = self.check_value_type(thread, &val, type_idx);
+                thread.write_reg(dest, Value::Bool(is_instance))?;
             }
 
             _ => unreachable!("instruction routed to the wrong runtime handler"),
@@ -319,14 +321,18 @@ impl<'a> VirtualMachine<'a> {
         Ok(ExecutionStep::Continue)
     }
 
-    fn deep_copy_value(&mut self, value: &Value) -> Result<Value, VmError> {
+    fn deep_copy_value(
+        &self,
+        thread: &mut crate::thread::VirtualThread,
+        value: &Value,
+    ) -> Result<Value, VmError> {
         let Value::Object(obj_ref) = value else {
             return Ok(value.clone());
         };
 
-        let strong_closure = self.discover_strong_copy_closure(*obj_ref)?;
-        let copied = self.allocate_copy_placeholders(&strong_closure)?;
-        self.fill_copy_placeholders(&strong_closure, &copied)?;
+        let strong_closure = self.discover_strong_copy_closure(thread, *obj_ref)?;
+        let copied = self.allocate_copy_placeholders(thread, &strong_closure)?;
+        self.fill_copy_placeholders(thread, &strong_closure, &copied)?;
 
         copied
             .get(&obj_ref.raw())
@@ -338,7 +344,11 @@ impl<'a> VirtualMachine<'a> {
             })
     }
 
-    fn discover_strong_copy_closure(&self, root_ref: ObjectRef) -> Result<HashSet<usize>, VmError> {
+    fn discover_strong_copy_closure(
+        &self,
+        thread: &crate::thread::VirtualThread,
+        root_ref: ObjectRef,
+    ) -> Result<HashSet<usize>, VmError> {
         let mut closure = HashSet::new();
         let mut pending = VecDeque::new();
 
@@ -346,7 +356,7 @@ impl<'a> VirtualMachine<'a> {
         pending.push_back(root_ref);
 
         while let Some(obj_ref) = pending.pop_front() {
-            let object = self.get_object(obj_ref)?;
+            let object = thread.heap.get_object(obj_ref)?;
 
             match object {
                 HeapObject::Struct {
@@ -372,17 +382,17 @@ impl<'a> VirtualMachine<'a> {
                         });
 
                         if !is_weak {
-                            self.enqueue_copy_target(field, &mut closure, &mut pending)?;
+                            self.enqueue_copy_target(thread, field, &mut closure, &mut pending)?;
                         }
                     }
                 }
                 HeapObject::Array { elements, .. } | HeapObject::Tuple { elements } => {
                     for element in elements {
-                        self.enqueue_copy_target(element, &mut closure, &mut pending)?;
+                        self.enqueue_copy_target(thread, element, &mut closure, &mut pending)?;
                     }
                 }
                 HeapObject::Choice { payload, .. } => {
-                    self.enqueue_copy_target(payload, &mut closure, &mut pending)?;
+                    self.enqueue_copy_target(thread, payload, &mut closure, &mut pending)?;
                 }
             }
         }
@@ -392,12 +402,13 @@ impl<'a> VirtualMachine<'a> {
 
     fn enqueue_copy_target(
         &self,
+        thread: &crate::thread::VirtualThread,
         value: &Value,
         closure: &mut HashSet<usize>,
         pending: &mut VecDeque<ObjectRef>,
     ) -> Result<(), VmError> {
         if let Value::Object(obj_ref) = value {
-            self.get_object(*obj_ref)?;
+            thread.heap.get_object(*obj_ref)?;
 
             if closure.insert(obj_ref.raw()) {
                 pending.push_back(*obj_ref);
@@ -408,14 +419,15 @@ impl<'a> VirtualMachine<'a> {
     }
 
     fn allocate_copy_placeholders(
-        &mut self,
+        &self,
+        thread: &mut crate::thread::VirtualThread,
         strong_closure: &HashSet<usize>,
     ) -> Result<HashMap<usize, ObjectRef>, VmError> {
         let mut copied = HashMap::new();
 
         for &old_raw in strong_closure {
             let old_ref = VmObjectRef(old_raw);
-            let object = self.get_object(old_ref)?.clone();
+            let object = thread.heap.get_object(old_ref)?.clone();
 
             let placeholder = match object {
                 HeapObject::Struct {
@@ -468,7 +480,7 @@ impl<'a> VirtualMachine<'a> {
                 },
             };
 
-            let copied_ref = self.alloc(placeholder);
+            let copied_ref = thread.heap.alloc(placeholder);
             copied.insert(old_raw, copied_ref);
         }
 
@@ -476,7 +488,8 @@ impl<'a> VirtualMachine<'a> {
     }
 
     fn fill_copy_placeholders(
-        &mut self,
+        &self,
+        thread: &mut crate::thread::VirtualThread,
         strong_closure: &HashSet<usize>,
         copied: &HashMap<usize, ObjectRef>,
     ) -> Result<(), VmError> {
@@ -486,7 +499,7 @@ impl<'a> VirtualMachine<'a> {
                 expected: "copied object".to_string(),
                 found: format!("{:?}", old_ref),
             })?;
-            let object = self.get_object(old_ref)?.clone();
+            let object = thread.heap.get_object(old_ref)?.clone();
 
             match object {
                 HeapObject::Struct {
@@ -519,12 +532,12 @@ impl<'a> VirtualMachine<'a> {
                             if is_weak {
                                 Ok(self.copy_weak_value(field, copied))
                             } else {
-                                self.copy_strong_value(field, copied)
+                                self.copy_strong_value(thread, field, copied)
                             }
                         })
                         .collect::<Result<Vec<_>, _>>()?;
 
-                    match self.get_object_mut(copied_ref)? {
+                    match thread.heap.get_object_mut(copied_ref)? {
                         HeapObject::Struct { fields, .. } => {
                             *fields = copied_fields;
                         }
@@ -539,10 +552,10 @@ impl<'a> VirtualMachine<'a> {
                 HeapObject::Array { elements, .. } => {
                     let copied_elements = elements
                         .iter()
-                        .map(|element| self.copy_strong_value(element, copied))
+                        .map(|element| self.copy_strong_value(thread, element, copied))
                         .collect::<Result<Vec<_>, _>>()?;
 
-                    match self.get_object_mut(copied_ref)? {
+                    match thread.heap.get_object_mut(copied_ref)? {
                         HeapObject::Array { elements, .. } => {
                             *elements = copied_elements;
                         }
@@ -557,10 +570,10 @@ impl<'a> VirtualMachine<'a> {
                 HeapObject::Tuple { elements } => {
                     let copied_elements = elements
                         .iter()
-                        .map(|element| self.copy_strong_value(element, copied))
+                        .map(|element| self.copy_strong_value(thread, element, copied))
                         .collect::<Result<Vec<_>, _>>()?;
 
-                    match self.get_object_mut(copied_ref)? {
+                    match thread.heap.get_object_mut(copied_ref)? {
                         HeapObject::Tuple { elements } => {
                             *elements = copied_elements;
                         }
@@ -573,9 +586,9 @@ impl<'a> VirtualMachine<'a> {
                     }
                 }
                 HeapObject::Choice { payload, .. } => {
-                    let copied_payload = self.copy_strong_value(&payload, copied)?;
+                    let copied_payload = self.copy_strong_value(thread, &payload, copied)?;
 
-                    match self.get_object_mut(copied_ref)? {
+                    match thread.heap.get_object_mut(copied_ref)? {
                         HeapObject::Choice { payload, .. } => {
                             *payload = copied_payload;
                         }
@@ -595,6 +608,7 @@ impl<'a> VirtualMachine<'a> {
 
     fn copy_strong_value(
         &self,
+        _thread: &crate::thread::VirtualThread,
         value: &Value,
         copied: &HashMap<usize, ObjectRef>,
     ) -> Result<Value, VmError> {
@@ -625,9 +639,13 @@ impl<'a> VirtualMachine<'a> {
     }
 
     /// Returns the default `Value` for element types that can be safely default-initialized.
-    fn zero_value_for_type(&self, type_idx: TypeIdx) -> Result<Value, VmError> {
+    fn zero_value_for_type(
+        &self,
+        thread: &crate::thread::VirtualThread,
+        type_idx: TypeIdx,
+    ) -> Result<Value, VmError> {
         let ty = self
-            .current_image()
+            .current_image(thread)
             .unwrap()
             .types
             .get(type_idx.raw() as usize)
@@ -657,5 +675,120 @@ impl<'a> VirtualMachine<'a> {
                 });
             }
         })
+    }
+}
+
+/// Realiza a cópia profunda de um valor (e todos os objetos alcançáveis) de um heap de origem para um heap de destino.
+pub fn copy_value_between_heaps(
+    source_heap: &crate::thread::PrivateHeap,
+    dest_heap: &mut crate::thread::PrivateHeap,
+    value: &Value,
+) -> Result<Value, VmError> {
+    match value {
+        Value::Object(obj_ref) => {
+            let mut copied_map = std::collections::HashMap::new();
+            copy_object_inter_heap(source_heap, dest_heap, *obj_ref, &mut copied_map)
+                .map(Value::Object)
+        }
+        other => Ok(other.clone()),
+    }
+}
+
+fn copy_object_inter_heap(
+    source_heap: &crate::thread::PrivateHeap,
+    dest_heap: &mut crate::thread::PrivateHeap,
+    obj_ref: ObjectRef,
+    copied_map: &mut std::collections::HashMap<usize, ObjectRef>,
+) -> Result<ObjectRef, VmError> {
+    if let Some(&new_ref) = copied_map.get(&obj_ref.raw()) {
+        return Ok(new_ref);
+    }
+
+    let source_obj = source_heap.get_object(obj_ref)?;
+    let mut new_obj = source_obj.clone();
+    // Clear references
+    match &mut new_obj {
+        crate::runtime::HeapObject::Struct { fields, .. } => {
+            for field in fields.iter_mut() {
+                *field = Value::Null;
+            }
+        }
+        crate::runtime::HeapObject::Array { elements, .. } => {
+            for element in elements.iter_mut() {
+                *element = Value::Null;
+            }
+        }
+        crate::runtime::HeapObject::Tuple { elements } => {
+            for element in elements.iter_mut() {
+                *element = Value::Null;
+            }
+        }
+        crate::runtime::HeapObject::Choice { payload, .. } => {
+            *payload = Value::Null;
+        }
+    }
+
+    let dest_ref = dest_heap.alloc(new_obj);
+    copied_map.insert(obj_ref.raw(), dest_ref);
+
+    // Deep copy recursive
+    match source_obj {
+        crate::runtime::HeapObject::Struct { fields, .. } => {
+            let mut copied_fields = fields
+                .iter()
+                .map(|field| copy_value_internal(source_heap, dest_heap, field, copied_map))
+                .collect::<Result<Vec<_>, _>>()?;
+            if let crate::runtime::HeapObject::Struct { fields, .. } =
+                dest_heap.get_object_mut(dest_ref)?
+            {
+                std::mem::swap(fields, &mut copied_fields);
+            }
+        }
+        crate::runtime::HeapObject::Array { elements, .. } => {
+            let mut copied_elements = elements
+                .iter()
+                .map(|element| copy_value_internal(source_heap, dest_heap, element, copied_map))
+                .collect::<Result<Vec<_>, _>>()?;
+            if let crate::runtime::HeapObject::Array { elements, .. } =
+                dest_heap.get_object_mut(dest_ref)?
+            {
+                std::mem::swap(elements, &mut copied_elements);
+            }
+        }
+        crate::runtime::HeapObject::Tuple { elements } => {
+            let mut copied_elements = elements
+                .iter()
+                .map(|element| copy_value_internal(source_heap, dest_heap, element, copied_map))
+                .collect::<Result<Vec<_>, _>>()?;
+            if let crate::runtime::HeapObject::Tuple { elements } =
+                dest_heap.get_object_mut(dest_ref)?
+            {
+                std::mem::swap(elements, &mut copied_elements);
+            }
+        }
+        crate::runtime::HeapObject::Choice { payload, .. } => {
+            let copied_payload = copy_value_internal(source_heap, dest_heap, payload, copied_map)?;
+            if let crate::runtime::HeapObject::Choice { payload, .. } =
+                dest_heap.get_object_mut(dest_ref)?
+            {
+                *payload = copied_payload;
+            }
+        }
+    }
+
+    Ok(dest_ref)
+}
+
+fn copy_value_internal(
+    source_heap: &crate::thread::PrivateHeap,
+    dest_heap: &mut crate::thread::PrivateHeap,
+    value: &Value,
+    copied_map: &mut std::collections::HashMap<usize, ObjectRef>,
+) -> Result<Value, VmError> {
+    match value {
+        Value::Object(obj_ref) => {
+            copy_object_inter_heap(source_heap, dest_heap, *obj_ref, copied_map).map(Value::Object)
+        }
+        other => Ok(other.clone()),
     }
 }

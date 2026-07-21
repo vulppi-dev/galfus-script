@@ -241,50 +241,6 @@ fn main(): null {
 }
 
 #[test]
-fn check_accepts_rollback_inside_transaction() {
-    let (_source, _graph, result) = check_source(
-        r#"
-fn main(): null {
-  transaction {
-    rollback
-  }
-  return
-}
-"#,
-    );
-
-    assert!(!result.has_errors());
-}
-
-#[test]
-fn check_reports_rollback_outside_transaction() {
-    let source = source(
-        r#"
-fn main(): null {
-  rollback
-  return
-}
-"#,
-    );
-
-    let parse_result = parse(&source);
-    assert!(!parse_result.has_errors());
-    let resolve_result = resolve(&source, parse_result.into_graph());
-    assert!(!resolve_result.has_errors());
-
-    let graph = resolve_result.into_graph();
-    let result = check_declaration_types(&source, &graph);
-    let result = crate::type_validation::check_definition_types(&source, &graph, result);
-    assert!(result.has_errors());
-    assert!(result.diagnostics().iter().any(|diagnostic| {
-        diagnostic.code().as_str() == TypeDiagnosticCode::RollbackOutsideTransaction.as_code()
-            && diagnostic
-                .message()
-                .contains("rollback statement outside of a transaction block")
-    }));
-}
-
-#[test]
 fn check_reports_invalid_metadata_for_loop() {
     let source = source(
         r#"
