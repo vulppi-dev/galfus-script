@@ -60,7 +60,7 @@ fn globals_with_the_same_index_are_isolated_by_module() {
         galfus_core::SemanticRevision::new(0),
         vec![node(first, first_module), node(second, second_module)],
     );
-    let vm = VirtualMachine::new(&graph);
+    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()));
     let mut thread = crate::thread::VirtualThread::new();
 
     assert_eq!(

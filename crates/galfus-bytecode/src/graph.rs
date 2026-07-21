@@ -181,27 +181,25 @@ impl BytecodeGraph {
                         } => Some((*module_id, *global_idx)),
                         _ => None,
                     };
-                    if let Some((owner, global_idx)) = owner_global {
-                        if owner != *id {
-                            if let Some(owner_node) = self.modules.get(&owner) {
-                                let is_exported = owner_node.module.exports.iter().any(|e| {
+                    if let Some((owner, global_idx)) = owner_global
+                        && owner != *id
+                    {
+                        if let Some(owner_node) = self.modules.get(&owner) {
+                            let is_exported = owner_node.module.exports.iter().any(|e| {
                                     matches!(e.kind, crate::ExportKind::Global(idx) if idx == global_idx)
                                 });
-                                if !is_exported {
-                                    return Err(
-                                        BytecodeGraphValidationError::MissingImportedExport {
-                                            importer: *id,
-                                            module_path: owner_node.path.as_str().to_string(),
-                                            symbol_name: format!("global_{}", global_idx.raw()),
-                                        },
-                                    );
-                                }
-                            } else {
-                                return Err(BytecodeGraphValidationError::MissingGlobalModule {
+                            if !is_exported {
+                                return Err(BytecodeGraphValidationError::MissingImportedExport {
                                     importer: *id,
-                                    owner,
+                                    module_path: owner_node.path.as_str().to_string(),
+                                    symbol_name: format!("global_{}", global_idx.raw()),
                                 });
                             }
+                        } else {
+                            return Err(BytecodeGraphValidationError::MissingGlobalModule {
+                                importer: *id,
+                                owner,
+                            });
                         }
                     }
                 }

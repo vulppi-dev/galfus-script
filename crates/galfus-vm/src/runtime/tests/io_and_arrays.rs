@@ -49,8 +49,8 @@ fn test_target_write() {
         module: image,
         metadata: None,
     });
-    let mut vm =
-        VirtualMachine::new(&graph).with_providers(Some(Providers::with_io(Box::new(provider))));
+    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()))
+        .with_providers(Some(Providers::with_io(Box::new(provider))));
     let mut thread = crate::thread::VirtualThread::new();
     let res = vm
         .run_function(
@@ -93,8 +93,8 @@ fn test_target_read() {
         module: image,
         metadata: None,
     });
-    let mut vm =
-        VirtualMachine::new(&graph).with_providers(Some(Providers::with_io(Box::new(provider))));
+    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()))
+        .with_providers(Some(Providers::with_io(Box::new(provider))));
     let mut thread = crate::thread::VirtualThread::new();
     let res = vm
         .run_function(
@@ -142,7 +142,7 @@ fn test_read_requires_an_io_provider_when_executed() {
         module: image,
         metadata: None,
     });
-    let vm = VirtualMachine::new(&graph);
+    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()));
     let mut thread = crate::thread::VirtualThread::new();
 
     let panic = vm
@@ -278,7 +278,7 @@ fn test_len_and_copy_array() {
         module: image,
         metadata: None,
     });
-    let vm = VirtualMachine::new(&graph);
+    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()));
     let mut thread = crate::thread::VirtualThread::new();
     let res = vm
         .run_function(
@@ -390,7 +390,7 @@ fn test_load_index_accepts_negative_index() {
         module: image,
         metadata: None,
     });
-    let vm = VirtualMachine::new(&graph);
+    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()));
     let mut thread = crate::thread::VirtualThread::new();
     let res = vm
         .run_function(
@@ -437,7 +437,7 @@ fn test_load_index_out_of_bounds_returns_null() {
         module: image,
         metadata: None,
     });
-    let vm = VirtualMachine::new(&graph);
+    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()));
     let mut thread = crate::thread::VirtualThread::new();
     let res = vm
         .run_function(
@@ -505,7 +505,7 @@ fn test_store_index_accepts_negative_index() {
         module: image,
         metadata: None,
     });
-    let vm = VirtualMachine::new(&graph);
+    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()));
     let mut thread = crate::thread::VirtualThread::new();
     let res = vm
         .run_function(
@@ -559,7 +559,7 @@ fn test_store_index_out_of_bounds_returns_error() {
         module: image,
         metadata: None,
     });
-    let vm = VirtualMachine::new(&graph);
+    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()));
     let mut thread = crate::thread::VirtualThread::new();
     let err = vm
         .run_function(

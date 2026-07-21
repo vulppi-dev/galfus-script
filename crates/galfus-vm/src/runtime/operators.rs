@@ -95,7 +95,7 @@ macro_rules! impl_bitwise_op {
     }};
 }
 
-impl<'a> VirtualMachine<'a> {
+impl VirtualMachine {
     pub(super) fn execute_operator_instruction(
         &self,
         thread: &mut crate::thread::VirtualThread,

@@ -32,7 +32,7 @@ fn test_structs_load_store() {
         module: image,
         metadata: None,
     });
-    let vm = VirtualMachine::new(&graph);
+    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()));
     let mut thread = crate::thread::VirtualThread::new();
     let res = vm
         .run_function(
@@ -88,7 +88,7 @@ fn test_arrays_load_store() {
         module: image,
         metadata: None,
     });
-    let vm = VirtualMachine::new(&graph);
+    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()));
     let mut thread = crate::thread::VirtualThread::new();
     let res = vm
         .run_function(
@@ -144,7 +144,7 @@ fn test_tuples() {
         module: image,
         metadata: None,
     });
-    let vm = VirtualMachine::new(&graph);
+    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()));
     let mut thread = crate::thread::VirtualThread::new();
     let res = vm
         .run_function(
@@ -180,7 +180,7 @@ fn test_choices() {
         module: image,
         metadata: None,
     });
-    let vm = VirtualMachine::new(&graph);
+    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()));
     let mut thread = crate::thread::VirtualThread::new();
     let res = vm
         .run_function(
@@ -230,7 +230,7 @@ fn test_cast() {
         module: image,
         metadata: None,
     });
-    let vm = VirtualMachine::new(&graph);
+    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()));
     let mut thread = crate::thread::VirtualThread::new();
     let res = vm
         .run_function(
@@ -265,7 +265,7 @@ fn test_instanceof() {
         module: image,
         metadata: None,
     });
-    let vm = VirtualMachine::new(&graph);
+    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()));
     let mut thread = crate::thread::VirtualThread::new();
     let res = vm
         .run_function(
@@ -307,7 +307,7 @@ fn test_instanceof_constraint_satisfied_by_struct_layout() {
         module: image,
         metadata: None,
     });
-    let vm = VirtualMachine::new(&graph);
+    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()));
     let mut thread = crate::thread::VirtualThread::new();
     let res = vm
         .run_function(
@@ -346,7 +346,7 @@ fn test_division_by_zero_panic() {
         module: image,
         metadata: None,
     });
-    let vm = VirtualMachine::new(&graph);
+    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()));
     let mut thread = crate::thread::VirtualThread::new();
     let res = vm.run_function(
         &mut thread,
@@ -425,7 +425,7 @@ fn test_unwinding_call_stack() {
         module: image,
         metadata: None,
     });
-    let vm = VirtualMachine::new(&graph);
+    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()));
     let mut thread = crate::thread::VirtualThread::new();
     let res = vm.run_function(
         &mut thread,
@@ -500,7 +500,7 @@ fn test_copy_deep_copies_nested_structs() {
         module: image,
         metadata: None,
     });
-    let vm = VirtualMachine::new(&graph);
+    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()));
     let mut thread = crate::thread::VirtualThread::new();
     let res = vm
         .run_function(
@@ -587,7 +587,7 @@ fn test_copy_preserves_internal_weak_observer_topology() {
         module: image,
         metadata: None,
     });
-    let vm = VirtualMachine::new(&graph);
+    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()));
     let mut thread = crate::thread::VirtualThread::new();
     let res = vm
         .run_function(
@@ -678,7 +678,7 @@ fn test_copy_nulls_external_weak_observer_target() {
         module: image,
         metadata: None,
     });
-    let vm = VirtualMachine::new(&graph);
+    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()));
     let mut thread = crate::thread::VirtualThread::new();
     let res = vm
         .run_function(
@@ -768,7 +768,7 @@ fn test_copy_preserves_shared_strong_topology() {
         module: image,
         metadata: None,
     });
-    let vm = VirtualMachine::new(&graph);
+    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()));
     let mut thread = crate::thread::VirtualThread::new();
     let res = vm
         .run_function(
@@ -821,7 +821,7 @@ fn test_copy_rejects_fieldless_structs_at_runtime() {
         module: image,
         metadata: None,
     });
-    let vm = VirtualMachine::new(&graph);
+    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()));
     let mut thread = crate::thread::VirtualThread::new();
     let err = vm
         .run_function(

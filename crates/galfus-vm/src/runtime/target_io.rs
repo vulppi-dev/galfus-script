@@ -1,6 +1,6 @@
 use super::*;
 
-impl<'a> VirtualMachine<'a> {
+impl VirtualMachine {
     pub(super) fn value_to_bytes(
         &self,
         thread: &mut crate::thread::VirtualThread,
@@ -82,13 +82,16 @@ impl<'a> VirtualMachine<'a> {
             .providers
             .as_ref()
             .ok_or(VmError::IoProviderUnavailable { operation: "read" })?
-            .borrow_mut();
+            .lock()
+            .unwrap();
 
         let input = providers_borrow
             .io_mut()
             .ok_or(VmError::IoProviderUnavailable { operation: "read" })?
             .read(terminator.as_slice())
-            .map_err(|error| VmError::IoError(error.message().to_string()))?;
+            .map_err(|error: galfus_contract::IoProviderError| {
+                VmError::IoError(error.message().to_string())
+            })?;
 
         let bytes = match input {
             galfus_contract::IoRead::Bytes(bytes) => bytes,
@@ -139,12 +142,15 @@ impl<'a> VirtualMachine<'a> {
             .providers
             .as_ref()
             .ok_or(VmError::IoProviderUnavailable { operation: "write" })?
-            .borrow_mut();
+            .lock()
+            .unwrap();
 
         providers_borrow
             .io_mut()
             .ok_or(VmError::IoProviderUnavailable { operation: "write" })?
             .write(bytes.as_slice())
-            .map_err(|error| VmError::IoError(error.message().to_string()))
+            .map_err(|error: galfus_contract::IoProviderError| {
+                VmError::IoError(error.message().to_string())
+            })
     }
 }

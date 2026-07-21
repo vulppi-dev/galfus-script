@@ -1,7 +1,7 @@
 use super::*;
 use std::collections::{HashMap, HashSet, VecDeque};
 
-impl<'a> VirtualMachine<'a> {
+impl VirtualMachine {
     pub(super) fn execute_object_instruction(
         &self,
         thread: &mut crate::thread::VirtualThread,
@@ -388,11 +388,11 @@ impl<'a> VirtualMachine<'a> {
                 }
                 HeapObject::Array { elements, .. } | HeapObject::Tuple { elements } => {
                     for element in elements {
-                        self.enqueue_copy_target(thread, &element, &mut closure, &mut pending)?;
+                        self.enqueue_copy_target(thread, element, &mut closure, &mut pending)?;
                     }
                 }
                 HeapObject::Choice { payload, .. } => {
-                    self.enqueue_copy_target(thread, &payload, &mut closure, &mut pending)?;
+                    self.enqueue_copy_target(thread, payload, &mut closure, &mut pending)?;
                 }
             }
         }
@@ -608,7 +608,7 @@ impl<'a> VirtualMachine<'a> {
 
     fn copy_strong_value(
         &self,
-        thread: &crate::thread::VirtualThread,
+        _thread: &crate::thread::VirtualThread,
         value: &Value,
         copied: &HashMap<usize, ObjectRef>,
     ) -> Result<Value, VmError> {
@@ -694,7 +694,6 @@ pub fn copy_value_between_heaps(
     }
 }
 
-use std::mem;
 fn copy_object_inter_heap(
     source_heap: &crate::thread::PrivateHeap,
     dest_heap: &mut crate::thread::PrivateHeap,
@@ -739,11 +738,10 @@ fn copy_object_inter_heap(
                 .iter()
                 .map(|field| copy_value_internal(source_heap, dest_heap, field, copied_map))
                 .collect::<Result<Vec<_>, _>>()?;
-            match dest_heap.get_object_mut(dest_ref)? {
-                crate::runtime::HeapObject::Struct { fields, .. } => {
-                    std::mem::swap(fields, &mut copied_fields);
-                }
-                _ => {}
+            if let crate::runtime::HeapObject::Struct { fields, .. } =
+                dest_heap.get_object_mut(dest_ref)?
+            {
+                std::mem::swap(fields, &mut copied_fields);
             }
         }
         crate::runtime::HeapObject::Array { elements, .. } => {
@@ -751,11 +749,10 @@ fn copy_object_inter_heap(
                 .iter()
                 .map(|element| copy_value_internal(source_heap, dest_heap, element, copied_map))
                 .collect::<Result<Vec<_>, _>>()?;
-            match dest_heap.get_object_mut(dest_ref)? {
-                crate::runtime::HeapObject::Array { elements, .. } => {
-                    std::mem::swap(elements, &mut copied_elements);
-                }
-                _ => {}
+            if let crate::runtime::HeapObject::Array { elements, .. } =
+                dest_heap.get_object_mut(dest_ref)?
+            {
+                std::mem::swap(elements, &mut copied_elements);
             }
         }
         crate::runtime::HeapObject::Tuple { elements } => {
@@ -763,20 +760,18 @@ fn copy_object_inter_heap(
                 .iter()
                 .map(|element| copy_value_internal(source_heap, dest_heap, element, copied_map))
                 .collect::<Result<Vec<_>, _>>()?;
-            match dest_heap.get_object_mut(dest_ref)? {
-                crate::runtime::HeapObject::Tuple { elements } => {
-                    std::mem::swap(elements, &mut copied_elements);
-                }
-                _ => {}
+            if let crate::runtime::HeapObject::Tuple { elements } =
+                dest_heap.get_object_mut(dest_ref)?
+            {
+                std::mem::swap(elements, &mut copied_elements);
             }
         }
         crate::runtime::HeapObject::Choice { payload, .. } => {
             let copied_payload = copy_value_internal(source_heap, dest_heap, payload, copied_map)?;
-            match dest_heap.get_object_mut(dest_ref)? {
-                crate::runtime::HeapObject::Choice { payload, .. } => {
-                    *payload = copied_payload;
-                }
-                _ => {}
+            if let crate::runtime::HeapObject::Choice { payload, .. } =
+                dest_heap.get_object_mut(dest_ref)?
+            {
+                *payload = copied_payload;
             }
         }
     }

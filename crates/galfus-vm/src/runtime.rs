@@ -5,9 +5,8 @@ use galfus_bytecode::instruction::{
 use galfus_bytecode::{BytecodeGraph, BytecodeType, Constant, OwnershipKind};
 use galfus_contract::Providers;
 use galfus_core::ModuleId;
-use std::cell::RefCell;
-use std::collections::HashMap;
-use std::rc::Rc;
+use std::sync::Arc;
+use std::sync::Mutex;
 
 mod casts;
 mod control;
@@ -82,8 +81,9 @@ pub enum HeapObject {
     },
 }
 
+#[derive(Clone)]
 pub struct VmContext {
-    providers: Option<Rc<RefCell<Providers>>>,
+    providers: Option<Arc<Mutex<Providers>>>,
 }
 
 #[derive(Default)]
@@ -95,7 +95,7 @@ pub struct RuntimeModuleState {
 impl VmContext {
     pub fn new(providers: Option<Providers>) -> Self {
         Self {
-            providers: providers.map(|p| Rc::new(RefCell::new(p))),
+            providers: providers.map(|p| Arc::new(Mutex::new(p))),
         }
     }
 }
@@ -108,13 +108,14 @@ pub struct CallFrame {
     pub return_dest: Option<Reg>,
 }
 
-pub struct VirtualMachine<'a> {
-    pub graph: &'a BytecodeGraph,
+#[derive(Clone)]
+pub struct VirtualMachine {
+    pub graph: Arc<BytecodeGraph>,
     pub context: VmContext,
 }
 
-impl<'a> VirtualMachine<'a> {
-    pub fn new(graph: &'a BytecodeGraph) -> Self {
+impl VirtualMachine {
+    pub fn new(graph: Arc<BytecodeGraph>) -> Self {
         Self {
             graph,
             context: VmContext::new(None),
@@ -131,7 +132,7 @@ impl<'a> VirtualMachine<'a> {
         self
     }
 
-    pub fn with_shared_providers(mut self, providers: Option<Rc<RefCell<Providers>>>) -> Self {
+    pub fn with_shared_providers(mut self, providers: Option<Arc<Mutex<Providers>>>) -> Self {
         self.context.providers = providers;
         self
     }
@@ -139,7 +140,7 @@ impl<'a> VirtualMachine<'a> {
     pub fn current_image(
         &self,
         thread: &crate::thread::VirtualThread,
-    ) -> Result<&'a galfus_bytecode::BytecodeModule, VmError> {
+    ) -> Result<&galfus_bytecode::BytecodeModule, VmError> {
         let frame = thread.call_stack.last().ok_or(VmError::EmptyCallStack)?;
         Ok(&self.graph.get(frame.module_id).unwrap().module)
     }

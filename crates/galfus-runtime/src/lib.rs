@@ -1,11 +1,11 @@
 pub mod queue;
 pub mod registry;
+pub mod task;
 
 use galfus_bytecode::BytecodeModule;
 use galfus_contract::Providers;
-use galfus_vm::VmError;
 use galfus_vm::thread::VirtualThread;
-use galfus_vm::{ExecutionStep, HeapObject, VirtualMachine, VmPanic, VmValue};
+use galfus_vm::{HeapObject, VirtualMachine, VmPanic, VmValue};
 use queue::{BlockedQueue, RunnableQueue};
 use registry::{ThreadId, ThreadRegistry};
 
@@ -72,22 +72,22 @@ impl EntryAbi {
 }
 
 /// A single execution composed from one executable graph and optional host providers.
-pub struct Runtime<'graph> {
-    graph: &'graph galfus_bytecode::BytecodeGraph,
-    providers: Option<std::rc::Rc<std::cell::RefCell<Providers>>>,
+pub struct Runtime {
+    graph: std::sync::Arc<galfus_bytecode::BytecodeGraph>,
+    providers: Option<std::sync::Arc<std::sync::Mutex<Providers>>>,
     registry: ThreadRegistry,
     runnable: RunnableQueue,
     blocked: BlockedQueue,
 }
 
-impl<'graph> Runtime<'graph> {
+impl Runtime {
     pub fn new(
-        graph: &'graph galfus_bytecode::BytecodeGraph,
+        graph: std::sync::Arc<galfus_bytecode::BytecodeGraph>,
         providers: Option<Providers>,
     ) -> Self {
         Self {
             graph,
-            providers: providers.map(|p| std::rc::Rc::new(std::cell::RefCell::new(p))),
+            providers: providers.map(|p| std::sync::Arc::new(std::sync::Mutex::new(p))),
             registry: ThreadRegistry::new(),
             runnable: RunnableQueue::new(),
             blocked: BlockedQueue::new(),
@@ -107,13 +107,14 @@ impl<'graph> Runtime<'graph> {
     }
 
     /// Execute an entry exported by a module loaded in the given BytecodeGraph.
-    pub fn run_module_entry(
+    pub fn build_module_entry(
         mut self,
         module_id: galfus_core::ModuleId,
         entry_name: &str,
         args: &[Vec<u8>],
-    ) -> Result<i32, RuntimeError> {
-        let graph = self.graph;
+        executor: std::sync::Arc<dyn galfus_contract::ThreadExecutor>,
+    ) -> Result<Box<dyn galfus_contract::RunnableTask>, RuntimeError> {
+        let graph = self.graph.clone();
         let image = &graph.get(module_id).unwrap().module;
         let abi = EntryAbi::default_app();
         let entry_idx = image
@@ -142,7 +143,7 @@ impl<'graph> Runtime<'graph> {
         }
 
         let mut thread = galfus_vm::thread::VirtualThread::new();
-        let vm = VirtualMachine::new(graph).with_shared_providers(self.providers.clone());
+        let vm = VirtualMachine::new(graph.clone()).with_shared_providers(self.providers.clone());
 
         for initialized_module_id in graph.initialization_order(module_id)? {
             if thread.is_module_initialized(initialized_module_id) {
@@ -164,74 +165,17 @@ impl<'graph> Runtime<'graph> {
             .map_err(RuntimeError::VmPanic)?;
 
         let main_thread_id = self.spawn_thread(thread);
-        let mut final_result = galfus_vm::VmValue::Null;
+        let main_thread = self.registry.take(main_thread_id).unwrap();
 
-        // Scheduler Loop
-        let budget = 100;
+        let task = Box::new(crate::task::RuntimeTask {
+            thread: main_thread,
+            vm,
+            registry: std::sync::Arc::new(std::sync::Mutex::new(self.registry)),
+            blocked: std::sync::Arc::new(std::sync::Mutex::new(self.blocked)),
+            executor,
+        });
 
-        loop {
-            let Some(current_id) = self.next_runnable() else {
-                break;
-            };
-
-            let mut current_thread = self.registry.remove(current_id).unwrap();
-
-            // Execute thread
-            let vm = VirtualMachine::new(graph).with_shared_providers(self.providers.clone());
-
-            match vm.execute_with_budget(&mut current_thread, budget) {
-                Ok(ExecutionStep::Continue) => {
-                    self.registry.register_with_id(current_id, current_thread);
-                    self.runnable.enqueue(current_id);
-                }
-                Ok(ExecutionStep::Blocked) => {
-                    self.registry.register_with_id(current_id, current_thread);
-                    self.blocked.block(current_id);
-                }
-                Ok(ExecutionStep::SendMsg { target, msg }) => {
-                    if target == 0 {
-                        // Host I/O
-                        // For now we panic if no IO provider, or handle it?
-                        // "Se target for 0 (Host), processar via Providers"
-                        // we can do that in a bit
-                    } else {
-                        // Peer to Peer
-                        let target_id = crate::registry::ThreadId(target);
-                        if let Some(target_thread) = self.registry.get_mut(target_id) {
-                            if let Ok(copied_msg) =
-                                galfus_vm::runtime::objects::copy_value_between_heaps(
-                                    &current_thread.heap,
-                                    &mut target_thread.heap,
-                                    &msg,
-                                )
-                            {
-                                target_thread.mailbox.push_back(copied_msg);
-                                if self.blocked.unblock(target_id) {
-                                    self.runnable.enqueue(target_id);
-                                }
-                            }
-                        }
-                    }
-                    self.registry.register_with_id(current_id, current_thread);
-                    self.runnable.enqueue(current_id);
-                }
-                Ok(ExecutionStep::Return(val)) => {
-                    if current_id == main_thread_id {
-                        final_result = val;
-                        break;
-                    }
-                }
-                Err(err) => return Err(RuntimeError::VmPanic(err)),
-            }
-        }
-
-        match final_result {
-            galfus_vm::VmValue::Int32(code) => Ok(code),
-            galfus_vm::VmValue::Null => Ok(0),
-            _other => Err(RuntimeError::EntryReturnTypeMismatch {
-                name: entry_name.to_string(),
-            }),
-        }
+        Ok(task)
     }
 }
 

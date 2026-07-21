@@ -4,11 +4,18 @@ use crate::runtime::{CallFrame, HeapObject, RuntimeModuleState, VmObjectRef};
 use galfus_bytecode::instruction::Reg;
 use galfus_core::ModuleId;
 use std::collections::{HashMap, VecDeque};
+use std::sync::{Arc, Mutex};
 
 pub struct PrivateHeap {
     pub objects: Vec<Option<HeapObject>>,
     pub free_slots: Vec<usize>,
     pub allocations_since_release: usize,
+}
+
+impl Default for PrivateHeap {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl PrivateHeap {
@@ -35,32 +42,30 @@ impl PrivateHeap {
 
     pub fn get_object(&self, obj_ref: VmObjectRef) -> Result<&HeapObject, VmError> {
         let idx = obj_ref.raw();
-        if idx < self.objects.len() {
-            if let Some(ref obj) = self.objects[idx] {
-                return Ok(obj);
-            }
+        if idx < self.objects.len()
+            && let Some(ref obj) = self.objects[idx]
+        {
+            return Ok(obj);
         }
         Err(VmError::InvalidObjectReference)
     }
 
     pub fn get_object_mut(&mut self, obj_ref: VmObjectRef) -> Result<&mut HeapObject, VmError> {
         let idx = obj_ref.raw();
-        if idx < self.objects.len() {
-            if let Some(ref mut obj) = self.objects[idx] {
-                return Ok(obj);
-            }
+        if idx < self.objects.len()
+            && let Some(ref mut obj) = self.objects[idx]
+        {
+            return Ok(obj);
         }
         Err(VmError::InvalidObjectReference)
     }
 
     pub fn free_object(&mut self, obj_ref: VmObjectRef) -> Result<(), VmError> {
         let idx = obj_ref.raw();
-        if idx < self.objects.len() {
-            if self.objects[idx].is_some() {
-                self.objects[idx] = None;
-                self.free_slots.push(idx);
-                return Ok(());
-            }
+        if idx < self.objects.len() && self.objects[idx].is_some() {
+            self.objects[idx] = None;
+            self.free_slots.push(idx);
+            return Ok(());
         }
         Err(VmError::InvalidObjectReference)
     }
@@ -70,7 +75,13 @@ pub struct VirtualThread {
     pub call_stack: Vec<CallFrame>,
     pub heap: PrivateHeap,
     pub module_states: HashMap<ModuleId, RuntimeModuleState>,
-    pub mailbox: VecDeque<crate::runtime::Value>,
+    pub mailbox: Arc<Mutex<VecDeque<crate::runtime::Value>>>,
+}
+
+impl Default for VirtualThread {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl VirtualThread {
@@ -79,7 +90,7 @@ impl VirtualThread {
             call_stack: Vec::new(),
             heap: PrivateHeap::new(),
             module_states: HashMap::new(),
-            mailbox: VecDeque::new(),
+            mailbox: Arc::new(Mutex::new(VecDeque::new())),
         }
     }
 

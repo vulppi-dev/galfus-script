@@ -1,6 +1,6 @@
 use super::*;
 
-impl<'a> VirtualMachine<'a> {
+impl VirtualMachine {
     #[allow(clippy::collapsible_if)]
     pub fn release_unreachable(&self, thread: &mut crate::thread::VirtualThread) {
         use std::collections::{HashSet, VecDeque};

@@ -1,6 +1,6 @@
 use super::*;
 
-impl<'a> VirtualMachine<'a> {
+impl VirtualMachine {
     pub(super) fn execute_control_instruction(
         &self,
         thread: &mut crate::thread::VirtualThread,
@@ -415,8 +415,9 @@ impl<'a> VirtualMachine<'a> {
             }
 
             Instruction::Receive { dest } => {
-                if let Some(msg) = thread.mailbox.pop_front() {
-                    thread.write_reg(dest, msg);
+                let msg = thread.mailbox.lock().unwrap().pop_front();
+                if let Some(msg) = msg {
+                    let _ = thread.write_reg(dest, msg);
                     return Ok(ExecutionStep::Continue);
                 } else {
                     return Ok(ExecutionStep::Blocked);
@@ -486,7 +487,7 @@ impl<'a> VirtualMachine<'a> {
             _ => unreachable!("instruction routed to the wrong runtime handler"),
         }
 
-        return Ok(ExecutionStep::Continue);
+        Ok(ExecutionStep::Continue)
     }
 
     fn execute_array_iterator_method(

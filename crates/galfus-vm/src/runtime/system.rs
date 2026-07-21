@@ -1,6 +1,6 @@
 use super::*;
 
-impl<'a> VirtualMachine<'a> {
+impl VirtualMachine {
     pub(super) fn execute_system_instruction(
         &self,
         thread: &mut crate::thread::VirtualThread,

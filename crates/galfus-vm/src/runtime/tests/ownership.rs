@@ -67,7 +67,7 @@ fn test_ownership_deterministic_release() {
         module: image,
         metadata: None,
     });
-    let vm = VirtualMachine::new(&graph);
+    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()));
     let mut thread = crate::thread::VirtualThread::new();
     let res = vm
         .run_function(
@@ -168,7 +168,7 @@ fn test_ownership_cycle_release() {
         module: image,
         metadata: None,
     });
-    let vm = VirtualMachine::new(&graph);
+    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()));
     let mut thread = crate::thread::VirtualThread::new();
     let res = vm
         .run_function(
@@ -279,7 +279,7 @@ fn test_ownership_weak_invalidation() {
         module: image,
         metadata: None,
     });
-    let vm = VirtualMachine::new(&graph);
+    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()));
     let mut thread = crate::thread::VirtualThread::new();
     let res = vm
         .run_function(

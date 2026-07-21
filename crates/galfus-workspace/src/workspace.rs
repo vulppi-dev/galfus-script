@@ -467,8 +467,21 @@ impl Workspace {
             .clone();
 
         let _start_time = Instant::now();
-        let exit_code = Runtime::new(&graph, providers)
-            .run_module_entry(entry_id, entry_name.as_str(), args)
+        struct TestExecutor {
+            queue: std::sync::Mutex<
+                std::collections::VecDeque<Box<dyn galfus_contract::RunnableTask>>,
+            >,
+        }
+        impl galfus_contract::ThreadExecutor for TestExecutor {
+            fn spawn(&self, task: Box<dyn galfus_contract::RunnableTask>) {
+                self.queue.lock().unwrap().push_back(task);
+            }
+        }
+        let executor = std::sync::Arc::new(TestExecutor {
+            queue: std::sync::Mutex::new(std::collections::VecDeque::new()),
+        });
+        let task = Runtime::new(graph.clone(), providers)
+            .build_module_entry(entry_id, entry_name.as_str(), args, executor.clone())
             .map_err(|error| {
                 if let galfus_runtime::RuntimeError::VmPanic(panic) = &error {
                     RunBlocked::RuntimeError(galfus_runtime::format_panic(&graph, panic))
@@ -476,6 +489,25 @@ impl Workspace {
                     RunBlocked::RuntimeError(error.to_string())
                 }
             })?;
+        galfus_contract::ThreadExecutor::spawn(executor.as_ref(), task);
+
+        let mut exit_code = 0;
+        loop {
+            let t = executor.queue.lock().unwrap().pop_front();
+            let Some(t) = t else { break };
+            match t.run(100) {
+                galfus_contract::ThreadResult::Yielded(t) => {
+                    executor.queue.lock().unwrap().push_back(t)
+                }
+                galfus_contract::ThreadResult::Completed(code) => {
+                    exit_code = code;
+                }
+                galfus_contract::ThreadResult::Failed(err) => {
+                    return Err(RunBlocked::RuntimeError(err));
+                }
+                _ => {}
+            }
+        }
         Ok(RunReport { exit_code })
     }
 }

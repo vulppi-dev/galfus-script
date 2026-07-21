@@ -1,6 +1,6 @@
 use super::*;
 
-impl<'a> VirtualMachine<'a> {
+impl VirtualMachine {
     pub(super) fn to_shift_amount(&self, val: Value) -> Result<u32, VmError> {
         match val {
             Value::Int8(x) => Ok(x as u32),

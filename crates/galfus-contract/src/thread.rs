@@ -13,7 +13,7 @@ pub enum ThreadResult {
     Yielded(Box<dyn RunnableTask>),
 
     /// The thread finished execution successfully.
-    Completed,
+    Completed(i32),
 
     /// The thread encountered a critical error (panic).
     Failed(String),

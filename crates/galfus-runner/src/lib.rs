@@ -1,3 +1,4 @@
+pub mod executor;
 mod native_io;
 mod workspace;
 
