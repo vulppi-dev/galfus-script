@@ -1,3 +1,10 @@
+pub mod queue;
+pub mod registry;
+
+use queue::{RunnableQueue, BlockedQueue};
+use registry::{ThreadRegistry, ThreadId};
+use galfus_vm::thread::VirtualThread;
+use galfus_vm::VmError;
 use galfus_bytecode::BytecodeModule;
 use galfus_contract::Providers;
 use galfus_vm::{HeapObject, VirtualMachine, VmPanic, VmValue};
@@ -68,6 +75,9 @@ impl EntryAbi {
 pub struct Runtime<'graph> {
     graph: &'graph galfus_bytecode::BytecodeGraph,
     providers: Option<Providers>,
+    registry: ThreadRegistry,
+    runnable: RunnableQueue,
+    blocked: BlockedQueue,
 }
 
 impl<'graph> Runtime<'graph> {
@@ -75,8 +85,27 @@ impl<'graph> Runtime<'graph> {
         graph: &'graph galfus_bytecode::BytecodeGraph,
         providers: Option<Providers>,
     ) -> Self {
-        Self { graph, providers }
+        Self {
+            graph,
+            providers,
+            registry: ThreadRegistry::new(),
+            runnable: RunnableQueue::new(),
+            blocked: BlockedQueue::new(),
+        }
     }
+
+    /// Cria uma nova thread a partir de um módulo e função de entrada
+    pub fn spawn_thread(&mut self, thread: VirtualThread) -> ThreadId {
+        let id = self.registry.register(thread);
+        self.runnable.enqueue(id);
+        id
+    }
+    
+    /// Retorna o próximo ThreadId pronto para executar
+    pub fn next_runnable(&mut self) -> Option<ThreadId> {
+        self.runnable.dequeue()
+    }
+
 
     /// Execute an entry exported by a module loaded in the given BytecodeGraph.
     pub fn run_module_entry(
