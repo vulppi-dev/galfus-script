@@ -500,14 +500,18 @@ impl VirtualMachine {
                 });
             }
 
-            Instruction::StartThread { dest, thread_id, arg } => {
+            Instruction::StartThread {
+                dest,
+                thread_id,
+                arg,
+            } => {
                 let tid_val = match thread.read_reg(thread_id)? {
                     Value::Int64(id) => id as u64,
                     _ => {
                         return Err(VmError::TypeMismatch {
                             expected: "Int64".into(),
                             found: "other".into(),
-                        })
+                        });
                     }
                 };
                 let arg_val = thread.read_reg(arg)?.clone();

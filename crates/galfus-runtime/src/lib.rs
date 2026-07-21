@@ -112,7 +112,7 @@ impl Runtime {
         let woke_up = self.blocked.tick_timeouts(delta_ms);
         for id in woke_up {
             // Se a thread ainda existir, mandamos de volta para runnable
-            if self.registry.get(id).is_some() {
+            if self.registry.contains(id) {
                 self.runnable.enqueue(id);
             }
         }
@@ -182,6 +182,7 @@ impl Runtime {
             .map_err(RuntimeError::VmPanic)?;
 
         let main_thread_id = self.spawn_thread(thread, executor.as_ref());
+        let _ = self.registry.mark_running(main_thread_id);
         let main_thread = self.registry.take(main_thread_id).unwrap();
 
         let task = Box::new(crate::task::RuntimeTask {

@@ -96,17 +96,19 @@ fn test_mir_builder_lowers_named_function_as_a_function_constant() {
         .find(|function| function.name == "worker")
         .expect("worker function should be lowered");
 
-    assert!(mir_module
-        .functions
-        .iter()
-        .flat_map(|function| { function.blocks.iter().flat_map(|block| &block.instructions) })
-        .any(|(instruction, _)| {
-            matches!(
-                instruction,
-                Instruction::Assign(_, RValue::Use(Operand::Constant(Constant::Function(id))))
-                    if *id == worker.id
-            )
-        }));
+    assert!(
+        mir_module
+            .functions
+            .iter()
+            .flat_map(|function| { function.blocks.iter().flat_map(|block| &block.instructions) })
+            .any(|(instruction, _)| {
+                matches!(
+                    instruction,
+                    Instruction::Assign(_, RValue::Use(Operand::Constant(Constant::Function(id))))
+                        if *id == worker.id
+                )
+            })
+    );
 }
 
 #[test]

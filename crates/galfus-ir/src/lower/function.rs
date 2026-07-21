@@ -249,7 +249,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                                     self.load_operand_to(&args[0], func_reg);
                                     let key_reg = self.alloc_temp();
                                     self.load_operand_to(&args[1], key_reg);
-                                    
+
                                     self.instructions.push(Instruction::CreateThread {
                                         dest: Reg(destination.raw() as u16),
                                         func: func_reg,
@@ -264,7 +264,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                                     self.load_operand_to(&args[0], thread_id_reg);
                                     let arg_reg = self.alloc_temp();
                                     self.load_operand_to(&args[1], arg_reg);
-                                    
+
                                     self.instructions.push(Instruction::StartThread {
                                         dest: Reg(destination.raw() as u16),
                                         thread_id: thread_id_reg,
@@ -279,7 +279,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                                     self.load_operand_to(&args[0], target_reg);
                                     let msg_reg = self.alloc_temp();
                                     self.load_operand_to(&args[1], msg_reg);
-                                    
+
                                     self.instructions.push(Instruction::Send {
                                         dest: Reg(destination.raw() as u16),
                                         target: target_reg,
@@ -294,7 +294,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                                     self.load_operand_to(&args[0], sender_reg);
                                     let timeout_reg = self.alloc_temp();
                                     self.load_operand_to(&args[1], timeout_reg);
-                                    
+
                                     self.instructions.push(Instruction::ReceiveFilter {
                                         dest: Reg(destination.raw() as u16),
                                         sender: sender_reg,

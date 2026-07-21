@@ -32,6 +32,11 @@ impl RunnableTask for RuntimeTask {
                     galfus_vm::VmValue::Null => 0,
                     _ => 0,
                 };
+                let _ = self
+                    .registry
+                    .lock()
+                    .unwrap()
+                    .mark_exited(self.thread_id, code);
                 ThreadResult::Completed(code)
             }
             ExecutionStep::Blocked => ThreadResult::Blocked,
@@ -111,7 +116,16 @@ impl RunnableTask for RuntimeTask {
                     return ThreadResult::Yielded(self);
                 };
 
-                if let Some(mut target_thread) = self.registry.lock().unwrap().take(target_id) {
+                let target_thread = {
+                    let mut registry = self.registry.lock().unwrap();
+                    if registry.mark_running(target_id) {
+                        registry.take(target_id)
+                    } else {
+                        None
+                    }
+                };
+
+                if let Some(mut target_thread) = target_thread {
                     let copied_arg = galfus_vm::thread::deep_copy_value(
                         &self.thread.heap,
                         &mut target_thread.heap,

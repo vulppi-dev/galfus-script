@@ -2,7 +2,7 @@
 mod tests;
 
 use galfus_vm::VmValue;
-use galfus_vm::thread::VirtualThread;
+use galfus_vm::thread::{ThreadState, VirtualThread};
 use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
@@ -28,6 +28,7 @@ pub struct ThreadRegistry {
     threads: HashMap<ThreadId, VirtualThread>,
     mailboxes: HashMap<ThreadId, Arc<Mutex<VecDeque<(u64, VmValue)>>>>,
     keys: HashMap<String, ThreadId>,
+    states: HashMap<ThreadId, ThreadState>,
 }
 
 impl ThreadRegistry {
@@ -36,27 +37,26 @@ impl ThreadRegistry {
             threads: HashMap::new(),
             mailboxes: HashMap::new(),
             keys: HashMap::new(),
+            states: HashMap::new(),
         }
     }
 
     pub fn register(&mut self, id: ThreadId, thread: VirtualThread) {
-        let mailbox = thread.mailbox.clone();
-
-        if let Some(key) = &thread.key {
-            self.keys.insert(key.clone(), id);
-        }
-
-        self.threads.insert(id, thread);
-        self.mailboxes.insert(id, mailbox);
+        self.park(id, thread);
     }
 
     pub fn register_with_id(&mut self, id: ThreadId, thread: VirtualThread) {
+        self.park(id, thread);
+    }
+
+    pub fn park(&mut self, id: ThreadId, thread: VirtualThread) {
         let mailbox = thread.mailbox.clone();
         if let Some(key) = &thread.key {
             self.keys.insert(key.clone(), id);
         }
+        self.states.insert(id, thread.state);
         self.threads.insert(id, thread);
-        self.mailboxes.insert(id, mailbox);
+        self.mailboxes.entry(id).or_insert(mailbox);
     }
 
     pub fn get_mailbox(&self, id: ThreadId) -> Option<Arc<Mutex<VecDeque<(u64, VmValue)>>>> {
@@ -68,14 +68,7 @@ impl ThreadRegistry {
     }
 
     pub fn take(&mut self, id: ThreadId) -> Option<VirtualThread> {
-        if let Some(thread) = self.threads.remove(&id) {
-            if let Some(key) = &thread.key {
-                self.keys.remove(key);
-            }
-            Some(thread)
-        } else {
-            None
-        }
+        self.threads.remove(&id)
     }
 
     pub fn get_mut(&mut self, id: ThreadId) -> Option<&mut VirtualThread> {
@@ -84,6 +77,42 @@ impl ThreadRegistry {
 
     pub fn get(&self, id: ThreadId) -> Option<&VirtualThread> {
         self.threads.get(&id)
+    }
+
+    pub fn contains(&self, id: ThreadId) -> bool {
+        self.states.contains_key(&id)
+    }
+
+    pub fn state(&self, id: ThreadId) -> Option<ThreadState> {
+        self.states.get(&id).copied()
+    }
+
+    pub fn mark_running(&mut self, id: ThreadId) -> bool {
+        let Some(state) = self.states.get_mut(&id) else {
+            return false;
+        };
+        if *state != ThreadState::Created {
+            return false;
+        }
+        *state = ThreadState::Running;
+        if let Some(thread) = self.threads.get_mut(&id) {
+            let _ = thread.mark_running();
+        }
+        true
+    }
+
+    pub fn mark_exited(&mut self, id: ThreadId, code: i32) -> bool {
+        let Some(state) = self.states.get_mut(&id) else {
+            return false;
+        };
+        if !state.is_running() {
+            return false;
+        }
+        *state = ThreadState::Exited(code);
+        if let Some(thread) = self.threads.get_mut(&id) {
+            let _ = thread.mark_exited(code);
+        }
+        true
     }
 
     pub fn remove(&mut self, id: ThreadId) -> Option<VirtualThread> {

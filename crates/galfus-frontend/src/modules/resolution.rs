@@ -11,7 +11,13 @@ pub fn is_relative_import(source: &str) -> bool {
 pub fn is_builtin_module(source: &str) -> bool {
     matches!(
         source,
-        "std/io" | "std/constraints" | "std/iterable" | "std/thread" | "text" | "format" | "format/ansi"
+        "std/io"
+            | "std/constraints"
+            | "std/iterable"
+            | "std/thread"
+            | "text"
+            | "format"
+            | "format/ansi"
     )
 }
 

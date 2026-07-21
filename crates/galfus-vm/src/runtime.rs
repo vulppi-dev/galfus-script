@@ -69,7 +69,10 @@ pub enum VmValue {
     Float32(f32),
     Float64(f64),
     Object(VmObjectRef),
-    Function { module_id: ModuleId, func_idx: FuncIdx },
+    Function {
+        module_id: ModuleId,
+        func_idx: FuncIdx,
+    },
 }
 
 pub type Value = VmValue;
@@ -298,8 +301,16 @@ impl VirtualMachine {
                 Ok(ExecutionStep::CreateThread { dest, func, key }) => {
                     return Ok(ExecutionStep::CreateThread { dest, func, key });
                 }
-                Ok(ExecutionStep::StartThread { dest, thread_id, arg }) => {
-                    return Ok(ExecutionStep::StartThread { dest, thread_id, arg });
+                Ok(ExecutionStep::StartThread {
+                    dest,
+                    thread_id,
+                    arg,
+                }) => {
+                    return Ok(ExecutionStep::StartThread {
+                        dest,
+                        thread_id,
+                        arg,
+                    });
                 }
                 Err(err) => {
                     let mut stack_trace = Vec::new();

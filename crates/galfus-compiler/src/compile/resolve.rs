@@ -111,7 +111,10 @@ fn collect_operand_function_targets(
     }
 }
 
-fn collect_operand_function_target(operand: &galfus_ir::mir::Operand, targets: &mut Vec<FunctionId>) {
+fn collect_operand_function_target(
+    operand: &galfus_ir::mir::Operand,
+    targets: &mut Vec<FunctionId>,
+) {
     if let galfus_ir::mir::Operand::Constant(galfus_ir::mir::Constant::Function(func)) = operand {
         targets.push(*func);
     }
@@ -125,7 +128,7 @@ pub(super) fn resolve_import_target(
     let module = &modules[mod_idx];
     let resolution = module.graph().resolution()?;
     let symbol_id = SymbolId::new(func_id.raw());
-    
+
     let mut import_symbol = symbol_id;
 
     if let Some(node_id) = path_call_target_node(func_id) {
@@ -281,10 +284,20 @@ pub(super) fn import_target_index(
         if let Some(index) = modules.iter().position(|module| module.path() == &target) {
             return Some(index);
         } else {
-            eprintln!("import_target_index: target '{}' not found. Available modules: {:?}", target.as_str(), modules.iter().map(|m| m.path().as_str()).collect::<Vec<_>>());
+            eprintln!(
+                "import_target_index: target '{}' not found. Available modules: {:?}",
+                target.as_str(),
+                modules
+                    .iter()
+                    .map(|m| m.path().as_str())
+                    .collect::<Vec<_>>()
+            );
         }
     } else {
-        eprintln!("import_target_index: failed to create ModulePath for source '{}'", source);
+        eprintln!(
+            "import_target_index: failed to create ModulePath for source '{}'",
+            source
+        );
     }
 
     let target = galfus_frontend::modules::resolution::resolve_relative_import(
