@@ -71,7 +71,7 @@ jobs:
 
       - name: Build playground web artifact
         working-directory: scripts
-        run: bun cmd playground build-web
+        run: bun cmd playground build -t web
 
       - name: Show generated web artifact
         run: ls -lh dist/playground-web
