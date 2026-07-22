@@ -20,7 +20,6 @@ impl SingleThreadExecutor {
             next_thread_id: AtomicU64::new(1),
         }
     }
-
 }
 
 impl ThreadExecutor for SingleThreadExecutor {

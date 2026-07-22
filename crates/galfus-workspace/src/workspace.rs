@@ -14,7 +14,6 @@ use galfus_frontend::modules::{
 use galfus_runtime::Runtime;
 use std::collections::HashSet;
 use std::sync::Arc;
-use std::time::Instant;
 
 #[cfg(test)]
 mod tests;

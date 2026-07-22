@@ -1,5 +1,5 @@
 use anyhow::{Context, Result, bail};
-use galfus_contract::{Providers, ThreadExecutor};
+use galfus_contract::Providers;
 use galfus_workspace::{LoadResult, Workspace};
 use std::path::Path;
 
@@ -45,7 +45,7 @@ pub fn run_project(root: &str, cli_args: &[String]) -> Result<i32> {
             executor.clone(),
         )
         .map_err(|error| anyhow::anyhow!("workspace execution failed: {error:?}"))?;
-    
+
     Ok(report.exit_code)
 }
 

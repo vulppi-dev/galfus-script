@@ -116,7 +116,9 @@ fn run_initializes_dependencies_before_the_entry_module() {
         next_thread_id: std::sync::atomic::AtomicU64,
     }
     impl galfus_contract::ThreadExecutor for TestExecutor {
-        fn run_until_idle(&self) -> Result<i32, String> { Ok(0) }
+        fn run_until_idle(&self) -> Result<i32, String> {
+            Ok(0)
+        }
         fn allocate_thread_id(&self) -> u64 {
             self.next_thread_id
                 .fetch_add(1, std::sync::atomic::Ordering::Relaxed)

@@ -1,5 +1,5 @@
 use super::*;
-use galfus_contract::{HostProvider, HostResponse, HostValue, MessageInjector, Providers, ThreadExecutor};
+use galfus_contract::{HostProvider, HostResponse, HostValue, MessageInjector, Providers};
 use std::sync::{Arc, Mutex};
 
 struct TerminatorIo {
@@ -332,7 +332,11 @@ fn compile_rebuilds_only_changed_modules_and_transitive_dependents() {
 fn run_requires_compile_and_executes_the_configured_entry() {
     let mut workspace = Workspace::new();
     assert!(matches!(
-        workspace.run(&[], None, Arc::new(crate::executor::SingleThreadExecutor::new())),
+        workspace.run(
+            &[],
+            None,
+            Arc::new(crate::executor::SingleThreadExecutor::new())
+        ),
         Err(RunBlocked::CompileRequired)
     ));
 
@@ -365,7 +369,10 @@ fn run_requires_compile_and_executes_the_configured_entry() {
     workspace.compile().expect("workspace compiles");
     let executor = Arc::new(crate::executor::SingleThreadExecutor::new());
     assert_eq!(
-        workspace.run(&[], None, executor).expect("entry executes").exit_code,
+        workspace
+            .run(&[], None, executor)
+            .expect("entry executes")
+            .exit_code,
         42
     );
 }
@@ -401,7 +408,8 @@ fn run_reports_missing_io_provider_only_when_io_is_executed() {
     workspace.compile().expect("workspace compiles");
 
     let executor = Arc::new(crate::executor::SingleThreadExecutor::new());
-    let error = workspace.run(&[], None, executor)
+    let error = workspace
+        .run(&[], None, executor)
         .err()
         .map(|e| format!("{:?}", e))
         .expect("I/O requires a provider at runtime");
@@ -444,7 +452,10 @@ fn run_passes_read_terminator_to_the_io_provider() {
     }));
     let executor = Arc::new(crate::executor::SingleThreadExecutor::new());
     assert_eq!(
-        workspace.run(&[], Some(providers), executor).expect("entry executes").exit_code,
+        workspace
+            .run(&[], Some(providers), executor)
+            .expect("entry executes")
+            .exit_code,
         0
     );
     assert_eq!(*terminator.lock().expect("terminator state"), b"!");
@@ -492,7 +503,10 @@ fn run_specializes_nested_generic_types_across_modules() {
     workspace.compile().expect("workspace compiles");
     let executor = Arc::new(crate::executor::SingleThreadExecutor::new());
     assert_eq!(
-        workspace.run(&[], None, executor).expect("entry executes").exit_code,
+        workspace
+            .run(&[], None, executor)
+            .expect("entry executes")
+            .exit_code,
         42
     );
 }
@@ -541,7 +555,10 @@ fn run_specializes_explicit_imported_generic_typeof_parameter() {
     workspace.compile().expect("workspace compiles");
     let executor = Arc::new(crate::executor::SingleThreadExecutor::new());
     assert_eq!(
-        workspace.run(&[], None, executor).expect("entry executes").exit_code,
+        workspace
+            .run(&[], None, executor)
+            .expect("entry executes")
+            .exit_code,
         42
     );
 }
@@ -579,7 +596,10 @@ fn run_specializes_generic_anchored_range_iterator_methods() {
     workspace.compile().expect("workspace compiles");
     let executor = Arc::new(crate::executor::SingleThreadExecutor::new());
     assert_eq!(
-        workspace.run(&[], None, executor).expect("entry executes").exit_code,
+        workspace
+            .run(&[], None, executor)
+            .expect("entry executes")
+            .exit_code,
         20
     );
 }
@@ -619,7 +639,10 @@ fn run_synchronizes_the_runtime_module_graph() {
         .expect("helper image");
     let executor = Arc::new(crate::executor::SingleThreadExecutor::new());
     assert_eq!(
-        workspace.run(&[], None, executor).expect("entry executes").exit_code,
+        workspace
+            .run(&[], None, executor)
+            .expect("entry executes")
+            .exit_code,
         0
     );
 
@@ -631,7 +654,10 @@ fn run_synchronizes_the_runtime_module_graph() {
     workspace.compile().expect("workspace recompiles");
     let executor2 = Arc::new(crate::executor::SingleThreadExecutor::new());
     assert_eq!(
-        workspace.run(&[], None, executor2).expect("entry executes").exit_code,
+        workspace
+            .run(&[], None, executor2)
+            .expect("entry executes")
+            .exit_code,
         0
     );
 }
