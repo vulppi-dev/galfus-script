@@ -466,7 +466,7 @@ impl Workspace {
             .run_entry
             .clone();
 
-        let _start_time = Instant::now();
+
         struct TestExecutor {
             queue: std::sync::Mutex<
                 std::collections::VecDeque<Box<dyn galfus_contract::RunnableTask>>,
@@ -499,13 +499,14 @@ impl Workspace {
         galfus_contract::ThreadExecutor::spawn(executor.as_ref(), task);
 
         let mut exit_code = 0;
-        let mut pending_timeout = None;
+        let mut pending_timeout: Option<std::time::Duration> = None;
         loop {
             let t = executor.queue.lock().unwrap().pop_front();
             let Some(t) = t else {
                 let Some(timeout) = pending_timeout.take() else {
                     break;
                 };
+                #[cfg(not(target_arch = "wasm32"))]
                 std::thread::sleep(timeout);
                 continue;
             };
