@@ -60,6 +60,44 @@ impl WasmPlayground {
         }
     }
 
+    #[wasm_bindgen(js_name = start)]
+    pub fn start(&mut self, args_json: &str) -> String {
+        let args = match serde_json::from_str::<Vec<String>>(args_json) {
+            Ok(args) => args.into_iter().map(String::into_bytes).collect::<Vec<_>>(),
+            Err(error) => return error_json(error),
+        };
+        match self.playground.start(args.as_slice()) {
+            Ok(()) => success_json(),
+            Err(error) => error_json(error),
+        }
+    }
+
+    #[wasm_bindgen(js_name = step)]
+    pub fn step(&mut self) -> String {
+        match self.playground.step() {
+            Ok(galfus_contract::ExecutorStepResult::Running) => serde_json::json!({
+                "status": "running",
+                "output": String::from_utf8_lossy(self.playground.take_output().as_slice()),
+                "error": null,
+            })
+            .to_string(),
+            Ok(galfus_contract::ExecutorStepResult::Blocked { .. }) => serde_json::json!({
+                "status": "pending_read",
+                "output": String::from_utf8_lossy(self.playground.take_output().as_slice()),
+                "error": null,
+            })
+            .to_string(),
+            Ok(galfus_contract::ExecutorStepResult::Completed(exit_code)) => serde_json::json!({
+                "status": "completed",
+                "exit_code": exit_code,
+                "output": String::from_utf8_lossy(self.playground.take_output().as_slice()),
+                "error": null,
+            })
+            .to_string(),
+            Err(error) => error_json(error),
+        }
+    }
+
     #[wasm_bindgen(js_name = run)]
     pub fn run(&mut self, args_json: &str) -> String {
         let args = match serde_json::from_str::<Vec<String>>(args_json) {

@@ -37,8 +37,14 @@ pub fn run_project(root: &str, cli_args: &[String]) -> Result<i32> {
         .iter()
         .map(|argument| argument.as_bytes().to_vec())
         .collect::<Vec<_>>();
+    use galfus_contract::ThreadExecutor;
     let executor = std::sync::Arc::new(galfus_workspace::executor::SingleThreadExecutor::new());
-    let report = workspace
+    let exit_code = std::sync::Arc::new(std::sync::Mutex::new(0));
+    let ec = std::sync::Arc::clone(&exit_code);
+    executor.on_exit(Box::new(move |res: Result<i32, String>| {
+        *ec.lock().unwrap() = res.unwrap();
+    }));
+    workspace
         .run(
             args.as_slice(),
             Some(Providers::with_host(Box::new(super::NativeIoProvider))),
@@ -46,7 +52,8 @@ pub fn run_project(root: &str, cli_args: &[String]) -> Result<i32> {
         )
         .map_err(|error| anyhow::anyhow!("workspace execution failed: {error:?}"))?;
 
-    Ok(report.exit_code)
+    let code = *exit_code.lock().unwrap();
+    Ok(code)
 }
 
 fn load_workspace(root: &Path) -> Result<Workspace> {

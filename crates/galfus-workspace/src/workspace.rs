@@ -47,10 +47,6 @@ pub struct CompileReport {
     pub graph: Arc<BytecodeGraph>,
 }
 
-pub struct RunReport {
-    pub exit_code: i32,
-}
-
 impl Default for Workspace {
     fn default() -> Self {
         Self::new()
@@ -445,7 +441,7 @@ impl Workspace {
         args: &[Vec<u8>],
         providers: Option<Providers>,
         executor: Arc<dyn galfus_contract::ThreadExecutor>,
-    ) -> Result<RunReport, RunBlocked> {
+    ) -> Result<(), RunBlocked> {
         let graph = match &self.bytecode_state.compile_state {
             CompileState::Ready { graph, .. } => Arc::clone(graph),
             _ => return Err(RunBlocked::CompileRequired),
@@ -476,11 +472,8 @@ impl Workspace {
                 }
             })?;
         executor.spawn(task);
+        executor.run();
 
-        let exit_code = executor
-            .run_until_idle()
-            .map_err(|err| RunBlocked::RuntimeError(err))?;
-
-        Ok(RunReport { exit_code })
+        Ok(())
     }
 }
