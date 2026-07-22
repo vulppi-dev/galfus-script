@@ -1,4 +1,4 @@
-![Galfus](/assets/brand-effect.png)
+![Galfus](/assets/brand-full-colored.svg)
 
 # Galfus Script
 
