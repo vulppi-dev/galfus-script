@@ -152,8 +152,8 @@ Validation rules:
 - Internal Rust properties use `snake_case`.
 
 - Rust source files must be organized in the following order:
-  1. `use` imports
-  2. `mod` declarations
+  1. `mod` declarations
+  2. `use` imports
   3. Rest of the code
 
 - Do not use explicit paths in the middle of code.
