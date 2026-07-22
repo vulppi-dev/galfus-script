@@ -89,8 +89,13 @@ impl Playground {
     }
 
     pub fn run(&mut self, args: &[Vec<u8>]) -> Result<i32> {
+        let executor = std::sync::Arc::new(galfus_workspace::executor::SingleThreadExecutor::new());
         self.workspace
-            .run(args, Some(Providers::with_host(Box::new(self.io.clone()))))
+            .run(
+                args,
+                Some(Providers::with_host(Box::new(self.io.clone()))),
+                executor.clone(),
+            )
             .map(|report| report.exit_code)
             .map_err(|error| anyhow::anyhow!("playground execution failed: {error:?}"))
     }

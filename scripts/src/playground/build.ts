@@ -11,11 +11,12 @@ const wasmModulePath = join(
   'galfus_playground.wasm',
 );
 
-type BuildPlaygroundWebOptions = {
+type BuildPlaygroundOptions = {
   outDir?: string;
+  target?: string;
 };
 
-export async function buildPlaygroundWeb(options: BuildPlaygroundWebOptions): Promise<void> {
+export async function buildPlayground(options: BuildPlaygroundOptions): Promise<void> {
   await ensureWasmBindgen();
   await run('cargo', [
     'build',
@@ -29,10 +30,11 @@ export async function buildPlaygroundWeb(options: BuildPlaygroundWebOptions): Pr
     '--locked',
   ]);
 
+  const target = options.target ?? 'web';
   const outDir = join(repositoryRoot, options.outDir ?? 'dist/playground-web');
   await run('wasm-bindgen', [
     '--target',
-    'web',
+    target,
     '--out-dir',
     outDir,
     '--out-name',

@@ -37,12 +37,15 @@ pub fn run_project(root: &str, cli_args: &[String]) -> Result<i32> {
         .iter()
         .map(|argument| argument.as_bytes().to_vec())
         .collect::<Vec<_>>();
+    let executor = std::sync::Arc::new(galfus_workspace::executor::SingleThreadExecutor::new());
     let report = workspace
         .run(
             args.as_slice(),
             Some(Providers::with_host(Box::new(super::NativeIoProvider))),
+            executor.clone(),
         )
         .map_err(|error| anyhow::anyhow!("workspace execution failed: {error:?}"))?;
+
     Ok(report.exit_code)
 }
 

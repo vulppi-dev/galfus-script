@@ -20,8 +20,19 @@ impl SingleThreadExecutor {
             next_thread_id: AtomicU64::new(1),
         }
     }
+}
 
-    pub fn run_until_idle(&self) -> Result<(), String> {
+impl ThreadExecutor for SingleThreadExecutor {
+    fn allocate_thread_id(&self) -> u64 {
+        self.next_thread_id.fetch_add(1, Ordering::Relaxed)
+    }
+
+    fn spawn(&self, task: Box<dyn RunnableTask>) {
+        self.queue.lock().unwrap().push_back(task);
+    }
+
+    fn run_until_idle(&self) -> Result<i32, String> {
+        let mut exit_code = 0;
         let mut pending_timeout = None;
         loop {
             let task = {
@@ -48,25 +59,15 @@ impl SingleThreadExecutor {
                         (None, next) => next,
                     };
                 }
-                ThreadResult::Completed(_code) => {
-                    // Task finished
+                ThreadResult::Completed(code) => {
+                    exit_code = code;
                 }
                 ThreadResult::Failed(err) => {
                     return Err(err);
                 }
             }
         }
-        Ok(())
-    }
-}
-
-impl ThreadExecutor for SingleThreadExecutor {
-    fn allocate_thread_id(&self) -> u64 {
-        self.next_thread_id.fetch_add(1, Ordering::Relaxed)
-    }
-
-    fn spawn(&self, task: Box<dyn RunnableTask>) {
-        self.queue.lock().unwrap().push_back(task);
+        Ok(exit_code)
     }
 }
 

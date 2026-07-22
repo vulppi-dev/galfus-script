@@ -3,7 +3,7 @@ import { Command } from 'commander';
 import { setVersion } from './github/set-version';
 import { syncChangelogLabels } from './github/sync-changelog-labels';
 import { validatePrPolicy } from './github/validate-pr-policy';
-import { buildPlaygroundWeb } from './playground/build-web';
+import { buildPlayground } from './playground/build';
 import { setupExtension } from './setup/extension';
 
 const program = new Command();
@@ -45,10 +45,11 @@ setup
   .action(setupExtension);
 
 playground
-  .command('build-web')
-  .description('Build the playground WebAssembly module and generate web bindings')
+  .command('build')
+  .description('Build the playground WebAssembly module and generate bindings')
+  .option('-t, --target <target>', 'wasm-bindgen target (web, bundler, nodejs, etc)', 'web')
   .option('-o, --out-dir <path>', 'Output directory relative to the repository root')
-  .action(buildPlaygroundWeb);
+  .action(buildPlayground);
 
 program.parseAsync(process.argv).catch((error) => {
   console.error('[galfus-scripts] Failed:', error);

@@ -213,20 +213,6 @@ fn casts_and_copy(point: Point): Point {
   return cloned::move(value, value)
 }
 
-fn transactions(): i32 {
-  var value = 1
-
-  transaction {
-    value += 1
-
-    if value > 10 {
-      rollback
-    }
-  }
-
-  return value
-}
-
 struct KeyValue { key: i32, value: i32 }
 
 fn destructuring_showcase({ x, y }: Point): i32 {
@@ -261,8 +247,7 @@ export fn main(_args: [[u8]]): i32 {
   const arrow = arrow_functions()
   const copied = casts_and_copy(point)
   const literals = literals_operators_and_branching()
-  const transacted = transactions()
-  const calculation = destructured + narrowed + ranged + looped + namedLooped + dispatched + arrow + copied.x + literals + transacted
+  const calculation = destructured + narrowed + ranged + looped + namedLooped + dispatched + arrow + copied.x + literals
 
   println(calculation_to_text(calculation))
 

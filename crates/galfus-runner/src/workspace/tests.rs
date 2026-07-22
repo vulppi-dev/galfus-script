@@ -59,9 +59,10 @@ fn load_workspace_accepts_standalone_source_file() {
     let mut workspace = load_workspace(source_path.as_path()).expect("loads standalone source");
     assert!(workspace.check().is_valid);
     workspace.compile().expect("compiles standalone source");
+    let executor = std::sync::Arc::new(galfus_workspace::executor::SingleThreadExecutor::new());
     assert_eq!(
         workspace
-            .run(&[], None)
+            .run(&[], None, executor)
             .expect("runs standalone source")
             .exit_code,
         42

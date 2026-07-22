@@ -24,6 +24,9 @@ impl TestExecutor {
 }
 
 impl ThreadExecutor for TestExecutor {
+    fn run_until_idle(&self) -> Result<i32, String> {
+        Ok(0)
+    }
     fn allocate_thread_id(&self) -> u64 {
         1
     }

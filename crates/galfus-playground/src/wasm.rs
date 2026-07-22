@@ -1,4 +1,4 @@
-use crate::{Playground, run_source};
+use crate::Playground;
 use js_sys::Function;
 use wasm_bindgen::prelude::*;
 
@@ -76,20 +76,11 @@ impl WasmPlayground {
             Err(error) => error_json(error),
         }
     }
-}
 
-#[wasm_bindgen]
-pub fn run_source_wasm(code: &str, args_json: &str) -> String {
-    let args = serde_json::from_str::<Vec<String>>(args_json).unwrap_or_default();
-    let arg_refs = args.iter().map(String::as_str).collect::<Vec<_>>();
-    let result = run_source(code, arg_refs.as_slice());
-
-    serde_json::json!({
-        "output": result.output,
-        "exit_code": result.exit_code,
-        "error": result.error,
-    })
-    .to_string()
+    #[wasm_bindgen(js_name = getVersion)]
+    pub fn get_version(&self) -> String {
+        env!("CARGO_PKG_VERSION").to_string()
+    }
 }
 
 fn success_json() -> String {
