@@ -1,11 +1,10 @@
+use crate::modules::resolution::is_resolvable_import;
+use crate::modules::session::{FrontendSession, PathCheckRecord, PathSegmentRecord};
 use crate::{
     ImportKind, ImportedSurfaceTypes, ModuleSurface, SyntaxNodeKind,
     imported_surface_types_for_namespace,
 };
 use galfus_core::NodeId;
-
-use crate::modules::resolution::is_resolvable_import;
-use crate::modules::session::{FrontendSession, PathCheckRecord, PathSegmentRecord};
 
 impl FrontendSession {
     pub(super) fn collect_named_imported_path_types(

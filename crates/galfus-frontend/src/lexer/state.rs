@@ -1,7 +1,6 @@
+use super::LexResult;
 use crate::{Token, TokenKind};
 use galfus_core::{DiagnosticBag, SourceFile, Span};
-
-use super::LexResult;
 
 pub struct Lexer<'a> {
     pub(super) source: &'a SourceFile,

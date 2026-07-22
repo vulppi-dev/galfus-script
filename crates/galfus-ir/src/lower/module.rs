@@ -1,11 +1,9 @@
+use super::LowerCtx;
+use crate::mir::MirModule;
 use galfus_bytecode::*;
 use galfus_core::SymbolId;
 use galfus_frontend::{ModuleGraph, SyntaxNodeKind, TypeCheckResult};
 use std::collections::HashSet;
-
-use super::LowerCtx;
-
-use crate::mir::MirModule;
 
 pub fn lower_module(
     mir_module: &MirModule,

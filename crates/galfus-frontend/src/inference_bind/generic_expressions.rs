@@ -1,9 +1,8 @@
+
+
 use std::collections::{HashMap, HashSet};
-
 use galfus_core::{NodeId, SymbolId, TypeId};
-
 use crate::{FunctionParameterType, SymbolKind, SyntaxNodeKind, TypeKind};
-
 use super::ExpressionInferrer;
 
 type GenericSubstitution = HashMap<SymbolId, TypeId>;

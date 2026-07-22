@@ -1,4 +1,5 @@
 use super::*;
+use crate::type_validation::check_definition_types;
 
 #[test]
 fn check_binds_generic_cast_type_in_anchored_function() {
@@ -157,7 +158,7 @@ fn check_reports_explicit_generic_argument_count_mismatch_for_missing_argument()
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
-    let result = crate::type_validation::check_definition_types(&source, &graph, result);
+    let result = check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -196,7 +197,7 @@ fn check_reports_explicit_generic_argument_count_mismatch_for_extra_argument() {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
-    let result = crate::type_validation::check_definition_types(&source, &graph, result);
+    let result = check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -235,7 +236,7 @@ fn check_reports_explicit_generic_call_argument_type_mismatch_after_substitution
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
-    let result = crate::type_validation::check_definition_types(&source, &graph, result);
+    let result = check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -272,7 +273,7 @@ fn check_reports_generic_arguments_on_non_generic_function() {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
-    let result = crate::type_validation::check_definition_types(&source, &graph, result);
+    let result = check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -301,7 +302,7 @@ fn check_allows_unbounded_generic_function_parameter() {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
-    let result = crate::type_validation::check_definition_types(&source, &graph, result);
+    let result = check_definition_types(&source, &graph, result);
 
     assert!(!result.has_errors());
 }
@@ -326,7 +327,7 @@ fn check_reports_generic_argument_outside_declared_bound() {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
-    let result = crate::type_validation::check_definition_types(&source, &graph, result);
+    let result = check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {

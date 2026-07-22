@@ -1,6 +1,5 @@
-use crate::{AssignmentOperatorKind, BinaryAssociativity, BinaryOperatorKind, UnaryOperatorKind};
-
 use super::*;
+use crate::{AssignmentOperatorKind, BinaryAssociativity, BinaryOperatorKind, UnaryOperatorKind};
 
 impl Parser {
     pub(super) fn can_start_expression(&self) -> bool {

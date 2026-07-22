@@ -1,8 +1,6 @@
-use galfus_core::{NodeId, TypeId};
-
-use crate::{PrimitiveType, SyntaxNodeKind};
-
 use super::DeclarationTypeChecker;
+use crate::{PrimitiveType, SyntaxNodeKind};
+use galfus_core::{NodeId, TypeId};
 
 impl<'a> DeclarationTypeChecker<'a> {
     pub(super) fn check_enum_types(&mut self, node: NodeId) {

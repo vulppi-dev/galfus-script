@@ -1,4 +1,5 @@
 use super::*;
+use crate::type_validation::check_definition_types;
 
 #[test]
 fn check_accepts_matching_assignment_type() {
@@ -35,7 +36,7 @@ fn main(): null {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
-    let result = crate::type_validation::check_definition_types(&source, &graph, result);
+    let result = check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -64,7 +65,7 @@ fn main(): null {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
-    let result = crate::type_validation::check_definition_types(&source, &graph, result);
+    let result = check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -94,7 +95,7 @@ fn main(age: i32): null {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
-    let result = crate::type_validation::check_definition_types(&source, &graph, result);
+    let result = check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -126,7 +127,7 @@ fn main(values: [i32]): null {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
-    let result = crate::type_validation::check_definition_types(&source, &graph, result);
+    let result = check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -187,7 +188,7 @@ fn main(): null {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
-    let result = crate::type_validation::check_definition_types(&source, &graph, result);
+    let result = check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -261,7 +262,7 @@ fn main(): null {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
-    let result = crate::type_validation::check_definition_types(&source, &graph, result);
+    let result = check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {

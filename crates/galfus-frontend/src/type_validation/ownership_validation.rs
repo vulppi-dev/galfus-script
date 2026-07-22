@@ -1,13 +1,10 @@
-use std::collections::{HashMap, HashSet};
-
-use galfus_core::{Diagnostic, NodeId, SymbolId, TypeId};
-
-use crate::{PrimitiveType, SymbolKind, TypeDiagnosticCode, TypeKind};
-
 use super::{
     DeclarationTypeChecker, OwnershipCycleMetadata, ReleaseEligibilityKind,
     ReleaseEligibilityMetadata,
 };
+use crate::{PrimitiveType, SymbolKind, TypeDiagnosticCode, TypeKind};
+use galfus_core::{Diagnostic, NodeId, SymbolId, TypeId};
+use std::collections::{HashMap, HashSet};
 
 impl<'a> DeclarationTypeChecker<'a> {
     pub(super) fn validate_ownership_cycles(&mut self) {

@@ -1,6 +1,8 @@
 pub mod queue;
 pub mod registry;
 pub mod task;
+#[cfg(test)]
+mod tests;
 
 use galfus_bytecode::BytecodeModule;
 use galfus_contract::Providers;
@@ -8,9 +10,6 @@ use galfus_vm::thread::VirtualThread;
 use galfus_vm::{HeapObject, VirtualMachine, VmPanic, VmValue};
 use queue::{BlockedQueue, RunnableQueue};
 use registry::{ThreadId, ThreadRegistry};
-
-#[cfg(test)]
-mod tests;
 
 #[derive(Debug, thiserror::Error)]
 pub enum RuntimeError {

@@ -1,4 +1,5 @@
 use super::*;
+use crate::type_validation::check_definition_types;
 
 #[test]
 fn check_collects_anchor_and_temporary_ownership_metadata() {
@@ -86,7 +87,7 @@ struct Node {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
-    let result = crate::type_validation::check_definition_types(&source, &graph, result);
+    let result = check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -176,7 +177,7 @@ fn check_reports_inferred_struct_literal_without_expected_type() {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
-    let result = crate::type_validation::check_definition_types(&source, &graph, result);
+    let result = check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -213,7 +214,7 @@ fn check_reports_inferred_struct_literal_with_non_struct_expected_type() {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
-    let result = crate::type_validation::check_definition_types(&source, &graph, result);
+    let result = check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -255,7 +256,7 @@ fn check_reports_inferred_struct_literal_unknown_field() {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
-    let result = crate::type_validation::check_definition_types(&source, &graph, result);
+    let result = check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -294,7 +295,7 @@ fn check_reports_inferred_struct_literal_field_type_mismatch() {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
-    let result = crate::type_validation::check_definition_types(&source, &graph, result);
+    let result = check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {

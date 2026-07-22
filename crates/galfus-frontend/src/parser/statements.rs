@@ -1,6 +1,5 @@
-use crate::AssignmentOperatorKind;
-
 use super::*;
+use crate::AssignmentOperatorKind;
 
 impl Parser {
     pub(super) fn parse_statement(&mut self) -> Option<NodeId> {

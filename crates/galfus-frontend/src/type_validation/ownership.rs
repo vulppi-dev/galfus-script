@@ -1,13 +1,10 @@
-use std::collections::HashSet;
-
-use galfus_core::{NodeId, SymbolId, TypeId};
-
-use crate::{SymbolKind, SyntaxNodeKind, TypeKind};
-
 use super::{
     AnchorKind, AnchorMetadata, CaptureMetadata, DeclarationTypeChecker, EdgeMetadata,
     TemporaryMetadata, WeakFieldMetadata, WeakObserverMetadata,
 };
+use crate::{SymbolKind, SyntaxNodeKind, TypeKind};
+use galfus_core::{NodeId, SymbolId, TypeId};
+use std::collections::HashSet;
 
 impl<'a> DeclarationTypeChecker<'a> {
     pub(super) fn check_ownership_metadata(&mut self, root: NodeId) {

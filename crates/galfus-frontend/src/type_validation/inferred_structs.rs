@@ -1,8 +1,6 @@
-use galfus_core::{NodeId, SymbolId, TypeId};
-
-use crate::{SymbolKind, SyntaxNodeKind, TypeKind};
-
 use super::DeclarationTypeChecker;
+use crate::{SymbolKind, SyntaxNodeKind, TypeKind};
+use galfus_core::{NodeId, SymbolId, TypeId};
 
 impl<'a> DeclarationTypeChecker<'a> {
     pub(super) fn infer_inferred_struct_literal_type(

@@ -1,10 +1,7 @@
-use std::collections::{HashMap, HashSet};
-
-use galfus_core::{NodeId, SymbolId};
-
-use crate::{SymbolKind, SyntaxNodeKind};
-
 use super::DeclarationTypeChecker;
+use crate::{SymbolKind, SyntaxNodeKind};
+use galfus_core::{NodeId, SymbolId};
+use std::collections::{HashMap, HashSet};
 
 impl<'a> DeclarationTypeChecker<'a> {
     pub(super) fn check_function_stamps(&mut self, root: NodeId) {

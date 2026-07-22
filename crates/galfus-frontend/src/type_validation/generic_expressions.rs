@@ -1,10 +1,7 @@
-use std::collections::{HashMap, HashSet};
-
-use galfus_core::{NodeId, SymbolId, TypeId};
-
-use crate::{FunctionParameterType, SymbolKind, SyntaxNodeKind, TypeKind};
-
 use super::DeclarationTypeChecker;
+use crate::{FunctionParameterType, SymbolKind, SyntaxNodeKind, TypeKind};
+use galfus_core::{NodeId, SymbolId, TypeId};
+use std::collections::{HashMap, HashSet};
 
 type GenericSubstitution = HashMap<SymbolId, TypeId>;
 

@@ -1,8 +1,6 @@
-use galfus_core::TypeId;
-
-use crate::{FunctionType, TypeKind};
-
 use super::DeclarationTypeChecker;
+use crate::{FunctionType, TypeKind};
+use galfus_core::TypeId;
 
 impl<'a> DeclarationTypeChecker<'a> {
     pub(super) fn is_assignable(&self, expected: TypeId, actual: TypeId) -> bool {

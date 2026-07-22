@@ -1,5 +1,6 @@
-pub use instruction::*;
-pub use validation::*;
+// =========================================================================
+// Constant Pool
+// =========================================================================
 
 pub mod graph;
 pub mod graph_resolver;
@@ -11,10 +12,8 @@ pub use graph::{
     BytecodeGraphValidationError, BytecodeNode, ImportEdge,
 };
 pub use graph_resolver::{GraphResolutionError, ModuleImports, ResolvedImport};
-
-// =========================================================================
-// Constant Pool
-// =========================================================================
+pub use instruction::*;
+pub use validation::*;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Constant {

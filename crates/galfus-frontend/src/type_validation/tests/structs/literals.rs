@@ -1,4 +1,5 @@
 use super::*;
+use crate::type_validation::check_definition_types;
 
 #[test]
 fn check_accepts_struct_literal() {
@@ -97,7 +98,7 @@ var user: User = new(User) {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
-    let result = crate::type_validation::check_definition_types(&source, &graph, result);
+    let result = check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -129,7 +130,7 @@ var user: User = new(User) {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
-    let result = crate::type_validation::check_definition_types(&source, &graph, result);
+    let result = check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -161,7 +162,7 @@ var user: User = new(User) {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
-    let result = crate::type_validation::check_definition_types(&source, &graph, result);
+    let result = check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -235,7 +236,7 @@ fn update(): null {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
-    let result = crate::type_validation::check_definition_types(&source, &graph, result);
+    let result = check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -268,7 +269,7 @@ var user: User = new(User) {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
-    let result = crate::type_validation::check_definition_types(&source, &graph, result);
+    let result = check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {

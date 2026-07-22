@@ -1,10 +1,7 @@
-use std::collections::HashMap;
-
-use galfus_core::{Diagnostic, NodeId, SymbolId, TypeId};
-
-use crate::{FunctionType, TypeDiagnosticCode};
-
 use super::DeclarationTypeChecker;
+use crate::{FunctionType, TypeDiagnosticCode};
+use galfus_core::{Diagnostic, NodeId, SymbolId, TypeId};
+use std::collections::HashMap;
 
 impl<'a> DeclarationTypeChecker<'a> {
     pub(super) fn report_invalid_instanceof_pattern_type(

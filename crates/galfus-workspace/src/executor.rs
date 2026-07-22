@@ -1,12 +1,12 @@
+#[cfg(test)]
+mod tests;
+
 use galfus_contract::{RunnableTask, ThreadExecutor, ThreadResult};
 use std::collections::VecDeque;
 use std::sync::{
     Mutex,
     atomic::{AtomicU64, Ordering},
 };
-
-#[cfg(test)]
-mod tests;
 
 pub struct SingleThreadExecutor {
     queue: Mutex<VecDeque<Box<dyn RunnableTask>>>,

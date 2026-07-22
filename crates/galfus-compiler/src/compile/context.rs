@@ -1,3 +1,5 @@
+use super::resolve::resolve_import_target;
+use crate::input::CompiledModule;
 use galfus_core::{FunctionId, NodeId, SymbolId, TypeId};
 use galfus_frontend::{
     FunctionParameterType, FunctionType, SymbolKind, SyntaxNodeKind, TypeKind, TypeTable,
@@ -5,10 +7,6 @@ use galfus_frontend::{
 use galfus_ir::builder::WorkspaceContext;
 use galfus_ir::mir::MirFunction;
 use std::collections::HashMap;
-
-use crate::input::CompiledModule;
-
-use super::resolve::resolve_import_target;
 
 pub(super) struct MyWorkspaceContext<'a> {
     modules: &'a [CompiledModule],

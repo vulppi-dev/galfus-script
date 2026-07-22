@@ -1,6 +1,5 @@
-use crate::{BinaryAssociativity, BinaryOperatorKind, OperatorKind, UnaryOperatorKind};
-
 use super::*;
+use crate::{BinaryAssociativity, BinaryOperatorKind, OperatorKind, UnaryOperatorKind};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum ExpressionBoundary {

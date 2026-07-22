@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod tests;
+
 use crate::ImportKind;
 use crate::diagnostics::CheckDiagnosticCode;
 use crate::modules::collect_implicit_dependencies;
@@ -14,9 +17,6 @@ use galfus_core::{
     Diagnostic, DiagnosticBag, ModuleId, ModulePath, NodeId, Revision, SourceFile, SymbolId,
 };
 use std::collections::{HashMap, HashSet};
-
-#[cfg(test)]
-mod tests;
 
 #[derive(Debug, Clone)]
 pub(crate) struct ImportCheckRecord {

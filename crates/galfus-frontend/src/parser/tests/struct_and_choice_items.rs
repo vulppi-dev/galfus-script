@@ -1,6 +1,5 @@
-use crate::BinaryOperatorKind;
-
 use super::*;
+use crate::BinaryOperatorKind;
 
 #[test]
 fn parse_struct_item() {

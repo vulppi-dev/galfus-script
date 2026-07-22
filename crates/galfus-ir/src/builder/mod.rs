@@ -1,8 +1,3 @@
-use crate::mir::*;
-use galfus_core::{FunctionId, ModuleId, NodeId, SymbolId, TypeId};
-use galfus_frontend::{ModuleGraph, SymbolKind, SyntaxNodeKind, TypeCheckResult, TypeKind};
-use std::collections::{HashMap, HashSet};
-
 pub mod complex_literals;
 pub mod expression;
 pub mod function;
@@ -10,6 +5,11 @@ mod function_helpers;
 pub mod helpers;
 mod module_items;
 pub mod pattern;
+
+use crate::mir::*;
+use galfus_core::{FunctionId, ModuleId, NodeId, SymbolId, TypeId};
+use galfus_frontend::{ModuleGraph, SymbolKind, SyntaxNodeKind, TypeCheckResult, TypeKind};
+use std::collections::{HashMap, HashSet};
 
 pub struct MirBuilder<'a> {
     pub(super) graph: &'a ModuleGraph,

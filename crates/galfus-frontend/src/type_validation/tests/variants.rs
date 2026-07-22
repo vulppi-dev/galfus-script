@@ -1,4 +1,5 @@
 use super::*;
+use crate::type_validation::check_definition_types;
 
 #[test]
 fn check_accepts_enum_variant_expression() {
@@ -83,7 +84,7 @@ enum(bool) Mode {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
-    let result = crate::type_validation::check_definition_types(&source, &graph, result);
+    let result = check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -113,7 +114,7 @@ enum(u8) Mode {
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
-    let result = crate::type_validation::check_definition_types(&source, &graph, result);
+    let result = check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -243,7 +244,7 @@ var asset: Asset = Asset::Texture
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
-    let result = crate::type_validation::check_definition_types(&source, &graph, result);
+    let result = check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -272,7 +273,7 @@ var asset: Asset = Asset::None(1)
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
-    let result = crate::type_validation::check_definition_types(&source, &graph, result);
+    let result = check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -301,7 +302,7 @@ var asset: Asset = Asset::Image("grass.png", 64)
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
-    let result = crate::type_validation::check_definition_types(&source, &graph, result);
+    let result = check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {
@@ -330,7 +331,7 @@ var asset: Asset = Asset::Image("grass.png", true, 64)
 
     let graph = resolve_result.into_graph();
     let result = check_declaration_types(&source, &graph);
-    let result = crate::type_validation::check_definition_types(&source, &graph, result);
+    let result = check_definition_types(&source, &graph, result);
 
     assert!(result.has_errors());
     assert!(result.diagnostics().iter().any(|diagnostic| {

@@ -1,8 +1,6 @@
-use galfus_core::{NodeId, SymbolId, TypeId};
-
-use crate::{ImportedMemberKey, PrimitiveType, SymbolKind, TypeKind};
-
 use super::DeclarationTypeChecker;
+use crate::{ImportedMemberKey, PrimitiveType, SymbolKind, TypeKind};
+use galfus_core::{NodeId, SymbolId, TypeId};
 
 impl<'a> DeclarationTypeChecker<'a> {
     pub(super) fn infer_member_expression_type(

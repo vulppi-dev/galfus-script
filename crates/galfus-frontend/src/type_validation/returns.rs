@@ -1,10 +1,7 @@
-use std::collections::HashMap;
-
-use galfus_core::{NodeId, TypeId};
-
-use crate::{PrimitiveType, SymbolKind, SyntaxNodeKind, TypeKind};
-
 use super::DeclarationTypeChecker;
+use crate::{PrimitiveType, SymbolKind, SyntaxNodeKind, TypeKind};
+use galfus_core::{NodeId, TypeId};
+use std::collections::HashMap;
 
 impl<'a> DeclarationTypeChecker<'a> {
     pub(super) fn check_return_types(&mut self, node: NodeId, current_return_type: Option<TypeId>) {

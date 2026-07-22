@@ -1,3 +1,11 @@
+pub mod constants;
+mod expression;
+pub mod function;
+pub mod helpers;
+mod module;
+pub mod ssa;
+pub mod types;
+
 use crate::lower::constants::HashableConstant;
 use crate::mir::Constant as MirConstant;
 use galfus_bytecode::instruction::{ConstIdx, FuncIdx, TypeIdx};
@@ -6,14 +14,6 @@ use galfus_core::{FunctionId, SymbolId, TypeId};
 use galfus_frontend::{ModuleGraph, TypeCheckResult};
 pub use module::*;
 use std::collections::HashMap;
-
-pub mod constants;
-mod expression;
-pub mod function;
-pub mod helpers;
-mod module;
-pub mod ssa;
-pub mod types;
 
 pub struct LowerCtx<'a> {
     pub type_result: &'a TypeCheckResult,

@@ -1,6 +1,5 @@
 #[cfg(test)]
 mod tests;
-
 pub const STD_IO_SOURCE: &str = include_str!("../rich_builtins/io.gfs");
 pub const CONSTRAINTS_SOURCE: &str = include_str!("../rich_builtins/constraints.gfs");
 pub const ITERABLE_SOURCE: &str = include_str!("../rich_builtins/iterable.gfs");

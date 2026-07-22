@@ -1,6 +1,5 @@
-use crate::ImportKind;
-
 use super::*;
+use crate::ImportKind;
 
 #[test]
 fn resolve_declares_namespace_import_binding() {

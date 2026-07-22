@@ -1,11 +1,9 @@
-use std::collections::{HashMap, HashSet};
-
-use galfus_core::{NodeId, SymbolId, TypeId};
-
+use super::DeclarationTypeChecker;
+use crate::ScopeKind;
 use crate::builtin_constraints::is_builtin_constraint;
 use crate::{PrimitiveType, SymbolKind, SyntaxNodeKind, TypeKind};
-
-use super::DeclarationTypeChecker;
+use galfus_core::{NodeId, SymbolId, TypeId};
+use std::collections::{HashMap, HashSet};
 
 impl<'a> DeclarationTypeChecker<'a> {
     pub(super) fn check_semantic_rules(&mut self, root: NodeId) {
@@ -504,7 +502,7 @@ impl<'a> DeclarationTypeChecker<'a> {
 
         resolution
             .scope(symbol_data.scope())
-            .is_some_and(|scope| scope.kind() == crate::ScopeKind::Builtin)
+            .is_some_and(|scope| scope.kind() == ScopeKind::Builtin)
     }
 }
 

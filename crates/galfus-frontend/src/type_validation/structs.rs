@@ -1,10 +1,7 @@
-use std::collections::{HashMap, HashSet};
-
-use galfus_core::{NodeId, SymbolId, TypeId};
-
-use crate::{SymbolKind, SyntaxNodeKind, TypeKind};
-
 use super::DeclarationTypeChecker;
+use crate::{SymbolKind, SyntaxNodeKind, TypeKind};
+use galfus_core::{NodeId, SymbolId, TypeId};
+use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone)]
 pub(super) struct StructFieldInfo {

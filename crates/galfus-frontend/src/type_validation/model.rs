@@ -1,12 +1,9 @@
-use std::collections::HashMap;
-
-use galfus_core::{DiagnosticBag, NodeId, SymbolId, TypeId};
+mod ownership_model;
 
 use crate::{PrimitiveType, TypeLayer};
-
+use galfus_core::{DiagnosticBag, NodeId, SymbolId, TypeId};
 pub use ownership_model::*;
-
-mod ownership_model;
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ImportedFunctionParameterType {

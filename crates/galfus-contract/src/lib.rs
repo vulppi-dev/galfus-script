@@ -1,10 +1,10 @@
 //! Host integration contracts for Galfus execution.
 
-pub mod thread;
-pub use thread::*;
-
 #[cfg(test)]
 mod tests;
+pub mod thread;
+
+pub use thread::*;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum HostValue {

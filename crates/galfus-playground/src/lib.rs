@@ -1,8 +1,8 @@
+mod buffer_io;
+
 use anyhow::Result;
 use galfus_contract::Providers;
 use galfus_workspace::{LoadResult, Workspace};
-
-mod buffer_io;
 
 #[cfg(feature = "wasm")]
 mod wasm;

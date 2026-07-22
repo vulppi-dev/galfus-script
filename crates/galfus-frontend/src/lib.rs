@@ -1,16 +1,3 @@
-pub use ast::*;
-pub use diagnostics::*;
-pub use lexer::*;
-pub use parser::*;
-pub use resolver::*;
-pub use string_table::*;
-pub use surface_bind::*;
-pub use token_tree::*;
-pub use tokens::*;
-pub use type_bind::*;
-pub use type_validation::*;
-pub use types::*;
-
 mod ast;
 mod builtin_constraints;
 pub mod diagnostics;
@@ -25,3 +12,16 @@ mod tokens;
 mod type_bind;
 mod type_validation;
 mod types;
+
+pub use ast::*;
+pub use diagnostics::*;
+pub use lexer::*;
+pub use parser::*;
+pub use resolver::*;
+pub use string_table::*;
+pub use surface_bind::*;
+pub use token_tree::*;
+pub use tokens::*;
+pub use type_bind::*;
+pub use type_validation::*;
+pub use types::*;

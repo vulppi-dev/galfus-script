@@ -1,9 +1,8 @@
-use galfus_core::{SourceFile, SourceId, SymbolId};
-
 use crate::{
     ImportedType, PrimitiveType, SymbolKind, build_module_surface, check_declaration_types, parse,
     resolve,
 };
+use galfus_core::{SourceFile, SourceId, SymbolId};
 
 fn source(text: &str) -> SourceFile {
     SourceFile::new(SourceId::new(0), "main.gfs".to_string(), text.to_string())

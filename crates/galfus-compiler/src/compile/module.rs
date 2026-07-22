@@ -6,7 +6,19 @@
 //! - Contains only its own functions; cross-module calls target an import slot
 //!   via a local `FuncIdx` that the runtime resolves at load time.
 
+use crate::compile::{
+    context::MyWorkspaceContext,
+    globals::{image_local_count, rewrite_global_indices},
+};
+use crate::input::CompiledModule;
+/// Compile all modules in `modules`, each producing its own
+/// `BytecodeModule` with imports and exports declared.
+///
+/// Cross-module calls are represented as `Call` instructions that target a
+/// `FuncIdx` in the local import table. The runtime is responsible for
+/// resolving these at load time.
 use anyhow::Result;
+use galfus_bytecode::graph::BytecodeNode;
 use galfus_bytecode::{
     BytecodeFunction, BytecodeGraphTransaction, BytecodeModule, BytecodeType, ExportSlot,
     ImportEdge, ImportSlot,
@@ -14,19 +26,6 @@ use galfus_bytecode::{
 };
 use std::collections::{HashMap, HashSet};
 
-use crate::compile::{
-    context::MyWorkspaceContext,
-    globals::{image_local_count, rewrite_global_indices},
-};
-use crate::input::CompiledModule;
-use galfus_bytecode::graph::BytecodeNode;
-
-/// Compile all modules in `modules`, each producing its own
-/// `BytecodeModule` with imports and exports declared.
-///
-/// Cross-module calls are represented as `Call` instructions that target a
-/// `FuncIdx` in the local import table. The runtime is responsible for
-/// resolving these at load time.
 pub fn compile_modules(modules: &mut [CompiledModule]) -> Result<Vec<BytecodeNode>> {
     let module_ids = modules.iter().map(CompiledModule::id).collect();
     compile_changed_modules(modules, &module_ids)

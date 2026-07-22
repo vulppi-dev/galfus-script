@@ -1,6 +1,5 @@
-use crate::RangeOperatorKind;
-
 use super::*;
+use crate::RangeOperatorKind;
 
 #[test]
 fn parse_exclusive_range_expression() {

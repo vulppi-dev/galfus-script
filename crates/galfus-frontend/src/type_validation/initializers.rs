@@ -1,8 +1,6 @@
-use galfus_core::{NodeId, TypeId};
-
-use crate::{SymbolKind, SyntaxNodeKind};
-
 use super::DeclarationTypeChecker;
+use crate::{SymbolKind, SyntaxNodeKind};
+use galfus_core::{NodeId, TypeId};
 
 impl<'a> DeclarationTypeChecker<'a> {
     pub(super) fn check_initializer_types(&mut self, node: NodeId) {
