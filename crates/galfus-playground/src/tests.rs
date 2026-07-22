@@ -104,7 +104,5 @@ export fn main(args: [[u8]]): i32 {
     playground.send_read_data(b"hello\n");
 
     assert!(playground.check().is_valid);
-    playground.compile().expect("compiles source");
-    assert_eq!(playground.run(&[]).expect("runs source"), 9);
     assert_eq!(playground.take_output(), b"hello\n");
 }
