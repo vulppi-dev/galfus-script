@@ -26,6 +26,18 @@ pub enum ThreadResult {
     },
 }
 
+/// The result returned after running one step of the executor.
+pub enum ExecutorStepResult {
+    /// The executor still has tasks in the queue or is actively running them.
+    Running,
+    /// All tasks are blocked, waiting for external I/O or a timeout.
+    Blocked {
+        timeout: Option<std::time::Duration>,
+    },
+    /// All tasks have completed successfully. Contains the exit code of the entry thread.
+    Completed(i32),
+}
+
 /// The Host must implement this trait to dictate how tasks are scheduled.
 pub trait ThreadExecutor: Send + Sync {
     /// Allocates a unique, non-zero identity for a virtual thread.
@@ -36,6 +48,14 @@ pub trait ThreadExecutor: Send + Sync {
     /// The Runtime calls this whenever a new thread is born or "woken up".
     fn spawn(&self, task: Box<dyn RunnableTask>);
 
-    /// Runs the executor loop until no more tasks are active, returning the exit code or an error.
-    fn run_until_idle(&self) -> Result<i32, String>;
+    /// Sets the callback to be invoked when the executor completes its execution.
+    fn on_exit(&self, callback: Box<dyn Fn(Result<i32, String>) + Send + Sync>);
+
+    /// Runs the executor loop. Behavior (blocking vs non-blocking) depends on the implementation.
+    fn run(&self);
+
+    /// Executes a single task step from the queue, returning the current status.
+    fn step(&self) -> Result<ExecutorStepResult, String> {
+        unimplemented!("step is not implemented by default")
+    }
 }

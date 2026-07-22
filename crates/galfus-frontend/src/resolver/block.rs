@@ -87,7 +87,8 @@ impl<'a> Resolver<'a> {
             SyntaxNodeKind::IfStatement
             | SyntaxNodeKind::LoopStatement
             | SyntaxNodeKind::ReturnStatement
-            | SyntaxNodeKind::ExpressionStatement => {
+            | SyntaxNodeKind::ExpressionStatement
+            | SyntaxNodeKind::AssignmentStatement => {
                 self.resolve_nested_blocks_in(statement, scope);
             }
 

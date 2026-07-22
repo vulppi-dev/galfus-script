@@ -1,5 +1,6 @@
 use super::*;
 use crate::executor::SingleThreadExecutor;
+use galfus_contract::ThreadExecutor;
 use galfus_contract::{HostProvider, HostResponse, HostValue, MessageInjector, Providers};
 use std::sync::{Arc, Mutex};
 
@@ -365,13 +366,13 @@ fn run_requires_compile_and_executes_the_configured_entry() {
     assert!(workspace.check().is_valid);
     workspace.compile().expect("workspace compiles");
     let executor = Arc::new(SingleThreadExecutor::new());
-    assert_eq!(
-        workspace
-            .run(&[], None, executor)
-            .expect("entry executes")
-            .exit_code,
-        42
-    );
+    let exit_code = Arc::new(Mutex::new(0));
+    let ec = Arc::clone(&exit_code);
+    executor.on_exit(Box::new(move |res: Result<i32, String>| {
+        *ec.lock().unwrap() = res.unwrap();
+    }));
+    workspace.run(&[], None, executor).expect("entry executes");
+    assert_eq!(*exit_code.lock().unwrap(), 42);
 }
 
 #[test]
@@ -405,11 +406,15 @@ fn run_reports_missing_io_provider_only_when_io_is_executed() {
     workspace.compile().expect("workspace compiles");
 
     let executor = Arc::new(SingleThreadExecutor::new());
-    let error = workspace
-        .run(&[], None, executor)
-        .err()
-        .map(|e| format!("{:?}", e))
-        .expect("I/O requires a provider at runtime");
+    let exit_error = Arc::new(Mutex::new(String::new()));
+    let ee = Arc::clone(&exit_error);
+    executor.on_exit(Box::new(move |res| {
+        if let Err(e) = res {
+            *ee.lock().unwrap() = e;
+        }
+    }));
+    workspace.run(&[], None, executor).unwrap();
+    let error = exit_error.lock().unwrap().clone();
     assert!(error.contains("HostProvider missing"));
 }
 
@@ -448,13 +453,15 @@ fn run_passes_read_terminator_to_the_io_provider() {
         terminator: Arc::clone(&terminator),
     }));
     let executor = Arc::new(SingleThreadExecutor::new());
-    assert_eq!(
-        workspace
-            .run(&[], Some(providers), executor)
-            .expect("entry executes")
-            .exit_code,
-        0
-    );
+    let exit_code = Arc::new(Mutex::new(0));
+    let ec = Arc::clone(&exit_code);
+    executor.on_exit(Box::new(move |res: Result<i32, String>| {
+        *ec.lock().unwrap() = res.unwrap();
+    }));
+    workspace
+        .run(&[], Some(providers), executor)
+        .expect("entry executes");
+    assert_eq!(*exit_code.lock().unwrap(), 0);
     assert_eq!(*terminator.lock().expect("terminator state"), b"!");
 }
 
@@ -499,13 +506,13 @@ fn run_specializes_nested_generic_types_across_modules() {
     assert!(check.is_valid, "check diagnostics: {:?}", check.diagnostics);
     workspace.compile().expect("workspace compiles");
     let executor = Arc::new(SingleThreadExecutor::new());
-    assert_eq!(
-        workspace
-            .run(&[], None, executor)
-            .expect("entry executes")
-            .exit_code,
-        42
-    );
+    let exit_code = Arc::new(Mutex::new(0));
+    let ec = Arc::clone(&exit_code);
+    executor.on_exit(Box::new(move |res: Result<i32, String>| {
+        *ec.lock().unwrap() = res.unwrap();
+    }));
+    workspace.run(&[], None, executor).expect("entry executes");
+    assert_eq!(*exit_code.lock().unwrap(), 42);
 }
 
 #[test]
@@ -551,13 +558,13 @@ fn run_specializes_explicit_imported_generic_typeof_parameter() {
     assert!(check.is_valid, "check diagnostics: {:?}", check.diagnostics);
     workspace.compile().expect("workspace compiles");
     let executor = Arc::new(SingleThreadExecutor::new());
-    assert_eq!(
-        workspace
-            .run(&[], None, executor)
-            .expect("entry executes")
-            .exit_code,
-        42
-    );
+    let exit_code = Arc::new(Mutex::new(0));
+    let ec = Arc::clone(&exit_code);
+    executor.on_exit(Box::new(move |res: Result<i32, String>| {
+        *ec.lock().unwrap() = res.unwrap();
+    }));
+    workspace.run(&[], None, executor).expect("entry executes");
+    assert_eq!(*exit_code.lock().unwrap(), 42);
 }
 
 #[test]
@@ -592,13 +599,13 @@ fn run_specializes_generic_anchored_range_iterator_methods() {
     assert!(check.is_valid, "check diagnostics: {:?}", check.diagnostics);
     workspace.compile().expect("workspace compiles");
     let executor = Arc::new(SingleThreadExecutor::new());
-    assert_eq!(
-        workspace
-            .run(&[], None, executor)
-            .expect("entry executes")
-            .exit_code,
-        20
-    );
+    let exit_code = Arc::new(Mutex::new(0));
+    let ec = Arc::clone(&exit_code);
+    executor.on_exit(Box::new(move |res: Result<i32, String>| {
+        *ec.lock().unwrap() = res.unwrap();
+    }));
+    workspace.run(&[], None, executor).expect("entry executes");
+    assert_eq!(*exit_code.lock().unwrap(), 20);
 }
 
 #[test]
@@ -635,13 +642,13 @@ fn run_synchronizes_the_runtime_module_graph() {
         .find(|image| image.path().as_str() == "helper.gfs")
         .expect("helper image");
     let executor = Arc::new(SingleThreadExecutor::new());
-    assert_eq!(
-        workspace
-            .run(&[], None, executor)
-            .expect("entry executes")
-            .exit_code,
-        0
-    );
+    let exit_code = Arc::new(Mutex::new(0));
+    let ec = Arc::clone(&exit_code);
+    executor.on_exit(Box::new(move |res: Result<i32, String>| {
+        *ec.lock().unwrap() = res.unwrap();
+    }));
+    workspace.run(&[], None, executor).expect("entry executes");
+    assert_eq!(*exit_code.lock().unwrap(), 0);
 
     assert!(matches!(
         workspace.remove_module("helper.gfs"),
@@ -650,11 +657,11 @@ fn run_synchronizes_the_runtime_module_graph() {
     assert!(workspace.check().is_valid);
     workspace.compile().expect("workspace recompiles");
     let executor2 = Arc::new(SingleThreadExecutor::new());
-    assert_eq!(
-        workspace
-            .run(&[], None, executor2)
-            .expect("entry executes")
-            .exit_code,
-        0
-    );
+    let exit_code2 = Arc::new(Mutex::new(0));
+    let ec2 = Arc::clone(&exit_code2);
+    executor2.on_exit(Box::new(move |res: Result<i32, String>| {
+        *ec2.lock().unwrap() = res.unwrap();
+    }));
+    workspace.run(&[], None, executor2).expect("entry executes");
+    assert_eq!(*exit_code2.lock().unwrap(), 0);
 }

@@ -264,8 +264,23 @@ impl FrontendSession {
             let imports = self.module_imports(module_index);
 
             for import in imports {
-                if import.kind != ImportKind::Named || !is_resolvable_import(import.source.as_str())
-                {
+                if !is_resolvable_import(import.source.as_str()) {
+                    let span = self.modules[module_index]
+                        .graph()
+                        .syntax()
+                        .node(import.declaration)
+                        .map(|node| node.span())
+                        .unwrap_or_else(|| self.modules[module_index].source().span());
+
+                    self.diagnostics.push(Diagnostic::error_with_message(
+                        CheckDiagnosticCode::ImportModuleNotFound,
+                        format!("import module `{}` not found", import.source),
+                        span,
+                    ));
+                    continue;
+                }
+
+                if import.kind != ImportKind::Named {
                     continue;
                 }
 

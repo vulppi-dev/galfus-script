@@ -26,9 +26,12 @@ use galfus_bytecode::{
 };
 use std::collections::{HashMap, HashSet};
 
-pub fn compile_modules(modules: &mut [CompiledModule]) -> Result<Vec<BytecodeNode>> {
+pub fn compile_modules(
+    modules: &mut [CompiledModule],
+    state: &mut crate::CompilerState,
+) -> Result<Vec<BytecodeNode>> {
     let module_ids = modules.iter().map(CompiledModule::id).collect();
-    compile_changed_modules(modules, &module_ids)
+    compile_changed_modules(modules, state, &module_ids)
 }
 
 /// Compile only modules identified by `changed_modules`.
@@ -38,6 +41,7 @@ pub fn compile_modules(modules: &mut [CompiledModule]) -> Result<Vec<BytecodeNod
 /// modules are lowered into new `BytecodeNode`s.
 pub fn compile_changed_modules(
     modules: &mut [CompiledModule],
+    state: &mut crate::CompilerState,
     changed_modules: &HashSet<galfus_core::ModuleId>,
 ) -> Result<Vec<BytecodeNode>> {
     if changed_modules.is_empty() {
@@ -46,7 +50,7 @@ pub fn compile_changed_modules(
 
     // Phase 1: Build MIR only for changed modules. Generic specializations can
     // add functions to an imported module, which then becomes affected too.
-    let mut ws_ctx = MyWorkspaceContext::new(modules);
+    let mut ws_ctx = MyWorkspaceContext::new(modules, state);
     let mut affected_modules = modules
         .iter()
         .enumerate()
@@ -72,23 +76,33 @@ pub fn compile_changed_modules(
                 .build();
         mir_modules[module_index] = Some(mir);
 
-        for (target_index, specialized) in ws_ctx.specialised_functions.iter().enumerate() {
-            if !specialized.is_empty() && affected_modules.insert(target_index) {
-                pending_modules.push(target_index);
+        for (module_id, specialized) in ws_ctx.state.specialised_functions.iter() {
+            if !specialized.is_empty() {
+                if let Some(target_index) = modules.iter().position(|m| m.id() == *module_id) {
+                    if affected_modules.insert(target_index) {
+                        pending_modules.push(target_index);
+                    }
+                }
             }
         }
     }
 
     // Append specialized functions.
     for module_index in &affected_modules {
-        let mut specialized = std::mem::take(&mut ws_ctx.specialised_functions[*module_index]);
+        let module_id = modules[*module_index].id();
+        let mut specialized = ws_ctx
+            .state
+            .specialised_functions
+            .get_mut(&module_id)
+            .map(std::mem::take)
+            .unwrap_or_default();
         mir_modules[*module_index]
             .as_mut()
             .expect("affected module has MIR")
             .functions
             .append(&mut specialized);
     }
-    let specialized_targets = ws_ctx.specialised_id_to_target.clone();
+    let specialized_targets = ws_ctx.state.specialised_id_to_target.clone();
     drop(ws_ctx);
 
     // Phase 2: Compile each module independently.
@@ -124,13 +138,14 @@ pub fn compile_changed_modules(
 /// Compile changed modules and package them into one graph transaction.
 pub fn compile_transaction(
     modules: &mut [CompiledModule],
+    state: &mut crate::CompilerState,
     changed_modules: &HashSet<galfus_core::ModuleId>,
     base_version: u64,
     semantic_revision: galfus_core::SemanticRevision,
     removed_modules: Vec<galfus_core::ModuleId>,
     edges: Vec<ImportEdge>,
 ) -> Result<BytecodeGraphTransaction> {
-    let upserted_modules = compile_changed_modules(modules, changed_modules)?;
+    let upserted_modules = compile_changed_modules(modules, state, changed_modules)?;
     Ok(BytecodeGraphTransaction {
         base_version,
         semantic_revision,
@@ -143,7 +158,10 @@ pub fn compile_transaction(
 fn compile_single_module(
     modules: &mut [CompiledModule],
     mir_modules: &[Option<galfus_ir::mir::MirModule>],
-    specialized_targets: &HashMap<galfus_core::FunctionId, (usize, galfus_core::FunctionId)>,
+    specialized_targets: &HashMap<
+        galfus_core::FunctionId,
+        (galfus_core::ModuleId, galfus_core::FunctionId),
+    >,
     mod_idx: usize,
 ) -> Result<(BytecodeModule, galfus_bytecode::graph::ExecutionMetadata)> {
     use crate::compile::resolve::{
@@ -156,8 +174,10 @@ fn compile_single_module(
         .expect("compiled module has MIR");
 
     // Collect all cross-module call targets: (local_func_id → (target_mod, target_func)).
-    let mut cross_module_calls: HashMap<galfus_core::FunctionId, (usize, galfus_core::FunctionId)> =
-        HashMap::new();
+    let mut cross_module_calls: HashMap<
+        galfus_core::FunctionId,
+        (galfus_core::ModuleId, galfus_core::FunctionId),
+    > = HashMap::new();
 
     for func in &mir_mod.functions {
         let mut targets = Vec::new();
@@ -180,14 +200,19 @@ fn compile_single_module(
     // We assign local FuncIdx starting after the module's own functions.
     let own_func_count = mir_mod.functions.len() as u16;
     let mut import_slots: Vec<ImportSlot> = Vec::new();
-    // Map: (target_mod_idx, target_func_id) → local FuncIdx in the import table.
-    let mut import_func_map: HashMap<(usize, galfus_core::FunctionId), FuncIdx> = HashMap::new();
+    // Map: (target_mod_id, target_func_id) → local FuncIdx in the import table.
+    let mut import_func_map: HashMap<(galfus_core::ModuleId, galfus_core::FunctionId), FuncIdx> =
+        HashMap::new();
 
-    for (&local_id, &(target_mod_idx, target_func_id)) in &cross_module_calls {
+    for (&local_id, &(target_module_id, target_func_id)) in &cross_module_calls {
         let entry = import_func_map
-            .entry((target_mod_idx, target_func_id))
+            .entry((target_module_id, target_func_id))
             .or_insert_with(|| {
                 let slot_idx = own_func_count + import_slots.len() as u16;
+                let target_mod_idx = modules
+                    .iter()
+                    .position(|m| m.id() == target_module_id)
+                    .unwrap_or(0);
                 let target_module = &modules[target_mod_idx];
                 let symbol_name = target_module
                     .graph()
@@ -246,8 +271,8 @@ fn compile_single_module(
             }
         }
     }
-    for &(target_mod_idx, target_func_id) in specialized_targets.values() {
-        if target_mod_idx != mod_idx {
+    for &(target_module_id, target_func_id) in specialized_targets.values() {
+        if target_module_id != modules[mod_idx].id() {
             continue;
         }
         let Some(&local_idx) = local_func_map.get(&target_func_id) else {

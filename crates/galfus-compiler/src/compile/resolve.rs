@@ -123,7 +123,7 @@ pub(super) fn resolve_import_target(
     modules: &[CompiledModule],
     mod_idx: usize,
     func_id: FunctionId,
-) -> Option<(usize, FunctionId)> {
+) -> Option<(galfus_core::ModuleId, FunctionId)> {
     let module = &modules[mod_idx];
     let resolution = module.graph().resolution()?;
     let symbol_id = SymbolId::new(func_id.raw());
@@ -154,7 +154,10 @@ pub(super) fn resolve_import_target(
                         let target_resolution = target_mod.graph().resolution()?;
                         for export in target_resolution.exports() {
                             if export.name() == member_name {
-                                return Some((target_idx, FunctionId::new(export.symbol().raw())));
+                                return Some((
+                                    target_mod.id(),
+                                    FunctionId::new(export.symbol().raw()),
+                                ));
                             }
                         }
                     }
@@ -175,8 +178,10 @@ pub(super) fn resolve_import_target(
             let mut candidates = target_resolution.exports().iter().filter_map(|export| {
                 let matches_member = export.name() == member_name
                     || export.name().ends_with(&format!("::{member_name}"));
-                (export.kind() == SymbolKind::Function && matches_member)
-                    .then_some((target_idx, FunctionId::new(export.symbol().raw())))
+                (export.kind() == SymbolKind::Function && matches_member).then_some((
+                    modules[target_idx].id(),
+                    FunctionId::new(export.symbol().raw()),
+                ))
             });
             let first = candidates.next();
             if first.is_some() && candidates.next().is_none() {
@@ -203,7 +208,7 @@ pub(super) fn resolve_import_target(
         let target_resolution = target_mod.graph().resolution()?;
         for export in target_resolution.exports() {
             if export.name() == imported_name {
-                return Some((target_idx, FunctionId::new(export.symbol().raw())));
+                return Some((target_mod.id(), FunctionId::new(export.symbol().raw())));
             }
         }
     }
@@ -222,7 +227,12 @@ pub(super) fn resolve_import_target(
                 .find(|export| {
                     export.kind() == SymbolKind::Function && export.symbol().raw() == func_id.raw()
                 })
-                .map(|export| (target_idx, FunctionId::new(export.symbol().raw())))
+                .map(|export| {
+                    (
+                        modules[target_idx].id(),
+                        FunctionId::new(export.symbol().raw()),
+                    )
+                })
         });
     let first = candidates.next();
     if first.is_some() && candidates.next().is_none() {

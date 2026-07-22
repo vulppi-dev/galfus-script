@@ -1,4 +1,5 @@
 use galfus_bytecode::BytecodeGraph;
+use galfus_compiler::CompilerState;
 use galfus_core::{DiagnosticBag, ModuleId, Revision, SemanticRevision};
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -108,6 +109,7 @@ impl SemanticState {
 
 pub struct BytecodeState {
     pub compile_state: CompileState,
+    pub compiler_state: CompilerState,
 }
 
 impl Default for BytecodeState {
@@ -120,6 +122,7 @@ impl BytecodeState {
     pub fn new() -> Self {
         Self {
             compile_state: CompileState::Missing,
+            compiler_state: CompilerState::default(),
         }
     }
 }

@@ -1,7 +1,7 @@
 mod buffer_io;
 
 use anyhow::Result;
-use galfus_contract::Providers;
+use galfus_contract::{Providers, ThreadExecutor};
 use galfus_workspace::{LoadResult, Workspace};
 
 #[cfg(feature = "wasm")]
@@ -16,6 +16,7 @@ pub use buffer_io::BufferIoProvider;
 pub struct Playground {
     workspace: Workspace,
     io: BufferIoProvider,
+    executor: Option<std::sync::Arc<galfus_workspace::executor::SingleThreadExecutor>>,
 }
 
 pub struct PlaygroundCheckResult {
@@ -40,6 +41,7 @@ impl Playground {
         Self {
             workspace: Workspace::new(),
             io: BufferIoProvider::default(),
+            executor: None,
         }
     }
 
@@ -89,6 +91,25 @@ impl Playground {
     }
 
     pub fn run(&mut self, args: &[Vec<u8>]) -> Result<i32> {
+        use galfus_contract::ThreadExecutor;
+        let executor = std::sync::Arc::new(galfus_workspace::executor::SingleThreadExecutor::new());
+        let exit_code = std::sync::Arc::new(std::sync::Mutex::new(0));
+        let ec = std::sync::Arc::clone(&exit_code);
+        executor.on_exit(Box::new(move |res: Result<i32, String>| {
+            *ec.lock().unwrap() = res.unwrap();
+        }));
+        self.workspace
+            .run(
+                args,
+                Some(Providers::with_host(Box::new(self.io.clone()))),
+                executor.clone(),
+            )
+            .map_err(|error| anyhow::anyhow!("playground execution failed: {error:?}"))?;
+        let code = *exit_code.lock().unwrap();
+        Ok(code)
+    }
+
+    pub fn start(&mut self, args: &[Vec<u8>]) -> Result<()> {
         let executor = std::sync::Arc::new(galfus_workspace::executor::SingleThreadExecutor::new());
         self.workspace
             .run(
@@ -96,8 +117,20 @@ impl Playground {
                 Some(Providers::with_host(Box::new(self.io.clone()))),
                 executor.clone(),
             )
-            .map(|report| report.exit_code)
-            .map_err(|error| anyhow::anyhow!("playground execution failed: {error:?}"))
+            .map_err(|error| anyhow::anyhow!("playground execution failed: {error:?}"))?;
+
+        self.executor = Some(executor);
+        Ok(())
+    }
+
+    pub fn step(&mut self) -> Result<galfus_contract::ExecutorStepResult> {
+        if let Some(executor) = &self.executor {
+            executor
+                .step()
+                .map_err(|error| anyhow::anyhow!("playground step failed: {error}"))
+        } else {
+            Err(anyhow::anyhow!("playground execution has not been started"))
+        }
     }
 
     pub fn take_output(&self) -> Vec<u8> {

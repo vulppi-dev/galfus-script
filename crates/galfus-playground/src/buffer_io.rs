@@ -20,6 +20,7 @@ pub struct BufferIoProvider {
 struct BufferIoState {
     input: VecDeque<u8>,
     output: Vec<u8>,
+    pending_read: Option<(usize, Vec<u8>, Arc<dyn MessageInjector>)>,
     #[cfg(feature = "wasm")]
     write_callback: Option<WriteCallback>,
 }
@@ -38,6 +39,7 @@ impl BufferIoProvider {
             state: Arc::new(Mutex::new(BufferIoState {
                 input: input.into().into(),
                 output: Vec::new(),
+                pending_read: None,
                 #[cfg(feature = "wasm")]
                 write_callback: None,
             })),
@@ -49,11 +51,31 @@ impl BufferIoProvider {
     }
 
     pub fn send_read_data(&self, bytes: &[u8]) {
-        self.state
-            .lock()
-            .expect("buffer I/O state")
-            .input
-            .extend(bytes);
+        let mut state = self.state.lock().expect("buffer I/O state");
+        state.input.extend(bytes);
+
+        if let Some((thread_id, terminator, injector)) = state.pending_read.take() {
+            let mut input = Vec::new();
+            let mut found = false;
+            for &byte in state.input.iter() {
+                input.push(byte);
+                if input.ends_with(&terminator) {
+                    found = true;
+                    break;
+                }
+            }
+            if found {
+                let len = input.len();
+                state.input.drain(0..len);
+                input.truncate(len - terminator.len());
+                injector.inject_system_response(
+                    thread_id,
+                    HostResponse::Success(HostValue::Bytes(input)),
+                );
+            } else {
+                state.pending_read = Some((thread_id, terminator, injector));
+            }
+        }
     }
 
     #[cfg(feature = "wasm")]
@@ -127,27 +149,27 @@ impl HostProvider for BufferIoProvider {
                 }
 
                 let mut state = self.state.lock().expect("buffer I/O state");
-                if state.input.is_empty() {
-                    injector.inject_system_response(
-                        thread_id,
-                        HostResponse::Success(HostValue::Bytes(Vec::new())),
-                    );
-                    return;
-                }
-
                 let mut input = Vec::new();
-                while let Some(byte) = state.input.pop_front() {
+                let mut found = false;
+                for &byte in state.input.iter() {
                     input.push(byte);
                     if input.ends_with(&terminator) {
-                        input.truncate(input.len() - terminator.len());
+                        found = true;
                         break;
                     }
                 }
 
-                injector.inject_system_response(
-                    thread_id,
-                    HostResponse::Success(HostValue::Bytes(input)),
-                );
+                if found {
+                    let len = input.len();
+                    state.input.drain(0..len);
+                    input.truncate(len - terminator.len());
+                    injector.inject_system_response(
+                        thread_id,
+                        HostResponse::Success(HostValue::Bytes(input)),
+                    );
+                } else {
+                    state.pending_read = Some((thread_id, terminator, injector));
+                }
             }
             _ => {
                 injector.inject_system_response(

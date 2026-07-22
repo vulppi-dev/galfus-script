@@ -24,9 +24,8 @@ impl TestExecutor {
 }
 
 impl ThreadExecutor for TestExecutor {
-    fn run_until_idle(&self) -> Result<i32, String> {
-        Ok(0)
-    }
+    fn on_exit(&self, _cb: Box<dyn Fn(Result<i32, String>) + Send + Sync>) {}
+    fn run(&self) {}
     fn allocate_thread_id(&self) -> u64 {
         1
     }

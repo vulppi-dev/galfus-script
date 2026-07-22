@@ -59,14 +59,17 @@ fn load_workspace_accepts_standalone_source_file() {
     let mut workspace = load_workspace(source_path.as_path()).expect("loads standalone source");
     assert!(workspace.check().is_valid);
     workspace.compile().expect("compiles standalone source");
+    use galfus_contract::ThreadExecutor;
     let executor = std::sync::Arc::new(galfus_workspace::executor::SingleThreadExecutor::new());
-    assert_eq!(
-        workspace
-            .run(&[], None, executor)
-            .expect("runs standalone source")
-            .exit_code,
-        42
-    );
+    let exit_code = std::sync::Arc::new(std::sync::Mutex::new(0));
+    let ec = std::sync::Arc::clone(&exit_code);
+    executor.on_exit(Box::new(move |res: Result<i32, String>| {
+        *ec.lock().unwrap() = res.unwrap();
+    }));
+    workspace
+        .run(&[], None, executor)
+        .expect("runs standalone source");
+    assert_eq!(*exit_code.lock().unwrap(), 42);
 
     std::fs::remove_file(source_path).expect("remove temporary source");
 }
