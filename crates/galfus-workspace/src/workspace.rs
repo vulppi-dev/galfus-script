@@ -444,6 +444,7 @@ impl Workspace {
         &mut self,
         args: &[Vec<u8>],
         providers: Option<Providers>,
+        executor: Arc<dyn galfus_contract::ThreadExecutor>,
     ) -> Result<RunReport, RunBlocked> {
         let graph = match &self.bytecode_state.compile_state {
             CompileState::Ready { graph, .. } => Arc::clone(graph),
@@ -465,28 +466,6 @@ impl Workspace {
             .expect("a successful compile requires configuration")
             .run_entry
             .clone();
-
-
-        struct TestExecutor {
-            queue: std::sync::Mutex<
-                std::collections::VecDeque<Box<dyn galfus_contract::RunnableTask>>,
-            >,
-            next_thread_id: std::sync::atomic::AtomicU64,
-        }
-        impl galfus_contract::ThreadExecutor for TestExecutor {
-            fn allocate_thread_id(&self) -> u64 {
-                self.next_thread_id
-                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed)
-            }
-
-            fn spawn(&self, task: Box<dyn galfus_contract::RunnableTask>) {
-                self.queue.lock().unwrap().push_back(task);
-            }
-        }
-        let executor = std::sync::Arc::new(TestExecutor {
-            queue: std::sync::Mutex::new(std::collections::VecDeque::new()),
-            next_thread_id: std::sync::atomic::AtomicU64::new(1),
-        });
         let task = Runtime::new(graph.clone(), providers)
             .build_module_entry(entry_id, entry_name.as_str(), args, executor.clone())
             .map_err(|error| {
@@ -496,39 +475,12 @@ impl Workspace {
                     RunBlocked::RuntimeError(error.to_string())
                 }
             })?;
-        galfus_contract::ThreadExecutor::spawn(executor.as_ref(), task);
+        executor.spawn(task);
 
-        let mut exit_code = 0;
-        let mut pending_timeout: Option<std::time::Duration> = None;
-        loop {
-            let t = executor.queue.lock().unwrap().pop_front();
-            let Some(t) = t else {
-                let Some(timeout) = pending_timeout.take() else {
-                    break;
-                };
-                #[cfg(not(target_arch = "wasm32"))]
-                std::thread::sleep(timeout);
-                continue;
-            };
-            match t.run(100) {
-                galfus_contract::ThreadResult::Yielded(t) => {
-                    executor.queue.lock().unwrap().push_back(t)
-                }
-                galfus_contract::ThreadResult::Completed(code) => {
-                    exit_code = code;
-                }
-                galfus_contract::ThreadResult::Failed(err) => {
-                    return Err(RunBlocked::RuntimeError(err));
-                }
-                galfus_contract::ThreadResult::Blocked { timeout } => {
-                    pending_timeout = match (pending_timeout, timeout) {
-                        (Some(current), Some(next)) => Some(current.min(next)),
-                        (Some(current), None) => Some(current),
-                        (None, next) => next,
-                    };
-                }
-            }
-        }
+        let exit_code = executor
+            .run_until_idle()
+            .map_err(|err| RunBlocked::RuntimeError(err))?;
+
         Ok(RunReport { exit_code })
     }
 }

@@ -35,4 +35,7 @@ pub trait ThreadExecutor: Send + Sync {
 
     /// The Runtime calls this whenever a new thread is born or "woken up".
     fn spawn(&self, task: Box<dyn RunnableTask>);
+
+    /// Runs the executor loop until no more tasks are active, returning the exit code or an error.
+    fn run_until_idle(&self) -> Result<i32, String>;
 }
