@@ -1,17 +1,9 @@
-import { readFileSync } from 'fs';
-import { join } from 'path';
-
-// Importa o módulo web gerado
 import init, { Playground } from '../../dist/playground-web/galfus_playground.js';
 
-// No target 'web' (usado pelo wasm-bindgen), precisamos inicializar
-// passando o buffer do wasm para ser executado no Node/Bun.
-const wasmPath = join(import.meta.dir, '../../dist/playground-web/galfus_playground_bg.wasm');
-const wasmBuffer = readFileSync(wasmPath);
-
-await init({ module_or_path: wasmBuffer });
+await init();
 
 const playground = new Playground();
+console.log('Galfus Web Playground Version:', playground.getVersion());
 
 // Capturar saída do buffer de IO em tempo real
 playground.setWriteCallback((bytes: Uint8Array) => {
