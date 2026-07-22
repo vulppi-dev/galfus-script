@@ -1,9 +1,7 @@
-use galfus_core::{NodeId, SymbolId, TypeId};
-
-use crate::{FunctionParameterType, PrimitiveType, SymbolKind, SyntaxNodeKind, TypeKind};
-
 use super::constraints::{ConstraintApplication, ConstraintApplicationError, TypeSubstitution};
 use super::{DeclarationTypeChecker, LoweredImportedConstraint};
+use crate::{FunctionParameterType, PrimitiveType, SymbolKind, SyntaxNodeKind, TypeKind};
+use galfus_core::{NodeId, SymbolId, TypeId};
 
 impl<'a> DeclarationTypeChecker<'a> {
     pub(super) fn constraint_application(

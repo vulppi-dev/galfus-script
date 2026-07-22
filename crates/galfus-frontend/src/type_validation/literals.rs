@@ -1,8 +1,6 @@
-use galfus_core::{NodeId, TypeId};
-
-use crate::{PrimitiveType, SyntaxNodeKind, TypeKind};
-
 use super::DeclarationTypeChecker;
+use crate::{PrimitiveType, SyntaxNodeKind, TypeKind};
+use galfus_core::{NodeId, TypeId};
 
 #[derive(Debug, Clone, Copy)]
 struct ArrayLiteralElementType {

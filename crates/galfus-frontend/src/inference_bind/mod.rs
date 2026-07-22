@@ -1,10 +1,4 @@
-use crate::types::TypeLayer;
-use std::collections::HashMap;
 
-use galfus_core::{NodeId, SourceFile, SymbolId, TypeId};
-
-use crate::ImportedMemberKey;
-use crate::{ImportedSurfaceTypes, ModuleAst};
 
 mod access;
 mod assignability;
@@ -19,6 +13,12 @@ mod operators;
 mod ranges;
 mod support;
 mod typeofs;
+
+use crate::types::TypeLayer;
+use std::collections::HashMap;
+use galfus_core::{NodeId, SourceFile, SymbolId, TypeId};
+use crate::ImportedMemberKey;
+use crate::{ImportedSurfaceTypes, ModuleAst};
 
 pub fn infer_expressions(
     source: &SourceFile,

@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod tests;
+
 use crate::error::VmError;
 use crate::runtime::Value;
 use crate::runtime::{CallFrame, HeapObject, RuntimeModuleState, VmObjectRef};
@@ -5,9 +8,6 @@ use galfus_bytecode::instruction::Reg;
 use galfus_core::ModuleId;
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
-
-#[cfg(test)]
-mod tests;
 
 pub struct PrivateHeap {
     pub objects: Vec<Option<HeapObject>>,

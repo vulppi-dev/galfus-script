@@ -1,12 +1,10 @@
-use galfus_core::{SymbolId, TypeId};
-
+use super::DeclarationTypeChecker;
 use crate::builtin_constraints::{
     BUILTIN_CONSTRAINTS, BuiltinConstraint, BuiltinConstraintFunctionSignature, builtin_constraint,
     is_builtin_constraint,
 };
 use crate::{FunctionParameterType, PrimitiveType, SymbolKind, TypeKind};
-
-use super::DeclarationTypeChecker;
+use galfus_core::{SymbolId, TypeId};
 
 impl<'a> DeclarationTypeChecker<'a> {
     pub(super) fn bind_builtin_constraint_symbol_types(&mut self) {

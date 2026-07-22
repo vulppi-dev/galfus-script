@@ -1,8 +1,8 @@
+
+
 use crate::ast::*;
 use galfus_core::{NodeId, TypeId};
-
 use crate::{PrimitiveType, RangeOperatorKind, SyntaxNodeKind, TypeKind, UnaryOperatorKind};
-
 use super::ExpressionInferrer;
 
 #[derive(Debug, Clone, Copy, PartialEq)]

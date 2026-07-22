@@ -1,10 +1,7 @@
-use std::collections::{HashMap, HashSet};
-
-use galfus_core::{NodeId, SymbolId, TypeId};
-
-use crate::{PrimitiveType, SymbolKind, SyntaxNodeKind, TypeKind};
-
 use super::{DeclarationTypeChecker, LoweredImportedChoice, LoweredImportedChoiceVariant};
+use crate::{PrimitiveType, SymbolKind, SyntaxNodeKind, TypeKind};
+use galfus_core::{NodeId, SymbolId, TypeId};
+use std::collections::{HashMap, HashSet};
 
 impl<'a> DeclarationTypeChecker<'a> {
     pub(super) fn infer_match_expression_type(

@@ -1,6 +1,5 @@
-use crate::AssignmentOperatorKind;
-
 use super::super::*;
+use crate::AssignmentOperatorKind;
 
 #[test]
 fn parse_plus_equal_assignment_statement() {

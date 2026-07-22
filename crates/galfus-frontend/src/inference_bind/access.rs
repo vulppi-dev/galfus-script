@@ -1,7 +1,7 @@
+
+
 use galfus_core::{NodeId, SymbolId, TypeId};
-
 use crate::{ImportedMemberKey, PrimitiveType, SymbolKind, TypeKind};
-
 use super::ExpressionInferrer;
 
 impl<'a> ExpressionInferrer<'a> {

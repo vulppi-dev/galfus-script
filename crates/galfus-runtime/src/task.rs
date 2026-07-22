@@ -1,12 +1,12 @@
+#[cfg(test)]
+mod tests;
+
 use crate::queue::BlockedQueue;
 use crate::registry::{ThreadId, ThreadRegistry};
 use galfus_contract::{RunnableTask, ThreadExecutor, ThreadResult};
 use galfus_vm::thread::VirtualThread;
 use galfus_vm::{ExecutionStep, VirtualMachine};
 use std::sync::{Arc, Mutex};
-
-#[cfg(test)]
-mod tests;
 
 pub struct RuntimeTask {
     pub thread_id: crate::registry::ThreadId,

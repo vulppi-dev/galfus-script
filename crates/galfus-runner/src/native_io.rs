@@ -1,8 +1,8 @@
+/// Synchronous terminal I/O for native Galfus hosts.
 use galfus_contract::{HostProvider, HostResponse, HostValue, MessageInjector};
 use std::io::{Read, Write};
 use std::sync::Arc;
 
-/// Synchronous terminal I/O for native Galfus hosts.
 pub struct NativeIoProvider;
 
 impl HostProvider for NativeIoProvider {

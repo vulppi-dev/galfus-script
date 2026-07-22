@@ -1,8 +1,6 @@
-use galfus_core::{Diagnostic, NodeId, TypeId};
-
-use crate::TypeDiagnosticCode;
-
 use super::DeclarationTypeChecker;
+use crate::TypeDiagnosticCode;
+use galfus_core::{Diagnostic, NodeId, TypeId};
 
 impl<'a> DeclarationTypeChecker<'a> {
     pub(super) fn report_type_mismatch(

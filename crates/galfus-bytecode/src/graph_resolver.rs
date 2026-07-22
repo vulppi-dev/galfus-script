@@ -1,8 +1,8 @@
+/// A resolved runtime target for one import slot.
 use crate::instruction::FuncIdx;
 use galfus_core::{ModuleId, ModulePath};
 use std::collections::HashSet;
 
-/// A resolved runtime target for one import slot.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ResolvedImportKind {
     Function(FuncIdx),

@@ -1,11 +1,11 @@
+/// Optional source mapping attached to a compiled module.
+#[cfg(test)]
+mod tests;
+
 use crate::{BytecodeModule, BytecodeValidationError, validate_bytecode_module};
 use galfus_core::{ModuleId, ModulePath, SemanticRevision};
 use std::collections::{HashMap, HashSet};
 
-#[cfg(test)]
-mod tests;
-
-/// Optional source mapping attached to a compiled module.
 #[derive(Debug, Clone, Default)]
 pub struct ExecutionMetadata {
     pub spans: HashMap<crate::instruction::FuncIdx, HashMap<usize, galfus_core::Span>>,

@@ -1,8 +1,8 @@
-use galfus_core::{NodeId, SymbolId, TypeId};
-use std::collections::HashMap;
-
 #[cfg(test)]
 mod tests;
+
+use galfus_core::{NodeId, SymbolId, TypeId};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum PrimitiveType {

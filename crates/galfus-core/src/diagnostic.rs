@@ -1,7 +1,7 @@
-use crate::Span;
-
 #[cfg(test)]
 mod tests;
+
+use crate::Span;
 
 pub trait DiagnosticCodeKind {
     fn as_code(&self) -> &'static str;

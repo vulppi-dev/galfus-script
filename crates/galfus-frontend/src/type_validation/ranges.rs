@@ -1,11 +1,9 @@
-use galfus_core::{Diagnostic, NodeId, TypeId};
-
+use super::DeclarationTypeChecker;
 use crate::{
     PrimitiveType, RangeDesugarTarget, RangeOperatorKind, SyntaxNodeKind, TypeDiagnosticCode,
     TypeKind, UnaryOperatorKind,
 };
-
-use super::DeclarationTypeChecker;
+use galfus_core::{Diagnostic, NodeId, TypeId};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum RangeLiteralValue {

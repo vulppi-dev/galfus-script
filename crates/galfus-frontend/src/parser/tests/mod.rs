@@ -1,8 +1,3 @@
-use crate::SyntaxLayer;
-
-use super::*;
-use galfus_core::{SourceFile, SourceId};
-
 mod anchored_functions;
 mod binding_patterns;
 mod constraint_items;
@@ -27,6 +22,10 @@ mod tuples;
 mod type_paths;
 mod types;
 mod variable_declarations;
+
+use super::*;
+use crate::SyntaxLayer;
+use galfus_core::{SourceFile, SourceId};
 
 fn source(text: &str) -> SourceFile {
     SourceFile::new(SourceId::new(0), "test.gfs".to_string(), text.to_string())

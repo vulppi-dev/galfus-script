@@ -1,6 +1,5 @@
 use super::*;
 use galfus_core::{SourceId, Span};
-
 use smallvec::smallvec;
 
 #[test]

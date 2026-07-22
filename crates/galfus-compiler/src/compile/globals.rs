@@ -1,9 +1,7 @@
+use super::resolve::import_target_index;
+use crate::input::CompiledModule;
 use anyhow::Result;
 use galfus_bytecode::instruction::{GlobalIdx, Instruction};
-
-use crate::input::CompiledModule;
-
-use super::resolve::import_target_index;
 
 fn canonical_global_ref(
     modules: &[CompiledModule],

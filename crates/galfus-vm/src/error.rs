@@ -1,8 +1,8 @@
-use galfus_bytecode::instruction::{ConstIdx, FieldIdx, FuncIdx, Reg, TypeIdx};
-use thiserror::Error;
-
 #[cfg(test)]
 mod tests;
+
+use galfus_bytecode::instruction::{ConstIdx, FieldIdx, FuncIdx, Reg, TypeIdx};
+use thiserror::Error;
 
 #[derive(Error, Debug, Clone, PartialEq, Eq)]
 pub enum VmError {

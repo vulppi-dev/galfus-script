@@ -1,8 +1,7 @@
+use crate::diagnostic::WorkspaceDiagnosticCode;
 use galfus_core::{Diagnostic, DiagnosticBag, ModulePath, SourceId, Span};
 use serde::Deserialize;
 use std::collections::BTreeMap;
-
-use crate::diagnostic::WorkspaceDiagnosticCode;
 
 pub const WORKSPACE_SOURCE_ID: SourceId = SourceId::new(u32::MAX);
 

@@ -1,7 +1,7 @@
-use crate::SourceId;
-
 #[cfg(test)]
 mod tests;
+
+use crate::SourceId;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Span {

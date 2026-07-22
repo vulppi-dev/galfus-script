@@ -1,10 +1,9 @@
-#[cfg(test)]
-mod tests;
-
 mod lexical;
 mod parser;
 mod semantic;
 mod surface_bind;
+#[cfg(test)]
+mod tests;
 mod token_tree;
 mod type_validation;
 

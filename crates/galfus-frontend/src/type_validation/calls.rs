@@ -1,8 +1,6 @@
-use galfus_core::{NodeId, SymbolId, TypeId};
-
-use crate::{FunctionType, SyntaxNodeKind, TypeKind};
-
 use super::DeclarationTypeChecker;
+use crate::{FunctionType, SyntaxNodeKind, TypeKind};
+use galfus_core::{NodeId, SymbolId, TypeId};
 
 #[derive(Debug, Clone, Copy)]
 enum CallArgument {

@@ -1,6 +1,5 @@
-use crate::UnaryOperatorKind;
-
 use super::super::*;
+use crate::UnaryOperatorKind;
 
 #[test]
 fn parse_grouped_expression_changes_precedence() {

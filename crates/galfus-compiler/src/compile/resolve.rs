@@ -1,7 +1,6 @@
+use crate::input::CompiledModule;
 use galfus_core::{FunctionId, NodeId, SymbolId};
 use galfus_frontend::{SymbolKind, SyntaxNodeKind};
-
-use crate::input::CompiledModule;
 
 pub(super) fn collect_call_targets(
     blocks: &[galfus_ir::mir::BasicBlock],

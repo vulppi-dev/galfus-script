@@ -1,15 +1,3 @@
-use crate::{AsNameId, ModuleAst, NameId, ResolverDiagnosticCode, SyntaxLayer, SyntaxNodeKind};
-use galfus_core::{Diagnostic, DiagnosticBag, NodeId, ScopeId, SourceFile, Span, SymbolId};
-
-pub use export::*;
-pub use import::*;
-pub use resolution::*;
-pub use scope::*;
-pub use symbol::*;
-
-#[cfg(test)]
-mod tests;
-
 mod anchor;
 mod block;
 mod builtin;
@@ -21,8 +9,18 @@ mod reference;
 mod resolution;
 mod scope;
 mod symbol;
+#[cfg(test)]
+mod tests;
 mod type_member;
 mod type_reference;
+
+use crate::{AsNameId, ModuleAst, NameId, ResolverDiagnosticCode, SyntaxLayer, SyntaxNodeKind};
+pub use export::*;
+use galfus_core::{Diagnostic, DiagnosticBag, NodeId, ScopeId, SourceFile, Span, SymbolId};
+pub use import::*;
+pub use resolution::*;
+pub use scope::*;
+pub use symbol::*;
 
 pub struct ResolveResult {
     graph: ModuleAst,

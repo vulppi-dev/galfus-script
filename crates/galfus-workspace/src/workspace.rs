@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod tests;
+
 use crate::config::{WorkspaceConfig, parse_workspace_config};
 use crate::source_store::ModuleOrigin;
 use crate::state::{
@@ -14,9 +17,6 @@ use galfus_frontend::modules::{
 use galfus_runtime::Runtime;
 use std::collections::HashSet;
 use std::sync::Arc;
-
-#[cfg(test)]
-mod tests;
 
 pub struct Workspace {
     pub config: Option<WorkspaceConfig>,

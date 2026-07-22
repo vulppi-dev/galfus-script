@@ -1,12 +1,11 @@
+mod syntax_kind;
+#[cfg(test)]
+mod tests;
+
 use crate::{ResolutionLayer, Token, TokenKind};
 use galfus_core::{Diagnostic, DiagnosticBag, NodeId, SourceId, Span};
 use smallvec::SmallVec;
 pub use syntax_kind::*;
-
-#[cfg(test)]
-mod tests;
-
-mod syntax_kind;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum AstPhase {

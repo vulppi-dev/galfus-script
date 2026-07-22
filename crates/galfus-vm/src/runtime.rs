@@ -1,13 +1,3 @@
-use crate::error::{StackFrameInfo, VmError, VmPanic};
-use galfus_bytecode::instruction::{
-    ChoiceLayoutIdx, FuncIdx, Instruction, Reg, StructLayoutIdx, TypeIdx,
-};
-use galfus_bytecode::{BytecodeGraph, BytecodeType, Constant, OwnershipKind};
-use galfus_contract::Providers;
-use galfus_core::ModuleId;
-use std::sync::Arc;
-use std::sync::Mutex;
-
 mod casts;
 mod control;
 mod data;
@@ -18,6 +8,16 @@ mod operators;
 mod system;
 #[cfg(test)]
 mod tests;
+
+use crate::error::{StackFrameInfo, VmError, VmPanic};
+use galfus_bytecode::instruction::{
+    ChoiceLayoutIdx, FuncIdx, Instruction, Reg, StructLayoutIdx, TypeIdx,
+};
+use galfus_bytecode::{BytecodeGraph, BytecodeType, Constant, OwnershipKind};
+use galfus_contract::Providers;
+use galfus_core::ModuleId;
+use std::sync::Arc;
+use std::sync::Mutex;
 
 pub enum ExecutionStep {
     Continue,

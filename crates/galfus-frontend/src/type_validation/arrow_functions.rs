@@ -1,8 +1,6 @@
-use galfus_core::{NodeId, TypeId};
-
-use crate::{FunctionParameterType, PrimitiveType, SyntaxNodeKind};
-
 use super::DeclarationTypeChecker;
+use crate::{FunctionParameterType, PrimitiveType, SyntaxNodeKind};
+use galfus_core::{NodeId, TypeId};
 
 impl<'a> DeclarationTypeChecker<'a> {
     pub(super) fn infer_arrow_function_expression_type(&mut self, node: NodeId) -> Option<TypeId> {

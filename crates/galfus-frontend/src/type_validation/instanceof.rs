@@ -1,8 +1,6 @@
-use galfus_core::{NodeId, TypeId};
-
-use crate::{PrimitiveType, SymbolKind, SyntaxNodeKind, TypeKind};
-
 use super::DeclarationTypeChecker;
+use crate::{PrimitiveType, SymbolKind, SyntaxNodeKind, TypeKind};
+use galfus_core::{NodeId, TypeId};
 
 struct InstanceofArmContext<'a> {
     subject_type: TypeId,

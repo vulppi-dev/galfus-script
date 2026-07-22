@@ -1,7 +1,7 @@
+
+
 use galfus_core::{NodeId, TypeId};
-
 use crate::{PrimitiveType, SyntaxNodeKind, TypeKind};
-
 use super::ExpressionInferrer;
 
 #[derive(Debug, Clone, Copy)]

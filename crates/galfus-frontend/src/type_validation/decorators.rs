@@ -1,8 +1,6 @@
-use galfus_core::{NodeId, TypeId};
-
-use crate::{FunctionParameterType, FunctionType, SymbolKind, SyntaxNodeKind, TypeKind};
-
 use super::DeclarationTypeChecker;
+use crate::{FunctionParameterType, FunctionType, SymbolKind, SyntaxNodeKind, TypeKind};
+use galfus_core::{NodeId, TypeId};
 
 #[derive(Debug, Clone, Copy)]
 enum DecoratorArgument {

@@ -1,10 +1,7 @@
-use std::collections::HashMap;
-
-use galfus_core::{NodeId, SymbolId, TypeId};
-
-use crate::{SymbolKind, SyntaxNodeKind};
-
 use super::{DeclarationTypeChecker, LoweredImportedConstraint};
+use crate::{SymbolKind, SyntaxNodeKind};
+use galfus_core::{NodeId, SymbolId, TypeId};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
 struct ConstraintFieldInfo {

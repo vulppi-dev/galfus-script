@@ -1,8 +1,7 @@
-use galfus_core::DiagnosticCodeKind;
-
 use crate::{
     LexicalDiagnosticCode, ParserDiagnosticCode, ResolverDiagnosticCode, TokenTreeDiagnosticCode,
 };
+use galfus_core::DiagnosticCodeKind;
 
 #[test]
 fn diagnostic_areas_keep_stable_prefixes() {

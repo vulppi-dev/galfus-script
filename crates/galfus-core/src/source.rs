@@ -1,7 +1,7 @@
-use crate::{SourceId, Span};
-
 #[cfg(test)]
 mod tests;
+
+use crate::{SourceId, Span};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct RowCol {

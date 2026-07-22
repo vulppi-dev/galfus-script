@@ -1,6 +1,5 @@
-use crate::BinaryOperatorKind;
-
 use super::super::*;
+use crate::BinaryOperatorKind;
 
 #[test]
 fn parse_binary_addition_expression() {

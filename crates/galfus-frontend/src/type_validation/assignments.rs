@@ -1,8 +1,6 @@
-use galfus_core::{NodeId, SymbolId, TypeId};
-
-use crate::{PrimitiveType, SymbolKind, SyntaxNodeKind, TypeKind};
-
 use super::DeclarationTypeChecker;
+use crate::{PrimitiveType, SymbolKind, SyntaxNodeKind, TypeKind};
+use galfus_core::{NodeId, SymbolId, TypeId};
 
 impl<'a> DeclarationTypeChecker<'a> {
     pub(super) fn check_assignment_types(&mut self, node: NodeId) {

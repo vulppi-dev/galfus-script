@@ -1,10 +1,10 @@
+#[cfg(test)]
+mod tests;
+
 use anyhow::{Context, Result, bail};
 use galfus_contract::Providers;
 use galfus_workspace::{LoadResult, Workspace};
 use std::path::Path;
-
-#[cfg(test)]
-mod tests;
 
 pub fn check_workspace_root(root: &str) -> Result<()> {
     let mut workspace = load_workspace(Path::new(root))?;

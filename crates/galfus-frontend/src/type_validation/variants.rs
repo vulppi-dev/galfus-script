@@ -1,10 +1,7 @@
-use std::collections::HashMap;
-
-use galfus_core::{NodeId, SymbolId, TypeId};
-
-use crate::{PathReferenceKind, SymbolKind, SyntaxNodeKind, TypeKind};
-
 use super::DeclarationTypeChecker;
+use crate::{PathReferenceKind, SymbolKind, SyntaxNodeKind, TypeKind};
+use galfus_core::{NodeId, SymbolId, TypeId};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
 struct VariantPayload {

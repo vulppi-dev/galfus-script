@@ -1,12 +1,3 @@
-use super::*;
-
-use galfus_core::{DiagnosticCodeKind, NodeId, SourceId, SymbolId};
-
-use crate::{
-    ModuleAst, PrimitiveType, SymbolKind, SyntaxNodeKind, TypeDiagnosticCode, TypeKind, parse,
-    resolve,
-};
-
 mod access;
 mod arrow_functions;
 mod assignments;
@@ -20,7 +11,10 @@ mod generic_expressions;
 mod hardening;
 mod initializers;
 mod instanceof;
-mod iteration;
+mod iteration_constraints;
+mod iteration_iterators;
+mod iteration_loops;
+mod iteration_ranges;
 mod literals;
 mod matches;
 mod operators;
@@ -29,6 +23,15 @@ mod structs;
 mod type_aliases;
 mod typeofs;
 mod variants;
+
+use super::*;
+use crate::type_validation::check_declaration_types;
+use crate::type_validation::check_definition_types;
+use crate::{
+    ModuleAst, PrimitiveType, SymbolKind, SyntaxNodeKind, TypeDiagnosticCode, TypeKind, parse,
+    resolve,
+};
+use galfus_core::{DiagnosticCodeKind, NodeId, SourceId, SymbolId};
 
 fn source(text: &str) -> SourceFile {
     SourceFile::new(SourceId::new(0), "test.gfs".to_string(), text.to_string())
@@ -52,8 +55,8 @@ fn check_source(text: &str) -> (SourceFile, ModuleAst, TypeCheckResult) {
     );
 
     let graph = resolve_result.into_ast();
-    let result = crate::type_validation::check_declaration_types(&source, &graph);
-    let result = crate::type_validation::check_definition_types(&source, &graph, result);
+    let result = check_declaration_types(&source, &graph);
+    let result = check_definition_types(&source, &graph, result);
 
     assert!(!result.has_errors(), "{:?}", result.diagnostics());
 

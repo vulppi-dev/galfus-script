@@ -1,12 +1,12 @@
-use galfus_core::{ModuleId, ModulePath, SemanticRevision, SourceFile};
-use galfus_frontend::{ModuleGraph, TypeCheckResult};
-
 /// A single verified module that can be fed into the compiler.
 ///
 /// This type serves as the boundary between the frontend (checking) phase and
 /// the compilation phase. It is intentionally independent of filesystem
 /// concerns: `id` is the stable cross-module identifier and `path` is only a
 /// logical module name, never an I/O path.
+use galfus_core::{ModuleId, ModulePath, SemanticRevision, SourceFile};
+use galfus_frontend::{ModuleGraph, TypeCheckResult};
+
 pub struct CompiledModule {
     pub(crate) id: ModuleId,
     /// Logical module name used for diagnostics and image metadata.

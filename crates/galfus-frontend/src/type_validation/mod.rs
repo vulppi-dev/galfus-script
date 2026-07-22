@@ -1,14 +1,3 @@
-use std::collections::HashMap;
-
-use galfus_core::{DiagnosticBag, NodeId, SourceFile, SymbolId, TypeId};
-
-use crate::{FunctionParameterType, ModuleAst, SyntaxNodeKind, TypeLayer, bind_types};
-
-pub use model::*;
-
-#[cfg(test)]
-mod tests;
-
 mod access;
 mod arrow_functions;
 mod assignability;
@@ -31,6 +20,7 @@ mod initializers;
 mod instanceof;
 mod literals;
 mod matches;
+mod model;
 mod operators;
 mod ownership;
 mod ownership_validation;
@@ -39,10 +29,15 @@ mod returns;
 mod semantics;
 mod structs;
 mod support;
+#[cfg(test)]
+mod tests;
 mod typeofs;
 mod variants;
 
-mod model;
+use crate::{FunctionParameterType, ModuleAst, SyntaxNodeKind, TypeLayer, bind_types};
+use galfus_core::{DiagnosticBag, NodeId, SourceFile, SymbolId, TypeId};
+pub use model::*;
+use std::collections::HashMap;
 
 struct DeclarationTypeChecker<'a> {
     source: &'a SourceFile,

@@ -1,19 +1,15 @@
-use std::collections::HashMap;
-
-use galfus_core::{NodeId, SymbolId, TypeId};
+mod export;
+#[cfg(test)]
+mod tests;
 
 use crate::{
     AsNameId, ImportedChoiceSurface, ImportedConstraintSurface, ImportedFunctionParameterType,
     ImportedMemberKey, ImportedSurfaceTypes, ImportedType, ModuleAst, NameId, ResolutionLayer,
     SymbolKind, SyntaxNodeKind, TypeCheckResult, TypeKind,
 };
-
 pub use export::*;
-
-#[cfg(test)]
-mod tests;
-
-mod export;
+use galfus_core::{NodeId, SymbolId, TypeId};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ModuleSurface {

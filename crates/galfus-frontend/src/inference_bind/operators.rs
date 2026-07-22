@@ -1,8 +1,8 @@
+
+
 use crate::ast::*;
 use galfus_core::{NodeId, TypeId};
-
 use crate::{PrimitiveType, SyntaxNodeKind, TypeKind};
-
 use super::ExpressionInferrer;
 
 impl<'a> ExpressionInferrer<'a> {

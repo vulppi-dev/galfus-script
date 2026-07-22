@@ -1,8 +1,8 @@
-use crate::instruction::{ConstIdx, FieldIdx, FuncIdx, Reg, TypeIdx};
-use crate::*;
-
 #[cfg(test)]
 mod tests;
+
+use crate::instruction::{ConstIdx, FieldIdx, FuncIdx, Reg, TypeIdx};
+use crate::*;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum BytecodeValidationError {

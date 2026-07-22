@@ -1,6 +1,5 @@
-use galfus_core::Span;
-
 use super::TokenKind;
+use galfus_core::Span;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Token {
