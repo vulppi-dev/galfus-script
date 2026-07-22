@@ -1,30 +1,21 @@
 use super::resolve::resolve_import_target;
+use crate::CompilerState;
 use crate::input::CompiledModule;
 use galfus_core::{FunctionId, NodeId, SymbolId, TypeId};
 use galfus_frontend::{
     FunctionParameterType, FunctionType, SymbolKind, SyntaxNodeKind, TypeKind, TypeTable,
 };
 use galfus_ir::builder::WorkspaceContext;
-use galfus_ir::mir::MirFunction;
 use std::collections::HashMap;
 
 pub(super) struct MyWorkspaceContext<'a> {
     modules: &'a [CompiledModule],
-    specialisations: HashMap<(usize, SymbolId, Vec<TypeId>), FunctionId>,
-    pub(super) specialised_functions: Vec<Vec<MirFunction>>,
-    pub(super) specialised_id_to_target: HashMap<FunctionId, (usize, FunctionId)>,
-    next_specialised_id: u32,
+    pub(super) state: &'a mut CompilerState,
 }
 
 impl<'a> MyWorkspaceContext<'a> {
-    pub(super) fn new(modules: &'a [CompiledModule]) -> Self {
-        Self {
-            modules,
-            specialisations: HashMap::new(),
-            specialised_functions: vec![Vec::new(); modules.len()],
-            specialised_id_to_target: HashMap::new(),
-            next_specialised_id: 0x4000_0000,
-        }
+    pub(super) fn new(modules: &'a [CompiledModule], state: &'a mut CompilerState) -> Self {
+        Self { modules, state }
     }
 
     fn translate_symbol(
@@ -262,8 +253,12 @@ impl<'a> WorkspaceContext for MyWorkspaceContext<'a> {
         }
 
         let func_id = FunctionId::new(0x8000_0000 | real_target.raw());
-        let (target_mod_idx, target_func_id) =
+        let (target_module_id, target_func_id) =
             resolve_import_target(self.modules, current_mod_idx, func_id)?;
+        let target_mod_idx = self
+            .modules
+            .iter()
+            .position(|m| m.id() == target_module_id)?;
         let target_symbol = SymbolId::new(target_func_id.raw());
         Some((target_mod_idx, target_symbol))
     }
@@ -359,16 +354,18 @@ impl<'a> WorkspaceContext for MyWorkspaceContext<'a> {
             })
             .collect::<HashMap<_, _>>();
 
-        let key = (target_mod_idx, target_symbol, concrete_types.clone());
-        if let Some(func_id) = self.specialisations.get(&key).copied() {
+        let target_module_id = self.modules[target_mod_idx].id();
+        let key = (target_module_id, target_symbol, concrete_types.clone());
+        if let Some(func_id) = self.state.specialisations.get(&key).copied() {
             return func_id;
         }
 
-        let specialized_id = FunctionId::new(self.next_specialised_id);
-        self.next_specialised_id = self.next_specialised_id.saturating_sub(1);
-        self.specialisations.insert(key, specialized_id);
-        self.specialised_id_to_target
-            .insert(specialized_id, (target_mod_idx, specialized_id));
+        let specialized_id = FunctionId::new(self.state.next_specialised_id);
+        self.state.next_specialised_id = self.state.next_specialised_id.saturating_sub(1);
+        self.state.specialisations.insert(key, specialized_id);
+        self.state
+            .specialised_id_to_target
+            .insert(specialized_id, (target_module_id, specialized_id));
 
         let target_module = &self.modules[target_mod_idx];
         let type_res = target_module.type_result().unwrap();
@@ -392,7 +389,11 @@ impl<'a> WorkspaceContext for MyWorkspaceContext<'a> {
                 function.return_type,
                 &function.type_substitutions,
             );
-            self.specialised_functions[target_mod_idx].push(function);
+            self.state
+                .specialised_functions
+                .entry(target_module_id)
+                .or_default()
+                .push(function);
 
             for (method_item, method_types, method_substitutions) in anchored_specializations {
                 self.specialize_anchored_function(
@@ -445,8 +446,9 @@ impl<'a> WorkspaceContext for MyWorkspaceContext<'a> {
     }
 
     fn function_return_type(&self, func_id: FunctionId) -> Option<TypeId> {
-        self.specialised_functions
-            .iter()
+        self.state
+            .specialised_functions
+            .values()
             .flat_map(|funcs| funcs.iter())
             .find(|f| f.id == func_id)
             .map(|f| f.return_type)
@@ -472,16 +474,18 @@ impl<'a> MyWorkspaceContext<'a> {
         let Some(target_symbol) = builder.function_symbol_for_item(function_item) else {
             return;
         };
-        let key = (target_mod_idx, target_symbol, concrete_types);
-        if self.specialisations.contains_key(&key) {
+        let target_module_id = target_module.id();
+        let key = (target_module_id, target_symbol, concrete_types);
+        if self.state.specialisations.contains_key(&key) {
             return;
         }
 
-        let specialized_id = FunctionId::new(self.next_specialised_id);
-        self.next_specialised_id = self.next_specialised_id.saturating_sub(1);
-        self.specialisations.insert(key, specialized_id);
-        self.specialised_id_to_target
-            .insert(specialized_id, (target_mod_idx, specialized_id));
+        let specialized_id = FunctionId::new(self.state.next_specialised_id);
+        self.state.next_specialised_id = self.state.next_specialised_id.saturating_sub(1);
+        self.state.specialisations.insert(key, specialized_id);
+        self.state
+            .specialised_id_to_target
+            .insert(specialized_id, (target_module_id, specialized_id));
 
         builder = builder.with_workspace_ctx(self);
         if let Some(mut function) = builder.build_function_with_substitutions(
@@ -490,7 +494,11 @@ impl<'a> MyWorkspaceContext<'a> {
             substitutions,
         ) {
             function.name = format!("{}#{}", function.name, specialized_id.raw());
-            self.specialised_functions[target_mod_idx].push(function);
+            self.state
+                .specialised_functions
+                .entry(target_module_id)
+                .or_default()
+                .push(function);
         }
     }
 

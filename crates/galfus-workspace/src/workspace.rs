@@ -417,6 +417,7 @@ impl Workspace {
 
         let transaction = galfus_compiler::compile_transaction(
             &mut compiled_modules,
+            &mut self.bytecode_state.compiler_state,
             &compilation_targets,
             base_graph.version(),
             semantic_revision,
