@@ -84,23 +84,22 @@ impl RunnableTask for RuntimeTask {
                 let mut new_thread = VirtualThread::new();
 
                 // Store the string key if available
-                if let galfus_vm::VmValue::Object(key_ref) = key {
-                    if let Ok(galfus_vm::HeapObject::Array { elements, .. }) =
+                if let galfus_vm::VmValue::Object(key_ref) = key
+                    && let Ok(galfus_vm::HeapObject::Array { elements, .. }) =
                         self.thread.heap.get_object(key_ref)
-                    {
-                        let mut string_key = String::new();
-                        let mut is_string = true;
-                        for e in elements {
-                            if let galfus_vm::VmValue::Uint8(b) = e {
-                                string_key.push(*b as char);
-                            } else {
-                                is_string = false;
-                                break;
-                            }
+                {
+                    let mut string_key = String::new();
+                    let mut is_string = true;
+                    for e in elements {
+                        if let galfus_vm::VmValue::Uint8(b) = e {
+                            string_key.push(*b as char);
+                        } else {
+                            is_string = false;
+                            break;
                         }
-                        if is_string && !string_key.is_empty() {
-                            new_thread.key = Some(string_key);
-                        }
+                    }
+                    if is_string && !string_key.is_empty() {
+                        new_thread.key = Some(string_key);
                     }
                 }
 
@@ -237,33 +236,33 @@ impl RunnableTask for RuntimeTask {
             ExecutionStep::SendMsg { dest, target, msg } => {
                 if target == 0 {
                     let host_val = to_host_value(&self.thread.heap, msg);
-                    if let Some(HostValue::Array(mut arr)) = host_val {
-                        if !arr.is_empty() {
-                            let method_opt = match arr.remove(0) {
-                                HostValue::String(s) => Some(s),
-                                HostValue::Bytes(b) => String::from_utf8(b).ok(),
-                                _ => None,
-                            };
-                            if let Some(method) = method_opt {
-                                let p_opt = self.vm.shared_providers();
-                                if let Some(providers) = &p_opt {
-                                    let mut p_lock = providers.lock().unwrap();
-                                    if let Some(host) = p_lock.host_mut() {
-                                        let injector = Arc::new(RuntimeInjector {
-                                            registry: self.registry.clone(),
-                                            blocked: self.blocked.clone(),
-                                            executor: self.executor.clone(),
-                                            vm: self.vm.clone(),
-                                        });
-                                        let tid = self.thread_id.raw() as usize;
-                                        self.registry
-                                            .lock()
-                                            .unwrap()
-                                            .register_with_id(self.thread_id, self.thread);
-                                        self.blocked.lock().unwrap().block(self.thread_id);
-                                        host.dispatch(tid, &method, &arr, injector);
-                                        return ThreadResult::Blocked { timeout: None };
-                                    }
+                    if let Some(HostValue::Array(mut arr)) = host_val
+                        && !arr.is_empty()
+                    {
+                        let method_opt = match arr.remove(0) {
+                            HostValue::String(s) => Some(s),
+                            HostValue::Bytes(b) => String::from_utf8(b).ok(),
+                            _ => None,
+                        };
+                        if let Some(method) = method_opt {
+                            let p_opt = self.vm.shared_providers();
+                            if let Some(providers) = &p_opt {
+                                let mut p_lock = providers.lock().unwrap();
+                                if let Some(host) = p_lock.host_mut() {
+                                    let injector = Arc::new(RuntimeInjector {
+                                        registry: self.registry.clone(),
+                                        blocked: self.blocked.clone(),
+                                        executor: self.executor.clone(),
+                                        vm: self.vm.clone(),
+                                    });
+                                    let tid = self.thread_id.raw() as usize;
+                                    self.registry
+                                        .lock()
+                                        .unwrap()
+                                        .register_with_id(self.thread_id, self.thread);
+                                    self.blocked.lock().unwrap().block(self.thread_id);
+                                    host.dispatch(tid, &method, &arr, injector);
+                                    return ThreadResult::Blocked { timeout: None };
                                 }
                             }
                         }
@@ -401,8 +400,7 @@ fn empty_thread_args(
     let element_ty = module
         .types
         .iter()
-        .enumerate()
-        .find_map(|(_, ty)| match ty {
+        .find_map(|ty| match ty {
             galfus_bytecode::BytecodeType::Array(inner)
                 if matches!(module.types.get(inner.raw() as usize), Some(galfus_bytecode::BytecodeType::Array(byte))
                     if matches!(module.types.get(byte.raw() as usize), Some(galfus_bytecode::BytecodeType::Uint8))) => Some(*inner),

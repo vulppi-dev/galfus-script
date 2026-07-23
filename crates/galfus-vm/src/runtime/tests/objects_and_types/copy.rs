@@ -1,6 +1,3 @@
-use std::sync;
-
-use crate::thread;
 
 #[test]
 fn test_copy_deep_copies_nested_structs() {

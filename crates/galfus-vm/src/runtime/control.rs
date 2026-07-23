@@ -451,14 +451,10 @@ impl VirtualMachine {
                 // Remove the first message matching sender_id.
                 let msg_opt = {
                     let mut mailbox = thread.mailbox.lock().unwrap();
-                    let idx = mailbox
+                    mailbox
                         .iter()
-                        .position(|message| message.sender_id == sender_id);
-                    if let Some(idx) = idx {
-                        Some(mailbox.remove(idx).unwrap().data)
-                    } else {
-                        None
-                    }
+                        .position(|message| message.sender_id == sender_id)
+                        .map(|idx| mailbox.remove(idx).unwrap().data)
                 };
 
                 if let Some(data) = msg_opt {
