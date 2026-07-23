@@ -4,6 +4,8 @@ pub mod task;
 #[cfg(test)]
 mod tests;
 
+use std::sync;
+
 use galfus_bytecode::BytecodeModule;
 use galfus_contract::Providers;
 use galfus_vm::thread::VirtualThread;
@@ -72,8 +74,8 @@ impl EntryAbi {
 
 /// A single execution composed from one executable graph and optional host providers.
 pub struct Runtime {
-    graph: std::sync::Arc<galfus_bytecode::BytecodeGraph>,
-    providers: Option<std::sync::Arc<std::sync::Mutex<Providers>>>,
+    graph: sync::Arc<galfus_bytecode::BytecodeGraph>,
+    providers: Option<sync::Arc<sync::Mutex<Providers>>>,
     registry: ThreadRegistry,
     runnable: RunnableQueue,
     blocked: BlockedQueue,
@@ -81,12 +83,12 @@ pub struct Runtime {
 
 impl Runtime {
     pub fn new(
-        graph: std::sync::Arc<galfus_bytecode::BytecodeGraph>,
+        graph: sync::Arc<galfus_bytecode::BytecodeGraph>,
         providers: Option<Providers>,
     ) -> Self {
         Self {
             graph,
-            providers: providers.map(|p| std::sync::Arc::new(std::sync::Mutex::new(p))),
+            providers: providers.map(|p| sync::Arc::new(sync::Mutex::new(p))),
             registry: ThreadRegistry::new(),
             runnable: RunnableQueue::new(),
             blocked: BlockedQueue::new(),
@@ -128,7 +130,7 @@ impl Runtime {
         module_id: galfus_core::ModuleId,
         entry_name: &str,
         args: &[Vec<u8>],
-        executor: std::sync::Arc<dyn galfus_contract::ThreadExecutor>,
+        executor: sync::Arc<dyn galfus_contract::ThreadExecutor>,
     ) -> Result<Box<dyn galfus_contract::RunnableTask>, RuntimeError> {
         let graph = self.graph.clone();
         let image = &graph.get(module_id).unwrap().module;
@@ -184,12 +186,12 @@ impl Runtime {
         let _ = self.registry.mark_running(main_thread_id);
         let main_thread = self.registry.take(main_thread_id).unwrap();
 
-        let task = Box::new(crate::task::RuntimeTask {
+        let task = Box::new(task::RuntimeTask {
             thread_id: main_thread_id,
             thread: main_thread,
             vm,
-            registry: std::sync::Arc::new(std::sync::Mutex::new(self.registry)),
-            blocked: std::sync::Arc::new(std::sync::Mutex::new(self.blocked)),
+            registry: sync::Arc::new(sync::Mutex::new(self.registry)),
+            blocked: sync::Arc::new(sync::Mutex::new(self.blocked)),
             executor,
         });
 

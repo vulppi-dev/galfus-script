@@ -1,3 +1,5 @@
+use crate::lower;
+
 use super::LowerCtx;
 use galfus_core::{NodeId, SymbolId, TypeId};
 use galfus_frontend::{SymbolKind, SyntaxNodeKind, TypeKind};
@@ -213,7 +215,7 @@ pub fn find_choice_for_variant(
             && let Some(ident) = syntax.first_child_of_kind(node_id, SyntaxNodeKind::Identifier)
             && let Some(choice_symbol) = resolution.declaration_symbol(ident)
         {
-            let variants = crate::lower::types::get_choice_variants(ctx, choice_symbol);
+            let variants = lower::types::get_choice_variants(ctx, choice_symbol);
             if let Some(idx) = variants.iter().position(|(name, _)| name == variant_name) {
                 return Some((choice_symbol, idx));
             }

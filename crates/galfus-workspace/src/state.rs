@@ -1,3 +1,5 @@
+use crate::source_store;
+
 use galfus_bytecode::BytecodeGraph;
 use galfus_compiler::CompilerState;
 use galfus_core::{DiagnosticBag, ModuleId, Revision, SemanticRevision};
@@ -63,7 +65,7 @@ pub enum RunBlocked {
 }
 
 pub struct SourceState {
-    pub store: crate::source_store::SourceStore,
+    pub store: source_store::SourceStore,
     pub revision: Revision,
     pub dirty_sources: HashSet<galfus_core::ModulePath>,
     pub removed_modules: Vec<ModuleId>,
@@ -78,7 +80,7 @@ impl Default for SourceState {
 impl SourceState {
     pub fn new() -> Self {
         Self {
-            store: crate::source_store::SourceStore::new(),
+            store: source_store::SourceStore::new(),
             revision: Revision::new(1),
             dirty_sources: HashSet::new(),
             removed_modules: Vec::new(),

@@ -1,3 +1,5 @@
+use std::fmt;
+
 use crate::Playground;
 use js_sys::Function;
 use wasm_bindgen::prelude::*;
@@ -125,6 +127,6 @@ fn success_json() -> String {
     serde_json::json!({ "ok": true }).to_string()
 }
 
-fn error_json(error: impl std::fmt::Display) -> String {
+fn error_json(error: impl fmt::Display) -> String {
     serde_json::json!({ "ok": false, "error": error.to_string() }).to_string()
 }

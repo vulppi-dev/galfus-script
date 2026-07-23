@@ -6,6 +6,10 @@ pub mod helpers;
 mod module_items;
 pub mod pattern;
 
+use std::collections;
+
+use crate::lower;
+
 use crate::mir::*;
 use galfus_core::{FunctionId, ModuleId, NodeId, SymbolId, TypeId};
 use galfus_frontend::{ModuleGraph, SymbolKind, SyntaxNodeKind, TypeCheckResult, TypeKind};
@@ -174,7 +178,7 @@ impl<'a> MirBuilder<'a> {
         let mut builder_ctx = function::FunctionBuilder {
             builder: self,
             locals: Vec::new(),
-            symbol_to_local: std::collections::HashMap::new(),
+            symbol_to_local: collections::HashMap::new(),
             current_instructions: Vec::new(),
             blocks: vec![BasicBlock {
                 parameters: Vec::new(),
@@ -241,7 +245,7 @@ impl<'a> MirBuilder<'a> {
             blocks: builder_ctx.blocks,
             type_substitutions: HashMap::new(),
         };
-        crate::lower::ssa::convert_to_ssa(&mut func);
+        lower::ssa::convert_to_ssa(&mut func);
         Some(func)
     }
 
@@ -331,7 +335,7 @@ pub trait WorkspaceContext {
         target_mod_idx: usize,
         target_symbol: SymbolId,
         concrete_types: Vec<TypeId>,
-        substitutions: std::collections::HashMap<SymbolId, TypeId>,
+        substitutions: collections::HashMap<SymbolId, TypeId>,
     ) -> FunctionId;
     fn specialize_builtin_function(
         &mut self,

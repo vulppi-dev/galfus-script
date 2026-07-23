@@ -1,6 +1,10 @@
 #[cfg(test)]
 mod tests;
 
+use std::fs;
+use std::sync;
+
+use crate::NativeIoProvider;
 use anyhow::{Context, Result, bail};
 use galfus_contract::Providers;
 use galfus_workspace::{LoadResult, Workspace};
@@ -38,16 +42,16 @@ pub fn run_project(root: &str, cli_args: &[String]) -> Result<i32> {
         .map(|argument| argument.as_bytes().to_vec())
         .collect::<Vec<_>>();
     use galfus_contract::ThreadExecutor;
-    let executor = std::sync::Arc::new(galfus_workspace::executor::SingleThreadExecutor::new());
-    let exit_code = std::sync::Arc::new(std::sync::Mutex::new(0));
-    let ec = std::sync::Arc::clone(&exit_code);
+    let executor = sync::Arc::new(galfus_workspace::executor::SingleThreadExecutor::new());
+    let exit_code = sync::Arc::new(sync::Mutex::new(0));
+    let ec = sync::Arc::clone(&exit_code);
     executor.on_exit(Box::new(move |res: Result<i32, String>| {
         *ec.lock().unwrap() = res.unwrap();
     }));
     workspace
         .run(
             args.as_slice(),
-            Some(Providers::with_host(Box::new(super::NativeIoProvider))),
+            Some(Providers::with_host(Box::new(NativeIoProvider))),
             executor.clone(),
         )
         .map_err(|error| anyhow::anyhow!("workspace execution failed: {error:?}"))?;
@@ -64,7 +68,7 @@ fn load_workspace(root: &Path) -> Result<Workspace> {
     let root = root
         .canonicalize()
         .context("workspace root does not exist")?;
-    let config = std::fs::read(root.join("galfus.toml"))?;
+    let config = fs::read(root.join("galfus.toml"))?;
 
     let mut workspace = Workspace::new();
     if let LoadResult::Diagnostics(diagnostics) = workspace
@@ -88,7 +92,7 @@ fn load_source_file(file: &Path) -> Result<Workspace> {
         .file_name()
         .and_then(|name| name.to_str())
         .context("source file name is not valid UTF-8")?;
-    let source = std::fs::read(file.as_path())?;
+    let source = fs::read(file.as_path())?;
 
     let mut workspace = Workspace::new();
     let config =
@@ -107,7 +111,7 @@ fn load_source_file(file: &Path) -> Result<Workspace> {
 }
 
 fn load_sources(workspace: &mut Workspace, workspace_root: &Path, directory: &Path) -> Result<()> {
-    for entry in std::fs::read_dir(directory)? {
+    for entry in fs::read_dir(directory)? {
         let entry = entry?;
         let path = entry.path();
         let file_type = entry.file_type()?;
@@ -119,7 +123,7 @@ fn load_sources(workspace: &mut Workspace, workspace_root: &Path, directory: &Pa
             continue;
         }
 
-        let source = std::fs::read(path.as_path())?;
+        let source = fs::read(path.as_path())?;
         let module_path = path
             .strip_prefix(workspace_root)
             .context("source module is outside the workspace root")?;

@@ -1,3 +1,7 @@
+use std::collections;
+
+use crate::mir;
+
 use crate::mir::*;
 use std::collections::HashMap;
 
@@ -136,7 +140,7 @@ pub fn convert_to_ssa(func: &mut MirFunction) {
         fn replace_instruction(
             &mut self,
             block: BlockId,
-            inst: &mut (crate::mir::Instruction, Option<galfus_core::Span>),
+            inst: &mut (mir::Instruction, Option<galfus_core::Span>),
         ) {
             match &mut inst.0 {
                 Instruction::Assign(target, rvalue) => {
@@ -272,7 +276,7 @@ pub fn convert_to_ssa(func: &mut MirFunction) {
     }
 
     // Evaluate phi operands until fixed point (which evaluates all back-edges correctly)
-    let mut evaluated_phis = std::collections::HashSet::new();
+    let mut evaluated_phis = collections::HashSet::new();
     loop {
         let mut to_evaluate = Vec::new();
         for (phi_id, ops) in builder.phi_operands.iter() {

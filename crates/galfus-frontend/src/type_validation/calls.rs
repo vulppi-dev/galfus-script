@@ -1,3 +1,5 @@
+use std::collections;
+
 use super::DeclarationTypeChecker;
 use crate::{FunctionType, SyntaxNodeKind, TypeKind};
 use galfus_core::{NodeId, SymbolId, TypeId};
@@ -34,7 +36,7 @@ impl<'a> DeclarationTypeChecker<'a> {
 
         let generic_params = self.generic_parameter_symbols_from_type(target_type);
         let substituted_function = if !generic_params.is_empty() {
-            let mut substitutions = std::collections::HashMap::new();
+            let mut substitutions = collections::HashMap::new();
 
             if let Some(expected_ty) = expected {
                 self.infer_substitutions_from_types(
@@ -69,7 +71,7 @@ impl<'a> DeclarationTypeChecker<'a> {
             }
 
             for &param in &generic_params {
-                if let std::collections::hash_map::Entry::Vacant(e) = substitutions.entry(param) {
+                if let collections::hash_map::Entry::Vacant(e) = substitutions.entry(param) {
                     let param_name = self
                         .graph
                         .resolution()
@@ -107,7 +109,7 @@ impl<'a> DeclarationTypeChecker<'a> {
         generic_params: &[SymbolId],
         param_ty: TypeId,
         arg_ty: TypeId,
-        substitutions: &mut std::collections::HashMap<SymbolId, TypeId>,
+        substitutions: &mut collections::HashMap<SymbolId, TypeId>,
     ) {
         let param_ty = self.resolve_alias_type(param_ty);
         let arg_ty = self.resolve_alias_type(arg_ty);

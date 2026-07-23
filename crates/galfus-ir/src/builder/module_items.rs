@@ -1,3 +1,7 @@
+use std::collections;
+
+use crate::lower;
+
 use super::*;
 use std::collections::HashMap;
 
@@ -72,7 +76,7 @@ impl<'a> MirBuilder<'a> {
         let mut builder_ctx = function::FunctionBuilder {
             builder: self,
             locals: Vec::new(),
-            symbol_to_local: std::collections::HashMap::new(),
+            symbol_to_local: collections::HashMap::new(),
             current_instructions: Vec::new(),
             blocks: vec![BasicBlock {
                 parameters: Vec::new(),
@@ -157,7 +161,7 @@ impl<'a> MirBuilder<'a> {
             blocks: builder_ctx.blocks,
             type_substitutions,
         };
-        crate::lower::ssa::convert_to_ssa(&mut func);
+        lower::ssa::convert_to_ssa(&mut func);
         Some(func)
     }
 
@@ -212,7 +216,7 @@ impl<'a> MirBuilder<'a> {
         let mut builder_ctx = function::FunctionBuilder {
             builder: self,
             locals: Vec::new(),
-            symbol_to_local: std::collections::HashMap::new(),
+            symbol_to_local: collections::HashMap::new(),
             current_instructions: Vec::new(),
             blocks: vec![BasicBlock {
                 parameters: Vec::new(),
@@ -223,7 +227,7 @@ impl<'a> MirBuilder<'a> {
             current_block: BlockId::new(0),
             scopes: vec![Vec::new()],
             return_type,
-            type_substitutions: std::collections::HashMap::new(),
+            type_substitutions: collections::HashMap::new(),
             loop_targets: Vec::new(),
         };
 
@@ -253,9 +257,9 @@ impl<'a> MirBuilder<'a> {
             parameter_types,
             locals: builder_ctx.locals,
             blocks: builder_ctx.blocks,
-            type_substitutions: std::collections::HashMap::new(),
+            type_substitutions: collections::HashMap::new(),
         };
-        crate::lower::ssa::convert_to_ssa(&mut func);
+        lower::ssa::convert_to_ssa(&mut func);
         Some(func)
     }
 
@@ -458,7 +462,7 @@ impl<'a> MirBuilder<'a> {
     pub(super) fn substitute_type(
         &self,
         ty: TypeId,
-        substitutions: &std::collections::HashMap<SymbolId, TypeId>,
+        substitutions: &collections::HashMap<SymbolId, TypeId>,
     ) -> TypeId {
         let ty = self.resolve_alias_type(ty);
 
@@ -499,14 +503,14 @@ impl<'a> MirBuilder<'a> {
     }
 
     pub(super) fn get_struct_fields(&self, struct_symbol: SymbolId) -> Vec<(String, TypeId)> {
-        let mut visited = std::collections::HashSet::new();
+        let mut visited = collections::HashSet::new();
         self.get_struct_fields_internal(struct_symbol, &mut visited)
     }
 
     pub(super) fn get_struct_fields_internal(
         &self,
         struct_symbol: SymbolId,
-        visited: &mut std::collections::HashSet<SymbolId>,
+        visited: &mut collections::HashSet<SymbolId>,
     ) -> Vec<(String, TypeId)> {
         if !visited.insert(struct_symbol) {
             return Vec::new();

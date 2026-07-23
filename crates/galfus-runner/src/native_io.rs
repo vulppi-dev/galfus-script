@@ -1,4 +1,6 @@
 /// Synchronous terminal I/O for native Galfus hosts.
+use std::io;
+
 use galfus_contract::{HostProvider, HostResponse, HostValue, MessageInjector};
 use std::io::{Read, Write};
 use std::sync::Arc;
@@ -16,7 +18,7 @@ impl HostProvider for NativeIoProvider {
         match method {
             "write" => {
                 if let Some(HostValue::Bytes(bytes)) = args.first() {
-                    let stdout = std::io::stdout();
+                    let stdout = io::stdout();
                     let mut handle = stdout.lock();
                     if let Err(e) = handle.write_all(bytes).and_then(|()| handle.flush()) {
                         injector
@@ -53,7 +55,7 @@ impl HostProvider for NativeIoProvider {
 
                 let mut input = Vec::new();
                 let mut byte = [0u8; 1];
-                let stdin = std::io::stdin();
+                let stdin = io::stdin();
                 let mut handle = stdin.lock();
 
                 loop {

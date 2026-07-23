@@ -1,4 +1,4 @@
-import { join } from 'path';
+import { join, resolve } from 'path';
 
 const repositoryRoot = join(import.meta.dir, '..', '..', '..');
 const wasmBindgenVersion = '0.2.122';
@@ -16,7 +16,9 @@ type BuildPlaygroundOptions = {
   target?: string;
 };
 
-export async function buildPlayground(options: BuildPlaygroundOptions): Promise<void> {
+export async function buildPlayground(
+  options: BuildPlaygroundOptions,
+): Promise<void> {
   await ensureWasmBindgen();
   await run('cargo', [
     'build',
@@ -31,7 +33,9 @@ export async function buildPlayground(options: BuildPlaygroundOptions): Promise<
   ]);
 
   const target = options.target ?? 'web';
-  const outDir = join(repositoryRoot, options.outDir ?? 'dist/playground-web');
+  const outDir = options.outDir
+    ? resolve(options.outDir)
+    : join(repositoryRoot, 'dist/playground-web');
   await run('wasm-bindgen', [
     '--target',
     target,

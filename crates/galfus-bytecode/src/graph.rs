@@ -2,19 +2,22 @@
 #[cfg(test)]
 mod tests;
 
+use crate::ExportKind;
+use crate::instruction;
+
 use crate::{BytecodeModule, BytecodeValidationError, validate_bytecode_module};
 use galfus_core::{ModuleId, ModulePath, SemanticRevision};
 use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone, Default)]
 pub struct ExecutionMetadata {
-    pub spans: HashMap<crate::instruction::FuncIdx, HashMap<usize, galfus_core::Span>>,
+    pub spans: HashMap<instruction::FuncIdx, HashMap<usize, galfus_core::Span>>,
 }
 
 impl ExecutionMetadata {
     pub fn span_for(
         &self,
-        function: crate::instruction::FuncIdx,
+        function: instruction::FuncIdx,
         instruction_offset: usize,
     ) -> Option<galfus_core::Span> {
         self.spans
@@ -169,12 +172,12 @@ impl BytecodeGraph {
             for function in &node.module.functions {
                 for instruction in &function.instructions {
                     let owner_global = match instruction {
-                        crate::instruction::Instruction::LoadGlobal {
+                        instruction::Instruction::LoadGlobal {
                             module_id,
                             global_idx,
                             ..
                         }
-                        | crate::instruction::Instruction::StoreGlobal {
+                        | instruction::Instruction::StoreGlobal {
                             module_id,
                             global_idx,
                             ..
@@ -185,9 +188,9 @@ impl BytecodeGraph {
                         && owner != *id
                     {
                         if let Some(owner_node) = self.modules.get(&owner) {
-                            let is_exported = owner_node.module.exports.iter().any(|e| {
-                                    matches!(e.kind, crate::ExportKind::Global(idx) if idx == global_idx)
-                                });
+                            let is_exported = owner_node.module.exports.iter().any(
+                                |e| matches!(e.kind, ExportKind::Global(idx) if idx == global_idx),
+                            );
                             if !is_exported {
                                 return Err(BytecodeGraphValidationError::MissingImportedExport {
                                     importer: *id,

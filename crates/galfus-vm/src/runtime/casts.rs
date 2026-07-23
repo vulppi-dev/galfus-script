@@ -1,9 +1,11 @@
+use crate::thread;
+
 use super::*;
 
 impl VirtualMachine {
     pub(super) fn execute_cast(
         &self,
-        thread: &crate::thread::VirtualThread,
+        thread: &thread::VirtualThread,
         val: &Value,
         target_ty: TypeIdx,
     ) -> Result<Value, VmError> {

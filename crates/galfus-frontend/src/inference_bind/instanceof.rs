@@ -1,5 +1,7 @@
 
 
+use std::collections;
+
 use galfus_core::{NodeId, TypeId};
 use crate::{PrimitiveType, SymbolKind, SyntaxNodeKind, TypeKind};
 use super::ExpressionInferrer;
@@ -326,7 +328,7 @@ impl<'a> ExpressionInferrer<'a> {
 
         let mut pushed = false;
         if let Some(subject_generic) = subject_generic {
-            let mut substitution = std::collections::HashMap::new();
+            let mut substitution = collections::HashMap::new();
             substitution.insert(subject_generic, narrowed_type);
             self.active_type_substitutions.push(substitution);
             pushed = true;
@@ -480,7 +482,7 @@ impl<'a> ExpressionInferrer<'a> {
             return expected;
         };
 
-        let mut substitution = std::collections::HashMap::new();
+        let mut substitution = collections::HashMap::new();
         substitution.insert(subject_generic, pattern_type);
 
         self.substitute_generic_expression_type(expected, &substitution)
@@ -491,7 +493,7 @@ impl<'a> ExpressionInferrer<'a> {
             return ty;
         }
 
-        let mut substitution = std::collections::HashMap::new();
+        let mut substitution = collections::HashMap::new();
 
         for active in &self.active_type_substitutions {
             substitution.extend(active.iter().map(|(&symbol, &ty)| (symbol, ty)));

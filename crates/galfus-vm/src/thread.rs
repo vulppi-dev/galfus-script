@@ -1,6 +1,9 @@
 #[cfg(test)]
 mod tests;
 
+use crate::VmValue;
+use crate::runtime;
+
 use crate::error::VmError;
 use crate::runtime::Value;
 use crate::runtime::{CallFrame, HeapObject, RuntimeModuleState, VmObjectRef};
@@ -88,13 +91,13 @@ pub struct MailboxMessage {
 
 pub struct VirtualThread {
     pub call_stack: Vec<CallFrame>,
-    pub system_response: Option<crate::VmValue>,
+    pub system_response: Option<VmValue>,
     pub heap: PrivateHeap,
     pub module_states: HashMap<ModuleId, RuntimeModuleState>,
     pub mailbox: Arc<Mutex<VecDeque<MailboxMessage>>>,
     pub state: ThreadState,
     pub key: Option<String>,
-    pub entry_func: Option<crate::runtime::Value>,
+    pub entry_func: Option<runtime::Value>,
 }
 
 impl Default for VirtualThread {

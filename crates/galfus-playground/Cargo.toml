@@ -21,3 +21,6 @@ serde_json = { workspace = true, optional = true }
 [features]
 default = []
 wasm = ["dep:wasm-bindgen", "dep:js-sys", "dep:serde_json"]
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false

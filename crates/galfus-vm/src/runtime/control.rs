@@ -1,9 +1,11 @@
+use crate::thread;
+
 use super::*;
 
 impl VirtualMachine {
     pub(super) fn execute_control_instruction(
         &self,
-        thread: &mut crate::thread::VirtualThread,
+        thread: &mut thread::VirtualThread,
         instr: Instruction,
     ) -> Result<ExecutionStep, VmError> {
         match instr {
@@ -612,7 +614,7 @@ impl VirtualMachine {
 
     fn execute_array_iterator_method(
         &self,
-        thread: &mut crate::thread::VirtualThread,
+        thread: &mut thread::VirtualThread,
         obj: Reg,
         method_name: &str,
     ) -> Result<Option<Value>, VmError> {
@@ -696,7 +698,7 @@ impl VirtualMachine {
     }
 }
 
-fn thread_id_value(thread: &crate::thread::VirtualThread, register: Reg) -> Result<u64, VmError> {
+fn thread_id_value(thread: &thread::VirtualThread, register: Reg) -> Result<u64, VmError> {
     match thread.read_reg(register)? {
         Value::Int64(id) => Ok(id as u64),
         value => Err(VmError::TypeMismatch {

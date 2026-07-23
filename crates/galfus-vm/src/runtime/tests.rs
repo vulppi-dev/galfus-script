@@ -1,3 +1,9 @@
+mod arithmetic_and_control;
+mod io_and_arrays;
+mod module_state;
+mod objects_and_types;
+mod ownership;
+
 use super::*;
 use galfus_bytecode::BytecodeModule;
 use galfus_bytecode::instruction::{ConstIdx, FieldIdx};
@@ -76,9 +82,3 @@ fn create_test_module(instructions: Vec<Instruction>, constants: Vec<Constant>) 
         init_func_idx: None,
     }
 }
-
-mod arithmetic_and_control;
-mod io_and_arrays;
-mod module_state;
-mod objects_and_types;
-mod ownership;

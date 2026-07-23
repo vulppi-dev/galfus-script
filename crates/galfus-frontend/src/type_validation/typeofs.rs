@@ -1,3 +1,5 @@
+use std::collections;
+
 use super::DeclarationTypeChecker;
 use crate::{PrimitiveType, SyntaxNodeKind, TypeKind};
 use galfus_core::{NodeId, SymbolId, TypeId};
@@ -152,7 +154,7 @@ impl<'a> DeclarationTypeChecker<'a> {
         let mut pushed = false;
 
         if let Some((subject_generic, pattern_type)) = subject_generic.zip(pattern_type) {
-            let mut substitution = std::collections::HashMap::new();
+            let mut substitution = collections::HashMap::new();
             substitution.insert(subject_generic, pattern_type);
             self.active_type_substitutions.push(substitution);
             pushed = true;

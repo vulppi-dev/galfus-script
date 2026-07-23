@@ -1,6 +1,8 @@
 #[cfg(test)]
 mod tests;
 
+use crate::modules;
+
 use crate::ImportKind;
 use crate::diagnostics::CheckDiagnosticCode;
 use crate::modules::collect_implicit_dependencies;
@@ -41,15 +43,15 @@ pub(crate) struct PathCheckRecord {
 
 #[derive(Default)]
 pub struct FrontendRoots {
-    roots: Vec<crate::modules::graph::SemanticRoot>,
+    roots: Vec<modules::graph::SemanticRoot>,
 }
 
 impl FrontendRoots {
-    pub fn new(roots: Vec<crate::modules::graph::SemanticRoot>) -> Self {
+    pub fn new(roots: Vec<modules::graph::SemanticRoot>) -> Self {
         Self { roots }
     }
 
-    pub fn roots(&self) -> &[crate::modules::graph::SemanticRoot] {
+    pub fn roots(&self) -> &[modules::graph::SemanticRoot] {
         self.roots.as_slice()
     }
 }

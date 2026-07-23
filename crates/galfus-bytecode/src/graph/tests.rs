@@ -1,3 +1,6 @@
+use crate::ImportKind;
+use crate::instruction;
+
 use super::*;
 use crate::{BytecodeModule, ConstantPool, ImportSlot};
 use std::collections::HashMap;
@@ -114,8 +117,8 @@ fn apply_rejects_invalid_imports_without_changing_the_snapshot() {
     invalid.module.imports.push(ImportSlot {
         module_name: "missing.gfs".to_string(),
         symbol_name: "missing".to_string(),
-        ty: crate::instruction::TypeIdx(0),
-        kind: crate::ImportKind::Function,
+        ty: instruction::TypeIdx(0),
+        kind: ImportKind::Function,
     });
 
     let error = graph
@@ -140,7 +143,7 @@ fn apply_rejects_invalid_imports_without_changing_the_snapshot() {
 
 #[test]
 fn execution_metadata_resolves_the_span_for_an_instruction() {
-    let function = crate::instruction::FuncIdx(3);
+    let function = instruction::FuncIdx(3);
     let span = galfus_core::Span::new(galfus_core::SourceId::new(9), 18, 27);
     let metadata = ExecutionMetadata {
         spans: HashMap::from([(function, HashMap::from([(4, span)]))]),

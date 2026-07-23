@@ -1,6 +1,8 @@
 #[cfg(test)]
 mod tests;
 
+use std::str;
+
 use crate::config::{WorkspaceConfig, parse_workspace_config};
 use crate::source_store::ModuleOrigin;
 use crate::state::{
@@ -14,8 +16,8 @@ use galfus_core::{DiagnosticBag, ModulePath, SourceFile};
 use galfus_frontend::modules::{
     FrontendRoots, FrontendSession, FrontendSource, FrontendUpdate, SemanticRoot, SemanticRootKind,
 };
-use galfus_runtime::Runtime;
-use std::collections::HashSet;
+use galfus_runtime::{Runtime, RuntimeError, format_panic};
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 pub struct Workspace {
@@ -65,7 +67,7 @@ impl Workspace {
     }
 
     pub fn load_config(&mut self, config_toml: &[u8]) -> Result<LoadResult, WorkspaceError> {
-        let text = match std::str::from_utf8(config_toml) {
+        let text = match str::from_utf8(config_toml) {
             Ok(t) => t,
             Err(_) => return Err(WorkspaceError::MissingConfiguration),
         };
@@ -178,7 +180,7 @@ impl Workspace {
                                 SourceFile::new(
                                     entry.source_id,
                                     entry.path.to_string(),
-                                    std::str::from_utf8(&entry.bytes).unwrap_or("").to_string(),
+                                    str::from_utf8(&entry.bytes).unwrap_or("").to_string(),
                                 ),
                             )
                         })
@@ -370,10 +372,54 @@ impl Workspace {
                 .collect::<HashSet<_>>()
         };
 
+        let semantic_graph = self.frontend.semantic_graph();
+        let mut reachable_modules = HashSet::new();
+
         // Build CompiledModule list from the frontend's semantic modules.
         let semantic_modules = &self.frontend.modules;
+
+        let mut path_to_id = HashMap::new();
+        for module in semantic_modules {
+            path_to_id.insert(module.path().clone(), module.id());
+        }
+
+        let mut queue: Vec<galfus_core::ModuleId> = semantic_graph
+            .roots()
+            .iter()
+            .map(|r| r.module_id())
+            .collect();
+        while let Some(id) = queue.pop() {
+            if reachable_modules.insert(id) {
+                for edge in semantic_graph.import_edges() {
+                    if edge.from() == id {
+                        let to = edge
+                            .to()
+                            .or_else(|| path_to_id.get(edge.target_path()).copied());
+                        if let Some(to) = to {
+                            queue.push(to);
+                        }
+                    }
+                }
+            }
+        }
+
+        let mut compilation_targets: HashSet<_> = compilation_targets
+            .into_iter()
+            .filter(|id| reachable_modules.contains(id))
+            .collect();
+
+        // If a module is reachable but NOT in the base_graph, it MUST be compiled!
+        // This happens if a module became unreachable (and was removed from bytecode graph)
+        // but then became reachable again without changing source code.
+        for id in &reachable_modules {
+            if base_graph.get(*id).is_none() {
+                compilation_targets.insert(*id);
+            }
+        }
+
         let mut compiled_modules: Vec<CompiledModule> = semantic_modules
             .iter()
+            .filter(|m| reachable_modules.contains(&m.id()))
             .map(|m| {
                 CompiledModule::new(
                     m.id(),
@@ -387,10 +433,10 @@ impl Workspace {
             .collect();
 
         // Build import edges from the SemanticModuleGraph.
-        let semantic_graph = self.frontend.semantic_graph();
         let edges: Vec<ImportEdge> = semantic_graph
             .import_edges()
             .iter()
+            .filter(|edge| reachable_modules.contains(&edge.from()))
             .filter_map(|edge| {
                 let to = edge.to()?;
                 Some(ImportEdge {
@@ -401,14 +447,10 @@ impl Workspace {
             .collect();
 
         // Build the transaction.
-        let current_modules = semantic_modules
-            .iter()
-            .map(|module| module.id())
-            .collect::<HashSet<_>>();
-        let removed_modules: Vec<_> = changed_modules
-            .iter()
-            .filter(|id| !current_modules.contains(id))
-            .copied()
+        let removed_modules: Vec<_> = base_graph
+            .modules()
+            .filter(|m| !reachable_modules.contains(&m.id()))
+            .map(|m| m.id())
             .collect();
 
         let transaction = galfus_compiler::compile_transaction(
@@ -465,8 +507,8 @@ impl Workspace {
         let task = Runtime::new(graph.clone(), providers)
             .build_module_entry(entry_id, entry_name.as_str(), args, executor.clone())
             .map_err(|error| {
-                if let galfus_runtime::RuntimeError::VmPanic(panic) = &error {
-                    RunBlocked::RuntimeError(galfus_runtime::format_panic(&graph, panic))
+                if let RuntimeError::VmPanic(panic) = &error {
+                    RunBlocked::RuntimeError(format_panic(&graph, panic))
                 } else {
                     RunBlocked::RuntimeError(error.to_string())
                 }

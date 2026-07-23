@@ -1,3 +1,7 @@
+use std::sync;
+
+use crate::thread;
+
 use super::*;
 use crate::thread::MailboxMessage;
 use galfus_bytecode::BytecodeModule;
@@ -120,8 +124,8 @@ fn test_len_and_copy_array() {
         module: image,
         metadata: None,
     });
-    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()));
-    let mut thread = crate::thread::VirtualThread::new();
+    let vm = VirtualMachine::new(sync::Arc::new(graph.clone()));
+    let mut thread = thread::VirtualThread::new();
     let res = vm
         .run_function(
             &mut thread,
@@ -232,8 +236,8 @@ fn test_load_index_accepts_negative_index() {
         module: image,
         metadata: None,
     });
-    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()));
-    let mut thread = crate::thread::VirtualThread::new();
+    let vm = VirtualMachine::new(sync::Arc::new(graph.clone()));
+    let mut thread = thread::VirtualThread::new();
     let res = vm
         .run_function(
             &mut thread,
@@ -279,8 +283,8 @@ fn test_load_index_out_of_bounds_returns_null() {
         module: image,
         metadata: None,
     });
-    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()));
-    let mut thread = crate::thread::VirtualThread::new();
+    let vm = VirtualMachine::new(sync::Arc::new(graph.clone()));
+    let mut thread = thread::VirtualThread::new();
     let res = vm
         .run_function(
             &mut thread,
@@ -347,8 +351,8 @@ fn test_store_index_accepts_negative_index() {
         module: image,
         metadata: None,
     });
-    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()));
-    let mut thread = crate::thread::VirtualThread::new();
+    let vm = VirtualMachine::new(sync::Arc::new(graph.clone()));
+    let mut thread = thread::VirtualThread::new();
     let res = vm
         .run_function(
             &mut thread,
@@ -401,8 +405,8 @@ fn test_store_index_out_of_bounds_returns_error() {
         module: image,
         metadata: None,
     });
-    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()));
-    let mut thread = crate::thread::VirtualThread::new();
+    let vm = VirtualMachine::new(sync::Arc::new(graph.clone()));
+    let mut thread = thread::VirtualThread::new();
     let err = vm
         .run_function(
             &mut thread,
@@ -440,8 +444,8 @@ fn test_receive_returns_the_matching_mailbox_message() {
         module: image,
         metadata: None,
     });
-    let vm = VirtualMachine::new(std::sync::Arc::new(graph));
-    let mut thread = crate::thread::VirtualThread::new();
+    let vm = VirtualMachine::new(sync::Arc::new(graph));
+    let mut thread = thread::VirtualThread::new();
     thread.mailbox.lock().unwrap().push_back(MailboxMessage {
         sender_id: 7,
         data: vec![65, 66],
@@ -484,8 +488,8 @@ fn test_current_thread_mailbox_functions_read_and_consume_messages() {
         module: image,
         metadata: None,
     });
-    let vm = VirtualMachine::new(std::sync::Arc::new(graph));
-    let mut thread = crate::thread::VirtualThread::new();
+    let vm = VirtualMachine::new(sync::Arc::new(graph));
+    let mut thread = thread::VirtualThread::new();
     thread.mailbox.lock().unwrap().push_back(MailboxMessage {
         sender_id: 7,
         data: vec![65, 66],
