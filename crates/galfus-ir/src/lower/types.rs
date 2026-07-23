@@ -73,6 +73,33 @@ pub fn lower_type(ctx: &mut LowerCtx, ty: TypeId) -> TypeIdx {
                         .map(|symbol| symbol.name().to_string())
                         .unwrap_or_default(),
                 ),
+                Some(SymbolKind::Enum) => {
+                    let base_type = crate::lower::helpers::type_item_for_symbol(ctx, *symbol)
+                        .and_then(|enum_item| {
+                            let syntax = ctx.graph.syntax();
+                            syntax
+                                .node(enum_item)?
+                                .children()
+                                .iter()
+                                .copied()
+                                .find(|child| {
+                                    syntax
+                                        .node(*child)
+                                        .is_some_and(|node| node.kind().is_type())
+                                })
+                        });
+                    if let Some(base_type) = base_type {
+                        let ty = ctx
+                            .type_result
+                            .layer()
+                            .node_type(base_type)
+                            .unwrap_or_else(|| TypeId::new(0));
+                        let base_idx = crate::lower::types::lower_type(ctx, ty);
+                        ctx.types[base_idx.raw() as usize].clone()
+                    } else {
+                        BytecodeType::Null
+                    }
+                }
                 _ => BytecodeType::Null,
             }
         }

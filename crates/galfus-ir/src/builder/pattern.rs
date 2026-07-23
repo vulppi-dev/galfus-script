@@ -136,12 +136,31 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                     match variant_data.kind() {
                         SymbolKind::EnumVariant => {
                             let val = self.get_enum_variant_value(variant_symbol);
-                            let bool_ty = self
+                            let pattern_ty = self
                                 .builder
                                 .type_result
                                 .layer()
                                 .node_type(pattern_node_id)
                                 .unwrap_or_else(|| TypeId::new(0));
+
+                            let casted_temp = self.declare_local(None, pattern_ty);
+                            self.current_instructions.push((
+                                Instruction::Assign(
+                                    casted_temp,
+                                    RValue::Cast(
+                                        Operand::Constant(Constant::Int32(val as i32)),
+                                        pattern_ty,
+                                    ),
+                                ),
+                                None,
+                            ));
+
+                            let bool_ty = self
+                                .builder
+                                .type_result
+                                .layer()
+                                .table()
+                                .primitive(galfus_frontend::PrimitiveType::Bool);
                             let cond_temp = self.declare_local(None, bool_ty);
                             self.current_instructions.push((
                                 Instruction::Assign(
@@ -149,7 +168,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                                     RValue::BinaryOp(
                                         MirBinaryOp::Equal,
                                         subject.clone(),
-                                        Operand::Constant(Constant::Int32(val as i32)),
+                                        Operand::Local(casted_temp),
                                     ),
                                 ),
                                 None,

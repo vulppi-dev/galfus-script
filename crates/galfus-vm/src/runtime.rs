@@ -296,6 +296,12 @@ impl VirtualMachine {
         mut budget: usize,
     ) -> Result<ExecutionStep, VmPanic> {
         while budget > 0 {
+            if let Some(frame) = thread.call_stack.last() {
+                let instr = self.current_image(thread).unwrap().functions
+                    [frame.func_idx.raw() as usize]
+                    .instructions[frame.pc];
+                eprintln!("PC: {} Instr: {:?}", frame.pc, instr);
+            }
             match self.step(thread) {
                 Ok(ExecutionStep::Continue) => budget -= 1,
                 Ok(ExecutionStep::Return(val)) => return Ok(ExecutionStep::Return(val)),

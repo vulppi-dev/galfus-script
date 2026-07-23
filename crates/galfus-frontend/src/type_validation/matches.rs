@@ -173,6 +173,7 @@ impl<'a> DeclarationTypeChecker<'a> {
             }
 
             SyntaxNodeKind::VariantPattern => {
+                self.layer.bind_node_type(pattern, expected);
                 self.check_variant_match_pattern_type(pattern, expected);
             }
 
