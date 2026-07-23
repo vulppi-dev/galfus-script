@@ -215,3 +215,10 @@ For analysis-only tasks, the final response should include:
 - **Suggested next steps**
 
 Do not claim that unrelated issues were fixed unless the user explicitly requested those fixes.
+
+## 13) Galfus Script Language Guidance
+
+For any task involving `.gfs` syntax, semantics, builtins, workspace behavior,
+or their Rust implementation, read and follow:
+
+@./.agents/skills/galfus-script-development/SKILL.md
