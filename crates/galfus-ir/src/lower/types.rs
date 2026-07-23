@@ -139,7 +139,10 @@ pub(super) fn lower_choice_variant_type(ctx: &mut LowerCtx, variant_symbol: Symb
     let Some((choice_symbol, variant_index)) =
         crate::lower::helpers::find_choice_for_variant(ctx, variant_symbol)
     else {
-        return TypeIdx(0);
+        {
+            println!("failed to find choice for variant {:?}", variant_symbol);
+            return TypeIdx(0);
+        }
     };
     let layout_idx = crate::lower::types::get_or_create_choice_layout(ctx, choice_symbol);
     let variant_index = variant_index as u16;

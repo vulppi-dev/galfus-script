@@ -870,8 +870,14 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                 let arms_syntax_node = syntax.node(arms_node).unwrap();
                 let arm_nodes = arms_syntax_node.children().to_vec();
                 let match_end = self.builder.next_block();
+                let mut next_condition_block = None;
 
                 for arm_node in arm_nodes {
+                    if let Some(block) = next_condition_block {
+                        self.blocks.last_mut().unwrap().id = block;
+                        self.current_block = block;
+                    }
+
                     let pattern_node = syntax.child(arm_node, 0).unwrap();
                     let body_node = syntax.child(arm_node, 1).unwrap();
 
@@ -887,7 +893,17 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
 
                     self.blocks.last_mut().unwrap().id = arm_body_block;
                     self.current_block = arm_body_block;
-                    let body_op = self.lower_expression(body_node);
+
+                    let body_op = if syntax
+                        .node(body_node)
+                        .is_some_and(|n| n.kind() == SyntaxNodeKind::Block)
+                    {
+                        self.lower_block(body_node);
+                        Operand::Constant(Constant::Null)
+                    } else {
+                        self.lower_expression(body_node)
+                    };
+
                     self.current_instructions.push((
                         Instruction::Assign(match_result, RValue::Use(body_op)),
                         None,
@@ -900,11 +916,12 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                         });
                     }
 
-                    self.blocks.last_mut().unwrap().id = next_arm_block;
-                    self.current_block = next_arm_block;
+                    next_condition_block = Some(next_arm_block);
                 }
 
-                if !self.is_terminated() {
+                if let Some(block) = next_condition_block {
+                    self.blocks.last_mut().unwrap().id = block;
+                    self.current_block = block;
                     self.terminate_block(Terminator::Panic(
                         "non-exhaustive match expression".to_string(),
                     ));
