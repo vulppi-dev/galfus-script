@@ -370,10 +370,45 @@ impl Workspace {
                 .collect::<HashSet<_>>()
         };
 
+        let semantic_graph = self.frontend.semantic_graph();
+        let mut reachable_modules = HashSet::new();
+
         // Build CompiledModule list from the frontend's semantic modules.
         let semantic_modules = &self.frontend.modules;
+
+        let mut path_to_id = std::collections::HashMap::new();
+        for module in semantic_modules {
+            path_to_id.insert(module.path().clone(), module.id());
+        }
+
+        let mut queue: Vec<galfus_core::ModuleId> = semantic_graph
+            .roots()
+            .iter()
+            .map(|r| r.module_id())
+            .collect();
+        while let Some(id) = queue.pop() {
+            if reachable_modules.insert(id) {
+                for edge in semantic_graph.import_edges() {
+                    if edge.from() == id {
+                        let to = edge
+                            .to()
+                            .or_else(|| path_to_id.get(edge.target_path()).copied());
+                        if let Some(to) = to {
+                            queue.push(to);
+                        }
+                    }
+                }
+            }
+        }
+
+        let compilation_targets: HashSet<_> = compilation_targets
+            .into_iter()
+            .filter(|id| reachable_modules.contains(id))
+            .collect();
+
         let mut compiled_modules: Vec<CompiledModule> = semantic_modules
             .iter()
+            .filter(|m| reachable_modules.contains(&m.id()))
             .map(|m| {
                 CompiledModule::new(
                     m.id(),
@@ -387,10 +422,10 @@ impl Workspace {
             .collect();
 
         // Build import edges from the SemanticModuleGraph.
-        let semantic_graph = self.frontend.semantic_graph();
         let edges: Vec<ImportEdge> = semantic_graph
             .import_edges()
             .iter()
+            .filter(|edge| reachable_modules.contains(&edge.from()))
             .filter_map(|edge| {
                 let to = edge.to()?;
                 Some(ImportEdge {
@@ -401,14 +436,10 @@ impl Workspace {
             .collect();
 
         // Build the transaction.
-        let current_modules = semantic_modules
-            .iter()
-            .map(|module| module.id())
-            .collect::<HashSet<_>>();
-        let removed_modules: Vec<_> = changed_modules
-            .iter()
-            .filter(|id| !current_modules.contains(id))
-            .copied()
+        let removed_modules: Vec<_> = base_graph
+            .modules()
+            .filter(|m| !reachable_modules.contains(&m.id()))
+            .map(|m| m.id())
             .collect();
 
         let transaction = galfus_compiler::compile_transaction(

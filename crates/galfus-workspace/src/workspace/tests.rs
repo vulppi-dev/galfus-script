@@ -139,6 +139,9 @@ fn compile_updates_changed_modules_and_removes_deleted_modules() {
             name = "incremental-compile"
             target = "app"
             entry = "main.gfs"
+            
+            [exports]
+            helper = "helper.gfs"
             "#,
         )
         .expect("valid configuration");
@@ -163,7 +166,8 @@ fn compile_updates_changed_modules_and_removes_deleted_modules() {
         )
         .expect("valid helper module");
 
-    assert!(workspace.check().is_valid);
+    let check = workspace.check();
+    assert!(check.is_valid, "{:?}", check.diagnostics);
     let first_graph = workspace.compile().expect("initial compilation").graph;
     let main = first_graph
         .modules()
@@ -245,9 +249,10 @@ fn compile_rebuilds_only_changed_modules_and_transitive_dependents() {
             "main.gfs",
             br#"
             import { value } from "./dependency"
+            import { isolated } from "./isolated"
 
             export fn main(args: [[u8]]): i32 {
-                return value()
+                return value() + isolated()
             }
             "#,
         )
@@ -273,7 +278,8 @@ fn compile_rebuilds_only_changed_modules_and_transitive_dependents() {
         )
         .expect("valid isolated module");
 
-    assert!(workspace.check().is_valid);
+    let check = workspace.check();
+    assert!(check.is_valid, "{:?}", check.diagnostics);
     let first = workspace.compile().expect("initial compilation").graph;
     let main = first
         .modules()
@@ -328,6 +334,44 @@ fn compile_rebuilds_only_changed_modules_and_transitive_dependents() {
             .semantic_revision(),
         isolated_revision
     );
+}
+
+#[test]
+fn compile_removes_unreachable_modules() {
+    let mut workspace = Workspace::new();
+    assert!(matches!(
+        workspace
+            .load_config(
+                br#"
+            [module]
+            name = "test"
+            target = "app"
+            entry = "main.gfs"
+        "#
+            )
+            .unwrap(),
+        LoadResult::Success
+    ));
+    workspace
+        .load_module("main.gfs", b"import { x } from \"./a\"\nconst y = x;")
+        .unwrap();
+    workspace
+        .load_module("a.gfs", b"export const x = 1;")
+        .unwrap();
+
+    let report1 = workspace.check();
+    assert!(report1.is_valid, "{:?}", report1.diagnostics);
+    let graph1 = workspace.compile().unwrap().graph;
+    assert!(graph1.modules().any(|m| m.path().as_str() == "a.gfs"));
+
+    // Remove import
+    workspace.load_module("main.gfs", b"const x = 2;").unwrap();
+    let report = workspace.check();
+    assert!(report.is_valid, "{:?}", report.diagnostics);
+    let graph2 = workspace.compile().unwrap().graph;
+
+    // The unreachable module should be removed from the graph.
+    assert!(!graph2.modules().any(|m| m.path().as_str() == "a.gfs"));
 }
 
 #[test]
@@ -624,7 +668,7 @@ fn run_synchronizes_the_runtime_module_graph() {
     workspace
         .load_module(
             "main.gfs",
-            b"export fn main(args: [[u8]]): i32 { return 0 }",
+            "import { helper } from \"./helper\"\nexport fn main(args: [[u8]]): i32 { return helper() }".as_bytes(),
         )
         .expect("valid entry module");
     workspace
@@ -648,12 +692,18 @@ fn run_synchronizes_the_runtime_module_graph() {
         *ec.lock().unwrap() = res.unwrap();
     }));
     workspace.run(&[], None, executor).expect("entry executes");
-    assert_eq!(*exit_code.lock().unwrap(), 0);
+    assert_eq!(*exit_code.lock().unwrap(), 1);
 
     assert!(matches!(
         workspace.remove_module("helper.gfs"),
         Ok(RemoveResult::Success)
     ));
+    workspace
+        .load_module(
+            "main.gfs",
+            b"export fn main(args: [[u8]]): i32 { return 0 }",
+        )
+        .expect("valid entry module");
     assert!(workspace.check().is_valid);
     workspace.compile().expect("workspace recompiles");
     let executor2 = Arc::new(SingleThreadExecutor::new());

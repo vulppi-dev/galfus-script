@@ -20,7 +20,7 @@ fn load_workspace_reads_all_nested_source_files() {
     .expect("configuration");
     std::fs::write(
         workspace_root.join("main.gfs"),
-        "export fn main(args: [[u8]]): i32 { return 0 }",
+        "import { helper } from \"./nested/helper.gfs\"\nexport fn main(args: [[u8]]): i32 { return helper() }",
     )
     .expect("entry source");
     std::fs::write(
