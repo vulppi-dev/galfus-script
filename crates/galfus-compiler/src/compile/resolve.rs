@@ -292,21 +292,7 @@ pub(super) fn import_target_index(
     if let Some(target) = direct_path {
         if let Some(index) = modules.iter().position(|module| module.path() == &target) {
             return Some(index);
-        } else {
-            eprintln!(
-                "import_target_index: target '{}' not found. Available modules: {:?}",
-                target.as_str(),
-                modules
-                    .iter()
-                    .map(|m| m.path().as_str())
-                    .collect::<Vec<_>>()
-            );
         }
-    } else {
-        eprintln!(
-            "import_target_index: failed to create ModulePath for source '{}'",
-            source
-        );
     }
 
     let target = galfus_frontend::modules::resolution::resolve_relative_import(

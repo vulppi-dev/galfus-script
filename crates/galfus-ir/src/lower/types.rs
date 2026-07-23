@@ -167,7 +167,6 @@ pub(super) fn lower_choice_variant_type(ctx: &mut LowerCtx, variant_symbol: Symb
         crate::lower::helpers::find_choice_for_variant(ctx, variant_symbol)
     else {
         {
-            println!("failed to find choice for variant {:?}", variant_symbol);
             return TypeIdx(0);
         }
     };
