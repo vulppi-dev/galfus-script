@@ -93,8 +93,8 @@ pub fn compile_changed_modules(
         let mut specialized = ws_ctx
             .state
             .specialised_functions
-            .get_mut(&module_id)
-            .map(std::mem::take)
+            .get(&module_id)
+            .cloned()
             .unwrap_or_default();
         mir_modules[*module_index]
             .as_mut()

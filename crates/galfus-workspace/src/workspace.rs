@@ -401,10 +401,19 @@ impl Workspace {
             }
         }
 
-        let compilation_targets: HashSet<_> = compilation_targets
+        let mut compilation_targets: HashSet<_> = compilation_targets
             .into_iter()
             .filter(|id| reachable_modules.contains(id))
             .collect();
+
+        // If a module is reachable but NOT in the base_graph, it MUST be compiled!
+        // This happens if a module became unreachable (and was removed from bytecode graph)
+        // but then became reachable again without changing source code.
+        for id in &reachable_modules {
+            if base_graph.get(*id).is_none() {
+                compilation_targets.insert(*id);
+            }
+        }
 
         let mut compiled_modules: Vec<CompiledModule> = semantic_modules
             .iter()
