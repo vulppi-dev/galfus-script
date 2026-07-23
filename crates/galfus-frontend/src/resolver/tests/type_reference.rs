@@ -1,3 +1,8 @@
+mod diagnostics;
+mod function_types;
+mod generics;
+mod path_types;
+
 use super::*;
 use crate::SyntaxLayer;
 use galfus_core::NodeId;
@@ -97,8 +102,3 @@ fn find_function_anchor_by_text(
 
     None
 }
-
-mod diagnostics;
-mod function_types;
-mod generics;
-mod path_types;

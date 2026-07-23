@@ -1,3 +1,8 @@
+mod bindings;
+mod diagnostics;
+mod paths;
+mod patterns;
+
 use super::*;
 use crate::{PathReferenceKind, SyntaxLayer};
 use galfus_core::NodeId;
@@ -86,8 +91,3 @@ fn find_node_by_kind(syntax: &SyntaxLayer, node: NodeId, kind: SyntaxNodeKind) -
 
     None
 }
-
-mod bindings;
-mod diagnostics;
-mod paths;
-mod patterns;

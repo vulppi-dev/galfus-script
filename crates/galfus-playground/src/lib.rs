@@ -1,15 +1,15 @@
 mod buffer_io;
 mod executor;
 
-use anyhow::Result;
-use galfus_contract::{Providers, ThreadExecutor};
-use galfus_workspace::{LoadResult, Workspace};
-
 #[cfg(feature = "wasm")]
 mod wasm;
 
 #[cfg(test)]
 mod tests;
+
+use anyhow::Result;
+use galfus_contract::{Providers, ThreadExecutor};
+use galfus_workspace::{LoadResult, Workspace};
 
 pub use buffer_io::BufferIoProvider;
 

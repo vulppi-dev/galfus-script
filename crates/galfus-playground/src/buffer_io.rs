@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod tests;
+
 use galfus_contract::{HostProvider, HostResponse, HostValue, MessageInjector};
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
@@ -6,9 +9,6 @@ use std::sync::{Arc, Mutex};
 use js_sys::{Function, Uint8Array};
 #[cfg(feature = "wasm")]
 use wasm_bindgen::JsValue;
-
-#[cfg(test)]
-mod tests;
 
 /// In-memory synchronous I/O for playground hosts and tests.
 #[derive(Clone, Default)]
