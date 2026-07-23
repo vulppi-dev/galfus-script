@@ -1,3 +1,7 @@
+use std::env;
+use std::fs;
+use std::sync;
+
 use super::*;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -5,25 +9,25 @@ static NEXT_WORKSPACE_ID: AtomicUsize = AtomicUsize::new(0);
 
 #[test]
 fn load_workspace_reads_all_nested_source_files() {
-    let workspace_root = std::env::current_dir()
+    let workspace_root = env::current_dir()
         .expect("current directory")
         .join(".tmp")
         .join(format!(
             "runner-load-workspace-{}",
             NEXT_WORKSPACE_ID.fetch_add(1, Ordering::Relaxed)
         ));
-    std::fs::create_dir_all(workspace_root.join("nested")).expect("temporary workspace");
-    std::fs::write(
+    fs::create_dir_all(workspace_root.join("nested")).expect("temporary workspace");
+    fs::write(
         workspace_root.join("galfus.toml"),
         "[module]\nname = \"runner-test\"\ntarget = \"app\"\nentry = \"main.gfs\"\n",
     )
     .expect("configuration");
-    std::fs::write(
+    fs::write(
         workspace_root.join("main.gfs"),
         "import { helper } from \"./nested/helper.gfs\"\nexport fn main(args: [[u8]]): i32 { return helper() }",
     )
     .expect("entry source");
-    std::fs::write(
+    fs::write(
         workspace_root.join("nested/helper.gfs"),
         "export fn helper(): i32 { return 1 }",
     )
@@ -36,21 +40,21 @@ fn load_workspace_reads_all_nested_source_files() {
         2
     );
 
-    std::fs::remove_dir_all(workspace_root).expect("remove temporary workspace");
+    fs::remove_dir_all(workspace_root).expect("remove temporary workspace");
 }
 
 #[test]
 fn load_workspace_accepts_standalone_source_file() {
-    let source_path = std::env::current_dir()
+    let source_path = env::current_dir()
         .expect("current directory")
         .join(".tmp")
         .join(format!(
             "runner-standalone-source-{}.gfs",
             NEXT_WORKSPACE_ID.fetch_add(1, Ordering::Relaxed)
         ));
-    std::fs::create_dir_all(source_path.parent().expect("temporary directory"))
+    fs::create_dir_all(source_path.parent().expect("temporary directory"))
         .expect("temporary directory");
-    std::fs::write(
+    fs::write(
         source_path.as_path(),
         "export fn main(args: [[u8]]): i32 { return 42 }",
     )
@@ -60,9 +64,9 @@ fn load_workspace_accepts_standalone_source_file() {
     assert!(workspace.check().is_valid);
     workspace.compile().expect("compiles standalone source");
     use galfus_contract::ThreadExecutor;
-    let executor = std::sync::Arc::new(galfus_workspace::executor::SingleThreadExecutor::new());
-    let exit_code = std::sync::Arc::new(std::sync::Mutex::new(0));
-    let ec = std::sync::Arc::clone(&exit_code);
+    let executor = sync::Arc::new(galfus_workspace::executor::SingleThreadExecutor::new());
+    let exit_code = sync::Arc::new(sync::Mutex::new(0));
+    let ec = sync::Arc::clone(&exit_code);
     executor.on_exit(Box::new(move |res: Result<i32, String>| {
         *ec.lock().unwrap() = res.unwrap();
     }));
@@ -71,21 +75,21 @@ fn load_workspace_accepts_standalone_source_file() {
         .expect("runs standalone source");
     assert_eq!(*exit_code.lock().unwrap(), 42);
 
-    std::fs::remove_file(source_path).expect("remove temporary source");
+    fs::remove_file(source_path).expect("remove temporary source");
 }
 
 #[test]
 fn run_project_returns_the_application_exit_code() {
-    let source_path = std::env::current_dir()
+    let source_path = env::current_dir()
         .expect("current directory")
         .join(".tmp")
         .join(format!(
             "runner-project-exit-code-{}.gfs",
             NEXT_WORKSPACE_ID.fetch_add(1, Ordering::Relaxed)
         ));
-    std::fs::create_dir_all(source_path.parent().expect("temporary directory"))
+    fs::create_dir_all(source_path.parent().expect("temporary directory"))
         .expect("temporary directory");
-    std::fs::write(
+    fs::write(
         source_path.as_path(),
         "export fn main(args: [[u8]]): i32 { return 42 }",
     )
@@ -97,19 +101,19 @@ fn run_project_returns_the_application_exit_code() {
         42
     );
 
-    std::fs::remove_file(source_path).expect("remove temporary source");
+    fs::remove_file(source_path).expect("remove temporary source");
 }
 
 #[test]
 fn run_project_spawns_a_thread_with_the_anchored_api() {
-    let source_path = std::env::current_dir()
+    let source_path = env::current_dir()
         .expect("current directory")
         .join(".tmp")
         .join(format!(
             "runner-thread-api-{}.gfs",
             NEXT_WORKSPACE_ID.fetch_add(1, Ordering::Relaxed)
         ));
-    std::fs::write(
+    fs::write(
         source_path.as_path(),
         r#"
             import { createThread, getThread } from 'std/thread'
@@ -147,5 +151,5 @@ fn run_project_spawns_a_thread_with_the_anchored_api() {
         0
     );
 
-    std::fs::remove_file(source_path).expect("remove temporary source");
+    fs::remove_file(source_path).expect("remove temporary source");
 }

@@ -1,3 +1,5 @@
+use crate::mir;
+
 use crate::LocalId;
 use crate::mir::*;
 use galfus_frontend::TypeCheckResult;
@@ -79,14 +81,14 @@ fn validate_function(func: &MirFunction) -> Result<(), Vec<ValidationError>> {
         }
         for inst in &block.instructions {
             match &inst.0 {
-                crate::mir::Instruction::Assign(dest, _)
-                | crate::mir::Instruction::Call {
+                mir::Instruction::Assign(dest, _)
+                | mir::Instruction::Call {
                     destination: dest, ..
                 }
-                | crate::mir::Instruction::IndirectCall {
+                | mir::Instruction::IndirectCall {
                     destination: dest, ..
                 }
-                | crate::mir::Instruction::ConstraintCall {
+                | mir::Instruction::ConstraintCall {
                     destination: dest, ..
                 } => {
                     if !assigned_locals.insert(*dest) {
@@ -103,7 +105,7 @@ fn validate_function(func: &MirFunction) -> Result<(), Vec<ValidationError>> {
         }
 
         match &block.terminator.0 {
-            crate::mir::Terminator::Jump { target, args } => {
+            mir::Terminator::Jump { target, args } => {
                 if let Some(target_block) = blocks.get(target)
                     && args.len() != target_block.parameters.len()
                 {
@@ -112,7 +114,7 @@ fn validate_function(func: &MirFunction) -> Result<(), Vec<ValidationError>> {
                     });
                 }
             }
-            crate::mir::Terminator::Branch {
+            mir::Terminator::Branch {
                 true_block,
                 true_args,
                 false_block,
@@ -228,44 +230,44 @@ fn apply_initialization_effects(block: &BasicBlock, initialized: &mut HashSet<Lo
     }
     for instruction in &block.instructions {
         match &instruction.0 {
-            crate::mir::Instruction::Assign(_, RValue::Use(Operand::Local(l))) => {
+            mir::Instruction::Assign(_, RValue::Use(Operand::Local(l))) => {
                 initialized.remove(l);
             }
-            crate::mir::Instruction::Call { args, .. }
-            | crate::mir::Instruction::ConstraintCall { args, .. }
-            | crate::mir::Instruction::IndirectCall { args, .. } => {
+            mir::Instruction::Call { args, .. }
+            | mir::Instruction::ConstraintCall { args, .. }
+            | mir::Instruction::IndirectCall { args, .. } => {
                 for arg in args {
                     if let Operand::Local(l) = arg {
                         initialized.remove(l);
                     }
                 }
             }
-            crate::mir::Instruction::StoreGlobal(_, Operand::Local(l)) => {
+            mir::Instruction::StoreGlobal(_, Operand::Local(l)) => {
                 initialized.remove(l);
             }
-            crate::mir::Instruction::StoreIndex {
+            mir::Instruction::StoreIndex {
                 val: Operand::Local(l),
                 ..
             } => {
                 initialized.remove(l);
             }
-            crate::mir::Instruction::StoreField {
+            mir::Instruction::StoreField {
                 val: Operand::Local(l),
                 ..
             } => {
                 initialized.remove(l);
             }
-            crate::mir::Instruction::Drop(local) => {
+            mir::Instruction::Drop(local) => {
                 initialized.remove(local);
             }
             _ => {}
         }
 
         match &instruction.0 {
-            crate::mir::Instruction::Assign(destination, _)
-            | crate::mir::Instruction::Call { destination, .. }
-            | crate::mir::Instruction::ConstraintCall { destination, .. }
-            | crate::mir::Instruction::IndirectCall { destination, .. } => {
+            mir::Instruction::Assign(destination, _)
+            | mir::Instruction::Call { destination, .. }
+            | mir::Instruction::ConstraintCall { destination, .. }
+            | mir::Instruction::IndirectCall { destination, .. } => {
                 initialized.insert(*destination);
             }
             _ => {}
@@ -273,10 +275,10 @@ fn apply_initialization_effects(block: &BasicBlock, initialized: &mut HashSet<Lo
     }
 
     match &block.terminator.0 {
-        crate::mir::Terminator::Return(Some(Operand::Local(l))) => {
+        mir::Terminator::Return(Some(Operand::Local(l))) => {
             initialized.remove(l);
         }
-        crate::mir::Terminator::Branch {
+        mir::Terminator::Branch {
             cond: Operand::Local(l),
             ..
         } => {
@@ -286,17 +288,17 @@ fn apply_initialization_effects(block: &BasicBlock, initialized: &mut HashSet<Lo
     }
 }
 
-fn successor_blocks(terminator: &crate::mir::Terminator) -> Vec<(BlockId, &Vec<Operand>)> {
+fn successor_blocks(terminator: &mir::Terminator) -> Vec<(BlockId, &Vec<Operand>)> {
     match terminator {
-        crate::mir::Terminator::Jump { target, args } => vec![(*target, args)],
-        crate::mir::Terminator::Branch {
+        mir::Terminator::Jump { target, args } => vec![(*target, args)],
+        mir::Terminator::Branch {
             true_block,
             true_args,
             false_block,
             false_args,
             ..
         } => vec![(*true_block, true_args), (*false_block, false_args)],
-        crate::mir::Terminator::Return(_) | crate::mir::Terminator::Panic(_) => Vec::new(),
+        mir::Terminator::Return(_) | mir::Terminator::Panic(_) => Vec::new(),
     }
 }
 
@@ -308,7 +310,7 @@ fn validate_basic_block(
 ) {
     for inst in &bb.instructions {
         match &inst.0 {
-            crate::mir::Instruction::Assign(dest, rvalue) => {
+            mir::Instruction::Assign(dest, rvalue) => {
                 if !func.locals.iter().any(|decl| decl.id == *dest) {
                     errors.push(ValidationError {
                         message: format!(
@@ -320,7 +322,7 @@ fn validate_basic_block(
                 validate_rvalue_operands(rvalue, func, initialized, errors);
                 initialized.insert(*dest);
             }
-            crate::mir::Instruction::Drop(local) => {
+            mir::Instruction::Drop(local) => {
                 if !func.locals.iter().any(|decl| decl.id == *local) {
                     errors.push(ValidationError {
                         message: format!(
@@ -331,20 +333,20 @@ fn validate_basic_block(
                 }
                 initialized.remove(local);
             }
-            crate::mir::Instruction::StoreGlobal(_, val) => {
+            mir::Instruction::StoreGlobal(_, val) => {
                 validate_operand(val, func, initialized, errors);
             }
-            crate::mir::Instruction::StoreIndex { arr, idx, val } => {
+            mir::Instruction::StoreIndex { arr, idx, val } => {
                 validate_operand(arr, func, initialized, errors);
                 validate_operand(idx, func, initialized, errors);
                 validate_operand(val, func, initialized, errors);
             }
-            crate::mir::Instruction::StoreField { obj, val, .. } => {
+            mir::Instruction::StoreField { obj, val, .. } => {
                 validate_operand(obj, func, initialized, errors);
                 validate_operand(val, func, initialized, errors);
             }
 
-            crate::mir::Instruction::Call {
+            mir::Instruction::Call {
                 func: _,
                 args,
                 destination,
@@ -362,7 +364,7 @@ fn validate_basic_block(
                 }
                 initialized.insert(*destination);
             }
-            crate::mir::Instruction::ConstraintCall {
+            mir::Instruction::ConstraintCall {
                 method_name: _,
                 obj,
                 args,
@@ -382,7 +384,7 @@ fn validate_basic_block(
                 }
                 initialized.insert(*destination);
             }
-            crate::mir::Instruction::IndirectCall {
+            mir::Instruction::IndirectCall {
                 func: func_op,
                 args,
                 destination,
@@ -405,12 +407,12 @@ fn validate_basic_block(
     }
 
     match &bb.terminator.0 {
-        crate::mir::Terminator::Return(Some(op)) => {
+        mir::Terminator::Return(Some(op)) => {
             validate_operand(op, func, initialized, errors);
         }
-        crate::mir::Terminator::Return(None) => {}
-        crate::mir::Terminator::Jump { target: _, args: _ } => {}
-        crate::mir::Terminator::Branch {
+        mir::Terminator::Return(None) => {}
+        mir::Terminator::Jump { target: _, args: _ } => {}
+        mir::Terminator::Branch {
             cond,
             true_args: _,
             false_args: _,
@@ -418,7 +420,7 @@ fn validate_basic_block(
         } => {
             validate_operand(cond, func, initialized, errors);
         }
-        crate::mir::Terminator::Panic(_) => {}
+        mir::Terminator::Panic(_) => {}
     }
 }
 

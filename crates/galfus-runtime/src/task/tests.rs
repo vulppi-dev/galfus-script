@@ -1,3 +1,5 @@
+use std::thread;
+
 use super::RuntimeTask;
 use crate::queue::BlockedQueue;
 use crate::registry::{ThreadId, ThreadRegistry};
@@ -112,7 +114,7 @@ fn receive_timeout_resumes_with_null() {
     };
 
     task.schedule_receive_timeout(Reg(0), 1);
-    std::thread::sleep(Duration::from_millis(20));
+    thread::sleep(Duration::from_millis(20));
 
     let timed_out_task = executor.take_task().expect("timeout wakes the task");
     assert!(matches!(timed_out_task.run(10), ThreadResult::Completed(0)));

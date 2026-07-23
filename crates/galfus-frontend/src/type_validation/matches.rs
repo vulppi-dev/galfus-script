@@ -1,3 +1,5 @@
+use std::collections;
+
 use super::{DeclarationTypeChecker, LoweredImportedChoice, LoweredImportedChoiceVariant};
 use crate::{PrimitiveType, SymbolKind, SyntaxNodeKind, TypeKind};
 use galfus_core::{NodeId, SymbolId, TypeId};
@@ -327,7 +329,7 @@ impl<'a> DeclarationTypeChecker<'a> {
             let substitution = parameters
                 .into_iter()
                 .zip(generic_arguments.iter().copied())
-                .collect::<std::collections::HashMap<SymbolId, TypeId>>();
+                .collect::<collections::HashMap<SymbolId, TypeId>>();
             for payload_type in &mut payload_types {
                 *payload_type =
                     self.substitute_generic_expression_type(*payload_type, &substitution);

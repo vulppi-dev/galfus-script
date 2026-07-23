@@ -1,3 +1,5 @@
+use crate::ExportKind;
+
 use super::*;
 
 fn create_dummy_module(instructions: Vec<Instruction>) -> BytecodeModule {
@@ -215,7 +217,7 @@ fn test_export_function_out_of_bounds() {
     let mut image = create_dummy_module(vec![Instruction::Ret { src: Reg(0) }]);
     image.exports.push(ExportSlot {
         symbol_name: "compute".to_string(),
-        kind: crate::ExportKind::Function(FuncIdx(10)),
+        kind: ExportKind::Function(FuncIdx(10)),
     });
     let res = validate_bytecode_module(&image);
     assert!(res.is_err());

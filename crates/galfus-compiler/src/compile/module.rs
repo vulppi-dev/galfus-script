@@ -6,6 +6,11 @@
 //! - Contains only its own functions; cross-module calls target an import slot
 //!   via a local `FuncIdx` that the runtime resolves at load time.
 
+use std::collections;
+use std::iter;
+
+use crate::CompilerState;
+
 use crate::compile::{
     context::MyWorkspaceContext,
     globals::{image_local_count, rewrite_global_indices},
@@ -28,7 +33,7 @@ use std::collections::{HashMap, HashSet};
 
 pub fn compile_modules(
     modules: &mut [CompiledModule],
-    state: &mut crate::CompilerState,
+    state: &mut CompilerState,
 ) -> Result<Vec<BytecodeNode>> {
     let module_ids = modules.iter().map(CompiledModule::id).collect();
     compile_changed_modules(modules, state, &module_ids)
@@ -41,7 +46,7 @@ pub fn compile_modules(
 /// modules are lowered into new `BytecodeNode`s.
 pub fn compile_changed_modules(
     modules: &mut [CompiledModule],
-    state: &mut crate::CompilerState,
+    state: &mut CompilerState,
     changed_modules: &HashSet<galfus_core::ModuleId>,
 ) -> Result<Vec<BytecodeNode>> {
     if changed_modules.is_empty() {
@@ -57,7 +62,7 @@ pub fn compile_changed_modules(
         .filter_map(|(index, module)| changed_modules.contains(&module.id()).then_some(index))
         .collect::<HashSet<_>>();
     let mut pending_modules = affected_modules.iter().copied().collect::<Vec<_>>();
-    let mut mir_modules = std::iter::repeat_with(|| None)
+    let mut mir_modules = iter::repeat_with(|| None)
         .take(modules.len())
         .collect::<Vec<Option<galfus_ir::mir::MirModule>>>();
 
@@ -138,7 +143,7 @@ pub fn compile_changed_modules(
 /// Compile changed modules and package them into one graph transaction.
 pub fn compile_transaction(
     modules: &mut [CompiledModule],
-    state: &mut crate::CompilerState,
+    state: &mut CompilerState,
     changed_modules: &HashSet<galfus_core::ModuleId>,
     base_version: u64,
     semantic_revision: galfus_core::SemanticRevision,
@@ -312,7 +317,7 @@ fn compile_single_module(
     }
 
     let mut execution_metadata = galfus_bytecode::graph::ExecutionMetadata {
-        spans: std::collections::HashMap::new(),
+        spans: collections::HashMap::new(),
     };
 
     // Register cross-module calls as import function slots.

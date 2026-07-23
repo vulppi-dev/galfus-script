@@ -7,6 +7,8 @@ mod wasm;
 #[cfg(test)]
 mod tests;
 
+use std::sync;
+
 use anyhow::Result;
 use galfus_contract::{Providers, ThreadExecutor};
 use galfus_workspace::{LoadResult, Workspace};
@@ -17,7 +19,7 @@ pub use buffer_io::BufferIoProvider;
 pub struct Playground {
     workspace: Workspace,
     io: BufferIoProvider,
-    executor: Option<std::sync::Arc<crate::executor::PlaygroundExecutor>>,
+    executor: Option<sync::Arc<executor::PlaygroundExecutor>>,
 }
 
 pub struct PlaygroundCheckResult {
@@ -93,9 +95,9 @@ impl Playground {
 
     pub fn run(&mut self, args: &[Vec<u8>]) -> Result<i32> {
         use galfus_contract::ThreadExecutor;
-        let executor = std::sync::Arc::new(galfus_workspace::executor::SingleThreadExecutor::new());
-        let exit_code = std::sync::Arc::new(std::sync::Mutex::new(0));
-        let ec = std::sync::Arc::clone(&exit_code);
+        let executor = sync::Arc::new(galfus_workspace::executor::SingleThreadExecutor::new());
+        let exit_code = sync::Arc::new(sync::Mutex::new(0));
+        let ec = sync::Arc::clone(&exit_code);
         executor.on_exit(Box::new(move |res: Result<i32, String>| {
             *ec.lock().unwrap() = res.unwrap();
         }));
@@ -111,7 +113,7 @@ impl Playground {
     }
 
     pub fn start(&mut self, args: &[Vec<u8>]) -> Result<()> {
-        let executor = std::sync::Arc::new(crate::executor::PlaygroundExecutor::new());
+        let executor = sync::Arc::new(executor::PlaygroundExecutor::new());
         self.workspace
             .run(
                 args,

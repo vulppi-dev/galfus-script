@@ -1,6 +1,8 @@
 #[cfg(test)]
 mod tests;
 
+use std::str;
+
 use crate::config::{WorkspaceConfig, parse_workspace_config};
 use crate::source_store::ModuleOrigin;
 use crate::state::{
@@ -14,8 +16,8 @@ use galfus_core::{DiagnosticBag, ModulePath, SourceFile};
 use galfus_frontend::modules::{
     FrontendRoots, FrontendSession, FrontendSource, FrontendUpdate, SemanticRoot, SemanticRootKind,
 };
-use galfus_runtime::Runtime;
-use std::collections::HashSet;
+use galfus_runtime::{Runtime, RuntimeError, format_panic};
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 pub struct Workspace {
@@ -65,7 +67,7 @@ impl Workspace {
     }
 
     pub fn load_config(&mut self, config_toml: &[u8]) -> Result<LoadResult, WorkspaceError> {
-        let text = match std::str::from_utf8(config_toml) {
+        let text = match str::from_utf8(config_toml) {
             Ok(t) => t,
             Err(_) => return Err(WorkspaceError::MissingConfiguration),
         };
@@ -178,7 +180,7 @@ impl Workspace {
                                 SourceFile::new(
                                     entry.source_id,
                                     entry.path.to_string(),
-                                    std::str::from_utf8(&entry.bytes).unwrap_or("").to_string(),
+                                    str::from_utf8(&entry.bytes).unwrap_or("").to_string(),
                                 ),
                             )
                         })
@@ -376,7 +378,7 @@ impl Workspace {
         // Build CompiledModule list from the frontend's semantic modules.
         let semantic_modules = &self.frontend.modules;
 
-        let mut path_to_id = std::collections::HashMap::new();
+        let mut path_to_id = HashMap::new();
         for module in semantic_modules {
             path_to_id.insert(module.path().clone(), module.id());
         }
@@ -505,8 +507,8 @@ impl Workspace {
         let task = Runtime::new(graph.clone(), providers)
             .build_module_entry(entry_id, entry_name.as_str(), args, executor.clone())
             .map_err(|error| {
-                if let galfus_runtime::RuntimeError::VmPanic(panic) = &error {
-                    RunBlocked::RuntimeError(galfus_runtime::format_panic(&graph, panic))
+                if let RuntimeError::VmPanic(panic) = &error {
+                    RunBlocked::RuntimeError(format_panic(&graph, panic))
                 } else {
                     RunBlocked::RuntimeError(error.to_string())
                 }

@@ -1,10 +1,16 @@
+use std::collections;
+use std::mem;
+
+use crate::runtime;
+use crate::thread;
+
 use super::*;
 use std::collections::{HashMap, HashSet, VecDeque};
 
 impl VirtualMachine {
     pub(super) fn execute_object_instruction(
         &self,
-        thread: &mut crate::thread::VirtualThread,
+        thread: &mut thread::VirtualThread,
         instr: Instruction,
     ) -> Result<ExecutionStep, VmError> {
         match instr {
@@ -323,7 +329,7 @@ impl VirtualMachine {
 
     fn deep_copy_value(
         &self,
-        thread: &mut crate::thread::VirtualThread,
+        thread: &mut thread::VirtualThread,
         value: &Value,
     ) -> Result<Value, VmError> {
         let Value::Object(obj_ref) = value else {
@@ -346,7 +352,7 @@ impl VirtualMachine {
 
     fn discover_strong_copy_closure(
         &self,
-        thread: &crate::thread::VirtualThread,
+        thread: &thread::VirtualThread,
         root_ref: ObjectRef,
     ) -> Result<HashSet<usize>, VmError> {
         let mut closure = HashSet::new();
@@ -402,7 +408,7 @@ impl VirtualMachine {
 
     fn enqueue_copy_target(
         &self,
-        thread: &crate::thread::VirtualThread,
+        thread: &thread::VirtualThread,
         value: &Value,
         closure: &mut HashSet<usize>,
         pending: &mut VecDeque<ObjectRef>,
@@ -420,7 +426,7 @@ impl VirtualMachine {
 
     fn allocate_copy_placeholders(
         &self,
-        thread: &mut crate::thread::VirtualThread,
+        thread: &mut thread::VirtualThread,
         strong_closure: &HashSet<usize>,
     ) -> Result<HashMap<usize, ObjectRef>, VmError> {
         let mut copied = HashMap::new();
@@ -489,7 +495,7 @@ impl VirtualMachine {
 
     fn fill_copy_placeholders(
         &self,
-        thread: &mut crate::thread::VirtualThread,
+        thread: &mut thread::VirtualThread,
         strong_closure: &HashSet<usize>,
         copied: &HashMap<usize, ObjectRef>,
     ) -> Result<(), VmError> {
@@ -608,7 +614,7 @@ impl VirtualMachine {
 
     fn copy_strong_value(
         &self,
-        _thread: &crate::thread::VirtualThread,
+        _thread: &thread::VirtualThread,
         value: &Value,
         copied: &HashMap<usize, ObjectRef>,
     ) -> Result<Value, VmError> {
@@ -641,7 +647,7 @@ impl VirtualMachine {
     /// Returns the default `Value` for element types that can be safely default-initialized.
     fn zero_value_for_type(
         &self,
-        thread: &crate::thread::VirtualThread,
+        thread: &thread::VirtualThread,
         type_idx: TypeIdx,
     ) -> Result<Value, VmError> {
         let ty = self
@@ -680,13 +686,13 @@ impl VirtualMachine {
 
 /// Realiza a cópia profunda de um valor (e todos os objetos alcançáveis) de um heap de origem para um heap de destino.
 pub fn copy_value_between_heaps(
-    source_heap: &crate::thread::PrivateHeap,
-    dest_heap: &mut crate::thread::PrivateHeap,
+    source_heap: &thread::PrivateHeap,
+    dest_heap: &mut thread::PrivateHeap,
     value: &Value,
 ) -> Result<Value, VmError> {
     match value {
         Value::Object(obj_ref) => {
-            let mut copied_map = std::collections::HashMap::new();
+            let mut copied_map = collections::HashMap::new();
             copy_object_inter_heap(source_heap, dest_heap, *obj_ref, &mut copied_map)
                 .map(Value::Object)
         }
@@ -695,10 +701,10 @@ pub fn copy_value_between_heaps(
 }
 
 fn copy_object_inter_heap(
-    source_heap: &crate::thread::PrivateHeap,
-    dest_heap: &mut crate::thread::PrivateHeap,
+    source_heap: &thread::PrivateHeap,
+    dest_heap: &mut thread::PrivateHeap,
     obj_ref: ObjectRef,
-    copied_map: &mut std::collections::HashMap<usize, ObjectRef>,
+    copied_map: &mut collections::HashMap<usize, ObjectRef>,
 ) -> Result<ObjectRef, VmError> {
     if let Some(&new_ref) = copied_map.get(&obj_ref.raw()) {
         return Ok(new_ref);
@@ -708,22 +714,22 @@ fn copy_object_inter_heap(
     let mut new_obj = source_obj.clone();
     // Clear references
     match &mut new_obj {
-        crate::runtime::HeapObject::Struct { fields, .. } => {
+        runtime::HeapObject::Struct { fields, .. } => {
             for field in fields.iter_mut() {
                 *field = Value::Null;
             }
         }
-        crate::runtime::HeapObject::Array { elements, .. } => {
+        runtime::HeapObject::Array { elements, .. } => {
             for element in elements.iter_mut() {
                 *element = Value::Null;
             }
         }
-        crate::runtime::HeapObject::Tuple { elements } => {
+        runtime::HeapObject::Tuple { elements } => {
             for element in elements.iter_mut() {
                 *element = Value::Null;
             }
         }
-        crate::runtime::HeapObject::Choice { payload, .. } => {
+        runtime::HeapObject::Choice { payload, .. } => {
             *payload = Value::Null;
         }
     }
@@ -733,42 +739,40 @@ fn copy_object_inter_heap(
 
     // Deep copy recursive
     match source_obj {
-        crate::runtime::HeapObject::Struct { fields, .. } => {
+        runtime::HeapObject::Struct { fields, .. } => {
             let mut copied_fields = fields
                 .iter()
                 .map(|field| copy_value_internal(source_heap, dest_heap, field, copied_map))
                 .collect::<Result<Vec<_>, _>>()?;
-            if let crate::runtime::HeapObject::Struct { fields, .. } =
+            if let runtime::HeapObject::Struct { fields, .. } =
                 dest_heap.get_object_mut(dest_ref)?
             {
-                std::mem::swap(fields, &mut copied_fields);
+                mem::swap(fields, &mut copied_fields);
             }
         }
-        crate::runtime::HeapObject::Array { elements, .. } => {
+        runtime::HeapObject::Array { elements, .. } => {
             let mut copied_elements = elements
                 .iter()
                 .map(|element| copy_value_internal(source_heap, dest_heap, element, copied_map))
                 .collect::<Result<Vec<_>, _>>()?;
-            if let crate::runtime::HeapObject::Array { elements, .. } =
+            if let runtime::HeapObject::Array { elements, .. } =
                 dest_heap.get_object_mut(dest_ref)?
             {
-                std::mem::swap(elements, &mut copied_elements);
+                mem::swap(elements, &mut copied_elements);
             }
         }
-        crate::runtime::HeapObject::Tuple { elements } => {
+        runtime::HeapObject::Tuple { elements } => {
             let mut copied_elements = elements
                 .iter()
                 .map(|element| copy_value_internal(source_heap, dest_heap, element, copied_map))
                 .collect::<Result<Vec<_>, _>>()?;
-            if let crate::runtime::HeapObject::Tuple { elements } =
-                dest_heap.get_object_mut(dest_ref)?
-            {
-                std::mem::swap(elements, &mut copied_elements);
+            if let runtime::HeapObject::Tuple { elements } = dest_heap.get_object_mut(dest_ref)? {
+                mem::swap(elements, &mut copied_elements);
             }
         }
-        crate::runtime::HeapObject::Choice { payload, .. } => {
+        runtime::HeapObject::Choice { payload, .. } => {
             let copied_payload = copy_value_internal(source_heap, dest_heap, payload, copied_map)?;
-            if let crate::runtime::HeapObject::Choice { payload, .. } =
+            if let runtime::HeapObject::Choice { payload, .. } =
                 dest_heap.get_object_mut(dest_ref)?
             {
                 *payload = copied_payload;
@@ -780,10 +784,10 @@ fn copy_object_inter_heap(
 }
 
 fn copy_value_internal(
-    source_heap: &crate::thread::PrivateHeap,
-    dest_heap: &mut crate::thread::PrivateHeap,
+    source_heap: &thread::PrivateHeap,
+    dest_heap: &mut thread::PrivateHeap,
     value: &Value,
-    copied_map: &mut std::collections::HashMap<usize, ObjectRef>,
+    copied_map: &mut collections::HashMap<usize, ObjectRef>,
 ) -> Result<Value, VmError> {
     match value {
         Value::Object(obj_ref) => {

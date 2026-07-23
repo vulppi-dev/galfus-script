@@ -1,3 +1,5 @@
+use crate::modules;
+
 use crate::ImportKind;
 use crate::modules::module::SemanticModule;
 use crate::modules::resolution::resolve_relative_import;
@@ -238,8 +240,7 @@ impl SemanticModuleGraph {
         let Some(root) = module.graph().syntax().root() else {
             return;
         };
-        let dependencies =
-            crate::modules::collect_implicit_dependencies(module.graph().syntax(), root);
+        let dependencies = modules::collect_implicit_dependencies(module.graph().syntax(), root);
 
         if dependencies.requires_iterable {
             self.add_implicit_import_edge(module.id(), "std/iterable.gfs");

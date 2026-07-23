@@ -1,6 +1,8 @@
 #[cfg(test)]
 mod tests;
 
+use std::mem;
+
 use galfus_contract::{HostProvider, HostResponse, HostValue, MessageInjector};
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
@@ -47,7 +49,7 @@ impl BufferIoProvider {
     }
 
     pub fn take_output(&self) -> Vec<u8> {
-        std::mem::take(&mut self.state.lock().expect("buffer I/O state").output)
+        mem::take(&mut self.state.lock().expect("buffer I/O state").output)
     }
 
     pub fn send_read_data(&self, bytes: &[u8]) {

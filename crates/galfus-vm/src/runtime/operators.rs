@@ -1,3 +1,5 @@
+use crate::thread;
+
 use super::*;
 
 macro_rules! impl_binary_op {
@@ -98,7 +100,7 @@ macro_rules! impl_bitwise_op {
 impl VirtualMachine {
     pub(super) fn execute_operator_instruction(
         &self,
-        thread: &mut crate::thread::VirtualThread,
+        thread: &mut thread::VirtualThread,
         instr: Instruction,
     ) -> Result<ExecutionStep, VmError> {
         match instr {

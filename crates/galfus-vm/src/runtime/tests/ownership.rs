@@ -1,3 +1,7 @@
+use std::sync;
+
+use crate::thread;
+
 use super::*;
 use galfus_bytecode::BytecodeModule;
 
@@ -67,8 +71,8 @@ fn test_ownership_deterministic_release() {
         module: image,
         metadata: None,
     });
-    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()));
-    let mut thread = crate::thread::VirtualThread::new();
+    let vm = VirtualMachine::new(sync::Arc::new(graph.clone()));
+    let mut thread = thread::VirtualThread::new();
     let res = vm
         .run_function(
             &mut thread,
@@ -168,8 +172,8 @@ fn test_ownership_cycle_release() {
         module: image,
         metadata: None,
     });
-    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()));
-    let mut thread = crate::thread::VirtualThread::new();
+    let vm = VirtualMachine::new(sync::Arc::new(graph.clone()));
+    let mut thread = thread::VirtualThread::new();
     let res = vm
         .run_function(
             &mut thread,
@@ -279,8 +283,8 @@ fn test_ownership_weak_invalidation() {
         module: image,
         metadata: None,
     });
-    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()));
-    let mut thread = crate::thread::VirtualThread::new();
+    let vm = VirtualMachine::new(sync::Arc::new(graph.clone()));
+    let mut thread = thread::VirtualThread::new();
     let res = vm
         .run_function(
             &mut thread,

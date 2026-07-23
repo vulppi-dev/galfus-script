@@ -9,6 +9,8 @@ mod system;
 #[cfg(test)]
 mod tests;
 
+use crate::thread;
+
 use crate::error::{StackFrameInfo, VmError, VmPanic};
 use galfus_bytecode::instruction::{
     ChoiceLayoutIdx, FuncIdx, Instruction, Reg, StructLayoutIdx, TypeIdx,
@@ -180,7 +182,7 @@ impl VirtualMachine {
 
     pub fn current_image(
         &self,
-        thread: &crate::thread::VirtualThread,
+        thread: &thread::VirtualThread,
     ) -> Result<&galfus_bytecode::BytecodeModule, VmError> {
         let frame = thread.call_stack.last().ok_or(VmError::EmptyCallStack)?;
         Ok(&self.graph.get(frame.module_id).unwrap().module)
@@ -188,7 +190,7 @@ impl VirtualMachine {
 
     pub fn prepare_function(
         &self,
-        thread: &mut crate::thread::VirtualThread,
+        thread: &mut thread::VirtualThread,
         module_id: galfus_core::ModuleId,
         func_idx: FuncIdx,
         args: Vec<Value>,
@@ -232,7 +234,7 @@ impl VirtualMachine {
 
     pub fn run_function(
         &self,
-        thread: &mut crate::thread::VirtualThread,
+        thread: &mut thread::VirtualThread,
         module_id: galfus_core::ModuleId,
         func_idx: FuncIdx,
         args: Vec<Value>,
@@ -292,7 +294,7 @@ impl VirtualMachine {
 
     pub fn execute_with_budget(
         &self,
-        thread: &mut crate::thread::VirtualThread,
+        thread: &mut thread::VirtualThread,
         mut budget: usize,
     ) -> Result<ExecutionStep, VmPanic> {
         while budget > 0 {
@@ -359,10 +361,7 @@ impl VirtualMachine {
         Ok(ExecutionStep::Continue)
     }
 
-    pub fn step(
-        &self,
-        thread: &mut crate::thread::VirtualThread,
-    ) -> Result<ExecutionStep, VmError> {
+    pub fn step(&self, thread: &mut thread::VirtualThread) -> Result<ExecutionStep, VmError> {
         let instr = {
             let frame = thread
                 .call_stack
@@ -454,7 +453,7 @@ impl VirtualMachine {
         Ok(step)
     }
 
-    fn execute_loop(&self, thread: &mut crate::thread::VirtualThread) -> Result<Value, VmError> {
+    fn execute_loop(&self, thread: &mut thread::VirtualThread) -> Result<Value, VmError> {
         loop {
             match self.step(thread)? {
                 ExecutionStep::Continue => {}
@@ -478,7 +477,7 @@ impl VirtualMachine {
 
     fn release_unreachable_if_needed(
         &self,
-        thread: &mut crate::thread::VirtualThread,
+        thread: &mut thread::VirtualThread,
         instr: Instruction,
     ) {
         if matches!(instr, Instruction::Drop { .. })

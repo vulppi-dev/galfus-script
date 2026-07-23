@@ -1,4 +1,8 @@
 /// A resolved runtime target for one import slot.
+use crate::ExportKind;
+use crate::graph;
+use crate::instruction;
+
 use crate::instruction::FuncIdx;
 use galfus_core::{ModuleId, ModulePath};
 use std::collections::HashSet;
@@ -6,7 +10,7 @@ use std::collections::HashSet;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ResolvedImportKind {
     Function(FuncIdx),
-    Global(crate::instruction::GlobalIdx),
+    Global(instruction::GlobalIdx),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -42,7 +46,7 @@ pub enum GraphResolutionError {
     InitializationCycle(ModuleId),
 }
 
-impl crate::graph::BytecodeGraph {
+impl graph::BytecodeGraph {
     /// Resolve each import slot to an exported function in another loaded module.
     pub fn resolve_imports(&self, id: ModuleId) -> Result<ModuleImports, GraphResolutionError> {
         let image = self
@@ -74,8 +78,8 @@ impl crate::graph::BytecodeGraph {
                 })?;
 
             let kind = match target_export.kind {
-                crate::ExportKind::Function(idx) => ResolvedImportKind::Function(idx),
-                crate::ExportKind::Global(idx) => ResolvedImportKind::Global(idx),
+                ExportKind::Function(idx) => ResolvedImportKind::Function(idx),
+                ExportKind::Global(idx) => ResolvedImportKind::Global(idx),
             };
 
             imports.push(ResolvedImport {

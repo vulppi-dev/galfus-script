@@ -1,3 +1,8 @@
+use std::collections;
+use std::mem;
+
+use crate::mir;
+
 use super::MirBuilder;
 use crate::mir::*;
 use galfus_core::{NodeId, SymbolId, TypeId};
@@ -7,7 +12,7 @@ use std::collections::HashMap;
 pub struct FunctionBuilder<'b, 'a> {
     pub(super) builder: &'b mut MirBuilder<'a>,
     pub(super) locals: Vec<LocalDecl>,
-    pub(super) symbol_to_local: std::collections::HashMap<SymbolId, LocalId>,
+    pub(super) symbol_to_local: collections::HashMap<SymbolId, LocalId>,
     pub(super) current_instructions: Vec<(Instruction, Option<galfus_core::Span>)>,
     pub(super) blocks: Vec<BasicBlock>,
     pub(super) current_block: BlockId,
@@ -132,7 +137,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
     }
 
     pub(super) fn flush_current_instructions(&mut self) {
-        let instructions = std::mem::take(&mut self.current_instructions);
+        let instructions = mem::take(&mut self.current_instructions);
         let block_idx = self
             .blocks
             .iter()
@@ -353,7 +358,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
     fn emit_control_flow_exit(
         &mut self,
         target_scope_depth: usize,
-        ret_local: Option<crate::mir::LocalId>,
+        ret_local: Option<mir::LocalId>,
     ) {
         for i in (target_scope_depth..self.scopes.len()).rev() {
             for &local_id in self.scopes[i].iter().rev() {

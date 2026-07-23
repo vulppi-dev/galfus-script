@@ -1,3 +1,6 @@
+use std::collections;
+use std::sync;
+
 use super::*;
 use galfus_bytecode::instruction::{ConstIdx, FuncIdx, GlobalIdx, Instruction, Reg, TypeIdx};
 use galfus_bytecode::{
@@ -112,27 +115,27 @@ fn run_initializes_dependencies_before_the_entry_module() {
     .expect("valid graph");
 
     struct TestExecutor {
-        queue: std::sync::Mutex<std::collections::VecDeque<Box<dyn galfus_contract::RunnableTask>>>,
-        next_thread_id: std::sync::atomic::AtomicU64,
+        queue: sync::Mutex<collections::VecDeque<Box<dyn galfus_contract::RunnableTask>>>,
+        next_thread_id: sync::atomic::AtomicU64,
     }
     impl galfus_contract::ThreadExecutor for TestExecutor {
         fn on_exit(&self, _cb: Box<dyn Fn(Result<i32, String>) + Send + Sync>) {}
         fn run(&self) {}
         fn allocate_thread_id(&self) -> u64 {
             self.next_thread_id
-                .fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+                .fetch_add(1, sync::atomic::Ordering::Relaxed)
         }
 
         fn spawn(&self, task: Box<dyn galfus_contract::RunnableTask>) {
             self.queue.lock().unwrap().push_back(task);
         }
     }
-    let executor = std::sync::Arc::new(TestExecutor {
-        queue: std::sync::Mutex::new(std::collections::VecDeque::new()),
-        next_thread_id: std::sync::atomic::AtomicU64::new(1),
+    let executor = sync::Arc::new(TestExecutor {
+        queue: sync::Mutex::new(collections::VecDeque::new()),
+        next_thread_id: sync::atomic::AtomicU64::new(1),
     });
 
-    let task = Runtime::new(std::sync::Arc::new(graph.clone()), None)
+    let task = Runtime::new(sync::Arc::new(graph.clone()), None)
         .build_module_entry(entry_id, "main", &[], executor.clone())
         .expect("entry execution succeeds");
     galfus_contract::ThreadExecutor::spawn(executor.as_ref(), task);

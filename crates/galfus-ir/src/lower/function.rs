@@ -1,3 +1,9 @@
+use std::collections;
+use std::mem;
+
+use crate::lower;
+use crate::mir;
+
 use super::LowerCtx;
 use crate::mir::{
     Constant as MirConstant, Instruction as MirInstruction, MirFunction, Operand, Terminator,
@@ -21,9 +27,9 @@ pub struct FnEmitter<'a, 'b> {
     pub temp_count_current: u16,
     pub temp_count_max: u16,
     next_label_id: usize,
-    label_pcs: std::collections::HashMap<usize, usize>,
+    label_pcs: collections::HashMap<usize, usize>,
     pending_jumps: Vec<(usize, usize, JumpKind)>,
-    pub instruction_spans: std::collections::HashMap<usize, galfus_core::Span>,
+    pub instruction_spans: collections::HashMap<usize, galfus_core::Span>,
 }
 
 impl<'a, 'b> FnEmitter<'a, 'b> {
@@ -42,9 +48,9 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
             temp_count_current: 0,
             temp_count_max: 0,
             next_label_id: 0,
-            label_pcs: std::collections::HashMap::new(),
+            label_pcs: collections::HashMap::new(),
             pending_jumps: Vec::new(),
-            instruction_spans: std::collections::HashMap::new(),
+            instruction_spans: collections::HashMap::new(),
         }
     }
 
@@ -82,8 +88,8 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
             src_regs.push(reg);
         }
 
-        let mut in_degree = std::collections::BTreeMap::new();
-        let mut edges = std::collections::BTreeMap::new();
+        let mut in_degree = collections::BTreeMap::new();
+        let mut edges = collections::BTreeMap::new();
 
         for i in 0..dests.len() {
             let d = dests[i];
@@ -95,7 +101,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
             }
         }
 
-        let mut ready = std::collections::BTreeSet::new();
+        let mut ready = collections::BTreeSet::new();
         for (node, deg) in &in_degree {
             if *deg == 0 && edges.contains_key(node) {
                 ready.insert(*node);
@@ -135,7 +141,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
         self.temp_count_current = temps_before;
     }
 
-    fn target_params(&self, target: crate::mir::BlockId) -> Vec<Reg> {
+    fn target_params(&self, target: mir::BlockId) -> Vec<Reg> {
         self.func
             .blocks
             .iter()
@@ -168,9 +174,9 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
         &mut self,
     ) -> (
         Vec<Instruction>,
-        std::collections::HashMap<usize, galfus_core::Span>,
+        collections::HashMap<usize, galfus_core::Span>,
     ) {
-        let mut block_labels = std::collections::HashMap::new();
+        let mut block_labels = collections::HashMap::new();
         for bb in &self.func.blocks {
             block_labels.insert(bb.id, self.new_label());
         }
@@ -372,9 +378,9 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                                     reg
                                 };
 
-                                let name_idx = crate::lower::constants::get_or_create_constant(
+                                let name_idx = lower::constants::get_or_create_constant(
                                     self.ctx,
-                                    &crate::mir::Constant::String(native_name.to_string()),
+                                    &mir::Constant::String(native_name.to_string()),
                                 );
 
                                 self.instructions.push(Instruction::CallNative {
@@ -431,7 +437,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                             self.load_operand_to(arg_op, extra_regs[i]);
                         }
 
-                        let name_const = crate::lower::constants::get_or_create_constant(
+                        let name_const = lower::constants::get_or_create_constant(
                             self.ctx,
                             &MirConstant::String(method_name.clone()),
                         );
@@ -495,7 +501,7 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
                 }
 
                 Terminator::Panic(msg) => {
-                    let const_idx = crate::lower::constants::get_or_create_constant(
+                    let const_idx = lower::constants::get_or_create_constant(
                         self.ctx,
                         &MirConstant::String(msg.clone()),
                     );
@@ -555,8 +561,8 @@ impl<'a, 'b> FnEmitter<'a, 'b> {
         }
 
         (
-            std::mem::take(&mut self.instructions),
-            std::mem::take(&mut self.instruction_spans),
+            mem::take(&mut self.instructions),
+            mem::take(&mut self.instruction_spans),
         )
     }
 }

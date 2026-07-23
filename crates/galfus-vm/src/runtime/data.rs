@@ -1,9 +1,11 @@
+use crate::thread;
+
 use super::*;
 
 impl VirtualMachine {
     pub(super) fn execute_data_instruction(
         &self,
-        thread: &mut crate::thread::VirtualThread,
+        thread: &mut thread::VirtualThread,
         instr: Instruction,
     ) -> Result<ExecutionStep, VmError> {
         match instr {
@@ -98,7 +100,7 @@ impl VirtualMachine {
         Ok(ExecutionStep::Continue)
     }
 
-    pub(super) fn uint8_type_idx(&self, thread: &crate::thread::VirtualThread) -> TypeIdx {
+    pub(super) fn uint8_type_idx(&self, thread: &thread::VirtualThread) -> TypeIdx {
         self.current_image(thread)
             .unwrap()
             .types

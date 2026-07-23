@@ -1,8 +1,10 @@
+use crate::thread;
+
 use super::*;
 
 impl VirtualMachine {
     #[allow(clippy::collapsible_if)]
-    pub fn release_unreachable(&self, thread: &mut crate::thread::VirtualThread) {
+    pub fn release_unreachable(&self, thread: &mut thread::VirtualThread) {
         use std::collections::{HashSet, VecDeque};
 
         thread.heap.allocations_since_release = 0;

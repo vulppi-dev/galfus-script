@@ -270,11 +270,11 @@ pub fn imported_surface_types_for_named_export(
         imported_types.insert_symbol_type(local_symbol, ty.clone());
     }
 
-    if export.kind() == crate::SymbolKind::Constraint {
+    if export.kind() == SymbolKind::Constraint {
         imported_types.insert_symbol_constraint(local_symbol, export.imported_constraint_surface());
     }
 
-    if export.kind() == crate::SymbolKind::Choice {
+    if export.kind() == SymbolKind::Choice {
         imported_types.insert_symbol_choice(local_symbol, export.imported_choice_surface());
     }
 
@@ -577,7 +577,7 @@ fn transport_type(
         }
         TypeKind::Named { symbol } => {
             let symbol_data = resolution.symbol(symbol)?;
-            if symbol_data.kind() == crate::SymbolKind::TypeAlias {
+            if symbol_data.kind() == SymbolKind::TypeAlias {
                 if let Some(target_ty) = result.layer().symbol_type(symbol) {
                     return transport_type(resolution, result, target_ty);
                 }

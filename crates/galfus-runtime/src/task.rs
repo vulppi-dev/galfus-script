@@ -1,6 +1,11 @@
 #[cfg(test)]
 mod tests;
 
+use std::thread;
+use std::time;
+
+use crate::registry;
+
 use crate::queue::BlockedQueue;
 use crate::registry::{ThreadId, ThreadRegistry};
 use galfus_contract::{RunnableTask, ThreadExecutor, ThreadResult};
@@ -9,7 +14,7 @@ use galfus_vm::{ExecutionStep, VirtualMachine};
 use std::sync::{Arc, Mutex};
 
 pub struct RuntimeTask {
-    pub thread_id: crate::registry::ThreadId,
+    pub thread_id: registry::ThreadId,
     pub thread: VirtualThread,
     pub vm: VirtualMachine,
     pub registry: Arc<Mutex<ThreadRegistry>>,
@@ -67,7 +72,7 @@ impl RunnableTask for RuntimeTask {
                     .unwrap()
                     .register_with_id(self.thread_id, self.thread);
                 ThreadResult::Blocked {
-                    timeout: timeout.map(std::time::Duration::from_millis),
+                    timeout: timeout.map(time::Duration::from_millis),
                 }
             }
             ExecutionStep::CreateThread { dest, func, key } => {
@@ -321,8 +326,8 @@ impl RuntimeTask {
         let executor = self.executor.clone();
         let vm = self.vm.clone();
 
-        std::thread::spawn(move || {
-            std::thread::sleep(std::time::Duration::from_millis(timeout_ms));
+        thread::spawn(move || {
+            thread::sleep(time::Duration::from_millis(timeout_ms));
 
             if !blocked.lock().unwrap().unblock(thread_id) {
                 return;

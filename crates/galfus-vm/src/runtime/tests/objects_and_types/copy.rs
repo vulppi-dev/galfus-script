@@ -1,3 +1,7 @@
+use std::sync;
+
+use crate::thread;
+
 #[test]
 fn test_copy_deep_copies_nested_structs() {
     let instrs = vec![
@@ -59,8 +63,8 @@ fn test_copy_deep_copies_nested_structs() {
         module: image,
         metadata: None,
     });
-    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()));
-    let mut thread = crate::thread::VirtualThread::new();
+    let vm = VirtualMachine::new(sync::Arc::new(graph.clone()));
+    let mut thread = thread::VirtualThread::new();
     let res = vm
         .run_function(
             &mut thread,
@@ -146,8 +150,8 @@ fn test_copy_preserves_internal_weak_observer_topology() {
         module: image,
         metadata: None,
     });
-    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()));
-    let mut thread = crate::thread::VirtualThread::new();
+    let vm = VirtualMachine::new(sync::Arc::new(graph.clone()));
+    let mut thread = thread::VirtualThread::new();
     let res = vm
         .run_function(
             &mut thread,
@@ -237,8 +241,8 @@ fn test_copy_nulls_external_weak_observer_target() {
         module: image,
         metadata: None,
     });
-    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()));
-    let mut thread = crate::thread::VirtualThread::new();
+    let vm = VirtualMachine::new(sync::Arc::new(graph.clone()));
+    let mut thread = thread::VirtualThread::new();
     let res = vm
         .run_function(
             &mut thread,
@@ -327,8 +331,8 @@ fn test_copy_preserves_shared_strong_topology() {
         module: image,
         metadata: None,
     });
-    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()));
-    let mut thread = crate::thread::VirtualThread::new();
+    let vm = VirtualMachine::new(sync::Arc::new(graph.clone()));
+    let mut thread = thread::VirtualThread::new();
     let res = vm
         .run_function(
             &mut thread,
@@ -380,8 +384,8 @@ fn test_copy_rejects_fieldless_structs_at_runtime() {
         module: image,
         metadata: None,
     });
-    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()));
-    let mut thread = crate::thread::VirtualThread::new();
+    let vm = VirtualMachine::new(sync::Arc::new(graph.clone()));
+    let mut thread = thread::VirtualThread::new();
     let err = vm
         .run_function(
             &mut thread,

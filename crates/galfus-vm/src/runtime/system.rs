@@ -1,9 +1,11 @@
+use crate::thread;
+
 use super::*;
 
 impl VirtualMachine {
     pub(super) fn execute_system_instruction(
         &self,
-        thread: &mut crate::thread::VirtualThread,
+        thread: &mut thread::VirtualThread,
         instr: Instruction,
     ) -> Result<ExecutionStep, VmError> {
         match instr {

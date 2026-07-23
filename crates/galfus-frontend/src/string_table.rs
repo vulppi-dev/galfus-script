@@ -1,3 +1,5 @@
+use std::fmt;
+
 use std::collections::HashMap;
 use std::sync::{LazyLock, Mutex};
 
@@ -24,8 +26,8 @@ impl NameId {
     }
 }
 
-impl std::fmt::Display for NameId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for NameId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.as_str())
     }
 }

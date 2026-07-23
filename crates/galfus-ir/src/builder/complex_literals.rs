@@ -1,3 +1,5 @@
+use std::collections;
+
 use super::function::FunctionBuilder;
 use crate::mir::*;
 use galfus_core::{NodeId, StorageMetadata, TypeId};
@@ -20,7 +22,7 @@ impl<'b, 'a> FunctionBuilder<'b, 'a> {
                 node.child(0)
             };
 
-            let mut field_values = std::collections::HashMap::new();
+            let mut field_values = collections::HashMap::new();
             let mut spread_operands = Vec::new();
 
             let field_children = fields_list_node

@@ -1,3 +1,8 @@
+use std::cmp;
+use std::collections;
+
+use crate::thread;
+
 use super::*;
 
 impl VirtualMachine {
@@ -76,7 +81,7 @@ impl VirtualMachine {
         &self,
         lhs: &Value,
         rhs: &Value,
-    ) -> Result<Option<std::cmp::Ordering>, VmError> {
+    ) -> Result<Option<cmp::Ordering>, VmError> {
         let ord = match (lhs, rhs) {
             (Value::Bool(l), Value::Bool(r)) => Some(l.cmp(r)),
             (Value::Int8(l), Value::Int8(r)) => Some(l.cmp(r)),
@@ -101,7 +106,7 @@ impl VirtualMachine {
 
     pub(super) fn check_value_type(
         &self,
-        thread: &crate::thread::VirtualThread,
+        thread: &thread::VirtualThread,
         val: &Value,
         expected_ty: TypeIdx,
     ) -> bool {
@@ -226,24 +231,19 @@ impl VirtualMachine {
 
     fn type_idx_matches(
         &self,
-        thread: &crate::thread::VirtualThread,
+        thread: &thread::VirtualThread,
         actual: TypeIdx,
         expected: TypeIdx,
     ) -> bool {
-        self.type_idx_matches_inner(
-            thread,
-            actual,
-            expected,
-            &mut std::collections::HashSet::new(),
-        )
+        self.type_idx_matches_inner(thread, actual, expected, &mut collections::HashSet::new())
     }
 
     fn type_idx_matches_inner(
         &self,
-        thread: &crate::thread::VirtualThread,
+        thread: &thread::VirtualThread,
         actual: TypeIdx,
         expected: TypeIdx,
-        seen: &mut std::collections::HashSet<(u16, u16)>,
+        seen: &mut collections::HashSet<(u16, u16)>,
     ) -> bool {
         if actual == expected {
             return true;

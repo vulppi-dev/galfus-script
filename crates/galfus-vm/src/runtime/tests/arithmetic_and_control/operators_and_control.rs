@@ -1,3 +1,7 @@
+use std::sync;
+
+use crate::thread;
+
 #[test]
 fn test_basic_arithmetic() {
     let instrs = vec![
@@ -24,8 +28,8 @@ fn test_basic_arithmetic() {
         module: image,
         metadata: None,
     });
-    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()));
-    let mut thread = crate::thread::VirtualThread::new();
+    let vm = VirtualMachine::new(sync::Arc::new(graph.clone()));
+    let mut thread = thread::VirtualThread::new();
     let res = vm
         .run_function(
             &mut thread,
@@ -83,8 +87,8 @@ fn test_sub_mul_div_rem_pow() {
         module: image,
         metadata: None,
     });
-    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()));
-    let mut thread = crate::thread::VirtualThread::new();
+    let vm = VirtualMachine::new(sync::Arc::new(graph.clone()));
+    let mut thread = thread::VirtualThread::new();
     let res = vm
         .run_function(
             &mut thread,
@@ -117,8 +121,8 @@ fn test_neg() {
         module: image,
         metadata: None,
     });
-    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()));
-    let mut thread = crate::thread::VirtualThread::new();
+    let vm = VirtualMachine::new(sync::Arc::new(graph.clone()));
+    let mut thread = thread::VirtualThread::new();
     let res = vm
         .run_function(
             &mut thread,
@@ -151,8 +155,8 @@ fn test_not() {
         module: image,
         metadata: None,
     });
-    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()));
-    let mut thread = crate::thread::VirtualThread::new();
+    let vm = VirtualMachine::new(sync::Arc::new(graph.clone()));
+    let mut thread = thread::VirtualThread::new();
     let res = vm
         .run_function(
             &mut thread,
@@ -185,8 +189,8 @@ fn test_bitnot() {
         module: image,
         metadata: None,
     });
-    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()));
-    let mut thread = crate::thread::VirtualThread::new();
+    let vm = VirtualMachine::new(sync::Arc::new(graph.clone()));
+    let mut thread = thread::VirtualThread::new();
     let res = vm
         .run_function(
             &mut thread,
@@ -244,8 +248,8 @@ fn test_shl_shr_and_or_xor() {
         module: image,
         metadata: None,
     });
-    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()));
-    let mut thread = crate::thread::VirtualThread::new();
+    let vm = VirtualMachine::new(sync::Arc::new(graph.clone()));
+    let mut thread = thread::VirtualThread::new();
     let res = vm
         .run_function(
             &mut thread,
@@ -283,8 +287,8 @@ fn test_comparison_lt() {
         module: image,
         metadata: None,
     });
-    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()));
-    let mut thread = crate::thread::VirtualThread::new();
+    let vm = VirtualMachine::new(sync::Arc::new(graph.clone()));
+    let mut thread = thread::VirtualThread::new();
     let res = vm
         .run_function(
             &mut thread,
@@ -322,8 +326,8 @@ fn test_comparison_le() {
         module: image,
         metadata: None,
     });
-    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()));
-    let mut thread = crate::thread::VirtualThread::new();
+    let vm = VirtualMachine::new(sync::Arc::new(graph.clone()));
+    let mut thread = thread::VirtualThread::new();
     let res = vm
         .run_function(
             &mut thread,
@@ -358,8 +362,8 @@ fn test_fallback() {
         module: image,
         metadata: None,
     });
-    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()));
-    let mut thread = crate::thread::VirtualThread::new();
+    let vm = VirtualMachine::new(sync::Arc::new(graph.clone()));
+    let mut thread = thread::VirtualThread::new();
     let res = vm
         .run_function(
             &mut thread,
@@ -409,8 +413,8 @@ fn test_control_flow_jumps() {
         module: image,
         metadata: None,
     });
-    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()));
-    let mut thread = crate::thread::VirtualThread::new();
+    let vm = VirtualMachine::new(sync::Arc::new(graph.clone()));
+    let mut thread = thread::VirtualThread::new();
     let res = vm
         .run_function(
             &mut thread,
@@ -507,8 +511,8 @@ fn test_nested_calls_return_to_explicit_destinations() {
         module: image,
         metadata: None,
     });
-    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()));
-    let mut thread = crate::thread::VirtualThread::new();
+    let vm = VirtualMachine::new(sync::Arc::new(graph.clone()));
+    let mut thread = thread::VirtualThread::new();
     let res = vm
         .run_function(
             &mut thread,

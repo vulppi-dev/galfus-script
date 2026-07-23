@@ -1,3 +1,5 @@
+use std::collections;
+
 use super::DeclarationTypeChecker;
 use crate::{PrimitiveType, SymbolKind, SyntaxNodeKind, TypeKind};
 use galfus_core::{NodeId, TypeId};
@@ -343,7 +345,7 @@ impl<'a> DeclarationTypeChecker<'a> {
 
         let mut pushed = false;
         if let Some(subject_generic) = subject_generic {
-            let mut substitution = std::collections::HashMap::new();
+            let mut substitution = collections::HashMap::new();
             substitution.insert(subject_generic, narrowed_type);
             self.active_type_substitutions.push(substitution);
             pushed = true;
@@ -497,7 +499,7 @@ impl<'a> DeclarationTypeChecker<'a> {
             return expected;
         };
 
-        let mut substitution = std::collections::HashMap::new();
+        let mut substitution = collections::HashMap::new();
         substitution.insert(subject_generic, pattern_type);
 
         self.substitute_generic_expression_type(expected, &substitution)
@@ -508,7 +510,7 @@ impl<'a> DeclarationTypeChecker<'a> {
             return ty;
         }
 
-        let mut substitution = std::collections::HashMap::new();
+        let mut substitution = collections::HashMap::new();
 
         for active in &self.active_type_substitutions {
             substitution.extend(active.iter().map(|(symbol, ty)| (*symbol, *ty)));

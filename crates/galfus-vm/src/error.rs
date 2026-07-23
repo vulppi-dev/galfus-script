@@ -1,6 +1,9 @@
 #[cfg(test)]
 mod tests;
 
+use std::error;
+use std::fmt;
+
 use galfus_bytecode::instruction::{ConstIdx, FieldIdx, FuncIdx, Reg, TypeIdx};
 use thiserror::Error;
 
@@ -72,8 +75,8 @@ pub struct VmPanic {
     pub stack_trace: Vec<StackFrameInfo>,
 }
 
-impl std::fmt::Display for VmPanic {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for VmPanic {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "VM Panic: {}", self.error)?;
         writeln!(f, "Stack trace:")?;
         for (i, frame) in self.stack_trace.iter().enumerate() {
@@ -87,4 +90,4 @@ impl std::fmt::Display for VmPanic {
     }
 }
 
-impl std::error::Error for VmPanic {}
+impl error::Error for VmPanic {}

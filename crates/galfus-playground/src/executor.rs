@@ -1,3 +1,5 @@
+use std::sync;
+
 use galfus_contract::{ExecutorStepResult, RunnableTask, ThreadExecutor, ThreadResult};
 use std::collections::VecDeque;
 use std::sync::{
@@ -8,7 +10,7 @@ use std::sync::{
 pub struct PlaygroundExecutor {
     queue: Mutex<VecDeque<Box<dyn RunnableTask>>>,
     next_thread_id: AtomicU64,
-    exit_code: std::sync::Mutex<i32>,
+    exit_code: sync::Mutex<i32>,
     exit_callback: Mutex<Option<Box<dyn Fn(Result<i32, String>) + Send + Sync>>>,
 }
 
@@ -17,7 +19,7 @@ impl PlaygroundExecutor {
         Self {
             queue: Mutex::new(VecDeque::new()),
             next_thread_id: AtomicU64::new(1),
-            exit_code: std::sync::Mutex::new(0),
+            exit_code: sync::Mutex::new(0),
             exit_callback: Mutex::new(None),
         }
     }

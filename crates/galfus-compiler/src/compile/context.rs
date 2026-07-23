@@ -1,3 +1,5 @@
+use std::collections;
+
 use super::resolve::resolve_import_target;
 use crate::CompilerState;
 use crate::input::CompiledModule;
@@ -333,7 +335,7 @@ impl<'a> WorkspaceContext for MyWorkspaceContext<'a> {
         target_mod_idx: usize,
         target_symbol: SymbolId,
         concrete_types: Vec<TypeId>,
-        substitutions: std::collections::HashMap<SymbolId, TypeId>,
+        substitutions: collections::HashMap<SymbolId, TypeId>,
     ) -> FunctionId {
         let caller_mod_idx = self
             .modules

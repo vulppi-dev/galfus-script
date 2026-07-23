@@ -1,3 +1,5 @@
+use std::time;
+
 /// Represents an encapsulated virtual thread, ready to run.
 /// The host environment does not know its internals.
 pub trait RunnableTask: Send {
@@ -21,9 +23,7 @@ pub enum ThreadResult {
     /// The thread needs to call a Provider or is waiting for a message.
     /// The Host should discard the task. The Runtime Orchestrator will
     /// wake it up and send it back to the Host when ready.
-    Blocked {
-        timeout: Option<std::time::Duration>,
-    },
+    Blocked { timeout: Option<time::Duration> },
 }
 
 /// The result returned after running one step of the executor.
@@ -31,9 +31,7 @@ pub enum ExecutorStepResult {
     /// The executor still has tasks in the queue or is actively running them.
     Running,
     /// All tasks are blocked, waiting for external I/O or a timeout.
-    Blocked {
-        timeout: Option<std::time::Duration>,
-    },
+    Blocked { timeout: Option<time::Duration> },
     /// All tasks have completed successfully. Contains the exit code of the entry thread.
     Completed(i32),
 }

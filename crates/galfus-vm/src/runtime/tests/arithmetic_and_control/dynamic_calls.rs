@@ -1,3 +1,7 @@
+use std::sync;
+
+use crate::thread;
+
 #[test]
 fn test_dynamic_call_returns_to_destination() {
     let image = BytecodeModule {
@@ -56,8 +60,8 @@ fn test_dynamic_call_returns_to_destination() {
         module: image,
         metadata: None,
     });
-    let vm = VirtualMachine::new(std::sync::Arc::new(graph.clone()));
-    let mut thread = crate::thread::VirtualThread::new();
+    let vm = VirtualMachine::new(sync::Arc::new(graph.clone()));
+    let mut thread = thread::VirtualThread::new();
     let result = vm
         .run_function(
             &mut thread,
@@ -117,8 +121,8 @@ fn test_dynamic_call_uses_the_function_value_module() {
             },
         ],
     );
-    let vm = VirtualMachine::new(std::sync::Arc::new(graph));
-    let mut thread = crate::thread::VirtualThread::new();
+    let vm = VirtualMachine::new(sync::Arc::new(graph));
+    let mut thread = thread::VirtualThread::new();
 
     let result = vm
         .run_function(

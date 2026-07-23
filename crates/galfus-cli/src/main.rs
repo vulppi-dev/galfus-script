@@ -1,3 +1,5 @@
+use std::process;
+
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 
@@ -26,7 +28,7 @@ fn main() -> Result<()> {
     match Cli::parse().command {
         Command::Run { workspace, args } => {
             let exit_code = galfus_runner::run_project(&workspace, &args)?;
-            std::process::exit(exit_code);
+            process::exit(exit_code);
         }
         Command::Check { workspace } => galfus_runner::check_workspace_root(&workspace),
     }

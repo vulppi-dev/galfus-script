@@ -1,6 +1,8 @@
 #[cfg(test)]
 mod tests;
 
+use crate::ExportKind;
+
 use crate::instruction::{ConstIdx, FieldIdx, FuncIdx, Reg, TypeIdx};
 use crate::*;
 
@@ -86,7 +88,7 @@ pub fn validate_bytecode_module(
     // 2. Validate exports
     for export in &module.exports {
         match export.kind {
-            crate::ExportKind::Function(func_idx) => {
+            ExportKind::Function(func_idx) => {
                 if func_idx.raw() as usize >= module.functions.len() {
                     errors.push(BytecodeValidationError::ExportFunctionOutOfBounds {
                         symbol_name: export.symbol_name.clone(),
@@ -94,7 +96,7 @@ pub fn validate_bytecode_module(
                     });
                 }
             }
-            crate::ExportKind::Global(_global_idx) => {
+            ExportKind::Global(_global_idx) => {
                 // Global index validation requires information not currently in BytecodeModule
                 // (number of globals is not explicitly recorded).
             }

@@ -4,6 +4,8 @@
 mod tests;
 pub mod thread;
 
+use std::sync;
+
 pub use thread::*;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -31,7 +33,7 @@ pub trait HostProvider: Send {
         thread_id: usize,
         name: &str,
         args: &[HostValue],
-        injector: std::sync::Arc<dyn MessageInjector>,
+        injector: sync::Arc<dyn MessageInjector>,
     );
 }
 
