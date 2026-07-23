@@ -1,4 +1,5 @@
 mod buffer_io;
+mod executor;
 
 use anyhow::Result;
 use galfus_contract::{Providers, ThreadExecutor};
@@ -16,7 +17,7 @@ pub use buffer_io::BufferIoProvider;
 pub struct Playground {
     workspace: Workspace,
     io: BufferIoProvider,
-    executor: Option<std::sync::Arc<galfus_workspace::executor::SingleThreadExecutor>>,
+    executor: Option<std::sync::Arc<crate::executor::PlaygroundExecutor>>,
 }
 
 pub struct PlaygroundCheckResult {
@@ -110,7 +111,7 @@ impl Playground {
     }
 
     pub fn start(&mut self, args: &[Vec<u8>]) -> Result<()> {
-        let executor = std::sync::Arc::new(galfus_workspace::executor::SingleThreadExecutor::new());
+        let executor = std::sync::Arc::new(crate::executor::PlaygroundExecutor::new());
         self.workspace
             .run(
                 args,
